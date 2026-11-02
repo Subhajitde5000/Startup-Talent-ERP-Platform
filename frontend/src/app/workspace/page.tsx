@@ -3,14 +3,21 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { CheckCircle2, LogOut, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Clock, LogOut, ShieldCheck } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
+import { ThemeTogglePill } from '@/components/ThemeTogglePill';
 
 function WorkspaceContent() {
   const searchParams = useSearchParams();
   const role = searchParams.get('role') || 'Founder';
   const org = searchParams.get('org') || 'Meridian Workspace';
   const email = searchParams.get('email') || 'claire@northstar.bio';
+  const name = searchParams.get('name');
+  const isWelcome = searchParams.get('welcome') === '1';
+
+  const requiresReview =
+    isWelcome &&
+    (role === 'Investor' || role === 'Mentor' || role === 'Employer');
 
   return (
     <div
@@ -76,13 +83,26 @@ function WorkspaceContent() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              color: 'var(--success)',
+              color: requiresReview ? 'var(--accent-text)' : 'var(--success)',
               fontSize: '13px',
               fontWeight: 500,
             }}
           >
-            <CheckCircle2 size={16} strokeWidth={1.5} aria-hidden="true" />
-            <span>Authenticated · Role-routed session</span>
+            {requiresReview ? (
+              <>
+                <Clock size={16} strokeWidth={1.5} aria-hidden="true" />
+                <span>Registration complete &middot; Verification pending</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 size={16} strokeWidth={1.5} aria-hidden="true" />
+                <span>
+                  {isWelcome
+                    ? 'Registration complete · Workspace ready'
+                    : 'Authenticated · Role-routed session'}
+                </span>
+              </>
+            )}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -94,10 +114,21 @@ function WorkspaceContent() {
                 color: 'var(--text-primary)',
               }}
             >
-              {role} Workspace
+              {isWelcome && name
+                ? `Welcome, ${name}`
+                : `${role} Workspace`}
             </h1>
             <p style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>
-              {org} &middot; Signed in as <strong>{email}</strong>
+              {isWelcome ? (
+                <>
+                  Onboarded as <strong>{role}</strong> &middot;{' '}
+                  <strong>{email}</strong>
+                </>
+              ) : (
+                <>
+                  {org} &middot; Signed in as <strong>{email}</strong>
+                </>
+              )}
             </p>
           </div>
 
@@ -121,13 +152,13 @@ function WorkspaceContent() {
               aria-hidden="true"
             />
             <span>
-              One account, many roles: Meridian routes founders, mentors,
-              investors, talent, employers, and administrators to their active
-              workspace after sign-in without cluttering the login screen.
+              {requiresReview
+                ? `Your ${role.toLowerCase()} account has been created and is awaiting verification. We'll email ${email} as soon as your profile is approved.`
+                : 'One account, many roles: Meridian routes founders, mentors, investors, talent, employers, and administrators to their active workspace after sign-in without cluttering the login screen.'}
             </span>
           </div>
 
-          <div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
             <Link
               href="/"
               style={{
@@ -144,11 +175,35 @@ function WorkspaceContent() {
                 textDecoration: 'none',
               }}
             >
-              Return to login page
+              Return to sign in
             </Link>
+
+            {isWelcome && (
+              <Link
+                href="/register/role"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '48px',
+                  padding: '0 20px',
+                  backgroundColor: 'var(--bg-surface)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius)',
+                  fontSize: '15px',
+                  fontWeight: 500,
+                  textDecoration: 'none',
+                }}
+              >
+                Change role
+              </Link>
+            )}
           </div>
         </div>
       </main>
+
+      <ThemeTogglePill />
     </div>
   );
 }

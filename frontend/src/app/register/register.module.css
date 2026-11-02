@@ -1,0 +1,636 @@
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8); /* 32px gap between sections */
+}
+
+.stepHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.stepMeta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stepLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.stepTrack {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.stepSegment {
+  height: 2px;
+  border-radius: 2px;
+  background-color: var(--border-subtle);
+  transition: background-color 180ms ease-out;
+}
+
+.stepSegmentActive {
+  background-color: var(--accent);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.title {
+  font-family: var(--font-heading);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.authBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background-color: var(--border-subtle);
+}
+
+.statusBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--status-neutral-bg);
+  color: var(--text-primary);
+}
+
+.statusBannerError {
+  background-color: var(--status-error-bg);
+  border-color: var(--status-error-border);
+  color: var(--error);
+}
+
+.statusIcon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5); /* 20px gap between fields */
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  width: 100%;
+  height: 48px;
+  padding: 0 var(--space-4);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  transition:
+    border-color 160ms ease-out,
+    box-shadow 160ms ease-out,
+    background-color 160ms ease-out;
+}
+
+.input::placeholder {
+  color: var(--text-placeholder);
+  opacity: 1;
+}
+
+.input:hover:not(:focus):not(:disabled) {
+  border-color: var(--border-hover);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.inputWithAction {
+  padding-right: 48px;
+}
+
+.inputError {
+  border-color: var(--error);
+}
+
+.inputError:hover:not(:focus):not(:disabled) {
+  border-color: var(--error);
+}
+
+.inputError:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 160ms ease-out;
+}
+
+.passwordToggle:hover {
+  color: var(--text-primary);
+}
+
+.passwordToggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.fieldError {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--error);
+}
+
+/* Password rules belong on sign-up and reset per Section 10 */
+.passwordRules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 2px;
+  padding: 0;
+  list-style: none;
+}
+
+.ruleItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  transition: color 150ms ease-out;
+}
+
+.ruleItemMet {
+  color: var(--success);
+}
+
+.ruleBullet {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: var(--border-hover);
+  flex-shrink: 0;
+}
+
+.submitBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.primaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 48px;
+  padding: 0 var(--space-4);
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border: none;
+  border-radius: var(--radius);
+  box-shadow: none;
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease-out,
+    transform 150ms ease-out,
+    box-shadow 160ms ease-out;
+}
+
+.primaryButton:hover:not(:disabled) {
+  background-color: var(--btn-primary-hover);
+}
+
+.primaryButton:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.primaryButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.primaryButton:disabled {
+  background-color: var(--btn-disabled-bg);
+  color: var(--btn-disabled-text);
+  cursor: not-allowed;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+.securityCue {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+/* Role Selection Cards (/register/role) */
+.roleGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.roleOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 16px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  text-align: left;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition:
+    background-color 160ms ease-out,
+    border-color 160ms ease-out,
+    box-shadow 160ms ease-out,
+    transform 150ms ease-out;
+}
+
+.roleOption:hover {
+  background-color: var(--bg-sso-hover);
+  border-color: var(--border-hover);
+}
+
+.roleOption:active {
+  transform: scale(0.995);
+}
+
+.roleOption:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.roleOptionSelected {
+  border-color: var(--accent);
+  background-color: var(--bg-surface);
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+.roleOptionSelected:hover {
+  border-color: var(--accent);
+}
+
+.roleLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.roleIconBox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  flex-shrink: 0;
+  transition: border-color 160ms ease-out, color 160ms ease-out;
+}
+
+.roleOptionSelected .roleIconBox {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.roleInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.roleName {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.roleDesc {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.radioDot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-hover);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 150ms ease-out;
+}
+
+.radioDotActive {
+  border-color: var(--accent);
+}
+
+.radioDotInner {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: var(--accent);
+}
+
+.reviewNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background-color: var(--status-neutral-bg);
+  border: 1px solid var(--border-subtle);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.footerPrompt {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.footerLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  margin: -10px -2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-text);
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+.footerLink:hover,
+.footerLink:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.finePrint {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.finePrintLink {
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  border-radius: 3px;
+  transition: color 150ms ease-out;
+}
+
+.finePrintLink:hover,
+.finePrintLink:focus-visible {
+  color: var(--accent-text);
+}
+
+.confirmationBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+}
+
+/* Six-digit 48px square email verification inputs (/verify-email) */
+.otpGrid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.otpInput {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  transition:
+    border-color 160ms ease-out,
+    box-shadow 160ms ease-out,
+    background-color 160ms ease-out;
+}
+
+.otpInput:hover:not(:focus):not(:disabled) {
+  border-color: var(--border-hover);
+}
+
+.otpInput:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.otpInputError {
+  border-color: var(--error);
+}
+
+.otpInputError:hover:not(:focus):not(:disabled) {
+  border-color: var(--error);
+}
+
+.helperText {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.successText {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--success);
+}
+
+.resendBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 4px;
+  margin: -10px -2px;
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-text);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.resendBtn:hover:not(:disabled),
+.resendBtn:focus-visible:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.resendBtn:disabled {
+  color: var(--text-placeholder);
+  cursor: default;
+}
+
+.verifiedPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--status-success-border);
+  background-color: var(--status-success-bg);
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+@media (max-width: 360px) {
+  .otpInput {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primaryButton:active:not(:disabled),
+  .roleOption:active {
+    transform: none;
+  }
+}

@@ -438,8 +438,15 @@ export function LoginForm() {
                     aria-hidden="true"
                   />
                   <span>
-                    Verification link sent to {email || 'your email'}. Please
-                    check your inbox.
+                    Verification sent to {email || 'your email'}.{' '}
+                    <Link
+                      href={`/verify-email?from=login&email=${encodeURIComponent(
+                        email || 'new.founder@stealth.ai'
+                      )}`}
+                      className="accent-link"
+                    >
+                      Confirm email
+                    </Link>
                   </span>
                 </div>
               )}
@@ -600,7 +607,7 @@ export function LoginForm() {
           <footer className={styles.footer}>
             <p className={styles.createAccountPrompt}>
               New here?{' '}
-              <Link href="/signup" className={styles.createAccountLink}>
+              <Link href="/register" className={styles.createAccountLink}>
                 Create an account
               </Link>
             </p>

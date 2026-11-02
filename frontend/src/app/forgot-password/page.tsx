@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { AuthSplitLayout } from '@/components/AuthSplitLayout';
-import styles from '../signup/signup.module.css';
+import { ThemeTogglePill } from '@/components/ThemeTogglePill';
+import styles from '../register/register.module.css';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -30,7 +31,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthSplitLayout>
-      <div className={styles.container}>
+      <div className={styles.sections}>
         {!submitted ? (
           <>
             <header className={styles.header}>
@@ -46,18 +47,20 @@ export default function ForgotPasswordPage() {
                 <label htmlFor="reset-email" className={styles.label}>
                   Email
                 </label>
-                <input
-                  id="reset-email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="name@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onBlur={() => setError(validateEmail(email))}
-                  aria-invalid={Boolean(error)}
-                  aria-describedby={error ? 'reset-email-error' : undefined}
-                  className={`${styles.input} ${error ? styles.inputError : ''}`}
-                />
+                <div className={styles.inputWrapper}>
+                  <input
+                    id="reset-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="name@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => setError(validateEmail(email))}
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? 'reset-email-error' : undefined}
+                    className={`${styles.input} ${error ? styles.inputError : ''}`}
+                  />
+                </div>
                 {error && (
                   <p id="reset-email-error" className={styles.fieldError}>
                     <AlertCircle size={14} strokeWidth={1.5} aria-hidden="true" />
@@ -72,16 +75,7 @@ export default function ForgotPasswordPage() {
             </form>
 
             <footer className={styles.footer}>
-              <Link
-                href="/"
-                className="accent-link"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  minHeight: '44px',
-                }}
-              >
+              <Link href="/" className={styles.footerLink}>
                 <ArrowLeft size={15} strokeWidth={1.5} aria-hidden="true" />
                 <span>Back to sign in</span>
               </Link>
@@ -116,16 +110,14 @@ export default function ForgotPasswordPage() {
               </p>
             </div>
 
-            <Link
-              href="/"
-              className={styles.primaryButton}
-              style={{ textDecoration: 'none' }}
-            >
+            <Link href="/" className={styles.primaryButton}>
               Return to sign in
             </Link>
           </>
         )}
       </div>
+
+      <ThemeTogglePill />
     </AuthSplitLayout>
   );
 }
