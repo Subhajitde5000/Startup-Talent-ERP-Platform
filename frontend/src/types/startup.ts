@@ -42,7 +42,16 @@ export interface StartupTeamMember {
   name: string;
   role: string;
   email: string;
-  permission: 'Owner' | 'Admin' | 'Member';
+  permission: 'Owner' | 'Admin' | 'Member' | 'Viewer';
+  department?: string;
+  status?: 'Active' | 'Pending' | 'Deactivated';
+  joinedAt?: string;
+  bio?: string;
+  skills?: string[];
+  linkedin?: string;
+  location?: string;
+  showOnPublicProfile?: boolean;
+  publicBio?: string;
 }
 
 export interface AssignedMentorInfo {

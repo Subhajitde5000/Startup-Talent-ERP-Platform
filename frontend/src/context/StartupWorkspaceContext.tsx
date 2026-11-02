@@ -31,8 +31,10 @@ interface StartupWorkspaceContextValue {
     name: string;
     role: string;
     email: string;
-    permission: 'Owner' | 'Admin' | 'Member';
+    permission: 'Owner' | 'Admin' | 'Member' | 'Viewer';
   }) => void;
+  updateTeamMember: (memberId: string, updates: Partial<StartupTeamMember>) => void;
+  removeTeamMember: (memberId: string) => void;
   addDocument: (doc: {
     title: string;
     folder: StartupDocumentItem['folder'];
@@ -197,6 +199,32 @@ export function StartupWorkspaceProvider({
     });
   };
 
+  const updateTeamMember: StartupWorkspaceContextValue['updateTeamMember'] = (memberId, updates) => {
+    setData((prev) => {
+      const target = prev.team.find((member) => member.id === memberId);
+      if (!target || Object.entries(updates).every(([key, value]) => target[key as keyof StartupTeamMember] === value)) return prev;
+      const action = updates.permission ? `changed access role to ${updates.permission} for` : updates.status ? `updated access status for` : updates.showOnPublicProfile !== undefined ? `${updates.showOnPublicProfile ? 'enabled' : 'disabled'} public profile visibility for` : 'updated team profile for';
+      return {
+        ...prev,
+        team: prev.team.map((member) => member.id === memberId ? { ...member, ...updates } : member),
+        recentActivity: [{ id: `act-${Date.now()}`, actor: prev.startup.founderName, action, target: target.name, timestamp: 'Just now', category: 'team' }, ...prev.recentActivity],
+      };
+    });
+  };
+
+  const removeTeamMember: StartupWorkspaceContextValue['removeTeamMember'] = (memberId) => {
+    setData((prev) => {
+      const removed = prev.team.find((member) => member.id === memberId);
+      if (!removed) return prev;
+      return {
+        ...prev,
+        team: prev.team.filter((member) => member.id !== memberId),
+        tasks: prev.tasks.map((task) => task.owner === removed.name ? { ...task, owner: 'Unassigned' } : task),
+        recentActivity: [{ id: `act-${Date.now()}`, actor: prev.startup.founderName, action: 'removed team member', target: removed.name, timestamp: 'Just now', category: 'team' }, ...prev.recentActivity],
+      };
+    });
+  };
+
   const addTeamMember: StartupWorkspaceContextValue['addTeamMember'] = (
     member
   ) => {
@@ -287,6 +315,8 @@ export function StartupWorkspaceProvider({
         toggleExitCriterion,
         addTask,
         addTeamMember,
+        updateTeamMember,
+        removeTeamMember,
         addDocument,
         requestMentorSession,
       }}
