@@ -1,0 +1,132 @@
+/* Mobile-first layout (< 1024px): single column, 24px side padding */
+.shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-page);
+}
+
+.brandPanel {
+  display: none;
+}
+
+.formPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-8) var(--space-6) var(--space-12);
+  background-color: var(--bg-page);
+}
+
+.mobileBrandHeader {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto var(--space-8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.formContainer {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+/* Desktop (>= 1024px): split screen — Left 45% brand panel, Right 55% form panel */
+@media (min-width: 1024px) {
+  .shell {
+    display: grid;
+    grid-template-columns: 45% 55%;
+    min-height: 100dvh;
+  }
+
+  .brandPanel {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: var(--space-12);
+    background-color: var(--bg-brand);
+    color: #FAF8F4;
+    border-right: 1px solid rgba(250, 248, 244, 0.06);
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  /* Subtle architectural pattern at ~4.5% opacity per Section 11 (no gradients, no photos) */
+  .brandPattern {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.045;
+    background-image:
+      linear-gradient(to right, #FAF8F4 1px, transparent 1px),
+      linear-gradient(to bottom, #FAF8F4 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+
+  .brandTop {
+    display: flex;
+    align-items: center;
+  }
+
+  .brandCenter {
+    max-width: 440px;
+    margin: auto 0;
+    padding: var(--space-8) 0;
+  }
+
+  .goldRule {
+    width: 48px;
+    height: 2px;
+    background-color: #B8955A;
+    margin-bottom: var(--space-6);
+  }
+
+  .brandHeadline {
+    font-family: var(--font-heading);
+    font-size: clamp(30px, 2.75vw, 38px);
+    font-weight: 600;
+    line-height: 1.28;
+    letter-spacing: -0.015em;
+    color: #FAF8F4;
+  }
+
+  .brandFooter {
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    color: #A0A7B4;
+  }
+
+  .mobileBrandHeader {
+    display: none;
+  }
+
+  .formPanel {
+    min-height: 100dvh;
+    padding: var(--space-12) var(--space-8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .formContainer {
+    width: 100%;
+    max-width: 400px;
+    margin: 0;
+  }
+}
+
+@media (min-width: 1280px) {
+  .brandPanel {
+    padding: var(--space-12) var(--space-16);
+  }
+}
