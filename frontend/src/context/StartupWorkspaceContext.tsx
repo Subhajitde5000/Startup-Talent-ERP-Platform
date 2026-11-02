@@ -16,6 +16,7 @@ import {
 interface StartupWorkspaceContextValue {
   data: StartupWorkspaceData;
   setCurrentStage: (stage: StartupStageId) => void;
+  updateStartupIdentity: (identity: { name?: string; tagline?: string }) => void;
   toggleTaskStatus: (taskId: string) => void;
   toggleExitCriterion: (stageId: StartupStageId, criterionId: string) => void;
   addTask: (task: {
@@ -63,6 +64,10 @@ export function StartupWorkspaceProvider({
         currentStage: stage,
       },
     }));
+  };
+
+  const updateStartupIdentity: StartupWorkspaceContextValue['updateStartupIdentity'] = (identity) => {
+    setData((prev) => ({ ...prev, startup: { ...prev.startup, ...identity } }));
   };
 
   const toggleTaskStatus = (taskId: string) => {
@@ -277,6 +282,7 @@ export function StartupWorkspaceProvider({
       value={{
         data,
         setCurrentStage,
+        updateStartupIdentity,
         toggleTaskStatus,
         toggleExitCriterion,
         addTask,
