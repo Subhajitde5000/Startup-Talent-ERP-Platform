@@ -2,7 +2,7 @@
 
 import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   CheckCircle2,
   ChevronDown,
@@ -260,6 +260,7 @@ const ROLE_WORKSPACE_DATA: Record<
 };
 
 function DashboardContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { theme, toggleTheme } = useTheme();
 
@@ -279,20 +280,31 @@ function DashboardContent() {
         const parsed = JSON.parse(raw) as CompletedWorkspaceProfile;
         setSavedProfile(parsed);
         if (!queryRole && parsed.role) {
+          if (parsed.role === 'Startup') {
+            router.replace('/startup/dashboard');
+            return;
+          }
           setRole(parsed.role);
         }
+      } else if (!queryRole || normalizeRole(queryRole) === 'Startup') {
+        router.replace('/startup/dashboard');
       }
     } catch {
       // Ignore storage errors
     }
-  }, [queryRole]);
+  }, [queryRole, router]);
 
   useEffect(() => {
     if (queryRole) {
-      setRole(normalizeRole(queryRole));
+      const normalized = normalizeRole(queryRole);
+      if (normalized === 'Startup') {
+        router.replace('/startup/dashboard');
+        return;
+      }
+      setRole(normalized);
       setActiveTab(0);
     }
-  }, [queryRole]);
+  }, [queryRole, router]);
 
   const workspace = ROLE_WORKSPACE_DATA[role];
   const displayName = savedProfile?.fullName || 'Claire Chen';
@@ -419,7 +431,12 @@ function DashboardContent() {
                 id="workspace-role-select"
                 value={role}
                 onChange={(e) => {
-                  setRole(e.target.value as OnboardingRole);
+                  const nextRole = e.target.value as OnboardingRole;
+                  if (nextRole === 'Startup') {
+                    router.push('/startup/dashboard');
+                    return;
+                  }
+                  setRole(nextRole);
                   setActiveTab(0);
                 }}
                 className={styles.roleSelect}

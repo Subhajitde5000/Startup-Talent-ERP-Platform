@@ -1,0 +1,277 @@
+{
+  "isMockData": true,
+  "startup": {
+    "name": "Northstar Bio",
+    "tagline": "Programmable protein therapeutics designed for solid-tumor oncology.",
+    "industry": "Biotech & Health",
+    "foundedYear": "2026",
+    "founderName": "Claire Chen",
+    "founderEmail": "claire@northstar.bio",
+    "currentStage": "idea"
+  },
+  "readiness": {
+    "completedMilestones": 7,
+    "totalMilestones": 20,
+    "rubricNote": "Derived from 7 of 20 completed stage checklist items (illustrative workspace sample)."
+  },
+  "stages": [
+    {
+      "id": "idea",
+      "stepNumber": "01",
+      "label": "Idea",
+      "shortSummary": "Validate problem urgency, customer segment and founding team alignment.",
+      "exitCriteria": [
+        {
+          "id": "ec-idea-1",
+          "label": "Complete problem & hypothesis canvas",
+          "completed": true,
+          "moduleHref": "/startup/idea-validation"
+        },
+        {
+          "id": "ec-idea-2",
+          "label": "Define primary target customer segment",
+          "completed": true,
+          "moduleHref": "/startup/market-analysis"
+        },
+        {
+          "id": "ec-idea-3",
+          "label": "Document TAM / SAM / SOM market baseline",
+          "completed": true,
+          "moduleHref": "/startup/market-analysis"
+        },
+        {
+          "id": "ec-idea-4",
+          "label": "Conduct 15 structured discovery interviews (9 / 15 logged)",
+          "completed": false,
+          "moduleHref": "/startup/customer-research"
+        },
+        {
+          "id": "ec-idea-5",
+          "label": "Finalize co-founder equity & role charter",
+          "completed": false,
+          "moduleHref": "/startup/team"
+        }
+      ]
+    },
+    {
+      "id": "prototype",
+      "stepNumber": "02",
+      "label": "Prototype",
+      "shortSummary": "Ship core MVP workflow and run structured usability testing with design partners.",
+      "exitCriteria": [
+        {
+          "id": "ec-proto-1",
+          "label": "Lock Sprint 1–3 MVP functional scope",
+          "completed": false,
+          "moduleHref": "/startup/projects"
+        },
+        {
+          "id": "ec-proto-2",
+          "label": "Onboard 5 design partners for prototype testing",
+          "completed": false,
+          "moduleHref": "/startup/prototype-testing"
+        },
+        {
+          "id": "ec-proto-3",
+          "label": "Open founding engineer requisition",
+          "completed": false,
+          "moduleHref": "/startup/hiring"
+        }
+      ]
+    },
+    {
+      "id": "early-revenue",
+      "stepNumber": "03",
+      "label": "Early Revenue",
+      "shortSummary": "Convert pilot accounts into repeatable paid contracts and track unit economics.",
+      "exitCriteria": [
+        {
+          "id": "ec-rev-1",
+          "label": "Close first 3 commercial pilot agreements",
+          "completed": false,
+          "moduleHref": "/startup/sales"
+        },
+        {
+          "id": "ec-rev-2",
+          "label": "Establish monthly burn, runway & MRR reporting",
+          "completed": false,
+          "moduleHref": "/startup/analytics"
+        }
+      ]
+    },
+    {
+      "id": "mature",
+      "stepNumber": "04",
+      "label": "Mature",
+      "shortSummary": "Scale operations, governance and investor-ready diligence rooms.",
+      "exitCriteria": [
+        {
+          "id": "ec-mat-1",
+          "label": "Publish audited financials, cap table & data room",
+          "completed": false,
+          "moduleHref": "/startup/data-room"
+        },
+        {
+          "id": "ec-mat-2",
+          "label": "Scale departmental hiring across engineering & GTM",
+          "completed": false,
+          "moduleHref": "/startup/hiring"
+        }
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "tsk-101",
+      "title": "Synthesize findings from oncology lab director interviews",
+      "moduleLabel": "Customer Research",
+      "moduleHref": "/startup/customer-research",
+      "dueLabel": "Overdue · Yesterday",
+      "owner": "Claire Chen",
+      "status": "overdue",
+      "isMilestone": true
+    },
+    {
+      "id": "tsk-102",
+      "title": "Conduct 6 remaining customer discovery interviews",
+      "moduleLabel": "Customer Research",
+      "moduleHref": "/startup/customer-research",
+      "dueLabel": "Due Nov 6",
+      "owner": "Claire Chen",
+      "status": "pending",
+      "isMilestone": true
+    },
+    {
+      "id": "tsk-103",
+      "title": "Complete problem validation assumptions matrix",
+      "moduleLabel": "Idea Validation",
+      "moduleHref": "/startup/idea-validation",
+      "dueLabel": "Due Nov 9",
+      "owner": "Arjun Mehta",
+      "status": "pending",
+      "isMilestone": false
+    },
+    {
+      "id": "tsk-104",
+      "title": "Draft founding systems biologist hiring brief",
+      "moduleLabel": "Hiring Requests",
+      "moduleHref": "/startup/hiring",
+      "dueLabel": "Due Nov 12",
+      "owner": "Elena Rostova",
+      "status": "pending",
+      "isMilestone": false
+    },
+    {
+      "id": "tsk-105",
+      "title": "Define target customer ICP & clinical buyer personas",
+      "moduleLabel": "Market Analysis",
+      "moduleHref": "/startup/market-analysis",
+      "dueLabel": "Completed Oct 29",
+      "owner": "Claire Chen",
+      "status": "completed",
+      "isMilestone": true
+    },
+    {
+      "id": "tsk-106",
+      "title": "Upload incorporation certificate & founder vesting schedule",
+      "moduleLabel": "Data Room",
+      "moduleHref": "/startup/data-room",
+      "dueLabel": "Completed Oct 26",
+      "owner": "Marcus Vance",
+      "status": "completed",
+      "isMilestone": false
+    }
+  ],
+  "recentActivity": [
+    {
+      "id": "act-1",
+      "actor": "Dr. David Park (Mentor)",
+      "action": "left feedback on",
+      "target": "Idea Validation — Problem Canvas v2",
+      "timestamp": "2 hours ago",
+      "category": "mentor"
+    },
+    {
+      "id": "act-2",
+      "actor": "Claire Chen",
+      "action": "completed milestone",
+      "target": "Define target customer ICP & clinical buyer personas",
+      "timestamp": "Yesterday at 4:15 PM",
+      "category": "milestone"
+    },
+    {
+      "id": "act-3",
+      "actor": "Arjun Mehta",
+      "action": "uploaded document to Data Room",
+      "target": "Initial Cap Table & Vesting Ledger.xlsx",
+      "timestamp": "Oct 30",
+      "category": "document"
+    },
+    {
+      "id": "act-4",
+      "actor": "Elena Rostova",
+      "action": "joined the workspace as",
+      "target": "Founding Computational Lead",
+      "timestamp": "Oct 28",
+      "category": "team"
+    }
+  ],
+  "team": [
+    {
+      "id": "tm-1",
+      "name": "Claire Chen",
+      "role": "Co-founder & CEO",
+      "email": "claire@northstar.bio",
+      "permission": "Owner"
+    },
+    {
+      "id": "tm-2",
+      "name": "Arjun Mehta",
+      "role": "Co-founder & CTO",
+      "email": "arjun@northstar.bio",
+      "permission": "Admin"
+    },
+    {
+      "id": "tm-3",
+      "name": "Elena Rostova",
+      "role": "Founding Computational Lead",
+      "email": "elena@northstar.bio",
+      "permission": "Member"
+    },
+    {
+      "id": "tm-4",
+      "name": "Marcus Vance",
+      "role": "Operations & Finance",
+      "email": "marcus@northstar.bio",
+      "permission": "Member"
+    }
+  ],
+  "mentor": {
+    "name": "Dr. David Park",
+    "title": "Operating Partner · Former VP R&D",
+    "organization": "Meridian Venture Fellows",
+    "focusAreas": ["Problem Validation", "Enterprise Pilots", "Seed Readiness"],
+    "latestNote": "Narrow your initial discovery interviews to translational oncology teams with internal assay pipelines before expanding to CROs.",
+    "latestNoteDate": "Reviewed today",
+    "nextSession": {
+      "topic": "Review 15-interview synthesis & Prototype scope",
+      "dateLabel": "Thu, Nov 6",
+      "timeLabel": "10:30 AM – 11:15 AM",
+      "status": "Confirmed"
+    }
+  },
+  "documents": [
+    {
+      "id": "doc-1",
+      "title": "Certificate of Incorporation.pdf",
+      "folder": "Legal",
+      "updatedAt": "Oct 26"
+    },
+    {
+      "id": "doc-2",
+      "title": "Initial Cap Table & Vesting Ledger.xlsx",
+      "folder": "Cap Table",
+      "updatedAt": "Oct 30"
+    }
+  ]
+}
