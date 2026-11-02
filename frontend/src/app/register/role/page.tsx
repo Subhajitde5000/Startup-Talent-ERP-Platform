@@ -154,19 +154,20 @@ export default function RegisterRolePage() {
       }
 
       try {
-        window.sessionStorage.removeItem(REGISTRATION_DRAFT_KEY);
+        const raw = window.sessionStorage.getItem(REGISTRATION_DRAFT_KEY);
+        const prev = raw ? JSON.parse(raw) : {};
+        window.sessionStorage.setItem(
+          REGISTRATION_DRAFT_KEY,
+          JSON.stringify({
+            ...prev,
+            role: selectedRole,
+          })
+        );
       } catch {
         // Ignore storage errors
       }
 
-      const params = new URLSearchParams({
-        role: selectedRole,
-        welcome: '1',
-      });
-      if (draftEmail) params.set('email', draftEmail);
-      if (draftName) params.set('name', draftName);
-
-      router.push(`/workspace?${params.toString()}`);
+      router.push(`/onboarding?role=${encodeURIComponent(selectedRole)}`);
     } catch {
       setError('Unable to complete setup right now. Please try again.');
       setIsSubmitting(false);
@@ -176,17 +177,18 @@ export default function RegisterRolePage() {
   return (
     <AuthSplitLayout>
       <div className={styles.sections}>
-        {/* Step 3 of 3 Indicator + Header */}
+        {/* Step 3 of 4 Indicator + Header */}
         <div className={styles.stepHeader}>
-          <div className={styles.stepMeta} aria-label="Step 3 of 3: Workspace role">
+          <div className={styles.stepMeta} aria-label="Step 3 of 4: Workspace role">
             <div className={styles.stepLabelRow}>
-              <span>Step 3 of 3</span>
+              <span>Step 3 of 4</span>
               <span>Workspace role</span>
             </div>
             <div className={styles.stepTrack} aria-hidden="true">
               <span className={`${styles.stepSegment} ${styles.stepSegmentActive}`} />
               <span className={`${styles.stepSegment} ${styles.stepSegmentActive}`} />
               <span className={`${styles.stepSegment} ${styles.stepSegmentActive}`} />
+              <span className={styles.stepSegment} />
             </div>
           </div>
 
@@ -287,9 +289,9 @@ export default function RegisterRolePage() {
               aria-busy={isSubmitting}
             >
               {isSubmitting ? (
-                <span className={styles.spinner} aria-label="Completing setup" />
+                <span className={styles.spinner} aria-label="Saving role" />
               ) : (
-                'Complete registration'
+                'Continue to onboarding'
               )}
             </button>
 

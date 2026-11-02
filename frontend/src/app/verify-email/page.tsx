@@ -180,7 +180,7 @@ function VerifyEmailContent() {
 
       if (fromLogin) {
         router.push(
-          `/workspace?email=${encodeURIComponent(email || 'user@company.com')}`
+          `/dashboard?email=${encodeURIComponent(email || 'user@company.com')}`
         );
       } else {
         router.push('/register/role');
@@ -194,15 +194,15 @@ function VerifyEmailContent() {
   return (
     <AuthSplitLayout>
       <div className={styles.sections}>
-        {/* Step 2 of 3 Indicator (hidden only if arriving from login unverified banner) */}
+        {/* Step 2 of 4 Indicator (hidden only if arriving from login unverified banner) */}
         <div className={styles.stepHeader}>
           {!fromLogin && (
             <div
               className={styles.stepMeta}
-              aria-label="Step 2 of 3: Confirm email"
+              aria-label="Step 2 of 4: Confirm email"
             >
               <div className={styles.stepLabelRow}>
-                <span>Step 2 of 3</span>
+                <span>Step 2 of 4</span>
                 <span>Confirm email</span>
               </div>
               <div className={styles.stepTrack} aria-hidden="true">
@@ -212,6 +212,7 @@ function VerifyEmailContent() {
                 <span
                   className={`${styles.stepSegment} ${styles.stepSegmentActive}`}
                 />
+                <span className={styles.stepSegment} />
                 <span className={styles.stepSegment} />
               </div>
             </div>

@@ -196,10 +196,10 @@ export function LoginForm() {
         return;
       }
 
-      // Single-role user: redirect directly to role-based home
-      const targetRole = result.primaryRole || 'Founder';
+      // Single-role user: redirect directly to role-based dashboard
+      const targetRole = result.primaryRole || 'Startup';
       router.push(
-        `/workspace?role=${encodeURIComponent(targetRole)}&email=${encodeURIComponent(
+        `/dashboard?role=${encodeURIComponent(targetRole)}&email=${encodeURIComponent(
           email.trim()
         )}`
       );
@@ -329,9 +329,11 @@ export function LoginForm() {
           email={email || 'claire@northstar.bio'}
           roles={availableRoles}
           onSelectRole={(role) => {
+            const mappedRole =
+              role.roleLabel === 'Founder' ? 'Startup' : role.roleLabel;
             router.push(
-              `/workspace?role=${encodeURIComponent(
-                role.roleLabel
+              `/dashboard?role=${encodeURIComponent(
+                mappedRole
               )}&org=${encodeURIComponent(
                 role.organization
               )}&email=${encodeURIComponent(email || 'claire@northstar.bio')}`

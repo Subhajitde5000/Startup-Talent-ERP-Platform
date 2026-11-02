@@ -190,15 +190,16 @@ export default function RegisterPage() {
   return (
     <AuthSplitLayout>
       <div className={styles.sections}>
-        {/* Step 1 of 3 Indicator + Header */}
+        {/* Step 1 of 4 Indicator + Header */}
         <div className={styles.stepHeader}>
-          <div className={styles.stepMeta} aria-label="Step 1 of 3: Account details">
+          <div className={styles.stepMeta} aria-label="Step 1 of 4: Account details">
             <div className={styles.stepLabelRow}>
-              <span>Step 1 of 3</span>
+              <span>Step 1 of 4</span>
               <span>Account details</span>
             </div>
             <div className={styles.stepTrack} aria-hidden="true">
               <span className={`${styles.stepSegment} ${styles.stepSegmentActive}`} />
+              <span className={styles.stepSegment} />
               <span className={styles.stepSegment} />
               <span className={styles.stepSegment} />
             </div>
