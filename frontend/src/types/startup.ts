@@ -14,7 +14,10 @@ export interface StartupStageDefinition {
   }>;
 }
 
-export type TaskStatus = 'pending' | 'overdue' | 'completed';
+export type TaskStatus = 'pending' | 'in-progress' | 'in-review' | 'overdue' | 'completed';
+export type TaskPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
+export interface StartupTaskSubtask { id: string; title: string; completed: boolean; }
+export interface StartupTaskComment { id: string; author: string; text: string; createdAt: string; mentor?: boolean; }
 
 export interface StartupTaskItem {
   id: string;
@@ -22,8 +25,19 @@ export interface StartupTaskItem {
   moduleLabel: string;
   moduleHref: string;
   dueLabel: string;
+  dueDate?: string;
   owner: string;
   status: TaskStatus;
+  priority?: TaskPriority;
+  labels?: string[];
+  description?: string;
+  milestoneId?: string;
+  linkedCriterionId?: string;
+  mentorDeliverable?: boolean;
+  mentorStatus?: 'not-requested' | 'submitted' | 'approved';
+  completedAt?: string;
+  subtasks?: StartupTaskSubtask[];
+  comments?: StartupTaskComment[];
   isMilestone?: boolean;
 }
 

@@ -28,6 +28,12 @@ export const STARTUP_NAV_GROUPS: StartupNavGroup[] = [
         description: 'Overview, stage progression, readiness checklist and priorities.',
       },
       {
+        id: 'tasks',
+        label: 'Tasks',
+        href: '/startup/tasks',
+        description: 'Day-to-day tasks, milestones, assignments and stage deliverables.',
+      },
+      {
         pageNumber: 15,
         id: 'profile',
         label: 'Startup Profile',

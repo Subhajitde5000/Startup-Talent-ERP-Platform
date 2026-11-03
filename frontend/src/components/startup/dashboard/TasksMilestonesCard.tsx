@@ -44,7 +44,7 @@ export function TasksMilestonesCard({ tasks, founderName, onToggleTask, onAddTas
           <span className={`${styles.statusBadge} ${overdue ? styles.statusOverdue : done ? styles.statusCompleted : ''}`}>{overdue ? task.dueLabel : done ? 'Done' : task.dueLabel}</span>
         </div>;
       })}</div> : <div className={styles.emptyState}>No tasks in this view yet. Add a task to define the next action.</div>}
-      <div className={styles.cardFooter}><Link href="/startup/projects" className={styles.textLink}>View all tasks <ArrowRight size={14} /></Link><span className={styles.dataNote}>Task list reflects current workspace sample data.</span></div>
+      <div className={styles.cardFooter}><Link href="/startup/tasks" className={styles.textLink}>View all tasks <ArrowRight size={14} /></Link><span className={styles.dataNote}>Task list reflects current workspace sample data.</span></div>
     </section>
   );
 }

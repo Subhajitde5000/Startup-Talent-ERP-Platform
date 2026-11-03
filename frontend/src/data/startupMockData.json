@@ -197,7 +197,34 @@
       "dueLabel": "Overdue · Yesterday",
       "owner": "Claire Chen",
       "status": "overdue",
-      "isMilestone": true
+      "isMilestone": true,
+      "dueDate": "2026-11-02",
+      "priority": "High",
+      "labels": [
+        "Discovery",
+        "Mentor review"
+      ],
+      "description": "Consolidate interview notes, tag recurring needs and prepare a short synthesis for the mentor.",
+      "linkedCriterionId": "idea-interviews",
+      "mentorDeliverable": true,
+      "subtasks": [
+        {
+          "id": "st-101a",
+          "title": "Tag recurring pain points",
+          "completed": true
+        },
+        {
+          "id": "st-101b",
+          "title": "Summarize buyer urgency",
+          "completed": true
+        },
+        {
+          "id": "st-101c",
+          "title": "Prepare mentor-ready synthesis",
+          "completed": false
+        }
+      ],
+      "mentorStatus": "not-requested"
     },
     {
       "id": "tsk-102",
@@ -207,7 +234,15 @@
       "dueLabel": "Due Nov 6",
       "owner": "Claire Chen",
       "status": "pending",
-      "isMilestone": true
+      "isMilestone": true,
+      "dueDate": "2026-11-06",
+      "priority": "Urgent",
+      "labels": [
+        "Discovery"
+      ],
+      "description": "Complete the remaining conversations with translational oncology teams.",
+      "linkedCriterionId": "idea-interviews",
+      "mentorDeliverable": false
     },
     {
       "id": "tsk-103",
@@ -216,8 +251,15 @@
       "moduleHref": "/startup/idea-validation",
       "dueLabel": "Due Nov 9",
       "owner": "Arjun Mehta",
-      "status": "pending",
-      "isMilestone": false
+      "status": "in-progress",
+      "isMilestone": false,
+      "dueDate": "2026-11-09",
+      "priority": "Medium",
+      "labels": [
+        "Validation"
+      ],
+      "description": "Document the core assumptions, what evidence supports them, and the next experiment.",
+      "linkedCriterionId": "idea-problem"
     },
     {
       "id": "tsk-104",
@@ -226,8 +268,15 @@
       "moduleHref": "/startup/hiring",
       "dueLabel": "Due Nov 12",
       "owner": "Elena Rostova",
-      "status": "pending",
-      "isMilestone": false
+      "status": "in-review",
+      "isMilestone": false,
+      "dueDate": "2026-11-12",
+      "priority": "Low",
+      "labels": [
+        "Hiring"
+      ],
+      "description": "Draft a role brief for the next specialist hire.",
+      "linkedCriterionId": "idea-customer"
     },
     {
       "id": "tsk-105",
@@ -237,7 +286,15 @@
       "dueLabel": "Completed Oct 29",
       "owner": "Claire Chen",
       "status": "completed",
-      "isMilestone": true
+      "isMilestone": true,
+      "dueDate": "2026-10-29",
+      "priority": "Medium",
+      "labels": [
+        "Customer profile"
+      ],
+      "description": "Capture the initial buyer profile and clinical stakeholder map.",
+      "linkedCriterionId": "idea-customer",
+      "completedAt": "2026-10-29T12:00:00.000Z"
     },
     {
       "id": "tsk-106",
@@ -247,7 +304,15 @@
       "dueLabel": "Completed Oct 26",
       "owner": "Marcus Vance",
       "status": "completed",
-      "isMilestone": false
+      "isMilestone": false,
+      "dueDate": "2026-10-26",
+      "priority": "Low",
+      "labels": [
+        "Legal",
+        "Data room"
+      ],
+      "description": "File incorporation and founder equity records in the diligence room.",
+      "completedAt": "2026-10-26T12:00:00.000Z"
     }
   ],
   "recentActivity": [

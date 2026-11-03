@@ -24,9 +24,21 @@ interface StartupWorkspaceContextValue {
     moduleLabel: string;
     moduleHref: string;
     dueLabel: string;
+    dueDate?: string;
     owner: string;
+    status?: StartupTaskItem['status'];
+    priority?: StartupTaskItem['priority'];
+    labels?: string[];
+    description?: string;
+    milestoneId?: string;
+    linkedCriterionId?: string;
+    mentorDeliverable?: boolean;
+    mentorStatus?: StartupTaskItem['mentorStatus'];
     isMilestone?: boolean;
-  }) => void;
+  }) => string;
+  updateTask: (taskId: string, updates: Partial<StartupTaskItem>) => void;
+  deleteTask: (taskId: string) => void;
+  restoreTask: (task: StartupTaskItem) => void;
   addTeamMember: (member: {
     name: string;
     role: string;
@@ -86,8 +98,8 @@ export function StartupWorkspaceProvider({
         return {
           ...task,
           status: nextStatus,
-          dueLabel:
-            nextStatus === 'completed' ? 'Completed today' : 'Due this week',
+          completedAt: nextStatus === 'completed' ? new Date().toISOString() : undefined,
+          dueLabel: nextStatus === 'pending' && task.dueLabel.startsWith('Completed') ? 'Due next week' : task.dueLabel,
         };
       });
 
@@ -153,34 +165,45 @@ export function StartupWorkspaceProvider({
   };
 
   const addTask: StartupWorkspaceContextValue['addTask'] = (input) => {
+    const id = `tsk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     setData((prev) => {
       const newTask: StartupTaskItem = {
-        id: `tsk-${Date.now()}`,
-        title: input.title,
-        moduleLabel: input.moduleLabel,
-        moduleHref: input.moduleHref,
-        dueLabel: input.dueLabel || 'Due next week',
-        owner: input.owner || prev.startup.founderName,
-        status: 'pending',
-        isMilestone: input.isMilestone,
+        id, title: input.title, moduleLabel: input.moduleLabel, moduleHref: input.moduleHref,
+        dueLabel: input.dueLabel || 'No due date', dueDate: input.dueDate,
+        owner: input.owner || prev.startup.founderName, status: input.status || 'pending',
+        priority: input.priority || 'Medium', labels: input.labels || [], description: input.description || '',
+        milestoneId: input.milestoneId, linkedCriterionId: input.linkedCriterionId,
+        mentorDeliverable: input.mentorDeliverable, mentorStatus: input.mentorStatus || 'not-requested', isMilestone: input.isMilestone,
+        subtasks: [], comments: [],
       };
-
       return {
-        ...prev,
-        tasks: [newTask, ...prev.tasks],
-        recentActivity: [
-          {
-            id: `act-${Date.now()}`,
-            actor: prev.startup.founderName,
-            action: 'created task in ' + input.moduleLabel,
-            target: input.title,
-            timestamp: 'Just now',
-            category: 'milestone',
-          },
-          ...prev.recentActivity,
-        ],
+        ...prev, tasks: [newTask, ...prev.tasks],
+        recentActivity: [{ id: `act-${Date.now()}`, actor: prev.startup.founderName, action: 'created task in ' + input.moduleLabel, target: input.title, timestamp: 'Just now', category: 'milestone' }, ...prev.recentActivity],
       };
     });
+    return id;
+  };
+
+  const updateTask: StartupWorkspaceContextValue['updateTask'] = (taskId, updates) => {
+    setData((prev) => {
+      const target = prev.tasks.find((task) => task.id === taskId);
+      if (!target) return prev;
+      const changed = { ...target, ...updates };
+      const action = updates.status ? `moved a task to ${updates.status.replace('-', ' ')}` : 'updated task details';
+      return { ...prev, tasks: prev.tasks.map((task) => task.id === taskId ? changed : task), recentActivity: [{ id: `act-${Date.now()}`, actor: prev.startup.founderName, action, target: changed.title, timestamp: 'Just now', category: 'milestone' }, ...prev.recentActivity] };
+    });
+  };
+
+  const deleteTask: StartupWorkspaceContextValue['deleteTask'] = (taskId) => {
+    setData((prev) => {
+      const target = prev.tasks.find((task) => task.id === taskId);
+      if (!target) return prev;
+      return { ...prev, tasks: prev.tasks.filter((task) => task.id !== taskId), recentActivity: [{ id: `act-${Date.now()}`, actor: prev.startup.founderName, action: 'deleted task', target: target.title, timestamp: 'Just now', category: 'milestone' }, ...prev.recentActivity] };
+    });
+  };
+
+  const restoreTask: StartupWorkspaceContextValue['restoreTask'] = (task) => {
+    setData((prev) => prev.tasks.some((item) => item.id === task.id) ? prev : { ...prev, tasks: [task, ...prev.tasks] });
   };
 
   const updateTeamMember: StartupWorkspaceContextValue['updateTeamMember'] = (memberId, updates) => {
@@ -298,6 +321,9 @@ export function StartupWorkspaceProvider({
         toggleTaskStatus,
         toggleExitCriterion,
         addTask,
+        updateTask,
+        deleteTask,
+        restoreTask,
         addTeamMember,
         updateTeamMember,
         removeTeamMember,

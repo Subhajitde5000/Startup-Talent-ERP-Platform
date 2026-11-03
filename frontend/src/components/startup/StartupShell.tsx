@@ -15,6 +15,7 @@ import {
   Handshake,
   KanbanSquare,
   LayoutDashboard,
+  ListChecks,
   Lightbulb,
   LogOut,
   Menu,
@@ -46,6 +47,8 @@ function getNavIcon(id: string) {
       return <Building2 {...props} />;
     case 'team':
       return <Users {...props} />;
+    case 'tasks':
+      return <ListChecks {...props} />;
     case 'roadmap':
       return <Compass {...props} />;
     case 'idea-validation':
