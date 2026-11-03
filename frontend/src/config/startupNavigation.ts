@@ -114,14 +114,17 @@ export const STARTUP_NAV_GROUPS: StartupNavGroup[] = [
         description: 'MVP usability sessions, cohort feedback and iteration logs.',
         recommendedStage: 'prototype',
       },
-      {
-        pageNumber: 26,
-        id: 'hiring',
-        label: 'Hiring Requests',
-        href: '/startup/hiring',
-        description: 'Request vetted engineers and operators from the talent module.',
-        recommendedStage: 'prototype',
-      },
+    ],
+  },
+  {
+    id: 'hiring',
+    label: 'Hiring',
+    items: [
+      { pageNumber: 26, id: 'hiring', label: 'Overview', href: '/startup/hiring', description: 'Hiring requests, jobs and next actions.', recommendedStage: 'prototype' },
+      { id: 'hiring-talent', label: 'Talent', href: '/startup/hiring/talent', description: 'Search candidates who opted in to discovery.' },
+      { id: 'hiring-interviews', label: 'Interviews', href: '/startup/hiring/interviews', description: 'Schedule interviews and review feedback.' },
+      { id: 'hiring-offers', label: 'Offers', href: '/startup/hiring/offers', description: 'Prepare and track hiring offers.' },
+      { id: 'hiring-employer', label: 'Employer page', href: '/startup/hiring/employer-page', description: 'Edit the candidate-facing company page and verification details.' },
     ],
   },
   {
