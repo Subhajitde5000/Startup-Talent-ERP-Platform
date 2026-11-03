@@ -10,9 +10,9 @@
     "currentStage": "idea"
   },
   "readiness": {
-    "completedMilestones": 7,
+    "completedMilestones": 3,
     "totalMilestones": 20,
-    "rubricNote": "Derived from 7 of 20 completed stage checklist items (illustrative workspace sample)."
+    "rubricNote": "3 of 20 stage checklist items are marked complete in the illustrative workspace sample. This is not an investment readiness score."
   },
   "stages": [
     {
@@ -22,34 +22,39 @@
       "shortSummary": "Validate problem urgency, customer segment and founding team alignment.",
       "exitCriteria": [
         {
-          "id": "ec-idea-1",
-          "label": "Complete problem & hypothesis canvas",
+          "id": "idea-problem",
+          "label": "Write and document the problem statement and hypotheses",
           "completed": true,
-          "moduleHref": "/startup/idea-validation"
+          "moduleHref": "/startup/idea-validation",
+          "description": "Write the core customer problem and the assumptions that still need validation."
         },
         {
-          "id": "ec-idea-2",
-          "label": "Define primary target customer segment",
-          "completed": true,
-          "moduleHref": "/startup/market-analysis"
-        },
-        {
-          "id": "ec-idea-3",
-          "label": "Document TAM / SAM / SOM market baseline",
-          "completed": true,
-          "moduleHref": "/startup/market-analysis"
-        },
-        {
-          "id": "ec-idea-4",
-          "label": "Conduct 15 structured discovery interviews (9 / 15 logged)",
+          "id": "idea-interviews",
+          "label": "Log at least 10 customer interviews and synthesize insights",
           "completed": false,
-          "moduleHref": "/startup/customer-research"
+          "moduleHref": "/startup/customer-research",
+          "description": "Record at least ten discovery conversations and summarize recurring insights."
         },
         {
-          "id": "ec-idea-5",
-          "label": "Finalize co-founder equity & role charter",
+          "id": "idea-customer",
+          "label": "Define the target customer profile",
+          "completed": true,
+          "moduleHref": "/startup/market-analysis",
+          "description": "Describe the target customer, their context and the job they need done."
+        },
+        {
+          "id": "idea-market",
+          "label": "Estimate TAM, SAM and SOM with sources",
+          "completed": true,
+          "moduleHref": "/startup/market-analysis",
+          "description": "Estimate TAM, SAM and SOM, and attach a source for each key assumption."
+        },
+        {
+          "id": "idea-mentor",
+          "label": "Get mentor confirmation that the problem is validated",
           "completed": false,
-          "moduleHref": "/startup/team"
+          "moduleHref": "/startup/roadmap",
+          "description": "Ask the assigned mentor to confirm that the problem is validated."
         }
       ]
     },
@@ -60,22 +65,39 @@
       "shortSummary": "Ship core MVP workflow and run structured usability testing with design partners.",
       "exitCriteria": [
         {
-          "id": "ec-proto-1",
-          "label": "Lock Sprint 1–3 MVP functional scope",
+          "id": "prototype-scope",
+          "label": "Define and prioritize MVP scope",
           "completed": false,
-          "moduleHref": "/startup/projects"
+          "moduleHref": "/startup/projects",
+          "description": "Prioritize the smallest useful feature set for the MVP and document trade-offs."
         },
         {
-          "id": "ec-proto-2",
-          "label": "Onboard 5 design partners for prototype testing",
+          "id": "prototype-release",
+          "label": "Release a working prototype to test users",
           "completed": false,
-          "moduleHref": "/startup/prototype-testing"
+          "moduleHref": "/startup/prototype-testing",
+          "description": "Share a working prototype with real test users and record the release."
         },
         {
-          "id": "ec-proto-3",
-          "label": "Open founding engineer requisition",
+          "id": "prototype-testers",
+          "label": "Get feedback from at least five test users",
           "completed": false,
-          "moduleHref": "/startup/hiring"
+          "moduleHref": "/startup/prototype-testing",
+          "description": "Collect feedback from at least five test users; protect consent and private notes."
+        },
+        {
+          "id": "prototype-feedback",
+          "label": "Review feedback and plan the next iterations",
+          "completed": false,
+          "moduleHref": "/startup/projects",
+          "description": "Review findings, prioritize the next iteration and assign follow-up actions."
+        },
+        {
+          "id": "prototype-mentor",
+          "label": "Get mentor confirmation that the MVP is functional",
+          "completed": false,
+          "moduleHref": "/startup/roadmap",
+          "description": "Ask the assigned mentor to confirm the MVP is functional for testing."
         }
       ]
     },
@@ -86,16 +108,39 @@
       "shortSummary": "Convert pilot accounts into repeatable paid contracts and track unit economics.",
       "exitCriteria": [
         {
-          "id": "ec-rev-1",
-          "label": "Close first 3 commercial pilot agreements",
+          "id": "revenue-customers",
+          "label": "Onboard paying customers against a mentor-confirmed target",
           "completed": false,
-          "moduleHref": "/startup/sales"
+          "moduleHref": "/startup/sales",
+          "description": "Set a customer target with your mentor and record paying customers onboarded."
         },
         {
-          "id": "ec-rev-2",
-          "label": "Establish monthly burn, runway & MRR reporting",
+          "id": "revenue-mrr",
+          "label": "Record recurring revenue for three consecutive months",
           "completed": false,
-          "moduleHref": "/startup/analytics"
+          "moduleHref": "/startup/analytics",
+          "description": "Record recurring revenue for three consecutive months with source notes."
+        },
+        {
+          "id": "revenue-process",
+          "label": "Document a repeatable sales process",
+          "completed": false,
+          "moduleHref": "/startup/sales",
+          "description": "Document the repeatable steps from first contact through conversion."
+        },
+        {
+          "id": "revenue-economics",
+          "label": "Calculate unit economics, including CAC and payback",
+          "completed": false,
+          "moduleHref": "/startup/analytics",
+          "description": "Record CAC and payback assumptions, inputs and calculation method."
+        },
+        {
+          "id": "revenue-mentor",
+          "label": "Get mentor confirmation of early traction",
+          "completed": false,
+          "moduleHref": "/startup/roadmap",
+          "description": "Ask the assigned mentor to review the evidence for early traction."
         }
       ]
     },
@@ -106,16 +151,39 @@
       "shortSummary": "Scale operations, governance and investor-ready diligence rooms.",
       "exitCriteria": [
         {
-          "id": "ec-mat-1",
-          "label": "Publish audited financials, cap table & data room",
+          "id": "mature-financials",
+          "label": "Prepare audited or reviewed financials",
           "completed": false,
-          "moduleHref": "/startup/data-room"
+          "moduleHref": "/startup/analytics",
+          "description": "Keep audited or independently reviewed financial statements accessible."
         },
         {
-          "id": "ec-mat-2",
-          "label": "Scale departmental hiring across engineering & GTM",
+          "id": "mature-cap-table",
+          "label": "Keep the cap table current",
           "completed": false,
-          "moduleHref": "/startup/hiring"
+          "moduleHref": "/startup/data-room",
+          "description": "Review ownership, share classes and option-pool records for accuracy."
+        },
+        {
+          "id": "mature-board",
+          "label": "Establish a board reporting cadence",
+          "completed": false,
+          "moduleHref": "/startup/data-room",
+          "description": "Maintain a recurring board or governance reporting schedule."
+        },
+        {
+          "id": "mature-room",
+          "label": "Complete the diligence data room",
+          "completed": false,
+          "moduleHref": "/startup/data-room",
+          "description": "Organize diligence documents and identify missing materials."
+        },
+        {
+          "id": "mature-hiring",
+          "label": "Prepare a hiring plan for the next 12 months",
+          "completed": false,
+          "moduleHref": "/startup/hiring",
+          "description": "Document the roles, timing and budget planned for the next 12 months."
         }
       ]
     }
@@ -250,7 +318,11 @@
     "name": "Dr. David Park",
     "title": "Operating Partner · Former VP R&D",
     "organization": "Meridian Venture Fellows",
-    "focusAreas": ["Problem Validation", "Enterprise Pilots", "Seed Readiness"],
+    "focusAreas": [
+      "Problem Validation",
+      "Enterprise Pilots",
+      "Seed Readiness"
+    ],
     "latestNote": "Narrow your initial discovery interviews to translational oncology teams with internal assay pipelines before expanding to CROs.",
     "latestNoteDate": "Reviewed today",
     "nextSession": {

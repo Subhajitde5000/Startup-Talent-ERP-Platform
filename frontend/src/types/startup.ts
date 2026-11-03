@@ -8,6 +8,7 @@ export interface StartupStageDefinition {
   exitCriteria: Array<{
     id: string;
     label: string;
+    description: string;
     completed: boolean;
     moduleHref: string;
   }>;

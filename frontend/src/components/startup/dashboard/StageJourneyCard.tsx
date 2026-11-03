@@ -7,12 +7,8 @@ import { StartupStageDefinition, StartupStageId } from '@/types/startup';
 import styles from './DashboardWidgets.module.css';
 
 interface StageJourneyCardProps {
-  startupName: string;
-  tagline: string;
-  industry: string;
   currentStage: StartupStageId;
   stages: StartupStageDefinition[];
-  onSelectStage: (stage: StartupStageId) => void;
   onToggleCriterion: (stageId: StartupStageId, criterionId: string) => void;
 }
 
@@ -43,7 +39,7 @@ export function StageJourneyCard({ currentStage, stages, onToggleCriterion }: St
           <Link href={criterion.moduleHref} className={styles.kpiLink}>Open <ArrowRight size={13} /></Link>
         </div>)}
       </div>
-      <div className={styles.stageCardFooter}><span>Checklist items are illustrative workspace data.</span><Link href="/startup/roadmap" className={styles.textLink}>Open stage toolkit <ArrowRight size={14} /></Link></div>
+      <div className={styles.stageCardFooter}><span>Checklist items are illustrative workspace data; completion is not mentor approval.</span><Link href="/startup/stage" className={styles.textLink}>Open stage toolkit <ArrowRight size={14} /></Link></div>
     </section>
   );
 }

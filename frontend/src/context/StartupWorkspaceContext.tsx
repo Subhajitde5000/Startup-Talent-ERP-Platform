@@ -76,12 +76,10 @@ export function StartupWorkspaceProvider({
     setData((prev) => {
       let toggledTitle = '';
       let becameCompleted = false;
-      let wasMilestone = false;
 
       const updatedTasks: StartupTaskItem[] = prev.tasks.map((task) => {
         if (task.id !== taskId) return task;
         toggledTitle = task.title;
-        wasMilestone = Boolean(task.isMilestone);
         const nextStatus =
           task.status === 'completed' ? 'pending' : 'completed';
         becameCompleted = nextStatus === 'completed';
@@ -92,15 +90,6 @@ export function StartupWorkspaceProvider({
             nextStatus === 'completed' ? 'Completed today' : 'Due this week',
         };
       });
-
-      const delta = wasMilestone ? (becameCompleted ? 1 : -1) : 0;
-      const nextCompletedMilestones = Math.max(
-        0,
-        Math.min(
-          prev.readiness.totalMilestones,
-          prev.readiness.completedMilestones + delta
-        )
-      );
 
       const nextActivity = toggledTitle
         ? [
@@ -119,11 +108,6 @@ export function StartupWorkspaceProvider({
       return {
         ...prev,
         tasks: updatedTasks,
-        readiness: {
-          ...prev.readiness,
-          completedMilestones: nextCompletedMilestones,
-          rubricNote: `Derived from ${nextCompletedMilestones} of ${prev.readiness.totalMilestones} completed stage checklist items (illustrative workspace sample).`,
-        },
         recentActivity: nextActivity,
       };
     });

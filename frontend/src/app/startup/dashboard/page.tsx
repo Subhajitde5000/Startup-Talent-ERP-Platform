@@ -14,7 +14,6 @@ import { TasksMilestonesCard } from '@/components/startup/dashboard/TasksMilesto
 import { MentorSectionCard } from '@/components/startup/dashboard/MentorSectionCard';
 import { RecentActivityCard } from '@/components/startup/dashboard/RecentActivityCard';
 import { QuickActionModal, QuickActionType } from '@/components/startup/dashboard/QuickActionModal';
-import { StartupStageId } from '@/types/startup';
 import styles from '@/components/startup/dashboard/DashboardWidgets.module.css';
 
 function initials(name: string) {
@@ -23,7 +22,7 @@ function initials(name: string) {
 
 export default function StartupDashboardPage() {
   const {
-    data, setCurrentStage, toggleTaskStatus, toggleExitCriterion, addTask,
+    data, toggleTaskStatus, toggleExitCriterion, addTask,
     addTeamMember, addDocument, requestMentorSession,
   } = useStartupWorkspace();
   const [activeAction, setActiveAction] = useState<QuickActionType>(null);
@@ -74,16 +73,16 @@ export default function StartupDashboardPage() {
           </div>
           <Link className={styles.textLink} href="/startup/profile">View startup profile <ArrowRight size={14} /></Link>
         </div>
-        <div className={styles.stageStepper} role="group" aria-label="Select startup stage">
+        <nav className={styles.stageStepper} aria-label="Startup stage journey">
           {data.stages.map((stage, index) => {
             const current = stage.id === activeStage.id;
-            const complete = !current && stage.exitCriteria.length > 0 && stage.exitCriteria.every((criterion) => criterion.completed);
-            return <button key={stage.id} aria-pressed={current} type="button" onClick={() => setCurrentStage(stage.id as StartupStageId)} className={`${styles.stageStep} ${current ? styles.stageStepSelected : ''} ${complete ? styles.stageStepDone : ''}`}>
-              <span className={styles.stageStepIcon}>{complete ? <Check size={13} /> : index + 1}</span>
+            const past = index < stageIndex;
+            return <Link key={stage.id} href={`/startup/stage/${stage.id}`} aria-current={current ? 'step' : undefined} className={`${styles.stageStep} ${current ? styles.stageStepSelected : ''} ${past ? styles.stageStepDone : ''}`}>
+              <span className={styles.stageStepIcon}>{past ? <Check size={13} /> : index + 1}</span>
               <span>{stage.label}</span>
-            </button>;
+            </Link>;
           })}
-        </div>
+        </nav>
         <p className={styles.stageSummary}><span>{data.stages[stageIndex + 1] ? `Next stage: ${data.stages[stageIndex + 1].label}` : 'Final stage'}</span><span className={styles.stageSummaryDivider}>·</span>{completedCriteria} of {activeStage.exitCriteria.length} exit criteria met
           <a href="#stage-checklist">View exit criteria <ArrowRight size={13} /></a>
         </p>
@@ -99,7 +98,7 @@ export default function StartupDashboardPage() {
       <div className={styles.dashboardGrid}>
         <div className={styles.dashboardMainColumn}>
           <div id="stage-checklist">
-            <StageJourneyCard startupName={data.startup.name} tagline={data.startup.tagline} industry={data.startup.industry} currentStage={data.startup.currentStage} stages={data.stages} onSelectStage={setCurrentStage} onToggleCriterion={toggleExitCriterion} />
+            <StageJourneyCard currentStage={data.startup.currentStage} stages={data.stages} onToggleCriterion={toggleExitCriterion} />
           </div>
           <TasksMilestonesCard tasks={data.tasks} currentStage={data.startup.currentStage} founderName={data.startup.founderName} onToggleTask={toggleTaskStatus} onAddTaskClick={() => setActiveAction('task')} />
           <section className={styles.card} aria-labelledby="investor-interest-heading">

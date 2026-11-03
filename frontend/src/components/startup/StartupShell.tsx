@@ -105,11 +105,15 @@ export function StartupShell({ children }: { children: React.ReactNode }) {
     data.stages[0];
 
   const activeNavItem = ALL_STARTUP_NAV_ITEMS.find(
-    (item) => pathname === item.href
+    (item) => pathname === item.href || (item.id === 'roadmap' && pathname.startsWith('/startup/stage/'))
   );
+  const stageSlug = pathname.startsWith('/startup/stage/') ? pathname.split('/').pop() : undefined;
+  const stageBreadcrumb = stageSlug ? data.stages.find((stage) => stage.id === stageSlug)?.label : undefined;
   const currentBreadcrumb =
     pathname === '/startup/settings'
       ? 'Settings'
+      : stageBreadcrumb
+      ? `${stageBreadcrumb} Toolkit`
       : activeNavItem?.label || 'Dashboard';
 
   const renderSidebarContents = (isMobile = false) => (
@@ -145,7 +149,7 @@ export function StartupShell({ children }: { children: React.ReactNode }) {
           <div key={group.id} className={styles.navGroup}>
             <span className={styles.navGroupLabel}>{group.label}</span>
             {group.items.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href || (item.id === 'roadmap' && pathname.startsWith('/startup/stage/'));
               const isStageRecommended =
                 item.recommendedStage === data.startup.currentStage;
 

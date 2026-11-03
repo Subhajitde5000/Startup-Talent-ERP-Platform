@@ -45,8 +45,8 @@ export const STARTUP_NAV_GROUPS: StartupNavGroup[] = [
         pageNumber: 17,
         id: 'roadmap',
         label: 'Stage Roadmap',
-        href: '/startup/roadmap',
-        description: 'Four-stage startup journey from Idea to Mature.',
+        href: '/startup/stage',
+        description: 'Four-stage startup journey, stage tools and exit criteria.'
       },
     ],
   },
