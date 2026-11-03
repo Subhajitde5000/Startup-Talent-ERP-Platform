@@ -141,7 +141,7 @@ function OnboardingContent() {
   const [startup, setStartup] = useState<StartupProfileData>({
     companyName: '',
     oneLiner: '',
-    stage: 'Seed',
+    stage: 'Idea',
     teamSize: '3–10',
     sector: 'AI & Infrastructure',
     priorities: ['Fundraising', 'Hiring talent'],
@@ -367,11 +367,15 @@ function OnboardingContent() {
         // Ignore storage errors
       }
 
-      router.push(
-        `/dashboard?role=${encodeURIComponent(
-          activeRole
-        )}&email=${encodeURIComponent(userEmail)}&welcome=1`
-      );
+      if (activeRole === 'Startup') {
+        router.push('/startup/dashboard');
+      } else {
+        router.push(
+          `/dashboard?role=${encodeURIComponent(
+            activeRole
+          )}&email=${encodeURIComponent(userEmail)}&welcome=1`
+        );
+      }
     } catch {
       setErrors({ form: 'Unable to save profile right now. Please try again.' });
       setIsSubmitting(false);
@@ -494,10 +498,10 @@ function OnboardingContent() {
                       }
                       className={styles.select}
                     >
-                      <option value="Idea / Pre-seed">Idea / Pre-seed</option>
-                      <option value="Seed">Seed</option>
-                      <option value="Series A">Series A</option>
-                      <option value="Series B+">Series B+</option>
+                      <option value="Idea">Idea</option>
+                      <option value="Prototype">Prototype</option>
+                      <option value="Early Revenue">Early Revenue</option>
+                      <option value="Mature">Mature</option>
                     </select>
                     <ChevronDown
                       size={16}

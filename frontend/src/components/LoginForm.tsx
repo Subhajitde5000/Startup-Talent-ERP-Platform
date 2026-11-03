@@ -197,12 +197,16 @@ export function LoginForm() {
       }
 
       // Single-role user: redirect directly to role-based dashboard
-      const targetRole = result.primaryRole || 'Startup';
-      router.push(
-        `/dashboard?role=${encodeURIComponent(targetRole)}&email=${encodeURIComponent(
-          email.trim()
-        )}`
-      );
+      const targetRole = result.primaryRole || 'Founder';
+      if (targetRole === 'Founder' || targetRole === 'Startup') {
+        router.push('/startup/dashboard');
+      } else {
+        router.push(
+          `/dashboard?role=${encodeURIComponent(targetRole)}&email=${encodeURIComponent(
+            email.trim()
+          )}`
+        );
+      }
     } catch {
       setFormStatus({ type: 'wrong_credentials' });
       setIsSubmitting(false);
@@ -329,11 +333,13 @@ export function LoginForm() {
           email={email || 'claire@northstar.bio'}
           roles={availableRoles}
           onSelectRole={(role) => {
-            const mappedRole =
-              role.roleLabel === 'Founder' ? 'Startup' : role.roleLabel;
+            if (role.roleLabel === 'Founder' || role.roleLabel === 'Startup') {
+              router.push('/startup/dashboard');
+              return;
+            }
             router.push(
               `/dashboard?role=${encodeURIComponent(
-                mappedRole
+                role.roleLabel
               )}&org=${encodeURIComponent(
                 role.organization
               )}&email=${encodeURIComponent(email || 'claire@northstar.bio')}`
