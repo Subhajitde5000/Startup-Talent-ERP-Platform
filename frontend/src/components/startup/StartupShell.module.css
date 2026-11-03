@@ -396,3 +396,6 @@
     padding: 36px 36px 72px;
   }
 }
+
+.iconBtn{position:relative}
+.notificationBadge{position:absolute;top:1px;right:0;display:grid;min-width:14px;height:14px;place-items:center;padding:0 3px;border:1px solid var(--bg-surface);border-radius:9px;background:var(--error);color:white;font:650 7px var(--font-body)}

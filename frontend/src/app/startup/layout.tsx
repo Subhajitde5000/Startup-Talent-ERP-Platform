@@ -1,5 +1,6 @@
 import React from 'react';
 import { StartupWorkspaceProvider } from '@/context/StartupWorkspaceContext';
+import { StartupNotificationProvider } from '@/context/StartupNotificationContext';
 import { StartupShell } from '@/components/startup/StartupShell';
 
 export default function StartupModuleLayout({
@@ -9,7 +10,9 @@ export default function StartupModuleLayout({
 }) {
   return (
     <StartupWorkspaceProvider>
-      <StartupShell>{children}</StartupShell>
+      <StartupNotificationProvider>
+        <StartupShell>{children}</StartupShell>
+      </StartupNotificationProvider>
     </StartupWorkspaceProvider>
   );
 }

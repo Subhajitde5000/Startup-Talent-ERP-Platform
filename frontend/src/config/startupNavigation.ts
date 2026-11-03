@@ -34,6 +34,12 @@ export const STARTUP_NAV_GROUPS: StartupNavGroup[] = [
         description: 'Day-to-day tasks, milestones, assignments and stage deliverables.',
       },
       {
+        id: 'notifications',
+        label: 'Notifications',
+        href: '/startup/notifications',
+        description: 'Workspace activity, task reminders and notification preferences.',
+      },
+      {
         pageNumber: 15,
         id: 'profile',
         label: 'Startup Profile',
