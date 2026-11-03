@@ -6,6 +6,9 @@ import { usePathname } from 'next/navigation';
 import {
   ArrowLeftRight,
   BarChart3,
+  CalendarDays,
+  FileCheck2,
+  Search,
   Briefcase,
   Building2,
   Compass,
@@ -69,6 +72,14 @@ function getNavIcon(id: string) {
       return <BarChart3 {...props} />;
     case 'hiring':
       return <UserPlus {...props} />;
+    case 'hiring-talent':
+      return <Search {...props} />;
+    case 'hiring-interviews':
+      return <CalendarDays {...props} />;
+    case 'hiring-offers':
+      return <FileCheck2 {...props} />;
+    case 'hiring-employer':
+      return <Building2 {...props} />;
     case 'data-room':
       return <FolderKanban {...props} />;
     default:
@@ -107,9 +118,9 @@ export function StartupShell({ children }: { children: React.ReactNode }) {
     data.stages.find((s) => s.id === data.startup.currentStage) ||
     data.stages[0];
 
-  const activeNavItem = ALL_STARTUP_NAV_ITEMS.find(
-    (item) => pathname === item.href || (item.id === 'roadmap' && pathname.startsWith('/startup/stage/'))
-  );
+  const activeNavItem = ALL_STARTUP_NAV_ITEMS.find((item) => pathname === item.href) ||
+    [...ALL_STARTUP_NAV_ITEMS].filter((item) => pathname.startsWith(`${item.href}/`)).sort((a, b) => b.href.length - a.href.length)[0] ||
+    ALL_STARTUP_NAV_ITEMS.find((item) => item.id === 'roadmap' && pathname.startsWith('/startup/stage/'));
   const stageSlug = pathname.startsWith('/startup/stage/') ? pathname.split('/').pop() : undefined;
   const stageBreadcrumb = stageSlug ? data.stages.find((stage) => stage.id === stageSlug)?.label : undefined;
   const currentBreadcrumb =
@@ -152,7 +163,7 @@ export function StartupShell({ children }: { children: React.ReactNode }) {
           <div key={group.id} className={styles.navGroup}>
             <span className={styles.navGroupLabel}>{group.label}</span>
             {group.items.map((item) => {
-              const isActive = pathname === item.href || (item.id === 'roadmap' && pathname.startsWith('/startup/stage/'));
+              const isActive = activeNavItem?.id === item.id || (item.id === 'roadmap' && pathname.startsWith('/startup/stage/'));
               const isStageRecommended =
                 item.recommendedStage === data.startup.currentStage;
 
