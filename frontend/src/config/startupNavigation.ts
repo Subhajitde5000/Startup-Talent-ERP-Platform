@@ -134,6 +134,16 @@ export const STARTUP_NAV_GROUPS: StartupNavGroup[] = [
     ],
   },
   {
+    id: 'mentorship',
+    label: 'Mentorship & Readiness',
+    items: [
+      { id: 'mentors', label: 'Mentors', href: '/startup/mentors', description: 'Find mentors, manage requests and view mentoring progress.' },
+      { id: 'mentors-find', label: 'Find mentors', href: '/startup/mentors/find', description: 'Browse the mentor directory and send a mentorship request.' },
+      { id: 'sessions', label: 'Sessions', href: '/startup/sessions', description: 'Book and review mentor sessions.' },
+      { id: 'readiness', label: 'Readiness', href: '/startup/readiness', description: 'Prepare and submit readiness evidence for mentor sign-off.' },
+    ],
+  },
+  {
     id: 'traction',
     label: 'Traction & Capital',
     items: [

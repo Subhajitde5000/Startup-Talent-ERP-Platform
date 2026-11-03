@@ -56,6 +56,14 @@ function getNavIcon(id: string) {
       return <ListChecks {...props} />;
     case 'notifications':
       return <Bell {...props} />;
+    case 'mentors':
+      return <Handshake {...props} />;
+    case 'mentors-find':
+      return <Search {...props} />;
+    case 'sessions':
+      return <CalendarDays {...props} />;
+    case 'readiness':
+      return <FileCheck2 {...props} />;
     case 'roadmap':
       return <Compass {...props} />;
     case 'idea-validation':
