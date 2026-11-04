@@ -64,6 +64,20 @@ function getNavIcon(id: string) {
       return <CalendarDays {...props} />;
     case 'readiness':
       return <FileCheck2 {...props} />;
+    case 'investors':
+      return <Briefcase {...props} />;
+    case 'investors-discover':
+      return <Search {...props} />;
+    case 'investors-pipeline':
+      return <KanbanSquare {...props} />;
+    case 'investor-messages':
+      return <MessageSquareText {...props} />;
+    case 'investor-meetings':
+      return <CalendarDays {...props} />;
+    case 'rounds':
+      return <TrendingUp {...props} />;
+    case 'investors-settings':
+      return <Settings {...props} />;
     case 'roadmap':
       return <Compass {...props} />;
     case 'idea-validation':

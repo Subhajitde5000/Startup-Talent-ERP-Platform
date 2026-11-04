@@ -144,6 +144,20 @@ export const STARTUP_NAV_GROUPS: StartupNavGroup[] = [
     ],
   },
   {
+    id: 'investors',
+    label: 'Investors & Fundraising',
+    items: [
+      { id: 'investors', label: 'Investor hub', href: '/startup/investors', description: 'Investor interest, preparation status and fundraising overview.' },
+      { id: 'investors-discover', label: 'Find investors', href: '/startup/investors/discover', description: 'Browse the investor directory when connected.' },
+      { id: 'investors-pipeline', label: 'Investor pipeline', href: '/startup/investors/pipeline', description: 'Privately track investor conversations and stages.' },
+      { id: 'data-room', label: 'Data room', href: '/startup/data-room', description: 'Organize documents and configure access controls.' },
+      { id: 'investor-messages', label: 'Investor messages', href: '/startup/messages', description: 'Investor conversations and locally saved drafts.' },
+      { id: 'investor-meetings', label: 'Investor meetings', href: '/startup/meetings', description: 'Schedule and track investor meetings.' },
+      { id: 'rounds', label: 'Fundraising rounds', href: '/startup/rounds', description: 'Plan rounds and record offers or commitments.' },
+      { id: 'investors-settings', label: 'Visibility settings', href: '/startup/investors/settings', description: 'Control startup visibility and investor access defaults.' },
+    ],
+  },
+  {
     id: 'traction',
     label: 'Traction & Capital',
     items: [
@@ -162,14 +176,6 @@ export const STARTUP_NAV_GROUPS: StartupNavGroup[] = [
         href: '/startup/analytics',
         description: 'Monthly revenue, net burn, runway and unit economics.',
         recommendedStage: 'early-revenue',
-      },
-      {
-        pageNumber: 27,
-        id: 'data-room',
-        label: 'Data Room',
-        href: '/startup/data-room',
-        description: 'Financials, cap table, governance documents and investor updates.',
-        recommendedStage: 'mature',
       },
     ],
   },
