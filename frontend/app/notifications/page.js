@@ -1,2 +1,2 @@
-import InvestorShared from '../investor/investor-shared';
-export default function Page(){return <InvestorShared page="notifications"/>}
+import { NotificationsPage } from '../jobseeker/jobseeker-shared-pages';
+export default function Page(){return <NotificationsPage page="notifications"/>}
