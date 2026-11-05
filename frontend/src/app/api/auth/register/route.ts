@@ -1,20 +1,21 @@
-import { NextResponse } from 'next/server';
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+import { EMAIL_REGEX } from "@/utils/validation";
+import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const fullName = String(body.fullName || '').trim();
-    const email = String(body.email || '').trim().toLowerCase();
-    const password = String(body.password || '');
+    const fullName = String(body.fullName || "").trim();
+    const email = String(body.email || "")
+      .trim()
+      .toLowerCase();
+    const password = String(body.password || "");
 
     await new Promise((resolve) => setTimeout(resolve, 400));
 
     if (!fullName) {
       return NextResponse.json(
-        { ok: false, field: 'fullName', message: 'Enter your full name.' },
-        { status: 400 }
+        { ok: false, field: "fullName", message: "Enter your full name." },
+        { status: 400 },
       );
     }
 
@@ -22,23 +23,21 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           ok: false,
-          field: 'email',
-          message: !email
-            ? 'Enter your email address.'
-            : "That doesn't look like a valid email.",
+          field: "email",
+          message: !email ? "Enter your email address." : "That doesn't look like a valid email.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    if (email.startsWith('existing@') || email.startsWith('taken@')) {
+    if (email.startsWith("existing@") || email.startsWith("taken@")) {
       return NextResponse.json(
         {
           ok: false,
-          code: 'email_exists',
-          message: 'An account with this email already exists.',
+          code: "email_exists",
+          message: "An account with this email already exists.",
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -47,10 +46,10 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           ok: false,
-          field: 'password',
-          message: 'Use at least 8 characters with a number or symbol.',
+          field: "password",
+          message: "Use at least 8 characters with a number or symbol.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -60,8 +59,8 @@ export async function POST(request: Request) {
     });
   } catch {
     return NextResponse.json(
-      { ok: false, message: 'Unable to create account right now.' },
-      { status: 500 }
+      { ok: false, message: "Unable to create account right now." },
+      { status: 500 },
     );
   }
 }

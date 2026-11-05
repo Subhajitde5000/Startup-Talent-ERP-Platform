@@ -74,7 +74,9 @@
   font-weight: 400;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background-color 150ms ease-out, color 150ms ease-out;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
 }
 
 .stateOption:hover {
@@ -121,7 +123,9 @@
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background-color 150ms ease-out, color 150ms ease-out;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
 }
 
 .pillBtn:hover {
@@ -140,7 +144,9 @@
   border-radius: 999px;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background-color 150ms ease-out, color 150ms ease-out;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
 }
 
 .iconPillBtn:hover {

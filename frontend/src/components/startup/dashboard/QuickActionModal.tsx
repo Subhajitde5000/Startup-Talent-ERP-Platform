@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
-import { StartupDocumentItem } from '@/types/startup';
-import styles from './DashboardWidgets.module.css';
+import React, { useEffect, useState } from "react";
+import { X } from "lucide-react";
+import { StartupDocumentItem } from "@/types/startup";
+import styles from "./DashboardWidgets.module.css";
 
-export type QuickActionType = 'task' | 'member' | 'document' | 'mentor' | null;
+export type QuickActionType = "task" | "member" | "document" | "mentor" | null;
 
 interface QuickActionModalProps {
   action: QuickActionType;
@@ -23,23 +23,20 @@ interface QuickActionModalProps {
     name: string;
     role: string;
     email: string;
-    permission: 'Owner' | 'Admin' | 'Member';
+    permission: "Owner" | "Admin" | "Member";
   }) => void;
-  onUploadDocument: (payload: {
-    title: string;
-    folder: StartupDocumentItem['folder'];
-  }) => void;
+  onUploadDocument: (payload: { title: string; folder: StartupDocumentItem["folder"] }) => void;
   onRequestMentor: (topic: string, preferredDay: string) => void;
 }
 
 const MODULE_OPTIONS = [
-  { label: 'Customer Research', href: '/startup/customer-research' },
-  { label: 'Idea Validation', href: '/startup/idea-validation' },
-  { label: 'Prototype Testing', href: '/startup/prototype-testing' },
-  { label: 'Projects & Sprints', href: '/startup/projects' },
-  { label: 'Sales Pipeline', href: '/startup/sales' },
-  { label: 'Hiring Requests', href: '/startup/hiring' },
-  { label: 'Data Room', href: '/startup/data-room' },
+  { label: "Customer Research", href: "/startup/customer-research" },
+  { label: "Idea Validation", href: "/startup/idea-validation" },
+  { label: "Prototype Testing", href: "/startup/prototype-testing" },
+  { label: "Projects & Sprints", href: "/startup/projects" },
+  { label: "Sales Pipeline", href: "/startup/sales" },
+  { label: "Hiring Requests", href: "/startup/hiring" },
+  { label: "Data Room", href: "/startup/data-room" },
 ];
 
 export function QuickActionModal({
@@ -51,96 +48,86 @@ export function QuickActionModal({
   onUploadDocument,
   onRequestMentor,
 }: QuickActionModalProps) {
-  const [taskTitle, setTaskTitle] = useState('');
+  const [taskTitle, setTaskTitle] = useState("");
   const [taskModuleIdx, setTaskModuleIdx] = useState(0);
-  const [taskDue, setTaskDue] = useState('Due next Friday');
+  const [taskDue, setTaskDue] = useState("Due next Friday");
   const [isMilestone, setIsMilestone] = useState(false);
 
-  const [memberName, setMemberName] = useState('');
-  const [memberRole, setMemberRole] = useState('');
-  const [memberEmail, setMemberEmail] = useState('');
-  const [memberPermission, setMemberPermission] = useState<
-    'Owner' | 'Admin' | 'Member'
-  >('Member');
+  const [memberName, setMemberName] = useState("");
+  const [memberRole, setMemberRole] = useState("");
+  const [memberEmail, setMemberEmail] = useState("");
+  const [memberPermission, setMemberPermission] = useState<"Owner" | "Admin" | "Member">("Member");
 
-  const [docTitle, setDocTitle] = useState('');
-  const [docFolder, setDocFolder] =
-    useState<StartupDocumentItem['folder']>('Pitch & Narrative');
+  const [docTitle, setDocTitle] = useState("");
+  const [docFolder, setDocFolder] = useState<StartupDocumentItem["folder"]>("Pitch & Narrative");
 
-  const [mentorTopic, setMentorTopic] = useState('');
-  const [mentorDay, setMentorDay] = useState('Next Tuesday · 11:00 AM');
+  const [mentorTopic, setMentorTopic] = useState("");
+  const [mentorDay, setMentorDay] = useState("Next Tuesday · 11:00 AM");
 
   useEffect(() => {
     if (!action) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === "Escape") onClose();
     };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
   }, [action, onClose]);
 
   if (!action) return null;
 
   const modalHeading =
-    action === 'task'
-      ? 'Add Task or Milestone'
-      : action === 'member'
-      ? 'Invite Team Member'
-      : action === 'document'
-      ? 'Add Document to Data Room'
-      : 'Request Mentor Session';
+    action === "task"
+      ? "Add Task or Milestone"
+      : action === "member"
+        ? "Invite Team Member"
+        : action === "document"
+          ? "Add Document to Data Room"
+          : "Request Mentor Session";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (action === 'task') {
+    if (action === "task") {
       if (!taskTitle.trim()) return;
       const mod = MODULE_OPTIONS[taskModuleIdx] || MODULE_OPTIONS[0];
       onCreateTask({
         title: taskTitle.trim(),
         moduleLabel: mod.label,
         moduleHref: mod.href,
-        dueLabel: taskDue.trim() || 'Due soon',
+        dueLabel: taskDue.trim() || "Due soon",
         owner: founderName,
         isMilestone,
       });
-      setTaskTitle('');
+      setTaskTitle("");
       setIsMilestone(false);
-    } else if (action === 'member') {
+    } else if (action === "member") {
       if (!memberName.trim() || !memberRole.trim()) return;
-      const fallbackEmail = `${memberName
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, '.')}@northstar.bio`;
+      const fallbackEmail = `${memberName.trim().toLowerCase().replace(/\s+/g, ".")}@northstar.bio`;
       onInviteMember({
         name: memberName.trim(),
         role: memberRole.trim(),
         email: memberEmail.trim() || fallbackEmail,
         permission: memberPermission,
       });
-      setMemberName('');
-      setMemberRole('');
-      setMemberEmail('');
-    } else if (action === 'document') {
+      setMemberName("");
+      setMemberRole("");
+      setMemberEmail("");
+    } else if (action === "document") {
       if (!docTitle.trim()) return;
       onUploadDocument({
         title: docTitle.trim(),
         folder: docFolder,
       });
-      setDocTitle('');
-    } else if (action === 'mentor') {
+      setDocTitle("");
+    } else if (action === "mentor") {
       if (!mentorTopic.trim()) return;
       onRequestMentor(mentorTopic.trim(), mentorDay);
-      setMentorTopic('');
+      setMentorTopic("");
     }
     onClose();
   };
 
   return (
-    <div
-      className={styles.modalBackdrop}
-      onClick={onClose}
-      role="presentation"
-    >
+    <div className={styles.modalBackdrop} onClick={onClose} role="presentation">
       <div
         className={styles.modalDialog}
         role="dialog"
@@ -163,7 +150,7 @@ export function QuickActionModal({
         </div>
 
         <form onSubmit={handleSubmit} className={styles.modalForm}>
-          {action === 'task' && (
+          {action === "task" && (
             <>
               <div className={styles.fieldGroup}>
                 <label htmlFor="qa-task-title" className={styles.fieldLabel}>
@@ -224,7 +211,7 @@ export function QuickActionModal({
             </>
           )}
 
-          {action === 'member' && (
+          {action === "member" && (
             <>
               <div className={styles.fieldGroup}>
                 <label htmlFor="qa-member-name" className={styles.fieldLabel}>
@@ -279,9 +266,7 @@ export function QuickActionModal({
                   id="qa-member-perm"
                   value={memberPermission}
                   onChange={(e) =>
-                    setMemberPermission(
-                      e.target.value as 'Owner' | 'Admin' | 'Member'
-                    )
+                    setMemberPermission(e.target.value as "Owner" | "Admin" | "Member")
                   }
                   className={styles.fieldSelect}
                 >
@@ -293,7 +278,7 @@ export function QuickActionModal({
             </>
           )}
 
-          {action === 'document' && (
+          {action === "document" && (
             <>
               <div className={styles.fieldGroup}>
                 <label htmlFor="qa-doc-title" className={styles.fieldLabel}>
@@ -318,11 +303,7 @@ export function QuickActionModal({
                 <select
                   id="qa-doc-cat"
                   value={docFolder}
-                  onChange={(e) =>
-                    setDocFolder(
-                      e.target.value as StartupDocumentItem['folder']
-                    )
-                  }
+                  onChange={(e) => setDocFolder(e.target.value as StartupDocumentItem["folder"])}
                   className={styles.fieldSelect}
                 >
                   <option value="Pitch & Narrative">Pitch &amp; Narrative</option>
@@ -334,7 +315,7 @@ export function QuickActionModal({
             </>
           )}
 
-          {action === 'mentor' && (
+          {action === "mentor" && (
             <>
               <div className={styles.fieldGroup}>
                 <label htmlFor="qa-mentor-topic" className={styles.fieldLabel}>
@@ -362,26 +343,16 @@ export function QuickActionModal({
                   onChange={(e) => setMentorDay(e.target.value)}
                   className={styles.fieldSelect}
                 >
-                  <option value="Next Tuesday · 11:00 AM">
-                    Next Tuesday · 11:00 AM
-                  </option>
-                  <option value="Next Thursday · 3:30 PM">
-                    Next Thursday · 3:30 PM
-                  </option>
-                  <option value="Next Friday · 10:00 AM">
-                    Next Friday · 10:00 AM
-                  </option>
+                  <option value="Next Tuesday · 11:00 AM">Next Tuesday · 11:00 AM</option>
+                  <option value="Next Thursday · 3:30 PM">Next Thursday · 3:30 PM</option>
+                  <option value="Next Friday · 10:00 AM">Next Friday · 10:00 AM</option>
                 </select>
               </div>
             </>
           )}
 
           <div className={styles.modalActions}>
-            <button
-              type="button"
-              onClick={onClose}
-              className={styles.secondaryActionBtn}
-            >
+            <button type="button" onClick={onClose} className={styles.secondaryActionBtn}>
               Cancel
             </button>
             <button type="submit" className={styles.primaryActionBtn}>

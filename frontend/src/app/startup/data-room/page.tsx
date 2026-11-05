@@ -1,3 +1,5 @@
-'use client';
-import InvestorPages from '../investors/InvestorPages';
-export default function Page(){return <InvestorPages view="data-room"/>;}
+"use client";
+import InvestorPages from "../investors/InvestorPages";
+export default function Page() {
+  return <InvestorPages view="data-room" />;
+}

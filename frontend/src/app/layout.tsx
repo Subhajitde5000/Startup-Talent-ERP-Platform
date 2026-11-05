@@ -1,37 +1,52 @@
-import type { Metadata } from 'next';
-import { Inter, Playfair_Display } from 'next/font/google';
-import './globals.css';
-import { ThemeProvider } from '@/components/ThemeProvider';
+import type { Metadata } from "next";
+import localFont from "next/font/local";
+import "./globals.css";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { DialogAccessibility } from "@/components/shared/DialogAccessibility";
 
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-sans',
-  display: 'swap',
-});
-
-const playfair = Playfair_Display({
-  subsets: ['latin'],
-  weight: ['600'],
-  variable: '--font-serif',
-  display: 'swap',
+/*
+ * Fonts are self-hosted so the production build never depends on Google Fonts.
+ * Open Sans is licensed under the Apache License 2.0.
+ */
+const openSans = localFont({
+  src: [
+    {
+      path: "../assets/fonts/OpenSans-Regular.ttf",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/OpenSans-Bold.ttf",
+      weight: "700",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/OpenSans-Italic.ttf",
+      weight: "400",
+      style: "italic",
+    },
+  ],
+  variable: "--font-sans",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: 'Sign in · Meridian — Startup & Talent ERP',
+  title: {
+    default: "Meridian — Startup & Talent ERP",
+    template: "%s · Meridian",
+  },
   description:
-    'Single sign-in for founders, mentors, investors, job seekers, employers and administrators.',
+    "One calm workspace for founders, mentors and investors to plan stages, share evidence and work together.",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
+    <html lang="en" className={openSans.variable}>
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <DialogAccessibility />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

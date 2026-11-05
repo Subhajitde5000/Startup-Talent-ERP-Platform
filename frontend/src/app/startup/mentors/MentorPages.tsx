@@ -1,36 +1,2300 @@
-'use client';
-import React,{FormEvent,useState} from 'react';
-import Link from 'next/link';
-import {useStartupWorkspace} from '@/context/StartupWorkspaceContext';
-import {MentorRequest,Mentorship,MentorSession,ReadinessItem,useMentorWorkspace} from '@/context/MentorWorkspaceContext';
-import {Activity,ArrowLeft,ArrowRight,CalendarDays,Check,CheckCircle2,ChevronDown,Clock3,FileCheck2,FileText,Handshake,Info,LockKeyhole,MapPin,MoreHorizontal,Plus,Search,ShieldCheck,Sparkles,Star,Users,Video,X} from 'lucide-react';
-import styles from './MentorPages.module.css';
-type View='overview'|'find'|'profile'|'requests'|'workspace'|'sessions'|'session'|'readiness'|'billing';
-type Profile={id:string;name:string;title:string;organization:string;focusAreas:string[];location:string;about:string;industries:string[];};
-const needs=['Fundraising','Product','Go-to-market','Finance','Hiring','Legal basics','Technology'];const cadence=['Weekly','Fortnightly','Monthly'];const mkid=(p:string)=>`${p}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;const dateText=(s?:string)=>s?new Date(s.length===10?s+'T12:00:00':s).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):'Not scheduled';const dateTime=(s:string)=>new Date(s).toLocaleString('en-IN',{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});const tone=(s:string)=>s.toLowerCase().replace(/[^a-z]+/g,'-');
-export default function MentorPages({view,mentorId,mentorshipId,sessionId}:{view:View;mentorId?:string;mentorshipId?:string;sessionId?:string}){const {data:startup}=useStartupWorkspace();const {data,setData}=useMentorWorkspace();const [toast,setToast]=useState('');const notify=(s:string)=>{setToast(s);window.setTimeout(()=>setToast(''),3200)};const profile:Profile={id:'preview-mentor',name:startup.mentor.name,title:startup.mentor.title,organization:startup.mentor.organization,focusAreas:startup.mentor.focusAreas,location:'Not available',about:'Illustrative profile content from the startup workspace sample. A verified public biography is not connected.',industries:[startup.startup.industry]};const member=startup.team.find(t=>t.name===startup.startup.founderName);const canEdit=!member||member.permission!=='Viewer';const canManage=!member||['Owner','Admin'].includes(member.permission);const active=data.mentorships.find(m=>m.id===mentorshipId);const session=data.sessions.find(s=>s.id===sessionId);const content=view==='overview'?<Overview profile={profile} canManage={canManage}/>:view==='find'?<Find profile={profile} stage={startup.startup.currentStage} industry={startup.startup.industry} data={data} setData={setData} notify={notify}/>:view==='profile'?mentorId===profile.id?<ProfilePage profile={profile} documents={startup.documents.map(d=>d.title)} canManage={canManage} data={data} setData={setData} notify={notify}/>:<NotFound title="Mentor profile unavailable" text="This record is not in the local preview directory."/>:view==='requests'?<Requests data={data} setData={setData} canManage={canManage} notify={notify}/>:view==='workspace'?active?<Workspace mentoring={active} data={data} setData={setData} canEdit={canEdit} canManage={canManage} notify={notify}/>:<NotFound title="Mentorship workspace not found" text="A workspace opens after a mentor accepts a request. No accepted mentorships are saved here yet." action="View requests" href="/startup/mentors/requests"/>:view==='sessions'?<Sessions data={data} setData={setData} canManage={canManage} notify={notify}/>:view==='session'?session?<SessionDetail session={session} setData={setData} canEdit={canEdit} notify={notify}/>:<NotFound title="Session not found" text="Only sessions saved in this browser have details." action="View sessions" href="/startup/sessions"/>:view==='readiness'?<Readiness items={data.readiness} data={data} setData={setData} canEdit={canEdit} canManage={canManage} team={startup.team.map(t=>t.name)} notify={notify}/>:view==='billing'?active?<Billing mentoring={active}/>:<NotFound title="Agreement not found" text="Billing records require an accepted mentorship; no payment service is connected." action="Mentors" href="/startup/mentors"/>:<NotFound title="Page not found" text="This mentor page is unavailable."/>;return <div className={styles.page}><a className={styles.skip} href="#mentor-main">Skip to mentor content</a>{content}{toast&&<div className={styles.toast} role="status"><CheckCircle2 size={15}/>{toast}<button onClick={()=>setToast('')} aria-label="Dismiss"><X size={14}/></button></div>}</div>}
-function Header({title,subtitle,children}:{title:string;subtitle:string;children?:React.ReactNode}){return <header className={styles.header}><div><span className={styles.eyebrow}>Startup workspace · Mentorship</span><h1>{title}</h1><p>{subtitle}</p></div><div className={styles.headerActions}>{children}</div></header>}
-function CardTitle({title,subtitle,children}:{title:string;subtitle?:string;children?:React.ReactNode}){return <div className={styles.cardTitle}><div><h2>{title}</h2>{subtitle&&<p>{subtitle}</p>}</div>{children}</div>}
-function Chip({children,t='neutral',tone:given}:{children:React.ReactNode;t?:string;tone?:string}){const value=given||t;return <span className={`${styles.chip} ${styles['tone-'+tone(value)]||''}`}>{children}</span>}
-function Note({children,warning=false,tone:given}:{children:React.ReactNode;warning?:boolean;tone?:string}){const isWarning=warning||given==='warning';return <div className={`${styles.note} ${isWarning?styles.noteWarning:''}`}><Info size={15}/><span>{children}</span></div>}
-function Preview(){return <div className={styles.previewLabel}><Sparkles size={13}/> Illustrative sample profile only · verification, messaging, booking, payments and sign-off services are not connected.</div>}
-function Empty({title,detail,action,href}:{title:string;detail:string;action?:string;href?:string}){return <div className={styles.empty}><span className={styles.emptyIcon}><Handshake size={19}/></span><strong>{title}</strong><p>{detail}</p>{action&&href&&<Link className={styles.secondaryButton} href={href}><ArrowRight size={13}/>{action}</Link>}</div>}
-function NotFound({title,text,action,href}:{title:string;text:string;action?:string;href?:string}){return <><Header title={title} subtitle={text}/>{action&&href&&<Link className={styles.secondaryButton} href={href}><ArrowLeft size={14}/>{action}</Link>}</>}
-function ReadOnly(){return <Note warning>Read-only access. Ask an Owner or Admin to manage mentorship settings.</Note>}
-function Signoff({items}:{items:ReadinessItem[]}){const n=items.filter(i=>i.status==='Signed off').length;return <Link className={styles.signoffCard} href="/startup/readiness"><div><span>Mentor sign-offs</span><strong>{n} of {items.length} items signed off</strong></div><div className={styles.progress}><i style={{width:`${items.length?n/items.length*100:0}%`}}/></div><small>No numeric readiness score is calculated.</small><ArrowRight size={14}/></Link>}
-function initials(n:string){return n.replace(/^Dr\.\s*/i,'').split(/\s+/).map(v=>v[0]).slice(0,2).join('').toUpperCase()}
-function Expert({items}:{items:string[]}){return <div className={styles.tags}>{items.map(s=><span key={s}>{s}</span>)}</div>}
-function Overview({profile,canManage}:{profile:Profile;canManage:boolean}){const {data}=useMentorWorkspace();const {data:startup}=useStartupWorkspace();const active=data.mentorships.filter(m=>m.status==='Active');const tasks=startup.tasks.filter(t=>t.mentorDeliverable&&t.status!=='completed');const pending=data.requests.filter(r=>r.status==='Requested');const next=data.sessions.filter(s=>['Scheduled','Confirmed'].includes(s.status)).sort((a,b)=>a.date.localeCompare(b.date))[0];return <><Header title="Mentors" subtitle="Find guidance, manage mentorship requests and track mentor sign-offs."><Link className={styles.primaryButton} href="/startup/mentors/find"><Search size={14}/> Find a mentor</Link><Link className={styles.secondaryButton} href="/startup/mentors/requests">My requests <ArrowRight size={13}/></Link></Header><Preview/><section className={styles.stats}>{[['Active mentors',active.length,'Accepted local mentorships'],['Sessions held',data.sessions.filter(s=>s.status==='Completed').length,'Completed local records'],['Deliverables due',tasks.length,'Tasks marked mentor deliverable'],['Sign-offs',`${data.readiness.filter(i=>i.status==='Signed off').length} / ${data.readiness.length}`,'Mentor-reviewed checklist items']].map(r=><div key={String(r[0])}><span>{r[0]}</span><strong>{r[1]}</strong><small>{r[2]}</small></div>)}</section><div className={styles.overviewGrid}><main id="mentor-main" className={styles.mainColumn}><section className={styles.card}><CardTitle title="My mentors" subtitle="Only accepted mentorships appear as active."/>{active.length?active.map(m=><div className={styles.mentorshipCard} key={m.id}><span className={styles.avatar}>{initials(m.mentorName)}</span><div><strong>{m.mentorName}</strong><Chip t={m.status}>{m.status}</Chip><small>{m.focusAreas.join(' · ')}</small><Link className={styles.textLink} href={`/startup/mentors/${m.id}`}>Open workspace <ArrowRight size={12}/></Link></div></div>):<Empty title="No active mentorships recorded." detail="The sample mentor profile is not an accepted or verified connection." action="Find mentors" href="/startup/mentors/find"/>}</section><Signoff items={data.readiness}/><section className={styles.card}><CardTitle title="Readiness checklist" subtitle="Preparation is separate from mentor sign-off."/>{data.readiness.slice(0,5).map(i=><div className={styles.simpleRow} key={i.id}><span>{i.status==='Signed off'?<CheckCircle2 size={15}/>:<span className={styles.dot}/>}</span><span><strong>{i.title}</strong><small>{i.status}</small></span></div>)}<Link className={styles.textLink} href="/startup/readiness">Open readiness <ArrowRight size={12}/></Link></section><section className={styles.card}><CardTitle title="Deliverables due" subtitle="From tasks marked as mentor deliverable."/>{tasks.length?tasks.slice(0,5).map(t=><div className={styles.simpleRow} key={t.id}><FileCheck2 size={15}/><span><strong>{t.title}</strong><small>{t.dueLabel} · {t.owner}</small></span><Link href={t.moduleHref||'/startup/tasks'}>Open</Link></div>):<p className={styles.inlineEmpty}>No open mentor deliverables.</p>}<Link className={styles.textLink} href="/startup/tasks">Open task hub <ArrowRight size={12}/></Link></section></main><aside className={styles.sideColumn}><section className={styles.card}><CardTitle title="Next session" subtitle="Locally saved scheduled records."/>{next?<><strong>{next.topic}</strong><p>{next.mentorName} · {dateTime(next.date)}</p><Link className={styles.secondaryButton} href={`/startup/sessions/${next.id}`}>View session</Link></>:<p className={styles.inlineEmpty}>No session booked here.</p>}<Link className={styles.textLink} href="/startup/sessions">Sessions <ArrowRight size={12}/></Link></section><section className={styles.card}><CardTitle title="Open requests"/>{pending.length?pending.slice(0,3).map(r=><div className={styles.simpleRow} key={r.id}><span><strong>{r.mentorName}</strong><small>{r.goal.slice(0,80)}…</small></span><Chip t="Requested">Requested</Chip></div>):<p className={styles.inlineEmpty}>No pending requests.</p>}<Link className={styles.textLink} href="/startup/mentors/requests">View requests</Link></section><section className={styles.card}><CardTitle title="Stage tip"/><p>{startup.startup.currentStage==='idea'?'At Idea stage, consider customer discovery and problem validation.':'Consider seeking advice on validating assumptions relevant to your current stage.'}</p><small className={styles.caption}>General guidance only · not a personalized mentor match.</small></section><section className={styles.card}><CardTitle title="Readiness status"/><strong>Not assessed</strong><p className={styles.caption}>No score or badge is inferred without verified sign-offs.</p></section></aside></div>{!canManage&&<Note warning>Read-only access. Ask an Owner or Admin to manage requests.</Note>}</>}
-function Find({profile,stage,industry,data,setData,notify}:{profile:Profile;stage:string;industry:string;data:ReturnType<typeof useMentorWorkspace>['data'];setData:ReturnType<typeof useMentorWorkspace>['setData'];notify:(s:string)=>void}){const [q,setQ]=useState('');const [filter,setFilter]=useState('All expertise');const [autoOpen,setAutoOpen]=useState(false);const [matchNeeds,setMatchNeeds]=useState<string[]>([]);const [budget,setBudget]=useState('Not set');const [preferredCadence,setPreferredCadence]=useState('Fortnightly');const saved=data.savedMentorIds.includes(profile.id);const match=!q||profile.name.toLowerCase().includes(q.toLowerCase())||profile.focusAreas.some(x=>x.toLowerCase().includes(q.toLowerCase()));return <><Header title="Find mentors" subtitle="Explore profile previews and decide whether to send a request."><Link className={styles.secondaryButton} href="/startup/mentors"><ArrowLeft size={13}/> Overview</Link><button className={styles.secondaryButton} onClick={()=>setAutoOpen(true)}><Sparkles size={14}/> Auto-match me</button></Header><Preview/><Note warning>No live mentor directory or verification feed is connected. No price, rating or availability is presented as live.</Note><div className={styles.findLayout}><aside className={styles.card}><CardTitle title="Filters"/><label className={styles.field}>Expertise<select value={filter} onChange={e=>setFilter(e.target.value)}><option>All expertise</option>{needs.map(x=><option key={x}>{x}</option>)}</select></label><label className={styles.field}>Industry<input readOnly value={industry}/></label><label className={styles.field}>Startup stage<input readOnly value={stage.replace('-',' ')}/></label><label className={styles.field}>Language<select><option>All languages · not connected</option></select></label><label className={styles.field}>Availability<select><option>Calendar not connected</option></select></label><label className={styles.checkRow}><input type="checkbox"/> Verified profiles only</label></aside><main id="mentor-main" className={styles.results}><label className={styles.search}><Search size={15}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search name or expertise"/></label>{match&&(filter==='All expertise'||profile.focusAreas.some(x=>x.toLowerCase().includes(filter.toLowerCase())))?<article className={styles.profileCard}><div className={styles.profileTop}><span className={styles.avatarLarge}>{initials(profile.name)}</span><div><h2>{profile.name}</h2><p>{profile.title} · {profile.organization}</p><Chip>Preview · not verified</Chip></div></div><p>{profile.about}</p><Expert items={profile.focusAreas}/><p className={styles.inlineEmpty}>Rating unavailable · pricing not connected · calendar not connected</p><small>Potential topic overlap only; no match score computed.</small><div className={styles.profileFooter}><button className={styles.secondaryButton} onClick={()=>setData(d=>({...d,savedMentorIds:saved?d.savedMentorIds.filter(i=>i!==profile.id):[...d.savedMentorIds,profile.id]}))}>{saved?'Saved':'Save profile'}</button><Link className={styles.primaryButton} href={`/startup/mentors/find/${profile.id}`}>View profile <ArrowRight size={13}/></Link></div></article>:<Empty title="No profile matches these filters." detail="Clear the search or choose all expertise. The live directory is not connected."/>}<p className={styles.caption}>One illustrative profile preview · no recommendation service used.</p></main></div>{autoOpen&&<div className={styles.backdrop}><section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="auto-match-title"><header><div><span className={styles.eyebrow}>Auto-match · preview only</span><h2 id="auto-match-title">What would you like help with?</h2><p>Choose up to three needs. No request will be sent.</p></div><button className={styles.iconButton} onClick={()=>setAutoOpen(false)} aria-label="Close"><X/></button></header><div className={styles.modalBody}><div className={styles.miniFact}><span>Stage</span><strong>{stage.replace('-',' ')}</strong></div><div className={styles.miniFact}><span>Industry</span><strong>{industry}</strong></div><div className={styles.needGrid}>{needs.map(n=><button type="button" key={n} className={matchNeeds.includes(n)?styles.needSelected:styles.need} onClick={()=>setMatchNeeds(v=>v.includes(n)?v.filter(x=>x!==n):v.length<3?[...v,n]:v)}>{matchNeeds.includes(n)&&<Check size={12}/>} {n}</button>)}</div><label className={styles.field}>Budget preference<select value={budget} onChange={e=>setBudget(e.target.value)}><option>Not set</option><option>Free / pro bono</option><option>Paid · decide later</option></select></label><label className={styles.field}>Preferred cadence<select value={preferredCadence} onChange={e=>setPreferredCadence(e.target.value)}>{cadence.map(x=><option key={x}>{x}</option>)}</select></label><Note warning>The only profile available here is an illustrative sample. Matching and verification services are not connected.</Note><footer><button className={styles.secondaryButton} onClick={()=>setAutoOpen(false)}>Cancel</button><button className={styles.primaryButton} onClick={()=>{setAutoOpen(false);notify('Preview match: sample mentor focus areas only. No recommendation service was called.')}}>Preview matches</button></footer></div></section></div>}</>}
-function ProfilePage({profile,documents,canManage,data,setData,notify}:{profile:Profile;documents:string[];canManage:boolean;data:ReturnType<typeof useMentorWorkspace>['data'];setData:ReturnType<typeof useMentorWorkspace>['setData'];notify:(s:string)=>void}){const [request,setRequest]=useState(false);const [report,setReport]=useState(false);const [saved,setSaved]=useState(data.savedMentorIds.includes(profile.id));return <><Header title={profile.name} subtitle={`${profile.title} · ${profile.organization}`}><Link className={styles.secondaryButton} href="/startup/mentors/find"><ArrowLeft size={14}/> Find mentors</Link></Header><Preview/><div className={styles.detailLayout}><main id="mentor-main" className={styles.mainColumn}><section className={styles.card}><div className={styles.profileTop}><span className={styles.avatarXL}>{initials(profile.name)}</span><div><h2>{profile.name}</h2><Chip>Verification unavailable</Chip><p>{profile.title} · {profile.organization}</p><p><MapPin size={13}/> Location unavailable · Reviews unavailable</p><Expert items={profile.focusAreas}/></div></div></section><section className={styles.card}><CardTitle title="About"/><p>{profile.about}</p><Note warning>This is not a verified public biography. Admin verification and mentor consent are not connected.</Note></section><section className={styles.card}><CardTitle title="Experience & reviews"/><Empty title="No verified experience or reviews." detail="Credentials, past outcomes and ratings are not connected."/></section><section className={styles.card}><CardTitle title="Availability"/><Empty title="Calendar availability not connected." detail="No open slots can be displayed or booked."/></section></main><aside className={styles.sideColumn}><section className={styles.card}><CardTitle title="Pricing & terms"/><p>Pricing not listed · packages unavailable · equity terms not stated.</p><Note warning>Confirm fees and terms directly. Nothing is agreed through this preview.</Note><button className={styles.primaryButton} disabled={!canManage||data.requests.filter(r=>r.status==='Requested').length>=3} onClick={()=>setRequest(true)}>{data.requests.filter(r=>r.status==='Requested').length>=3?'3 requests pending':'Request mentorship'} <ArrowRight size={13}/></button><button className={styles.secondaryButton} onClick={()=>{const next=!saved;setSaved(next);setData(d=>({...d,savedMentorIds:next?[...d.savedMentorIds,profile.id]:d.savedMentorIds.filter(x=>x!==profile.id)}))}}>{saved?'Saved':'Save profile'}</button><button className={styles.secondaryButton} onClick={()=>notify('Calendar is not connected; no booking was made.')}>Book intro call</button><button className={styles.textButton} onClick={()=>setReport(true)}>Report profile</button></section></aside></div>{request&&<RequestModal profile={profile} documents={documents} close={()=>setRequest(false)} submit={r=>{setData(d=>({...d,requests:[r,...d.requests]}));setRequest(false);notify('Request saved in this browser; the mentor has not been notified.')}}/>}{report&&<div className={styles.backdrop}><section className={styles.modal}><header><h2>Report profile</h2><button onClick={()=>setReport(false)} aria-label="Close"><X/></button></header><p>No admin safety queue is connected. The report will not be sent.</p><button className={styles.primaryButton} onClick={()=>{setReport(false);notify('Report saved locally only.')}}>Acknowledge</button></section></div>}</>}
-function RequestModal({profile,documents,close,submit}:{profile:Profile;documents:string[];close:()=>void;submit:(r:MentorRequest)=>void}){const {data:startup}=useStartupWorkspace();const [goal,setGoal]=useState('');const [selected,setSelected]=useState<string[]>([]);const [shared,setShared]=useState<string[]>([]);const [message,setMessage]=useState('');const [term,setTerm]=useState('Fees not listed · confirm directly');const [equity,setEquity]=useState('No equity proposed');const [freq,setFreq]=useState('Fortnightly');const [duration,setDuration]=useState('3 months');const [error,setError]=useState('');return <div className={styles.backdrop}><section className={styles.modal} role="dialog" aria-modal="true"><header><div><span className={styles.eyebrow}>Local draft only</span><h2>Request {profile.name}</h2><p>No notification will be sent.</p></div><button className={styles.iconButton} onClick={close}><X/></button></header><form className={styles.modalBody} onSubmit={e=>{e.preventDefault();if(goal.trim().length<20){setError('Describe your goal in at least 20 characters.');return;}submit({id:mkid('request'),mentorId:profile.id,mentorName:profile.name,goal:goal.trim(),needs:selected,cadence:freq,duration,documents:shared,message,feeTerms:term,equityTerms:equity,status:'Requested',createdAt:new Date().toISOString(),lastActivity:'Saved locally'})}}><label className={styles.field}>Goal<textarea required minLength={20} maxLength={500} rows={4} value={goal} onChange={e=>setGoal(e.target.value)} placeholder="What outcome would you like help with?"/></label><span className={styles.labelText}>Choose up to three needs</span><div className={styles.needGrid}>{needs.map(n=><button type="button" key={n} className={selected.includes(n)?styles.needSelected:styles.need} onClick={()=>setSelected(v=>v.includes(n)?v.filter(x=>x!==n):v.length<3?[...v,n]:v)}>{selected.includes(n)&&<Check size={12}/>} {n}</button>)}</div><div className={styles.formGrid}><label className={styles.field}>Cadence<select value={freq} onChange={e=>setFreq(e.target.value)}>{cadence.map(x=><option key={x}>{x}</option>)}</select></label><label className={styles.field}>Duration<select value={duration} onChange={e=>setDuration(e.target.value)}><option>3 months</option><option>1 month</option><option>6 months</option><option>To be agreed</option></select></label></div><label className={styles.field}>Documents to share<select multiple value={shared} onChange={e=>setShared(Array.from(e.target.selectedOptions,o=>o.value))}>{documents.map(x=><option key={x}>{x}</option>)}</select></label><label className={styles.field}>Message<textarea rows={3} value={message} onChange={e=>setMessage(e.target.value)} placeholder={`Introduce ${startup.startup.name}…`}/></label><label className={styles.field}>Proposed fee terms<input value={term} onChange={e=>setTerm(e.target.value)}/></label><label className={styles.field}>Equity / advisory proposal<input value={equity} onChange={e=>setEquity(e.target.value)}/></label><Note warning>Pricing and equity are not connected. No terms are agreed until both parties review them.</Note>{error&&<p role="alert" className={styles.errorText}>{error}</p>}<footer><button type="button" className={styles.secondaryButton} onClick={close}>Cancel</button><button className={styles.primaryButton}>Save request</button></footer></form></section></div>}
-function Requests({data,setData,canManage,notify}:{data:ReturnType<typeof useMentorWorkspace>['data'];setData:ReturnType<typeof useMentorWorkspace>['setData'];canManage:boolean;notify:(s:string)=>void}){const [tab,setTab]=useState('Sent');const [selected,setSelected]=useState<MentorRequest|null>(null);const list=tab==='Sent'?data.requests.filter(r=>r.status==='Requested'):tab==='Past'?data.requests.filter(r=>r.status!=='Requested'):[];return <><Header title="Mentorship requests" subtitle="Track requests saved locally. Mentor replies and invitations are not synced."><Link className={styles.secondaryButton} href="/startup/mentors/find"><Search size={14}/> Find mentors</Link></Header><Note>Requests are local records. No mentor or admin notification has been sent.</Note><nav className={styles.tabs}>{['Sent','Received','Past'].map(t=><button className={tab===t?styles.tabActive:styles.tab} key={t} onClick={()=>setTab(t)}>{t}</button>)}</nav><section id="mentor-main" className={styles.card}>{list.length?list.map(r=><article className={styles.requestRow} key={r.id}><span className={styles.avatar}>{initials(r.mentorName)}</span><div className={styles.requestInfo}><strong>{r.mentorName}</strong><small>{dateText(r.createdAt.slice(0,10))} · {r.cadence} · {r.duration}</small><p>{r.goal}</p></div><Chip t={r.status}>{r.status}</Chip><button className={styles.textButton} onClick={()=>setSelected(r)}>Details</button>{r.status==='Requested'&&<button className={styles.textButton} disabled={!canManage} onClick={()=>{setData(d=>({...d,requests:d.requests.map(x=>x.id===r.id?{...x,status:'Withdrawn',lastActivity:'Withdrawn locally'}:x)}));notify('Request withdrawn locally; no notification sent.')}}>Withdraw</button>}</article>):<Empty title={tab==='Received'?'No invitations received.':'No requests in this view.'} detail={tab==='Received'?'Mentor invitations are not connected.':'Review a profile and save a request to track it here.'} action={tab==='Sent'?'Find mentors':undefined} href="/startup/mentors/find"/>}</section>{selected&&<div className={styles.backdrop}><section className={styles.modal} role="dialog" aria-modal="true"><header><h2>{selected.mentorName} · Request details</h2><button onClick={()=>setSelected(null)}><X/></button></header><div className={styles.modalBody}><p><b>Status:</b> {selected.status}</p><p><b>Goal:</b> {selected.goal}</p><p><b>Needs:</b> {selected.needs.join(', ')||'None selected'}</p><p><b>Documents:</b> {selected.documents.join(', ')||'None'}</p><p><b>Terms:</b> {selected.feeTerms} · {selected.equityTerms}</p><Note>Responses, counter-terms and audit events are not connected.</Note><button className={styles.secondaryButton} onClick={()=>setSelected(null)}>Close</button></div></section></div>}</>}
-function Workspace({mentoring,data,setData,canEdit,canManage,notify}:{mentoring:Mentorship;data:ReturnType<typeof useMentorWorkspace>['data'];setData:ReturnType<typeof useMentorWorkspace>['setData'];canEdit:boolean;canManage:boolean;notify:(s:string)=>void}){const [tab,setTab]=useState('Overview');const [goal,setGoal]=useState('');const [note,setNote]=useState(mentoring.notes);const {data:startup}=useStartupWorkspace();const sessions=data.sessions.filter(s=>s.mentorshipId===mentoring.id);const update=(p:Partial<Mentorship>)=>setData(d=>({...d,mentorships:d.mentorships.map(m=>m.id===mentoring.id?{...m,...p}:m)}));return <><Header title={`Mentor workspace · ${mentoring.mentorName}`} subtitle={`${mentoring.status} · Started ${dateText(mentoring.startedAt)} · ${mentoring.cadence}`}><Link className={styles.secondaryButton} href="/startup/mentors">Overview</Link><Link className={styles.secondaryButton} href={`/startup/mentors/${mentoring.id}/billing`}>Agreements & billing</Link><Link className={styles.primaryButton} href="/startup/sessions">Book session <CalendarDays size={13}/></Link><details className={styles.menu}><summary><MoreHorizontal/></summary><div><button onClick={()=>{update({status:mentoring.status==='Paused'?'Active':'Paused'});notify('Mentorship status changed locally; no one was notified.')}}>{mentoring.status==='Paused'?'Resume':'Pause'}</button><button onClick={()=>{update({status:'Completed'});notify('Mentorship ended locally; access control is not connected.')}}>End mentorship</button></div></details></Header><Preview/><section className={styles.workspaceHero}><span className={styles.avatarLarge}>{initials(mentoring.mentorName)}</span><div><span className={styles.eyebrow}>Mentor partnership</span><h2>{mentoring.mentorName}</h2><p>{mentoring.focusAreas.join(' · ')}</p></div><Chip t={mentoring.status}>{mentoring.status}</Chip></section><Signoff items={data.readiness}/><nav className={styles.tabs}>{['Overview','Plan','Sessions','Deliverables','Notes','Files','Messages'].map(t=><button className={tab===t?styles.tabActive:styles.tab} key={t} onClick={()=>setTab(t)}>{t}</button>)}</nav><section id="mentor-main" className={styles.card}>{tab==='Overview'?<><CardTitle title="Partnership overview" subtitle="Plan and notes saved locally."/><div className={styles.twoColumn}><div className={styles.metricBox}><span>Goals completed</span><strong>{mentoring.goals.filter(g=>g.status==='Done').length} / {mentoring.goals.length}</strong></div><div className={styles.metricBox}><span>Sessions held</span><strong>{sessions.filter(s=>s.status==='Completed').length}</strong></div></div><h3>Assigned readiness items</h3>{data.readiness.filter(i=>i.mentorName===mentoring.mentorName).map(i=><p key={i.id}>{i.title} · {i.status}</p>)}<Link className={styles.textLink} href="/startup/readiness">Open checklist</Link></>:tab==='Plan'?<><CardTitle title="Goals and cadence"/><p>{mentoring.cadence} · {mentoring.duration}</p><form className={styles.inlineForm} onSubmit={e=>{e.preventDefault();if(goal.trim()){update({goals:[...mentoring.goals,{id:mkid('goal'),title:goal,description:'',targetDate:'',successMeasure:'',owner:startup.startup.founderName,status:'To do'}]});setGoal('')}}}><input value={goal} onChange={e=>setGoal(e.target.value)} placeholder="Add a goal"/><button className={styles.primaryButton} disabled={!canEdit||!goal.trim()}><Plus size={13}/> Add</button></form>{mentoring.goals.map(g=><div className={styles.goalRow} key={g.id}><span><strong>{g.title}</strong><small>Owner: {g.owner} · Target: {dateText(g.targetDate)}</small></span><select disabled={!canEdit} value={g.status} onChange={e=>update({goals:mentoring.goals.map(x=>x.id===g.id?{...x,status:e.target.value as typeof x.status}:x)})}><option>To do</option><option>In progress</option><option>Done</option></select></div>)}</>:tab==='Sessions'?sessions.length?sessions.map(s=><SessionLink key={s.id} session={s}/>):<Empty title="No sessions recorded." detail="A calendar service is needed for real bookings." action="Open sessions" href="/startup/sessions"/>:tab==='Deliverables'?<>{startup.tasks.filter(t=>t.mentorDeliverable).map(t=><div className={styles.simpleRow} key={t.id}><span><strong>{t.title}</strong><small>{t.owner} · {t.dueLabel} · {t.mentorStatus}</small></span><Link href={t.moduleHref||'/startup/tasks'}>Open</Link></div>)}<Link className={styles.textLink} href="/startup/tasks">Task hub</Link></>:tab==='Notes'?<><label className={styles.field}>Shared notes<textarea rows={7} value={note} onChange={e=>setNote(e.target.value)}/></label><button className={styles.primaryButton} disabled={!canEdit} onClick={()=>{update({notes:note});notify('Note saved locally.')}}>Save notes</button></>:tab==='Files'?<Empty title="No files shared." detail="Data-room permissions and audit logs are not connected." action="Open data room" href="/startup/data-room"/>:<Empty title="Mentor messaging is not connected." detail="No message has been delivered; use an agreed external channel."/>}</section><div className={styles.twoColumn}><section className={styles.card}><CardTitle title="Permissions"/><p>Mentors should see only readiness and files you explicitly share. Access revocation is not connected.</p><Chip>Access control unavailable</Chip></section><section className={styles.card}><CardTitle title="Agreements"/><p>No fees, commission or signed terms are stored.</p><Link className={styles.textLink} href={`/startup/mentors/${mentoring.id}/billing`}>View billing</Link></section></div>{!canManage&&<Note>Read-only access. Ask an Owner or Admin to change this workspace.</Note>}</>}
-function SessionLink({session}:{session:MentorSession}){return <Link className={styles.sessionRow} href={`/startup/sessions/${session.id}`}><CalendarDays size={15}/><span><strong>{session.topic}</strong><small>{dateTime(session.date)} · {session.duration} min</small></span><Chip t={session.status}>{session.status}</Chip></Link>}
-function Sessions({data,setData,canManage,notify}:{data:ReturnType<typeof useMentorWorkspace>['data'];setData:ReturnType<typeof useMentorWorkspace>['setData'];canManage:boolean;notify:(s:string)=>void}){const {data:startup}=useStartupWorkspace();const active=data.mentorships.filter(m=>m.status==='Active');const [tab,setTab]=useState('Upcoming');const [show,setShow]=useState(false);const [form,setForm]=useState({mentorshipId:'',topic:'',date:'',duration:'45',agenda:''});const [error,setError]=useState('');const upcoming=data.sessions.filter(s=>['Scheduled','Confirmed','Reschedule requested'].includes(s.status)&&new Date(s.date).getTime()>=Date.now());const past=data.sessions.filter(s=>!upcoming.includes(s));const book=(e:FormEvent)=>{e.preventDefault();const m=active.find(x=>x.id===form.mentorshipId);const d=new Date(form.date);if(!m||!form.topic||!form.date){setError('Select an active mentorship, topic and time.');return}if(d.getTime()<Date.now()+12*3600000){setError('Select a time at least 12 hours from now.');return}const s:MentorSession={id:mkid('session'),mentorshipId:m.id,mentorId:m.mentorId,mentorName:m.mentorName,topic:form.topic,date:d.toISOString(),duration:+form.duration,status:'Scheduled',attendees:[startup.startup.founderName],agenda:form.agenda,notes:'',actions:'',rating:null,feedback:'',timezone:'Asia/Kolkata',recordingConsent:false,paymentStatus:'Not connected'};setData(x=>({...x,sessions:[s,...x.sessions]}));setShow(false);notify('Session saved locally; no calendar invitation or video link created.');};return <><Header title="Mentor sessions" subtitle="Review and schedule sessions. Calendar, video, recording and payment services are not connected."><button className={styles.primaryButton} disabled={!canManage||!active.length} onClick={()=>setShow(!show)}><Plus size={14}/> Book session</button></Header><Signoff items={data.readiness}/>{!active.length&&<Note warning>Booking is available after a mentor accepts a request. No active mentorship is recorded.</Note>}<nav className={styles.tabs}>{['Upcoming','Past','Calendar'].map(t=><button className={tab===t?styles.tabActive:styles.tab} key={t} onClick={()=>setTab(t)}>{t}</button>)}</nav>{show&&<form className={styles.card} onSubmit={book}><CardTitle title="Book a session" subtitle="Local record only; no invitation will be sent."/><div className={styles.formGrid}><label className={styles.field}>Mentorship<select value={form.mentorshipId} onChange={e=>setForm({...form,mentorshipId:e.target.value})}><option value="">Select mentor</option>{active.map(m=><option key={m.id} value={m.id}>{m.mentorName}</option>)}</select></label><label className={styles.field}>Topic<input value={form.topic} onChange={e=>setForm({...form,topic:e.target.value})}/></label><label className={styles.field}>Start time<input type="datetime-local" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></label><label className={styles.field}>Duration<select value={form.duration} onChange={e=>setForm({...form,duration:e.target.value})}>{['30','45','60'].map(n=><option key={n}>{n}</option>)}</select></label><label className={styles.field}>Agenda<textarea value={form.agenda} onChange={e=>setForm({...form,agenda:e.target.value})}/></label></div><Note>Recording is off by default. Fees and free cancellation terms are not connected.</Note>{error&&<p className={styles.errorText}>{error}</p>}<button className={styles.primaryButton}>Save session locally</button></form>}{tab==='Calendar'?<section className={styles.card}><CardTitle title="Calendar" subtitle="Mentor availability not connected."/>{data.sessions.length?data.sessions.map(s=><SessionLink key={s.id} session={s}/>):<Empty title="No sessions on the calendar." detail="No sample sessions are preloaded."/>}</section>:<section id="mentor-main" className={styles.card}>{(tab==='Upcoming'?upcoming:past).length?(tab==='Upcoming'?upcoming:past).map(s=><div className={styles.sessionCard} key={s.id}><span><CalendarDays size={14}/><strong>{dateText(s.date.slice(0,10))}</strong><small>{dateTime(s.date)}</small></span><div><strong>{s.topic}</strong><small>{s.mentorName} · {s.duration} min</small><Chip t={s.status}>{s.status}</Chip></div><div><Link className={styles.textLink} href={`/startup/sessions/${s.id}`}>Details</Link>{['Scheduled','Confirmed'].includes(s.status)&&<><button className={styles.textButton} onClick={()=>{setData(d=>({...d,sessions:d.sessions.map(x=>x.id===s.id?{...x,status:'Reschedule requested'}:x)}));notify('Reschedule request saved locally; mentor not notified.')}}>Reschedule</button><button className={styles.textButton} onClick={()=>setData(d=>({...d,sessions:d.sessions.map(x=>x.id===s.id?{...x,status:'Cancelled'}:x)}))}>Cancel</button></>}</div></div>):<Empty title="No sessions in this view." detail="Only locally saved sessions for accepted mentorships appear here." action={!active.length?'Find mentors':undefined} href={!active.length?'/startup/mentors/find':undefined}/>}</section>}</>}
+"use client";
+import { initials } from "@/utils/formatters";
+import React, { FormEvent, useState } from "react";
+import Link from "next/link";
+import { useStartupWorkspace } from "@/context/StartupWorkspaceContext";
+import {
+  MentorRequest,
+  Mentorship,
+  MentorSession,
+  ReadinessItem,
+  useMentorWorkspace,
+} from "@/context/MentorWorkspaceContext";
+import {
+  Activity,
+  ArrowLeft,
+  ArrowRight,
+  CalendarDays,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Clock3,
+  FileCheck2,
+  FileText,
+  Handshake,
+  Info,
+  LockKeyhole,
+  MapPin,
+  MoreHorizontal,
+  Plus,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Users,
+  Video,
+  X,
+} from "lucide-react";
+import styles from "./MentorPages.module.css";
+type View =
+  | "overview"
+  | "find"
+  | "profile"
+  | "requests"
+  | "workspace"
+  | "sessions"
+  | "session"
+  | "readiness"
+  | "billing";
+type Profile = {
+  id: string;
+  name: string;
+  title: string;
+  organization: string;
+  focusAreas: string[];
+  location: string;
+  about: string;
+  industries: string[];
+};
+const needs = [
+  "Fundraising",
+  "Product",
+  "Go-to-market",
+  "Finance",
+  "Hiring",
+  "Legal basics",
+  "Technology",
+];
+const cadence = ["Weekly", "Fortnightly", "Monthly"];
+const mkid = (p: string) => `${p}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+const dateText = (s?: string) =>
+  s
+    ? new Date(s.length === 10 ? s + "T12:00:00" : s).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "Not scheduled";
+const dateTime = (s: string) =>
+  new Date(s).toLocaleString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+const tone = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
+export default function MentorPages({
+  view,
+  mentorId,
+  mentorshipId,
+  sessionId,
+}: {
+  view: View;
+  mentorId?: string;
+  mentorshipId?: string;
+  sessionId?: string;
+}) {
+  const { data: startup } = useStartupWorkspace();
+  const { data, setData } = useMentorWorkspace();
+  const [toast, setToast] = useState("");
+  const notify = (s: string) => {
+    setToast(s);
+    window.setTimeout(() => setToast(""), 3200);
+  };
+  const profile: Profile = {
+    id: "preview-mentor",
+    name: startup.mentor.name,
+    title: startup.mentor.title,
+    organization: startup.mentor.organization,
+    focusAreas: startup.mentor.focusAreas,
+    location: "Not available",
+    about:
+      "Illustrative profile content from the startup workspace sample. A verified public biography is not connected.",
+    industries: [startup.startup.industry],
+  };
+  const member = startup.team.find((t) => t.name === startup.startup.founderName);
+  const canEdit = !member || member.permission !== "Viewer";
+  const canManage = !member || ["Owner", "Admin"].includes(member.permission);
+  const active = data.mentorships.find((m) => m.id === mentorshipId);
+  const session = data.sessions.find((s) => s.id === sessionId);
+  const content =
+    view === "overview" ? (
+      <Overview profile={profile} canManage={canManage} />
+    ) : view === "find" ? (
+      <Find
+        profile={profile}
+        stage={startup.startup.currentStage}
+        industry={startup.startup.industry}
+        data={data}
+        setData={setData}
+        notify={notify}
+      />
+    ) : view === "profile" ? (
+      mentorId === profile.id ? (
+        <ProfilePage
+          profile={profile}
+          documents={startup.documents.map((d) => d.title)}
+          canManage={canManage}
+          data={data}
+          setData={setData}
+          notify={notify}
+        />
+      ) : (
+        <NotFound
+          title="Mentor profile unavailable"
+          text="This record is not in the local preview directory."
+        />
+      )
+    ) : view === "requests" ? (
+      <Requests data={data} setData={setData} canManage={canManage} notify={notify} />
+    ) : view === "workspace" ? (
+      active ? (
+        <Workspace
+          mentoring={active}
+          data={data}
+          setData={setData}
+          canEdit={canEdit}
+          canManage={canManage}
+          notify={notify}
+        />
+      ) : (
+        <NotFound
+          title="Mentorship workspace not found"
+          text="A workspace opens after a mentor accepts a request. No accepted mentorships are saved here yet."
+          action="View requests"
+          href="/startup/mentors/requests"
+        />
+      )
+    ) : view === "sessions" ? (
+      <Sessions data={data} setData={setData} canManage={canManage} notify={notify} />
+    ) : view === "session" ? (
+      session ? (
+        <SessionDetail session={session} setData={setData} canEdit={canEdit} notify={notify} />
+      ) : (
+        <NotFound
+          title="Session not found"
+          text="Only sessions saved in this browser have details."
+          action="View sessions"
+          href="/startup/sessions"
+        />
+      )
+    ) : view === "readiness" ? (
+      <Readiness
+        items={data.readiness}
+        data={data}
+        setData={setData}
+        canEdit={canEdit}
+        canManage={canManage}
+        team={startup.team.map((t) => t.name)}
+        notify={notify}
+      />
+    ) : view === "billing" ? (
+      active ? (
+        <Billing mentoring={active} />
+      ) : (
+        <NotFound
+          title="Agreement not found"
+          text="Billing records require an accepted mentorship; no payment service is connected."
+          action="Mentors"
+          href="/startup/mentors"
+        />
+      )
+    ) : (
+      <NotFound title="Page not found" text="This mentor page is unavailable." />
+    );
+  return (
+    <div className={styles.page}>
+      <a className={styles.skip} href="#mentor-main">
+        Skip to mentor content
+      </a>
+      {content}
+      {toast && (
+        <div className={styles.toast} role="status">
+          <CheckCircle2 size={15} />
+          {toast}
+          <button onClick={() => setToast("")} aria-label="Dismiss">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+function Header({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <header className={styles.header}>
+      <div>
+        <span className={styles.eyebrow}>Startup workspace · Mentorship</span>
+        <h1>{title}</h1>
+        <p>{subtitle}</p>
+      </div>
+      <div className={styles.headerActions}>{children}</div>
+    </header>
+  );
+}
+function CardTitle({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className={styles.cardTitle}>
+      <div>
+        <h2>{title}</h2>
+        {subtitle && <p>{subtitle}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
+function Chip({
+  children,
+  t = "neutral",
+  tone: given,
+}: {
+  children: React.ReactNode;
+  t?: string;
+  tone?: string;
+}) {
+  const value = given || t;
+  return (
+    <span className={`${styles.chip} ${styles["tone-" + tone(value)] || ""}`}>{children}</span>
+  );
+}
+function Note({
+  children,
+  warning = false,
+  tone: given,
+}: {
+  children: React.ReactNode;
+  warning?: boolean;
+  tone?: string;
+}) {
+  const isWarning = warning || given === "warning";
+  return (
+    <div className={`${styles.note} ${isWarning ? styles.noteWarning : ""}`}>
+      <Info size={15} />
+      <span>{children}</span>
+    </div>
+  );
+}
+function Preview() {
+  return (
+    <div className={styles.previewLabel}>
+      <Sparkles size={13} /> Illustrative sample profile only · verification, messaging, booking,
+      payments and sign-off services are not connected.
+    </div>
+  );
+}
+function Empty({
+  title,
+  detail,
+  action,
+  href,
+}: {
+  title: string;
+  detail: string;
+  action?: string;
+  href?: string;
+}) {
+  return (
+    <div className={styles.empty}>
+      <span className={styles.emptyIcon}>
+        <Handshake size={19} />
+      </span>
+      <strong>{title}</strong>
+      <p>{detail}</p>
+      {action && href && (
+        <Link className={styles.secondaryButton} href={href}>
+          <ArrowRight size={13} />
+          {action}
+        </Link>
+      )}
+    </div>
+  );
+}
+function NotFound({
+  title,
+  text,
+  action,
+  href,
+}: {
+  title: string;
+  text: string;
+  action?: string;
+  href?: string;
+}) {
+  return (
+    <>
+      <Header title={title} subtitle={text} />
+      {action && href && (
+        <Link className={styles.secondaryButton} href={href}>
+          <ArrowLeft size={14} />
+          {action}
+        </Link>
+      )}
+    </>
+  );
+}
+function ReadOnly() {
+  return (
+    <Note warning>Read-only access. Ask an Owner or Admin to manage mentorship settings.</Note>
+  );
+}
+function Signoff({ items }: { items: ReadinessItem[] }) {
+  const n = items.filter((i) => i.status === "Signed off").length;
+  return (
+    <Link className={styles.signoffCard} href="/startup/readiness">
+      <div>
+        <span>Mentor sign-offs</span>
+        <strong>
+          {n} of {items.length} items signed off
+        </strong>
+      </div>
+      <div className={styles.progress}>
+        <i style={{ width: `${items.length ? (n / items.length) * 100 : 0}%` }} />
+      </div>
+      <small>No numeric readiness score is calculated.</small>
+      <ArrowRight size={14} />
+    </Link>
+  );
+}
+function Expert({ items }: { items: string[] }) {
+  return (
+    <div className={styles.tags}>
+      {items.map((s) => (
+        <span key={s}>{s}</span>
+      ))}
+    </div>
+  );
+}
+function Overview({ profile, canManage }: { profile: Profile; canManage: boolean }) {
+  const { data } = useMentorWorkspace();
+  const { data: startup } = useStartupWorkspace();
+  const active = data.mentorships.filter((m) => m.status === "Active");
+  const tasks = startup.tasks.filter((t) => t.mentorDeliverable && t.status !== "completed");
+  const pending = data.requests.filter((r) => r.status === "Requested");
+  const next = data.sessions
+    .filter((s) => ["Scheduled", "Confirmed"].includes(s.status))
+    .sort((a, b) => a.date.localeCompare(b.date))[0];
+  return (
+    <>
+      <Header
+        title="Mentors"
+        subtitle="Find guidance, manage mentorship requests and track mentor sign-offs."
+      >
+        <Link className={styles.primaryButton} href="/startup/mentors/find">
+          <Search size={14} /> Find a mentor
+        </Link>
+        <Link className={styles.secondaryButton} href="/startup/mentors/requests">
+          My requests <ArrowRight size={13} />
+        </Link>
+      </Header>
+      <Preview />
+      <section className={styles.stats}>
+        {[
+          ["Active mentors", active.length, "Accepted local mentorships"],
+          [
+            "Sessions held",
+            data.sessions.filter((s) => s.status === "Completed").length,
+            "Completed local records",
+          ],
+          ["Deliverables due", tasks.length, "Tasks marked mentor deliverable"],
+          [
+            "Sign-offs",
+            `${data.readiness.filter((i) => i.status === "Signed off").length} / ${data.readiness.length}`,
+            "Mentor-reviewed checklist items",
+          ],
+        ].map((r) => (
+          <div key={String(r[0])}>
+            <span>{r[0]}</span>
+            <strong>{r[1]}</strong>
+            <small>{r[2]}</small>
+          </div>
+        ))}
+      </section>
+      <div className={styles.overviewGrid}>
+        <main id="mentor-main" className={styles.mainColumn}>
+          <section className={styles.card}>
+            <CardTitle title="My mentors" subtitle="Only accepted mentorships appear as active." />
+            {active.length ? (
+              active.map((m) => (
+                <div className={styles.mentorshipCard} key={m.id}>
+                  <span className={styles.avatar}>{initials(m.mentorName)}</span>
+                  <div>
+                    <strong>{m.mentorName}</strong>
+                    <Chip t={m.status}>{m.status}</Chip>
+                    <small>{m.focusAreas.join(" · ")}</small>
+                    <Link className={styles.textLink} href={`/startup/mentors/${m.id}`}>
+                      Open workspace <ArrowRight size={12} />
+                    </Link>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <Empty
+                title="No active mentorships recorded."
+                detail="The sample mentor profile is not an accepted or verified connection."
+                action="Find mentors"
+                href="/startup/mentors/find"
+              />
+            )}
+          </section>
+          <Signoff items={data.readiness} />
+          <section className={styles.card}>
+            <CardTitle
+              title="Readiness checklist"
+              subtitle="Preparation is separate from mentor sign-off."
+            />
+            {data.readiness.slice(0, 5).map((i) => (
+              <div className={styles.simpleRow} key={i.id}>
+                <span>
+                  {i.status === "Signed off" ? (
+                    <CheckCircle2 size={15} />
+                  ) : (
+                    <span className={styles.dot} />
+                  )}
+                </span>
+                <span>
+                  <strong>{i.title}</strong>
+                  <small>{i.status}</small>
+                </span>
+              </div>
+            ))}
+            <Link className={styles.textLink} href="/startup/readiness">
+              Open readiness <ArrowRight size={12} />
+            </Link>
+          </section>
+          <section className={styles.card}>
+            <CardTitle
+              title="Deliverables due"
+              subtitle="From tasks marked as mentor deliverable."
+            />
+            {tasks.length ? (
+              tasks.slice(0, 5).map((t) => (
+                <div className={styles.simpleRow} key={t.id}>
+                  <FileCheck2 size={15} />
+                  <span>
+                    <strong>{t.title}</strong>
+                    <small>
+                      {t.dueLabel} · {t.owner}
+                    </small>
+                  </span>
+                  <Link href={t.moduleHref || "/startup/tasks"}>Open</Link>
+                </div>
+              ))
+            ) : (
+              <p className={styles.inlineEmpty}>No open mentor deliverables.</p>
+            )}
+            <Link className={styles.textLink} href="/startup/tasks">
+              Open task hub <ArrowRight size={12} />
+            </Link>
+          </section>
+        </main>
+        <aside className={styles.sideColumn}>
+          <section className={styles.card}>
+            <CardTitle title="Next session" subtitle="Locally saved scheduled records." />
+            {next ? (
+              <>
+                <strong>{next.topic}</strong>
+                <p>
+                  {next.mentorName} · {dateTime(next.date)}
+                </p>
+                <Link className={styles.secondaryButton} href={`/startup/sessions/${next.id}`}>
+                  View session
+                </Link>
+              </>
+            ) : (
+              <p className={styles.inlineEmpty}>No session booked here.</p>
+            )}
+            <Link className={styles.textLink} href="/startup/sessions">
+              Sessions <ArrowRight size={12} />
+            </Link>
+          </section>
+          <section className={styles.card}>
+            <CardTitle title="Open requests" />
+            {pending.length ? (
+              pending.slice(0, 3).map((r) => (
+                <div className={styles.simpleRow} key={r.id}>
+                  <span>
+                    <strong>{r.mentorName}</strong>
+                    <small>{r.goal.slice(0, 80)}…</small>
+                  </span>
+                  <Chip t="Requested">Requested</Chip>
+                </div>
+              ))
+            ) : (
+              <p className={styles.inlineEmpty}>No pending requests.</p>
+            )}
+            <Link className={styles.textLink} href="/startup/mentors/requests">
+              View requests
+            </Link>
+          </section>
+          <section className={styles.card}>
+            <CardTitle title="Stage tip" />
+            <p>
+              {startup.startup.currentStage === "idea"
+                ? "At Idea stage, consider customer discovery and problem validation."
+                : "Consider seeking advice on validating assumptions relevant to your current stage."}
+            </p>
+            <small className={styles.caption}>
+              General guidance only · not a personalized mentor match.
+            </small>
+          </section>
+          <section className={styles.card}>
+            <CardTitle title="Readiness status" />
+            <strong>Not assessed</strong>
+            <p className={styles.caption}>
+              No score or badge is inferred without verified sign-offs.
+            </p>
+          </section>
+        </aside>
+      </div>
+      {!canManage && (
+        <Note warning>Read-only access. Ask an Owner or Admin to manage requests.</Note>
+      )}
+    </>
+  );
+}
+function Find({
+  profile,
+  stage,
+  industry,
+  data,
+  setData,
+  notify,
+}: {
+  profile: Profile;
+  stage: string;
+  industry: string;
+  data: ReturnType<typeof useMentorWorkspace>["data"];
+  setData: ReturnType<typeof useMentorWorkspace>["setData"];
+  notify: (s: string) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [filter, setFilter] = useState("All expertise");
+  const [autoOpen, setAutoOpen] = useState(false);
+  const [matchNeeds, setMatchNeeds] = useState<string[]>([]);
+  const [budget, setBudget] = useState("Not set");
+  const [preferredCadence, setPreferredCadence] = useState("Fortnightly");
+  const saved = data.savedMentorIds.includes(profile.id);
+  const match =
+    !q ||
+    profile.name.toLowerCase().includes(q.toLowerCase()) ||
+    profile.focusAreas.some((x) => x.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <>
+      <Header
+        title="Find mentors"
+        subtitle="Explore profile previews and decide whether to send a request."
+      >
+        <Link className={styles.secondaryButton} href="/startup/mentors">
+          <ArrowLeft size={13} /> Overview
+        </Link>
+        <button className={styles.secondaryButton} onClick={() => setAutoOpen(true)}>
+          <Sparkles size={14} /> Auto-match me
+        </button>
+      </Header>
+      <Preview />
+      <Note warning>
+        No live mentor directory or verification feed is connected. No price, rating or availability
+        is presented as live.
+      </Note>
+      <div className={styles.findLayout}>
+        <aside className={styles.card}>
+          <CardTitle title="Filters" />
+          <label className={styles.field}>
+            Expertise
+            <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+              <option>All expertise</option>
+              {needs.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.field}>
+            Industry
+            <input readOnly value={industry} />
+          </label>
+          <label className={styles.field}>
+            Startup stage
+            <input readOnly value={stage.replace("-", " ")} />
+          </label>
+          <label className={styles.field}>
+            Language
+            <select>
+              <option>All languages · not connected</option>
+            </select>
+          </label>
+          <label className={styles.field}>
+            Availability
+            <select>
+              <option>Calendar not connected</option>
+            </select>
+          </label>
+          <label className={styles.checkRow}>
+            <input type="checkbox" /> Verified profiles only
+          </label>
+        </aside>
+        <main id="mentor-main" className={styles.results}>
+          <label className={styles.search}>
+            <Search size={15} />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search name or expertise"
+            />
+          </label>
+          {match &&
+          (filter === "All expertise" ||
+            profile.focusAreas.some((x) => x.toLowerCase().includes(filter.toLowerCase()))) ? (
+            <article className={styles.profileCard}>
+              <div className={styles.profileTop}>
+                <span className={styles.avatarLarge}>{initials(profile.name)}</span>
+                <div>
+                  <h2>{profile.name}</h2>
+                  <p>
+                    {profile.title} · {profile.organization}
+                  </p>
+                  <Chip>Preview · not verified</Chip>
+                </div>
+              </div>
+              <p>{profile.about}</p>
+              <Expert items={profile.focusAreas} />
+              <p className={styles.inlineEmpty}>
+                Rating unavailable · pricing not connected · calendar not connected
+              </p>
+              <small>Potential topic overlap only; no match score computed.</small>
+              <div className={styles.profileFooter}>
+                <button
+                  className={styles.secondaryButton}
+                  onClick={() =>
+                    setData((d) => ({
+                      ...d,
+                      savedMentorIds: saved
+                        ? d.savedMentorIds.filter((i) => i !== profile.id)
+                        : [...d.savedMentorIds, profile.id],
+                    }))
+                  }
+                >
+                  {saved ? "Saved" : "Save profile"}
+                </button>
+                <Link className={styles.primaryButton} href={`/startup/mentors/find/${profile.id}`}>
+                  View profile <ArrowRight size={13} />
+                </Link>
+              </div>
+            </article>
+          ) : (
+            <Empty
+              title="No profile matches these filters."
+              detail="Clear the search or choose all expertise. The live directory is not connected."
+            />
+          )}
+          <p className={styles.caption}>
+            One illustrative profile preview · no recommendation service used.
+          </p>
+        </main>
+      </div>
+      {autoOpen && (
+        <div className={styles.backdrop}>
+          <section
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="auto-match-title"
+          >
+            <header>
+              <div>
+                <span className={styles.eyebrow}>Auto-match · preview only</span>
+                <h2 id="auto-match-title">What would you like help with?</h2>
+                <p>Choose up to three needs. No request will be sent.</p>
+              </div>
+              <button
+                className={styles.iconButton}
+                onClick={() => setAutoOpen(false)}
+                aria-label="Close"
+              >
+                <X />
+              </button>
+            </header>
+            <div className={styles.modalBody}>
+              <div className={styles.miniFact}>
+                <span>Stage</span>
+                <strong>{stage.replace("-", " ")}</strong>
+              </div>
+              <div className={styles.miniFact}>
+                <span>Industry</span>
+                <strong>{industry}</strong>
+              </div>
+              <div className={styles.needGrid}>
+                {needs.map((n) => (
+                  <button
+                    type="button"
+                    key={n}
+                    className={matchNeeds.includes(n) ? styles.needSelected : styles.need}
+                    onClick={() =>
+                      setMatchNeeds((v) =>
+                        v.includes(n) ? v.filter((x) => x !== n) : v.length < 3 ? [...v, n] : v,
+                      )
+                    }
+                  >
+                    {matchNeeds.includes(n) && <Check size={12} />} {n}
+                  </button>
+                ))}
+              </div>
+              <label className={styles.field}>
+                Budget preference
+                <select value={budget} onChange={(e) => setBudget(e.target.value)}>
+                  <option>Not set</option>
+                  <option>Free / pro bono</option>
+                  <option>Paid · decide later</option>
+                </select>
+              </label>
+              <label className={styles.field}>
+                Preferred cadence
+                <select
+                  value={preferredCadence}
+                  onChange={(e) => setPreferredCadence(e.target.value)}
+                >
+                  {cadence.map((x) => (
+                    <option key={x}>{x}</option>
+                  ))}
+                </select>
+              </label>
+              <Note warning>
+                The only profile available here is an illustrative sample. Matching and verification
+                services are not connected.
+              </Note>
+              <footer>
+                <button className={styles.secondaryButton} onClick={() => setAutoOpen(false)}>
+                  Cancel
+                </button>
+                <button
+                  className={styles.primaryButton}
+                  onClick={() => {
+                    setAutoOpen(false);
+                    notify(
+                      "Preview match: sample mentor focus areas only. No recommendation service was called.",
+                    );
+                  }}
+                >
+                  Preview matches
+                </button>
+              </footer>
+            </div>
+          </section>
+        </div>
+      )}
+    </>
+  );
+}
+function ProfilePage({
+  profile,
+  documents,
+  canManage,
+  data,
+  setData,
+  notify,
+}: {
+  profile: Profile;
+  documents: string[];
+  canManage: boolean;
+  data: ReturnType<typeof useMentorWorkspace>["data"];
+  setData: ReturnType<typeof useMentorWorkspace>["setData"];
+  notify: (s: string) => void;
+}) {
+  const [request, setRequest] = useState(false);
+  const [report, setReport] = useState(false);
+  const [saved, setSaved] = useState(data.savedMentorIds.includes(profile.id));
+  return (
+    <>
+      <Header title={profile.name} subtitle={`${profile.title} · ${profile.organization}`}>
+        <Link className={styles.secondaryButton} href="/startup/mentors/find">
+          <ArrowLeft size={14} /> Find mentors
+        </Link>
+      </Header>
+      <Preview />
+      <div className={styles.detailLayout}>
+        <main id="mentor-main" className={styles.mainColumn}>
+          <section className={styles.card}>
+            <div className={styles.profileTop}>
+              <span className={styles.avatarXL}>{initials(profile.name)}</span>
+              <div>
+                <h2>{profile.name}</h2>
+                <Chip>Verification unavailable</Chip>
+                <p>
+                  {profile.title} · {profile.organization}
+                </p>
+                <p>
+                  <MapPin size={13} /> Location unavailable · Reviews unavailable
+                </p>
+                <Expert items={profile.focusAreas} />
+              </div>
+            </div>
+          </section>
+          <section className={styles.card}>
+            <CardTitle title="About" />
+            <p>{profile.about}</p>
+            <Note warning>
+              This is not a verified public biography. Admin verification and mentor consent are not
+              connected.
+            </Note>
+          </section>
+          <section className={styles.card}>
+            <CardTitle title="Experience & reviews" />
+            <Empty
+              title="No verified experience or reviews."
+              detail="Credentials, past outcomes and ratings are not connected."
+            />
+          </section>
+          <section className={styles.card}>
+            <CardTitle title="Availability" />
+            <Empty
+              title="Calendar availability not connected."
+              detail="No open slots can be displayed or booked."
+            />
+          </section>
+        </main>
+        <aside className={styles.sideColumn}>
+          <section className={styles.card}>
+            <CardTitle title="Pricing & terms" />
+            <p>Pricing not listed · packages unavailable · equity terms not stated.</p>
+            <Note warning>
+              Confirm fees and terms directly. Nothing is agreed through this preview.
+            </Note>
+            <button
+              className={styles.primaryButton}
+              disabled={
+                !canManage || data.requests.filter((r) => r.status === "Requested").length >= 3
+              }
+              onClick={() => setRequest(true)}
+            >
+              {data.requests.filter((r) => r.status === "Requested").length >= 3
+                ? "3 requests pending"
+                : "Request mentorship"}{" "}
+              <ArrowRight size={13} />
+            </button>
+            <button
+              className={styles.secondaryButton}
+              onClick={() => {
+                const next = !saved;
+                setSaved(next);
+                setData((d) => ({
+                  ...d,
+                  savedMentorIds: next
+                    ? [...d.savedMentorIds, profile.id]
+                    : d.savedMentorIds.filter((x) => x !== profile.id),
+                }));
+              }}
+            >
+              {saved ? "Saved" : "Save profile"}
+            </button>
+            <button
+              className={styles.secondaryButton}
+              onClick={() => notify("Calendar is not connected; no booking was made.")}
+            >
+              Book intro call
+            </button>
+            <button className={styles.textButton} onClick={() => setReport(true)}>
+              Report profile
+            </button>
+          </section>
+        </aside>
+      </div>
+      {request && (
+        <RequestModal
+          profile={profile}
+          documents={documents}
+          close={() => setRequest(false)}
+          submit={(r) => {
+            setData((d) => ({ ...d, requests: [r, ...d.requests] }));
+            setRequest(false);
+            notify("Request saved in this browser; the mentor has not been notified.");
+          }}
+        />
+      )}
+      {report && (
+        <div className={styles.backdrop}>
+          <section className={styles.modal}>
+            <header>
+              <h2>Report profile</h2>
+              <button onClick={() => setReport(false)} aria-label="Close">
+                <X />
+              </button>
+            </header>
+            <p>No admin safety queue is connected. The report will not be sent.</p>
+            <button
+              className={styles.primaryButton}
+              onClick={() => {
+                setReport(false);
+                notify("Report saved locally only.");
+              }}
+            >
+              Acknowledge
+            </button>
+          </section>
+        </div>
+      )}
+    </>
+  );
+}
+function RequestModal({
+  profile,
+  documents,
+  close,
+  submit,
+}: {
+  profile: Profile;
+  documents: string[];
+  close: () => void;
+  submit: (r: MentorRequest) => void;
+}) {
+  const { data: startup } = useStartupWorkspace();
+  const [goal, setGoal] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [shared, setShared] = useState<string[]>([]);
+  const [message, setMessage] = useState("");
+  const [term, setTerm] = useState("Fees not listed · confirm directly");
+  const [equity, setEquity] = useState("No equity proposed");
+  const [freq, setFreq] = useState("Fortnightly");
+  const [duration, setDuration] = useState("3 months");
+  const [error, setError] = useState("");
+  return (
+    <div className={styles.backdrop}>
+      <section className={styles.modal} role="dialog" aria-modal="true">
+        <header>
+          <div>
+            <span className={styles.eyebrow}>Local draft only</span>
+            <h2>Request {profile.name}</h2>
+            <p>No notification will be sent.</p>
+          </div>
+          <button className={styles.iconButton} onClick={close}>
+            <X />
+          </button>
+        </header>
+        <form
+          className={styles.modalBody}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (goal.trim().length < 20) {
+              setError("Describe your goal in at least 20 characters.");
+              return;
+            }
+            submit({
+              id: mkid("request"),
+              mentorId: profile.id,
+              mentorName: profile.name,
+              goal: goal.trim(),
+              needs: selected,
+              cadence: freq,
+              duration,
+              documents: shared,
+              message,
+              feeTerms: term,
+              equityTerms: equity,
+              status: "Requested",
+              createdAt: new Date().toISOString(),
+              lastActivity: "Saved locally",
+            });
+          }}
+        >
+          <label className={styles.field}>
+            Goal
+            <textarea
+              required
+              minLength={20}
+              maxLength={500}
+              rows={4}
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
+              placeholder="What outcome would you like help with?"
+            />
+          </label>
+          <span className={styles.labelText}>Choose up to three needs</span>
+          <div className={styles.needGrid}>
+            {needs.map((n) => (
+              <button
+                type="button"
+                key={n}
+                className={selected.includes(n) ? styles.needSelected : styles.need}
+                onClick={() =>
+                  setSelected((v) =>
+                    v.includes(n) ? v.filter((x) => x !== n) : v.length < 3 ? [...v, n] : v,
+                  )
+                }
+              >
+                {selected.includes(n) && <Check size={12} />} {n}
+              </button>
+            ))}
+          </div>
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              Cadence
+              <select value={freq} onChange={(e) => setFreq(e.target.value)}>
+                {cadence.map((x) => (
+                  <option key={x}>{x}</option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.field}>
+              Duration
+              <select value={duration} onChange={(e) => setDuration(e.target.value)}>
+                <option>3 months</option>
+                <option>1 month</option>
+                <option>6 months</option>
+                <option>To be agreed</option>
+              </select>
+            </label>
+          </div>
+          <label className={styles.field}>
+            Documents to share
+            <select
+              multiple
+              value={shared}
+              onChange={(e) => setShared(Array.from(e.target.selectedOptions, (o) => o.value))}
+            >
+              {documents.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.field}>
+            Message
+            <textarea
+              rows={3}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={`Introduce ${startup.startup.name}…`}
+            />
+          </label>
+          <label className={styles.field}>
+            Proposed fee terms
+            <input value={term} onChange={(e) => setTerm(e.target.value)} />
+          </label>
+          <label className={styles.field}>
+            Equity / advisory proposal
+            <input value={equity} onChange={(e) => setEquity(e.target.value)} />
+          </label>
+          <Note warning>
+            Pricing and equity are not connected. No terms are agreed until both parties review
+            them.
+          </Note>
+          {error && (
+            <p role="alert" className={styles.errorText}>
+              {error}
+            </p>
+          )}
+          <footer>
+            <button type="button" className={styles.secondaryButton} onClick={close}>
+              Cancel
+            </button>
+            <button className={styles.primaryButton}>Save request</button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  );
+}
+function Requests({
+  data,
+  setData,
+  canManage,
+  notify,
+}: {
+  data: ReturnType<typeof useMentorWorkspace>["data"];
+  setData: ReturnType<typeof useMentorWorkspace>["setData"];
+  canManage: boolean;
+  notify: (s: string) => void;
+}) {
+  const [tab, setTab] = useState("Sent");
+  const [selected, setSelected] = useState<MentorRequest | null>(null);
+  const list =
+    tab === "Sent"
+      ? data.requests.filter((r) => r.status === "Requested")
+      : tab === "Past"
+        ? data.requests.filter((r) => r.status !== "Requested")
+        : [];
+  return (
+    <>
+      <Header
+        title="Mentorship requests"
+        subtitle="Track requests saved locally. Mentor replies and invitations are not synced."
+      >
+        <Link className={styles.secondaryButton} href="/startup/mentors/find">
+          <Search size={14} /> Find mentors
+        </Link>
+      </Header>
+      <Note>Requests are local records. No mentor or admin notification has been sent.</Note>
+      <nav className={styles.tabs}>
+        {["Sent", "Received", "Past"].map((t) => (
+          <button
+            className={tab === t ? styles.tabActive : styles.tab}
+            key={t}
+            onClick={() => setTab(t)}
+          >
+            {t}
+          </button>
+        ))}
+      </nav>
+      <section id="mentor-main" className={styles.card}>
+        {list.length ? (
+          list.map((r) => (
+            <article className={styles.requestRow} key={r.id}>
+              <span className={styles.avatar}>{initials(r.mentorName)}</span>
+              <div className={styles.requestInfo}>
+                <strong>{r.mentorName}</strong>
+                <small>
+                  {dateText(r.createdAt.slice(0, 10))} · {r.cadence} · {r.duration}
+                </small>
+                <p>{r.goal}</p>
+              </div>
+              <Chip t={r.status}>{r.status}</Chip>
+              <button className={styles.textButton} onClick={() => setSelected(r)}>
+                Details
+              </button>
+              {r.status === "Requested" && (
+                <button
+                  className={styles.textButton}
+                  disabled={!canManage}
+                  onClick={() => {
+                    setData((d) => ({
+                      ...d,
+                      requests: d.requests.map((x) =>
+                        x.id === r.id
+                          ? { ...x, status: "Withdrawn", lastActivity: "Withdrawn locally" }
+                          : x,
+                      ),
+                    }));
+                    notify("Request withdrawn locally; no notification sent.");
+                  }}
+                >
+                  Withdraw
+                </button>
+              )}
+            </article>
+          ))
+        ) : (
+          <Empty
+            title={tab === "Received" ? "No invitations received." : "No requests in this view."}
+            detail={
+              tab === "Received"
+                ? "Mentor invitations are not connected."
+                : "Review a profile and save a request to track it here."
+            }
+            action={tab === "Sent" ? "Find mentors" : undefined}
+            href="/startup/mentors/find"
+          />
+        )}
+      </section>
+      {selected && (
+        <div className={styles.backdrop}>
+          <section className={styles.modal} role="dialog" aria-modal="true">
+            <header>
+              <h2>{selected.mentorName} · Request details</h2>
+              <button onClick={() => setSelected(null)}>
+                <X />
+              </button>
+            </header>
+            <div className={styles.modalBody}>
+              <p>
+                <b>Status:</b> {selected.status}
+              </p>
+              <p>
+                <b>Goal:</b> {selected.goal}
+              </p>
+              <p>
+                <b>Needs:</b> {selected.needs.join(", ") || "None selected"}
+              </p>
+              <p>
+                <b>Documents:</b> {selected.documents.join(", ") || "None"}
+              </p>
+              <p>
+                <b>Terms:</b> {selected.feeTerms} · {selected.equityTerms}
+              </p>
+              <Note>Responses, counter-terms and audit events are not connected.</Note>
+              <button className={styles.secondaryButton} onClick={() => setSelected(null)}>
+                Close
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+    </>
+  );
+}
+function Workspace({
+  mentoring,
+  data,
+  setData,
+  canEdit,
+  canManage,
+  notify,
+}: {
+  mentoring: Mentorship;
+  data: ReturnType<typeof useMentorWorkspace>["data"];
+  setData: ReturnType<typeof useMentorWorkspace>["setData"];
+  canEdit: boolean;
+  canManage: boolean;
+  notify: (s: string) => void;
+}) {
+  const [tab, setTab] = useState("Overview");
+  const [goal, setGoal] = useState("");
+  const [note, setNote] = useState(mentoring.notes);
+  const { data: startup } = useStartupWorkspace();
+  const sessions = data.sessions.filter((s) => s.mentorshipId === mentoring.id);
+  const update = (p: Partial<Mentorship>) =>
+    setData((d) => ({
+      ...d,
+      mentorships: d.mentorships.map((m) => (m.id === mentoring.id ? { ...m, ...p } : m)),
+    }));
+  return (
+    <>
+      <Header
+        title={`Mentor workspace · ${mentoring.mentorName}`}
+        subtitle={`${mentoring.status} · Started ${dateText(mentoring.startedAt)} · ${mentoring.cadence}`}
+      >
+        <Link className={styles.secondaryButton} href="/startup/mentors">
+          Overview
+        </Link>
+        <Link className={styles.secondaryButton} href={`/startup/mentors/${mentoring.id}/billing`}>
+          Agreements & billing
+        </Link>
+        <Link className={styles.primaryButton} href="/startup/sessions">
+          Book session <CalendarDays size={13} />
+        </Link>
+        <details className={styles.menu}>
+          <summary>
+            <MoreHorizontal />
+          </summary>
+          <div>
+            <button
+              onClick={() => {
+                update({ status: mentoring.status === "Paused" ? "Active" : "Paused" });
+                notify("Mentorship status changed locally; no one was notified.");
+              }}
+            >
+              {mentoring.status === "Paused" ? "Resume" : "Pause"}
+            </button>
+            <button
+              onClick={() => {
+                update({ status: "Completed" });
+                notify("Mentorship ended locally; access control is not connected.");
+              }}
+            >
+              End mentorship
+            </button>
+          </div>
+        </details>
+      </Header>
+      <Preview />
+      <section className={styles.workspaceHero}>
+        <span className={styles.avatarLarge}>{initials(mentoring.mentorName)}</span>
+        <div>
+          <span className={styles.eyebrow}>Mentor partnership</span>
+          <h2>{mentoring.mentorName}</h2>
+          <p>{mentoring.focusAreas.join(" · ")}</p>
+        </div>
+        <Chip t={mentoring.status}>{mentoring.status}</Chip>
+      </section>
+      <Signoff items={data.readiness} />
+      <nav className={styles.tabs}>
+        {["Overview", "Plan", "Sessions", "Deliverables", "Notes", "Files", "Messages"].map((t) => (
+          <button
+            className={tab === t ? styles.tabActive : styles.tab}
+            key={t}
+            onClick={() => setTab(t)}
+          >
+            {t}
+          </button>
+        ))}
+      </nav>
+      <section id="mentor-main" className={styles.card}>
+        {tab === "Overview" ? (
+          <>
+            <CardTitle title="Partnership overview" subtitle="Plan and notes saved locally." />
+            <div className={styles.twoColumn}>
+              <div className={styles.metricBox}>
+                <span>Goals completed</span>
+                <strong>
+                  {mentoring.goals.filter((g) => g.status === "Done").length} /{" "}
+                  {mentoring.goals.length}
+                </strong>
+              </div>
+              <div className={styles.metricBox}>
+                <span>Sessions held</span>
+                <strong>{sessions.filter((s) => s.status === "Completed").length}</strong>
+              </div>
+            </div>
+            <h3>Assigned readiness items</h3>
+            {data.readiness
+              .filter((i) => i.mentorName === mentoring.mentorName)
+              .map((i) => (
+                <p key={i.id}>
+                  {i.title} · {i.status}
+                </p>
+              ))}
+            <Link className={styles.textLink} href="/startup/readiness">
+              Open checklist
+            </Link>
+          </>
+        ) : tab === "Plan" ? (
+          <>
+            <CardTitle title="Goals and cadence" />
+            <p>
+              {mentoring.cadence} · {mentoring.duration}
+            </p>
+            <form
+              className={styles.inlineForm}
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (goal.trim()) {
+                  update({
+                    goals: [
+                      ...mentoring.goals,
+                      {
+                        id: mkid("goal"),
+                        title: goal,
+                        description: "",
+                        targetDate: "",
+                        successMeasure: "",
+                        owner: startup.startup.founderName,
+                        status: "To do",
+                      },
+                    ],
+                  });
+                  setGoal("");
+                }
+              }}
+            >
+              <input
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+                placeholder="Add a goal"
+              />
+              <button className={styles.primaryButton} disabled={!canEdit || !goal.trim()}>
+                <Plus size={13} /> Add
+              </button>
+            </form>
+            {mentoring.goals.map((g) => (
+              <div className={styles.goalRow} key={g.id}>
+                <span>
+                  <strong>{g.title}</strong>
+                  <small>
+                    Owner: {g.owner} · Target: {dateText(g.targetDate)}
+                  </small>
+                </span>
+                <select
+                  disabled={!canEdit}
+                  value={g.status}
+                  onChange={(e) =>
+                    update({
+                      goals: mentoring.goals.map((x) =>
+                        x.id === g.id ? { ...x, status: e.target.value as typeof x.status } : x,
+                      ),
+                    })
+                  }
+                >
+                  <option>To do</option>
+                  <option>In progress</option>
+                  <option>Done</option>
+                </select>
+              </div>
+            ))}
+          </>
+        ) : tab === "Sessions" ? (
+          sessions.length ? (
+            sessions.map((s) => <SessionLink key={s.id} session={s} />)
+          ) : (
+            <Empty
+              title="No sessions recorded."
+              detail="A calendar service is needed for real bookings."
+              action="Open sessions"
+              href="/startup/sessions"
+            />
+          )
+        ) : tab === "Deliverables" ? (
+          <>
+            {startup.tasks
+              .filter((t) => t.mentorDeliverable)
+              .map((t) => (
+                <div className={styles.simpleRow} key={t.id}>
+                  <span>
+                    <strong>{t.title}</strong>
+                    <small>
+                      {t.owner} · {t.dueLabel} · {t.mentorStatus}
+                    </small>
+                  </span>
+                  <Link href={t.moduleHref || "/startup/tasks"}>Open</Link>
+                </div>
+              ))}
+            <Link className={styles.textLink} href="/startup/tasks">
+              Task hub
+            </Link>
+          </>
+        ) : tab === "Notes" ? (
+          <>
+            <label className={styles.field}>
+              Shared notes
+              <textarea rows={7} value={note} onChange={(e) => setNote(e.target.value)} />
+            </label>
+            <button
+              className={styles.primaryButton}
+              disabled={!canEdit}
+              onClick={() => {
+                update({ notes: note });
+                notify("Note saved locally.");
+              }}
+            >
+              Save notes
+            </button>
+          </>
+        ) : tab === "Files" ? (
+          <Empty
+            title="No files shared."
+            detail="Data-room permissions and audit logs are not connected."
+            action="Open data room"
+            href="/startup/data-room"
+          />
+        ) : (
+          <Empty
+            title="Mentor messaging is not connected."
+            detail="No message has been delivered; use an agreed external channel."
+          />
+        )}
+      </section>
+      <div className={styles.twoColumn}>
+        <section className={styles.card}>
+          <CardTitle title="Permissions" />
+          <p>
+            Mentors should see only readiness and files you explicitly share. Access revocation is
+            not connected.
+          </p>
+          <Chip>Access control unavailable</Chip>
+        </section>
+        <section className={styles.card}>
+          <CardTitle title="Agreements" />
+          <p>No fees, commission or signed terms are stored.</p>
+          <Link className={styles.textLink} href={`/startup/mentors/${mentoring.id}/billing`}>
+            View billing
+          </Link>
+        </section>
+      </div>
+      {!canManage && <Note>Read-only access. Ask an Owner or Admin to change this workspace.</Note>}
+    </>
+  );
+}
+function SessionLink({ session }: { session: MentorSession }) {
+  return (
+    <Link className={styles.sessionRow} href={`/startup/sessions/${session.id}`}>
+      <CalendarDays size={15} />
+      <span>
+        <strong>{session.topic}</strong>
+        <small>
+          {dateTime(session.date)} · {session.duration} min
+        </small>
+      </span>
+      <Chip t={session.status}>{session.status}</Chip>
+    </Link>
+  );
+}
+function Sessions({
+  data,
+  setData,
+  canManage,
+  notify,
+}: {
+  data: ReturnType<typeof useMentorWorkspace>["data"];
+  setData: ReturnType<typeof useMentorWorkspace>["setData"];
+  canManage: boolean;
+  notify: (s: string) => void;
+}) {
+  const { data: startup } = useStartupWorkspace();
+  const active = data.mentorships.filter((m) => m.status === "Active");
+  const [tab, setTab] = useState("Upcoming");
+  const [show, setShow] = useState(false);
+  const [form, setForm] = useState({
+    mentorshipId: "",
+    topic: "",
+    date: "",
+    duration: "45",
+    agenda: "",
+  });
+  const [error, setError] = useState("");
+  const upcoming = data.sessions.filter(
+    (s) =>
+      ["Scheduled", "Confirmed", "Reschedule requested"].includes(s.status) &&
+      new Date(s.date).getTime() >= Date.now(),
+  );
+  const past = data.sessions.filter((s) => !upcoming.includes(s));
+  const book = (e: FormEvent) => {
+    e.preventDefault();
+    const m = active.find((x) => x.id === form.mentorshipId);
+    const d = new Date(form.date);
+    if (!m || !form.topic || !form.date) {
+      setError("Select an active mentorship, topic and time.");
+      return;
+    }
+    if (d.getTime() < Date.now() + 12 * 3600000) {
+      setError("Select a time at least 12 hours from now.");
+      return;
+    }
+    const s: MentorSession = {
+      id: mkid("session"),
+      mentorshipId: m.id,
+      mentorId: m.mentorId,
+      mentorName: m.mentorName,
+      topic: form.topic,
+      date: d.toISOString(),
+      duration: +form.duration,
+      status: "Scheduled",
+      attendees: [startup.startup.founderName],
+      agenda: form.agenda,
+      notes: "",
+      actions: "",
+      rating: null,
+      feedback: "",
+      timezone: "Asia/Kolkata",
+      recordingConsent: false,
+      paymentStatus: "Not connected",
+    };
+    setData((x) => ({ ...x, sessions: [s, ...x.sessions] }));
+    setShow(false);
+    notify("Session saved locally; no calendar invitation or video link created.");
+  };
+  return (
+    <>
+      <Header
+        title="Mentor sessions"
+        subtitle="Review and schedule sessions. Calendar, video, recording and payment services are not connected."
+      >
+        <button
+          className={styles.primaryButton}
+          disabled={!canManage || !active.length}
+          onClick={() => setShow(!show)}
+        >
+          <Plus size={14} /> Book session
+        </button>
+      </Header>
+      <Signoff items={data.readiness} />
+      {!active.length && (
+        <Note warning>
+          Booking is available after a mentor accepts a request. No active mentorship is recorded.
+        </Note>
+      )}
+      <nav className={styles.tabs}>
+        {["Upcoming", "Past", "Calendar"].map((t) => (
+          <button
+            className={tab === t ? styles.tabActive : styles.tab}
+            key={t}
+            onClick={() => setTab(t)}
+          >
+            {t}
+          </button>
+        ))}
+      </nav>
+      {show && (
+        <form className={styles.card} onSubmit={book}>
+          <CardTitle
+            title="Book a session"
+            subtitle="Local record only; no invitation will be sent."
+          />
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              Mentorship
+              <select
+                value={form.mentorshipId}
+                onChange={(e) => setForm({ ...form, mentorshipId: e.target.value })}
+              >
+                <option value="">Select mentor</option>
+                {active.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.mentorName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.field}>
+              Topic
+              <input
+                value={form.topic}
+                onChange={(e) => setForm({ ...form, topic: e.target.value })}
+              />
+            </label>
+            <label className={styles.field}>
+              Start time
+              <input
+                type="datetime-local"
+                value={form.date}
+                onChange={(e) => setForm({ ...form, date: e.target.value })}
+              />
+            </label>
+            <label className={styles.field}>
+              Duration
+              <select
+                value={form.duration}
+                onChange={(e) => setForm({ ...form, duration: e.target.value })}
+              >
+                {["30", "45", "60"].map((n) => (
+                  <option key={n}>{n}</option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.field}>
+              Agenda
+              <textarea
+                value={form.agenda}
+                onChange={(e) => setForm({ ...form, agenda: e.target.value })}
+              />
+            </label>
+          </div>
+          <Note>
+            Recording is off by default. Fees and free cancellation terms are not connected.
+          </Note>
+          {error && <p className={styles.errorText}>{error}</p>}
+          <button className={styles.primaryButton}>Save session locally</button>
+        </form>
+      )}
+      {tab === "Calendar" ? (
+        <section className={styles.card}>
+          <CardTitle title="Calendar" subtitle="Mentor availability not connected." />
+          {data.sessions.length ? (
+            data.sessions.map((s) => <SessionLink key={s.id} session={s} />)
+          ) : (
+            <Empty
+              title="No sessions on the calendar."
+              detail="No sample sessions are preloaded."
+            />
+          )}
+        </section>
+      ) : (
+        <section id="mentor-main" className={styles.card}>
+          {(tab === "Upcoming" ? upcoming : past).length ? (
+            (tab === "Upcoming" ? upcoming : past).map((s) => (
+              <div className={styles.sessionCard} key={s.id}>
+                <span>
+                  <CalendarDays size={14} />
+                  <strong>{dateText(s.date.slice(0, 10))}</strong>
+                  <small>{dateTime(s.date)}</small>
+                </span>
+                <div>
+                  <strong>{s.topic}</strong>
+                  <small>
+                    {s.mentorName} · {s.duration} min
+                  </small>
+                  <Chip t={s.status}>{s.status}</Chip>
+                </div>
+                <div>
+                  <Link className={styles.textLink} href={`/startup/sessions/${s.id}`}>
+                    Details
+                  </Link>
+                  {["Scheduled", "Confirmed"].includes(s.status) && (
+                    <>
+                      <button
+                        className={styles.textButton}
+                        onClick={() => {
+                          setData((d) => ({
+                            ...d,
+                            sessions: d.sessions.map((x) =>
+                              x.id === s.id ? { ...x, status: "Reschedule requested" } : x,
+                            ),
+                          }));
+                          notify("Reschedule request saved locally; mentor not notified.");
+                        }}
+                      >
+                        Reschedule
+                      </button>
+                      <button
+                        className={styles.textButton}
+                        onClick={() =>
+                          setData((d) => ({
+                            ...d,
+                            sessions: d.sessions.map((x) =>
+                              x.id === s.id ? { ...x, status: "Cancelled" } : x,
+                            ),
+                          }))
+                        }
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <Empty
+              title="No sessions in this view."
+              detail="Only locally saved sessions for accepted mentorships appear here."
+              action={!active.length ? "Find mentors" : undefined}
+              href={!active.length ? "/startup/mentors/find" : undefined}
+            />
+          )}
+        </section>
+      )}
+    </>
+  );
+}
 
-
-function Readiness({items,setData,data,canEdit,canManage,team,notify}:{items:ReadinessItem[];setData:ReturnType<typeof useMentorWorkspace>['setData'];data:ReturnType<typeof useMentorWorkspace>['data'];canEdit:boolean;canManage:boolean;team:string[];notify:(text:string)=>void}){const active=data.mentorships.filter(m=>m.status==='Active');const signed=items.filter(i=>i.status==='Signed off').length;const percent=items.length?Math.round(signed/items.length*100):0;const change=(item:ReadinessItem,patch:Partial<ReadinessItem>)=>setData(d=>({...d,readiness:d.readiness.map(i=>i.id===item.id?{...i,...patch,updatedAt:new Date().toISOString()}:i)}));const addEvidence=(item:ReadinessItem,value:string)=>{if(!value.trim())return;change(item,{evidence:[...item.evidence,value.trim()],status:item.status==='Not started'?'In progress':item.status});};const submit=(item:ReadinessItem)=>{if(!active.some(m=>m.mentorName===item.mentorName)){notify('Assign an active mentor before requesting sign-off.');return;}change(item,{status:'Submitted for sign-off'});notify('Sign-off request saved locally. No mentor has been notified.');};return <><Header title="Investment readiness" subtitle="Organize evidence and request mentor review. No readiness score is calculated."><Link className={styles.secondaryButton} href="/startup/mentors">Mentors overview</Link><Link className={styles.secondaryButton} href="/startup/tasks">Open tasks <ArrowRight size={13}/></Link></Header><Note tone="warning">Readiness progress is a checklist of local records, not an assessment. Sign-off is earned only through mentor review; the startup cannot mark an item signed off.</Note><section id="mentor-main" className={styles.readinessSummary}><div className={styles.readinessSummaryTop}><div><span className={styles.eyebrow}>Mentor sign-offs</span><h2>{signed} of {items.length} signed off</h2><p>{items.filter(i=>i.status==='Submitted for sign-off').length} items awaiting review · {items.filter(i=>i.status==='Changes requested').length} returned for changes</p></div><span className={styles.statusPill}>{signed===items.length&&items.length?'Complete':'Not assessed'}</span></div><div className={styles.progress}><i style={{width:`${percent}%`}}/></div><small>This bar represents signed checklist items only. It is not an investment-readiness score or a guaranteed funding outcome.</small></section>{items.some(i=>i.status==='Signed off')&&<div className={styles.badgeCard}><ShieldCheck size={18}/><span><strong>Investment Ready sign-offs recorded</strong><small>Readiness badge issuance, verification and expiry are not connected.</small></span></div>}<div className={styles.readinessList}>{items.map((item,index)=>{const assigned=active.find(m=>m.mentorName===item.mentorName);return <article className={styles.readinessItem} key={item.id}><div className={styles.readinessNumber}>{String(index+1).padStart(2,'0')}</div><div className={styles.readinessContent}><div className={styles.readinessItemHead}><div><h2>{item.title}</h2><p>{item.criteria}</p></div><Chip tone={item.status}>{item.status}</Chip></div><div className={styles.formGrid}><label className={styles.field}>Owner<select disabled={!canEdit} value={item.owner} onChange={e=>change(item,{owner:e.target.value})}><option value="">Select an owner</option>{team.map(x=><option key={x}>{x}</option>)}</select></label><label className={styles.field}>Mentor reviewer<select disabled={!canManage||!active.length} value={item.mentorName} onChange={e=>change(item,{mentorName:e.target.value})}><option value="">No active mentor assigned</option>{active.map(m=><option key={m.id}>{m.mentorName}</option>)}</select></label></div><div className={styles.evidenceBlock}><strong>Evidence and notes</strong>{item.evidence.length?<ul>{item.evidence.map((e,i)=><li key={`${e}-${i}`}><FileText size={13}/>{e}<button disabled={!canEdit} onClick={()=>change(item,{evidence:item.evidence.filter((_,ix)=>ix!==i)})} aria-label={`Remove ${e}`}><X size={12}/></button></li>)}</ul>:<p>No evidence attached.</p>}<EvidenceForm disabled={!canEdit} onAdd={value=>addEvidence(item,value)}/><label className={styles.field}>Notes<textarea rows={2} disabled={!canEdit} value={item.note} onChange={e=>change(item,{note:e.target.value})} placeholder="Context, source, last-updated date…"/></label></div><div className={styles.readinessActions}>{item.status==='Signed off'?<span className={styles.signedInfo}><CheckCircle2 size={14}/> Signed off · {item.updatedAt?dateText(item.updatedAt.slice(0,10)):'date unavailable'}</span>:<><button className={styles.secondaryButton} disabled={!canEdit} onClick={()=>change(item,{status:'In progress'})}>Mark in progress</button><button className={styles.primaryButton} disabled={!canEdit||!item.evidence.length||!assigned} onClick={()=>submit(item)}>Submit for sign-off <ArrowRight size={12}/></button></>}<span className={styles.caption}>{assigned?`Reviewer · ${assigned.mentorName}`:'An active mentor must be assigned before review can be requested.'}</span></div></div></article>;})}</div><section className={styles.card}><CardTitle title="Badge and verification"/><div className={styles.twoColumn}><div className={styles.metricBox}><span>Badge status</span><strong>{signed===items.length&&items.length?'Not issued':'Not earned'}</strong><small>A connected verification service is required to issue any badge.</small></div><div className={styles.metricBox}><span>Score</span><strong>Not calculated</strong><small>No numeric readiness score is shown or inferred.</small></div></div></section>{!canManage&&<ReadOnly/>}</>;}
-function EvidenceForm({disabled,onAdd}:{disabled:boolean;onAdd:(value:string)=>void}){const [value,setValue]=useState('');return <form className={styles.inlineForm} onSubmit={e=>{e.preventDefault();onAdd(value);setValue('');}}><input disabled={disabled} value={value} onChange={e=>setValue(e.target.value)} placeholder="Add a document name, task or evidence link"/><button className={styles.secondaryButton} disabled={disabled||!value.trim()}><Plus size={12}/> Add evidence</button></form>;}
-function SessionDetail({session,setData,canEdit,notify}:{session:MentorSession;setData:ReturnType<typeof useMentorWorkspace>['setData'];canEdit:boolean;notify:(text:string)=>void}){const {addTask,data:workspace}=useStartupWorkspace();const {data}=useMentorWorkspace();const [notes,setNotes]=useState(session.notes);const [actions,setActions]=useState(session.actions);const [feedback,setFeedback]=useState(session.feedback);const [rating,setRating]=useState(session.rating||0);const [newAction,setNewAction]=useState('');const setSession=(patch:Partial<MentorSession>)=>setData(d=>({...d,sessions:d.sessions.map(s=>s.id===session.id?{...s,...patch}:s)}));const createTask=()=>{if(!newAction.trim())return;addTask({title:newAction.trim(),moduleLabel:'Tasks',moduleHref:'/startup/tasks',dueLabel:'No due date',owner:workspace.startup.founderName,status:'pending',priority:'Medium',labels:['mentor-session'],description:`Follow-up from ${session.topic} with ${session.mentorName}.`,mentorDeliverable:true,mentorStatus:'not-requested'});setNewAction('');notify('Follow-up task added to the task hub.');};const canReview=session.status==='Completed';return <><Header title={session.topic} subtitle={`${session.mentorName} · ${dateTime(session.date)} · ${session.duration} minutes`}><Link className={styles.secondaryButton} href="/startup/sessions"><ArrowLeft size={14}/> Sessions</Link><button className={styles.primaryButton} onClick={()=>notify('Video service is not connected; no join link is available.')}><Video size={13}/> Join session</button></Header><div className={styles.detailLayout}><main id="mentor-main" className={styles.mainColumn}><section className={styles.card}><div className={styles.sessionDetailTop}><div><Chip tone={session.status}>{session.status}</Chip><p><CalendarDays size={13}/> {dateTime(session.date)} · {session.timezone}</p><p><Clock3 size={13}/> {session.duration} minutes · {session.attendees.join(', ')||'No attendees listed'}</p></div><Chip tone={session.paymentStatus}>Payment · {session.paymentStatus}</Chip></div><div className={styles.agendaBox}><h2>Agenda</h2><p>{session.agenda||'No agenda added.'}</p></div><Note>Managed video and recording storage are not connected. Recording consent is off by default; no recording exists here.</Note></section><section className={styles.card}><CardTitle title="Meeting notes" subtitle="Saved locally in this browser."/><label className={styles.field}>Notes<textarea rows={6} value={notes} disabled={!canEdit} onChange={e=>setNotes(e.target.value)} placeholder="Capture key decisions and context…"/></label><label className={styles.field}>Action items<textarea rows={4} value={actions} disabled={!canEdit} onChange={e=>setActions(e.target.value)} placeholder="One action per line…"/></label><button className={styles.primaryButton} disabled={!canEdit} onClick={()=>{setSession({notes,actions});notify('Session notes saved locally.');}}>Save notes</button><div className={styles.inlineForm}><input value={newAction} disabled={!canEdit} onChange={e=>setNewAction(e.target.value)} placeholder="Turn a follow-up into a startup task"/><button className={styles.secondaryButton} disabled={!canEdit||!newAction.trim()} onClick={createTask}><Plus size={13}/> Add task</button></div><p className={styles.caption}>Creates a local task linked by mentor-session label; no mentor review is requested automatically.</p></section><section className={styles.card}><CardTitle title="Files & recording"/><Empty title="No files or recording." detail="File storage and managed video are not connected. Recording consent was not collected."/></section></main><aside className={styles.sideColumn}><section className={styles.card}><CardTitle title="Session actions"/><div className={styles.termsList}><div><span>Mentor</span><strong>{session.mentorName}</strong></div><div><span>Payment</span><strong>{session.paymentStatus}</strong></div><div><span>Recording</span><strong>Off</strong></div></div>{['Scheduled','Confirmed'].includes(session.status)&&<><button className={styles.secondaryButton} disabled={!canEdit} onClick={()=>{setSession({status:'Reschedule requested'});notify('Reschedule request saved locally; mentor was not notified.');}}>Request reschedule</button><button className={styles.secondaryButton} disabled={!canEdit} onClick={()=>{setSession({status:'Cancelled'});notify('Session cancelled locally; calendar invite was not updated.');}}>Cancel session</button></>}</section>{canReview&&<section className={styles.card}><CardTitle title="Session feedback" subtitle="Private to this startup workspace; not a public review."/><label className={styles.field}>Your rating<div className={styles.stars}>{[1,2,3,4,5].map(n=><button key={n} aria-label={`${n} stars`} className={rating>=n?styles.starSelected:styles.star} onClick={()=>setRating(n)}><Star size={19} fill={rating>=n?'currentColor':'none'}/></button>)}</div></label><label className={styles.field}>Feedback<textarea rows={4} value={feedback} onChange={e=>setFeedback(e.target.value)} placeholder="What was useful? What could be improved?"/></label><button className={styles.primaryButton} onClick={()=>{setSession({rating,feedback});notify('Private feedback saved locally; it is not published.');}}>Save feedback</button><p className={styles.caption}>Public mentor reviews require a connected, verified session system.</p></section>}</aside></div>{!canReview&&<Note>Feedback becomes available after the session status is completed. Status changes require mentor confirmation; this prototype does not let the startup mark a session complete.</Note>}</>;}
-function Billing({mentoring}:{mentoring:Mentorship}){return <><Header title="Agreements & billing" subtitle={`${mentoring.mentorName} · ${mentoring.status} mentorship`}><Link className={styles.secondaryButton} href={`/startup/mentors/${mentoring.id}`}><ArrowLeft size={14}/> Workspace</Link></Header><Note tone="warning">No contract, invoicing, escrow, payment processing or platform-fee service is connected. Do not treat the mentorship status as a signed agreement.</Note><div id="mentor-main" className={styles.detailLayout}><main className={styles.mainColumn}><section className={styles.card}><CardTitle title="Agreement status" subtitle="Local mentorship record only."/><div className={styles.agreementEmpty}><FileText size={22}/><strong>No agreement stored</strong><p>Neither party’s signature, scope, confidentiality terms, cancellation policy or liability terms are recorded here.</p><button className={styles.secondaryButton} disabled onClick={()=>{}}>Create agreement · unavailable</button></div></section><section className={styles.card}><CardTitle title="Session charges"/><Empty title="No invoices or charges." detail="Session fees and taxes have not been supplied or processed."/></section></main><aside className={styles.sideColumn}><section className={styles.card}><CardTitle title="Platform fees"/><div className={styles.notScored}><strong>Not configured</strong><small>Commission rates, payment schedules and refunds are not available in this workspace.</small></div></section><section className={styles.card}><CardTitle title="Before agreeing"/><ul className={styles.checklist}><li>Confirm scope and deliverables directly.</li><li>Discuss any cash, equity or advisory arrangement.</li><li>Review confidentiality, data access and termination terms.</li><li>Seek independent legal or financial advice where appropriate.</li></ul></section></aside></div></>;}
+function Readiness({
+  items,
+  setData,
+  data,
+  canEdit,
+  canManage,
+  team,
+  notify,
+}: {
+  items: ReadinessItem[];
+  setData: ReturnType<typeof useMentorWorkspace>["setData"];
+  data: ReturnType<typeof useMentorWorkspace>["data"];
+  canEdit: boolean;
+  canManage: boolean;
+  team: string[];
+  notify: (text: string) => void;
+}) {
+  const active = data.mentorships.filter((m) => m.status === "Active");
+  const signed = items.filter((i) => i.status === "Signed off").length;
+  const percent = items.length ? Math.round((signed / items.length) * 100) : 0;
+  const change = (item: ReadinessItem, patch: Partial<ReadinessItem>) =>
+    setData((d) => ({
+      ...d,
+      readiness: d.readiness.map((i) =>
+        i.id === item.id ? { ...i, ...patch, updatedAt: new Date().toISOString() } : i,
+      ),
+    }));
+  const addEvidence = (item: ReadinessItem, value: string) => {
+    if (!value.trim()) return;
+    change(item, {
+      evidence: [...item.evidence, value.trim()],
+      status: item.status === "Not started" ? "In progress" : item.status,
+    });
+  };
+  const submit = (item: ReadinessItem) => {
+    if (!active.some((m) => m.mentorName === item.mentorName)) {
+      notify("Assign an active mentor before requesting sign-off.");
+      return;
+    }
+    change(item, { status: "Submitted for sign-off" });
+    notify("Sign-off request saved locally. No mentor has been notified.");
+  };
+  return (
+    <>
+      <Header
+        title="Investment readiness"
+        subtitle="Organize evidence and request mentor review. No readiness score is calculated."
+      >
+        <Link className={styles.secondaryButton} href="/startup/mentors">
+          Mentors overview
+        </Link>
+        <Link className={styles.secondaryButton} href="/startup/tasks">
+          Open tasks <ArrowRight size={13} />
+        </Link>
+      </Header>
+      <Note tone="warning">
+        Readiness progress is a checklist of local records, not an assessment. Sign-off is earned
+        only through mentor review; the startup cannot mark an item signed off.
+      </Note>
+      <section id="mentor-main" className={styles.readinessSummary}>
+        <div className={styles.readinessSummaryTop}>
+          <div>
+            <span className={styles.eyebrow}>Mentor sign-offs</span>
+            <h2>
+              {signed} of {items.length} signed off
+            </h2>
+            <p>
+              {items.filter((i) => i.status === "Submitted for sign-off").length} items awaiting
+              review · {items.filter((i) => i.status === "Changes requested").length} returned for
+              changes
+            </p>
+          </div>
+          <span className={styles.statusPill}>
+            {signed === items.length && items.length ? "Complete" : "Not assessed"}
+          </span>
+        </div>
+        <div className={styles.progress}>
+          <i style={{ width: `${percent}%` }} />
+        </div>
+        <small>
+          This bar represents signed checklist items only. It is not an investment-readiness score
+          or a guaranteed funding outcome.
+        </small>
+      </section>
+      {items.some((i) => i.status === "Signed off") && (
+        <div className={styles.badgeCard}>
+          <ShieldCheck size={18} />
+          <span>
+            <strong>Investment Ready sign-offs recorded</strong>
+            <small>Readiness badge issuance, verification and expiry are not connected.</small>
+          </span>
+        </div>
+      )}
+      <div className={styles.readinessList}>
+        {items.map((item, index) => {
+          const assigned = active.find((m) => m.mentorName === item.mentorName);
+          return (
+            <article className={styles.readinessItem} key={item.id}>
+              <div className={styles.readinessNumber}>{String(index + 1).padStart(2, "0")}</div>
+              <div className={styles.readinessContent}>
+                <div className={styles.readinessItemHead}>
+                  <div>
+                    <h2>{item.title}</h2>
+                    <p>{item.criteria}</p>
+                  </div>
+                  <Chip tone={item.status}>{item.status}</Chip>
+                </div>
+                <div className={styles.formGrid}>
+                  <label className={styles.field}>
+                    Owner
+                    <select
+                      disabled={!canEdit}
+                      value={item.owner}
+                      onChange={(e) => change(item, { owner: e.target.value })}
+                    >
+                      <option value="">Select an owner</option>
+                      {team.map((x) => (
+                        <option key={x}>{x}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className={styles.field}>
+                    Mentor reviewer
+                    <select
+                      disabled={!canManage || !active.length}
+                      value={item.mentorName}
+                      onChange={(e) => change(item, { mentorName: e.target.value })}
+                    >
+                      <option value="">No active mentor assigned</option>
+                      {active.map((m) => (
+                        <option key={m.id}>{m.mentorName}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className={styles.evidenceBlock}>
+                  <strong>Evidence and notes</strong>
+                  {item.evidence.length ? (
+                    <ul>
+                      {item.evidence.map((e, i) => (
+                        <li key={`${e}-${i}`}>
+                          <FileText size={13} />
+                          {e}
+                          <button
+                            disabled={!canEdit}
+                            onClick={() =>
+                              change(item, { evidence: item.evidence.filter((_, ix) => ix !== i) })
+                            }
+                            aria-label={`Remove ${e}`}
+                          >
+                            <X size={12} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No evidence attached.</p>
+                  )}
+                  <EvidenceForm disabled={!canEdit} onAdd={(value) => addEvidence(item, value)} />
+                  <label className={styles.field}>
+                    Notes
+                    <textarea
+                      rows={2}
+                      disabled={!canEdit}
+                      value={item.note}
+                      onChange={(e) => change(item, { note: e.target.value })}
+                      placeholder="Context, source, last-updated date…"
+                    />
+                  </label>
+                </div>
+                <div className={styles.readinessActions}>
+                  {item.status === "Signed off" ? (
+                    <span className={styles.signedInfo}>
+                      <CheckCircle2 size={14} /> Signed off ·{" "}
+                      {item.updatedAt ? dateText(item.updatedAt.slice(0, 10)) : "date unavailable"}
+                    </span>
+                  ) : (
+                    <>
+                      <button
+                        className={styles.secondaryButton}
+                        disabled={!canEdit}
+                        onClick={() => change(item, { status: "In progress" })}
+                      >
+                        Mark in progress
+                      </button>
+                      <button
+                        className={styles.primaryButton}
+                        disabled={!canEdit || !item.evidence.length || !assigned}
+                        onClick={() => submit(item)}
+                      >
+                        Submit for sign-off <ArrowRight size={12} />
+                      </button>
+                    </>
+                  )}
+                  <span className={styles.caption}>
+                    {assigned
+                      ? `Reviewer · ${assigned.mentorName}`
+                      : "An active mentor must be assigned before review can be requested."}
+                  </span>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      <section className={styles.card}>
+        <CardTitle title="Badge and verification" />
+        <div className={styles.twoColumn}>
+          <div className={styles.metricBox}>
+            <span>Badge status</span>
+            <strong>{signed === items.length && items.length ? "Not issued" : "Not earned"}</strong>
+            <small>A connected verification service is required to issue any badge.</small>
+          </div>
+          <div className={styles.metricBox}>
+            <span>Score</span>
+            <strong>Not calculated</strong>
+            <small>No numeric readiness score is shown or inferred.</small>
+          </div>
+        </div>
+      </section>
+      {!canManage && <ReadOnly />}
+    </>
+  );
+}
+function EvidenceForm({ disabled, onAdd }: { disabled: boolean; onAdd: (value: string) => void }) {
+  const [value, setValue] = useState("");
+  return (
+    <form
+      className={styles.inlineForm}
+      onSubmit={(e) => {
+        e.preventDefault();
+        onAdd(value);
+        setValue("");
+      }}
+    >
+      <input
+        disabled={disabled}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="Add a document name, task or evidence link"
+      />
+      <button className={styles.secondaryButton} disabled={disabled || !value.trim()}>
+        <Plus size={12} /> Add evidence
+      </button>
+    </form>
+  );
+}
+function SessionDetail({
+  session,
+  setData,
+  canEdit,
+  notify,
+}: {
+  session: MentorSession;
+  setData: ReturnType<typeof useMentorWorkspace>["setData"];
+  canEdit: boolean;
+  notify: (text: string) => void;
+}) {
+  const { addTask, data: workspace } = useStartupWorkspace();
+  const { data } = useMentorWorkspace();
+  const [notes, setNotes] = useState(session.notes);
+  const [actions, setActions] = useState(session.actions);
+  const [feedback, setFeedback] = useState(session.feedback);
+  const [rating, setRating] = useState(session.rating || 0);
+  const [newAction, setNewAction] = useState("");
+  const setSession = (patch: Partial<MentorSession>) =>
+    setData((d) => ({
+      ...d,
+      sessions: d.sessions.map((s) => (s.id === session.id ? { ...s, ...patch } : s)),
+    }));
+  const createTask = () => {
+    if (!newAction.trim()) return;
+    addTask({
+      title: newAction.trim(),
+      moduleLabel: "Tasks",
+      moduleHref: "/startup/tasks",
+      dueLabel: "No due date",
+      owner: workspace.startup.founderName,
+      status: "pending",
+      priority: "Medium",
+      labels: ["mentor-session"],
+      description: `Follow-up from ${session.topic} with ${session.mentorName}.`,
+      mentorDeliverable: true,
+      mentorStatus: "not-requested",
+    });
+    setNewAction("");
+    notify("Follow-up task added to the task hub.");
+  };
+  const canReview = session.status === "Completed";
+  return (
+    <>
+      <Header
+        title={session.topic}
+        subtitle={`${session.mentorName} · ${dateTime(session.date)} · ${session.duration} minutes`}
+      >
+        <Link className={styles.secondaryButton} href="/startup/sessions">
+          <ArrowLeft size={14} /> Sessions
+        </Link>
+        <button
+          className={styles.primaryButton}
+          onClick={() => notify("Video service is not connected; no join link is available.")}
+        >
+          <Video size={13} /> Join session
+        </button>
+      </Header>
+      <div className={styles.detailLayout}>
+        <main id="mentor-main" className={styles.mainColumn}>
+          <section className={styles.card}>
+            <div className={styles.sessionDetailTop}>
+              <div>
+                <Chip tone={session.status}>{session.status}</Chip>
+                <p>
+                  <CalendarDays size={13} /> {dateTime(session.date)} · {session.timezone}
+                </p>
+                <p>
+                  <Clock3 size={13} /> {session.duration} minutes ·{" "}
+                  {session.attendees.join(", ") || "No attendees listed"}
+                </p>
+              </div>
+              <Chip tone={session.paymentStatus}>Payment · {session.paymentStatus}</Chip>
+            </div>
+            <div className={styles.agendaBox}>
+              <h2>Agenda</h2>
+              <p>{session.agenda || "No agenda added."}</p>
+            </div>
+            <Note>
+              Managed video and recording storage are not connected. Recording consent is off by
+              default; no recording exists here.
+            </Note>
+          </section>
+          <section className={styles.card}>
+            <CardTitle title="Meeting notes" subtitle="Saved locally in this browser." />
+            <label className={styles.field}>
+              Notes
+              <textarea
+                rows={6}
+                value={notes}
+                disabled={!canEdit}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Capture key decisions and context…"
+              />
+            </label>
+            <label className={styles.field}>
+              Action items
+              <textarea
+                rows={4}
+                value={actions}
+                disabled={!canEdit}
+                onChange={(e) => setActions(e.target.value)}
+                placeholder="One action per line…"
+              />
+            </label>
+            <button
+              className={styles.primaryButton}
+              disabled={!canEdit}
+              onClick={() => {
+                setSession({ notes, actions });
+                notify("Session notes saved locally.");
+              }}
+            >
+              Save notes
+            </button>
+            <div className={styles.inlineForm}>
+              <input
+                value={newAction}
+                disabled={!canEdit}
+                onChange={(e) => setNewAction(e.target.value)}
+                placeholder="Turn a follow-up into a startup task"
+              />
+              <button
+                className={styles.secondaryButton}
+                disabled={!canEdit || !newAction.trim()}
+                onClick={createTask}
+              >
+                <Plus size={13} /> Add task
+              </button>
+            </div>
+            <p className={styles.caption}>
+              Creates a local task linked by mentor-session label; no mentor review is requested
+              automatically.
+            </p>
+          </section>
+          <section className={styles.card}>
+            <CardTitle title="Files & recording" />
+            <Empty
+              title="No files or recording."
+              detail="File storage and managed video are not connected. Recording consent was not collected."
+            />
+          </section>
+        </main>
+        <aside className={styles.sideColumn}>
+          <section className={styles.card}>
+            <CardTitle title="Session actions" />
+            <div className={styles.termsList}>
+              <div>
+                <span>Mentor</span>
+                <strong>{session.mentorName}</strong>
+              </div>
+              <div>
+                <span>Payment</span>
+                <strong>{session.paymentStatus}</strong>
+              </div>
+              <div>
+                <span>Recording</span>
+                <strong>Off</strong>
+              </div>
+            </div>
+            {["Scheduled", "Confirmed"].includes(session.status) && (
+              <>
+                <button
+                  className={styles.secondaryButton}
+                  disabled={!canEdit}
+                  onClick={() => {
+                    setSession({ status: "Reschedule requested" });
+                    notify("Reschedule request saved locally; mentor was not notified.");
+                  }}
+                >
+                  Request reschedule
+                </button>
+                <button
+                  className={styles.secondaryButton}
+                  disabled={!canEdit}
+                  onClick={() => {
+                    setSession({ status: "Cancelled" });
+                    notify("Session cancelled locally; calendar invite was not updated.");
+                  }}
+                >
+                  Cancel session
+                </button>
+              </>
+            )}
+          </section>
+          {canReview && (
+            <section className={styles.card}>
+              <CardTitle
+                title="Session feedback"
+                subtitle="Private to this startup workspace; not a public review."
+              />
+              <label className={styles.field}>
+                Your rating
+                <div className={styles.stars}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      aria-label={`${n} stars`}
+                      className={rating >= n ? styles.starSelected : styles.star}
+                      onClick={() => setRating(n)}
+                    >
+                      <Star size={19} fill={rating >= n ? "currentColor" : "none"} />
+                    </button>
+                  ))}
+                </div>
+              </label>
+              <label className={styles.field}>
+                Feedback
+                <textarea
+                  rows={4}
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  placeholder="What was useful? What could be improved?"
+                />
+              </label>
+              <button
+                className={styles.primaryButton}
+                onClick={() => {
+                  setSession({ rating, feedback });
+                  notify("Private feedback saved locally; it is not published.");
+                }}
+              >
+                Save feedback
+              </button>
+              <p className={styles.caption}>
+                Public mentor reviews require a connected, verified session system.
+              </p>
+            </section>
+          )}
+        </aside>
+      </div>
+      {!canReview && (
+        <Note>
+          Feedback becomes available after the session status is completed. Status changes require
+          mentor confirmation; this prototype does not let the startup mark a session complete.
+        </Note>
+      )}
+    </>
+  );
+}
+function Billing({ mentoring }: { mentoring: Mentorship }) {
+  return (
+    <>
+      <Header
+        title="Agreements & billing"
+        subtitle={`${mentoring.mentorName} · ${mentoring.status} mentorship`}
+      >
+        <Link className={styles.secondaryButton} href={`/startup/mentors/${mentoring.id}`}>
+          <ArrowLeft size={14} /> Workspace
+        </Link>
+      </Header>
+      <Note tone="warning">
+        No contract, invoicing, escrow, payment processing or platform-fee service is connected. Do
+        not treat the mentorship status as a signed agreement.
+      </Note>
+      <div id="mentor-main" className={styles.detailLayout}>
+        <main className={styles.mainColumn}>
+          <section className={styles.card}>
+            <CardTitle title="Agreement status" subtitle="Local mentorship record only." />
+            <div className={styles.agreementEmpty}>
+              <FileText size={22} />
+              <strong>No agreement stored</strong>
+              <p>
+                Neither party’s signature, scope, confidentiality terms, cancellation policy or
+                liability terms are recorded here.
+              </p>
+              <button className={styles.secondaryButton} disabled onClick={() => {}}>
+                Create agreement · unavailable
+              </button>
+            </div>
+          </section>
+          <section className={styles.card}>
+            <CardTitle title="Session charges" />
+            <Empty
+              title="No invoices or charges."
+              detail="Session fees and taxes have not been supplied or processed."
+            />
+          </section>
+        </main>
+        <aside className={styles.sideColumn}>
+          <section className={styles.card}>
+            <CardTitle title="Platform fees" />
+            <div className={styles.notScored}>
+              <strong>Not configured</strong>
+              <small>
+                Commission rates, payment schedules and refunds are not available in this workspace.
+              </small>
+            </div>
+          </section>
+          <section className={styles.card}>
+            <CardTitle title="Before agreeing" />
+            <ul className={styles.checklist}>
+              <li>Confirm scope and deliverables directly.</li>
+              <li>Discuss any cash, equity or advisory arrangement.</li>
+              <li>Review confidentiality, data access and termination terms.</li>
+              <li>Seek independent legal or financial advice where appropriate.</li>
+            </ul>
+          </section>
+        </aside>
+      </div>
+    </>
+  );
+}

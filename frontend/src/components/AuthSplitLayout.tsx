@@ -1,6 +1,6 @@
-import React from 'react';
-import styles from './AuthSplitLayout.module.css';
-import { BrandLogo } from './BrandLogo';
+import React from "react";
+import styles from "./AuthSplitLayout.module.css";
+import { BrandLogo } from "./BrandLogo";
 
 interface AuthSplitLayoutProps {
   children: React.ReactNode;
@@ -11,8 +11,8 @@ interface AuthSplitLayoutProps {
 
 export function AuthSplitLayout({
   children,
-  headline = 'From first idea to funded company, and the team that builds it.',
-  footerText = 'Mentors · Investors · Talent · Startups',
+  headline = "From first idea to funded company, and the team that builds it.",
+  footerText = "Mentors · Investors · Talent · Startups",
   maxWidth,
 }: AuthSplitLayoutProps) {
   return (

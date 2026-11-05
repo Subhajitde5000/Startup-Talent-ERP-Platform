@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
@@ -14,14 +14,11 @@ import {
   Landmark,
   Lock,
   UserCheck,
-} from 'lucide-react';
-import { AuthSplitLayout } from '@/components/AuthSplitLayout';
-import { ThemeTogglePill } from '@/components/ThemeTogglePill';
-import {
-  OnboardingRole,
-  REGISTRATION_DRAFT_KEY,
-} from '@/lib/registrationDraft';
-import styles from '../register.module.css';
+} from "lucide-react";
+import { AuthSplitLayout } from "@/components/AuthSplitLayout";
+import { ThemeTogglePill } from "@/components/ThemeTogglePill";
+import { OnboardingRole, REGISTRATION_DRAFT_KEY } from "@/lib/registrationDraft";
+import styles from "../register.module.css";
 
 const ROLE_OPTIONS: Array<{
   id: OnboardingRole;
@@ -29,28 +26,28 @@ const ROLE_OPTIONS: Array<{
   icon: React.ReactNode;
 }> = [
   {
-    id: 'Startup',
-    description: 'Manage fundraising, milestones, cap table and team hiring.',
+    id: "Startup",
+    description: "Manage fundraising, milestones, cap table and team hiring.",
     icon: <Building2 size={18} strokeWidth={1.5} aria-hidden="true" />,
   },
   {
-    id: 'Mentor',
-    description: 'Advise founders, host office hours and guide cohorts.',
+    id: "Mentor",
+    description: "Advise founders, host office hours and guide cohorts.",
     icon: <Compass size={18} strokeWidth={1.5} aria-hidden="true" />,
   },
   {
-    id: 'Investor',
-    description: 'Review deal flow, diligence rooms and portfolio updates.',
+    id: "Investor",
+    description: "Review deal flow, diligence rooms and portfolio updates.",
     icon: <Landmark size={18} strokeWidth={1.5} aria-hidden="true" />,
   },
   {
-    id: 'Job seeker',
-    description: 'Explore vetted roles across high-conviction startups.',
+    id: "Job seeker",
+    description: "Explore vetted roles across high-conviction startups.",
     icon: <UserCheck size={18} strokeWidth={1.5} aria-hidden="true" />,
   },
   {
-    id: 'Employer',
-    description: 'Recruit engineers, operators and founding team talent.',
+    id: "Employer",
+    description: "Recruit engineers, operators and founding team talent.",
     icon: <Briefcase size={18} strokeWidth={1.5} aria-hidden="true" />,
   },
 ];
@@ -59,8 +56,8 @@ export default function RegisterRolePage() {
   const router = useRouter();
 
   const [selectedRole, setSelectedRole] = useState<OnboardingRole | null>(null);
-  const [draftEmail, setDraftEmail] = useState('');
-  const [draftName, setDraftName] = useState('');
+  const [draftEmail, setDraftEmail] = useState("");
+  const [draftName, setDraftName] = useState("");
   const [emailVerified, setEmailVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -83,9 +80,7 @@ export default function RegisterRolePage() {
   }, []);
 
   const requiresReview =
-    selectedRole === 'Investor' ||
-    selectedRole === 'Mentor' ||
-    selectedRole === 'Employer';
+    selectedRole === "Investor" || selectedRole === "Mentor" || selectedRole === "Employer";
 
   const selectRole = (role: OnboardingRole) => {
     setSelectedRole(role);
@@ -93,24 +88,18 @@ export default function RegisterRolePage() {
     try {
       const raw = window.sessionStorage.getItem(REGISTRATION_DRAFT_KEY);
       const prev = raw ? JSON.parse(raw) : {};
-      window.sessionStorage.setItem(
-        REGISTRATION_DRAFT_KEY,
-        JSON.stringify({ ...prev, role })
-      );
+      window.sessionStorage.setItem(REGISTRATION_DRAFT_KEY, JSON.stringify({ ...prev, role }));
     } catch {
       // Ignore storage errors
     }
   };
 
-  const handleRadioKeyDown = (
-    index: number,
-    e: React.KeyboardEvent<HTMLButtonElement>
-  ) => {
+  const handleRadioKeyDown = (index: number, e: React.KeyboardEvent<HTMLButtonElement>) => {
     let nextIndex: number | null = null;
-    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+    if (e.key === "ArrowDown" || e.key === "ArrowRight") {
       e.preventDefault();
       nextIndex = (index + 1) % ROLE_OPTIONS.length;
-    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+    } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
       e.preventDefault();
       nextIndex = (index - 1 + ROLE_OPTIONS.length) % ROLE_OPTIONS.length;
     }
@@ -126,7 +115,7 @@ export default function RegisterRolePage() {
     if (isSubmitting) return;
 
     if (!selectedRole) {
-      setError('Select how you will use the platform.');
+      setError("Select how you will use the platform.");
       optionRefs.current[0]?.focus();
       return;
     }
@@ -135,9 +124,9 @@ export default function RegisterRolePage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/auth/register/role', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/auth/register/role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           role: selectedRole,
           email: draftEmail,
@@ -148,7 +137,7 @@ export default function RegisterRolePage() {
       const result = await response.json();
 
       if (!response.ok || !result.ok) {
-        setError(result.message || 'Unable to save your role right now.');
+        setError(result.message || "Unable to save your role right now.");
         setIsSubmitting(false);
         return;
       }
@@ -161,7 +150,7 @@ export default function RegisterRolePage() {
           JSON.stringify({
             ...prev,
             role: selectedRole,
-          })
+          }),
         );
       } catch {
         // Ignore storage errors
@@ -169,7 +158,7 @@ export default function RegisterRolePage() {
 
       router.push(`/onboarding?role=${encodeURIComponent(selectedRole)}`);
     } catch {
-      setError('Unable to complete setup right now. Please try again.');
+      setError("Unable to complete setup right now. Please try again.");
       setIsSubmitting(false);
     }
   };
@@ -201,8 +190,7 @@ export default function RegisterRolePage() {
             )}
             <h1 className={styles.title}>How will you use the platform?</h1>
             <p className={styles.subtitle}>
-              Choose your primary starting workspace. You can add more roles to
-              your account later.
+              Choose your primary starting workspace. You can add more roles to your account later.
             </p>
           </header>
         </div>
@@ -213,12 +201,11 @@ export default function RegisterRolePage() {
             className={styles.roleGrid}
             role="radiogroup"
             aria-label="How will you use the platform?"
-            aria-describedby={error ? 'role-selection-error' : undefined}
+            aria-describedby={error ? "role-selection-error" : undefined}
           >
             {ROLE_OPTIONS.map((role, index) => {
               const isSelected = selectedRole === role.id;
-              const tabIndex =
-                isSelected || (selectedRole === null && index === 0) ? 0 : -1;
+              const tabIndex = isSelected || (selectedRole === null && index === 0) ? 0 : -1;
 
               return (
                 <button
@@ -232,9 +219,7 @@ export default function RegisterRolePage() {
                   tabIndex={tabIndex}
                   onClick={() => selectRole(role.id)}
                   onKeyDown={(e) => handleRadioKeyDown(index, e)}
-                  className={`${styles.roleOption} ${
-                    isSelected ? styles.roleOptionSelected : ''
-                  }`}
+                  className={`${styles.roleOption} ${isSelected ? styles.roleOptionSelected : ""}`}
                 >
                   <span className={styles.roleLeft}>
                     <span className={styles.roleIconBox}>{role.icon}</span>
@@ -245,9 +230,7 @@ export default function RegisterRolePage() {
                   </span>
 
                   <span
-                    className={`${styles.radioDot} ${
-                      isSelected ? styles.radioDotActive : ''
-                    }`}
+                    className={`${styles.radioDot} ${isSelected ? styles.radioDotActive : ""}`}
                     aria-hidden="true"
                   >
                     {isSelected && <span className={styles.radioDotInner} />}
@@ -257,7 +240,7 @@ export default function RegisterRolePage() {
             })}
           </div>
 
-          <div aria-live="polite" style={{ display: error ? 'block' : 'none' }}>
+          <div aria-live="polite" style={{ display: error ? "block" : "none" }}>
             {error && (
               <p id="role-selection-error" className={styles.fieldError}>
                 <AlertCircle size={14} strokeWidth={1.5} aria-hidden="true" />
@@ -271,12 +254,12 @@ export default function RegisterRolePage() {
               <Clock
                 size={15}
                 strokeWidth={1.5}
-                style={{ flexShrink: 0, marginTop: '2px' }}
+                style={{ flexShrink: 0, marginTop: "2px" }}
                 aria-hidden="true"
               />
               <span>
-                {selectedRole} profiles undergo a brief verification by our team
-                so confidential rooms remain trusted.
+                {selectedRole} profiles undergo a brief verification by our team so confidential
+                rooms remain trusted.
               </span>
             </div>
           )}
@@ -291,7 +274,7 @@ export default function RegisterRolePage() {
               {isSubmitting ? (
                 <span className={styles.spinner} aria-label="Saving role" />
               ) : (
-                'Continue to onboarding'
+                "Continue to onboarding"
               )}
             </button>
 

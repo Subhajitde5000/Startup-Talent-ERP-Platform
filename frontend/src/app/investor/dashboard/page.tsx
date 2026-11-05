@@ -1,3 +1,5 @@
-'use client';
-import InvestorRollPage from '../InvestorRollPage';
-export default function InvestorDashboardPage(){return <InvestorRollPage section="dashboard"/>}
+"use client";
+import InvestorRollPage from "../InvestorRollPage";
+export default function InvestorDashboardPage() {
+  return <InvestorRollPage section="dashboard" />;
+}

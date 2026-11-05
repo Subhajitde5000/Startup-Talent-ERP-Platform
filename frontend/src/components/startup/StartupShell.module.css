@@ -24,8 +24,8 @@
     height: 100dvh;
     display: flex;
     flex-direction: column;
-    background-color: #0F1B2D;
-    color: #FAF8F4;
+    background-color: #0f1b2d;
+    color: #faf8f4;
     border-right: 1px solid rgba(250, 248, 244, 0.08);
     overflow-y: auto;
     scrollbar-width: thin;
@@ -45,8 +45,8 @@
 .mobileDrawer {
   width: min(296px, 86vw);
   height: 100%;
-  background-color: #0F1B2D;
-  color: #FAF8F4;
+  background-color: #0f1b2d;
+  color: #faf8f4;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -88,7 +88,7 @@
 .workspaceStartupName {
   font-size: 13px;
   font-weight: 600;
-  color: #FAF8F4;
+  color: #faf8f4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -96,13 +96,13 @@
 
 .workspaceSub {
   font-size: 11px;
-  color: #A0A7B4;
+  color: #a0a7b4;
 }
 
 .workspaceStageDot {
   font-size: 11px;
   font-weight: 600;
-  color: #B8955A;
+  color: #b8955a;
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid rgba(184, 149, 90, 0.35);
@@ -130,7 +130,7 @@
   font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #7D899B;
+  color: #7d899b;
 }
 
 .navLink {
@@ -144,30 +144,32 @@
   text-decoration: none;
   font-size: 13.5px;
   font-weight: 400;
-  color: #BCC3CE;
-  transition: background-color 150ms ease-out, color 150ms ease-out;
+  color: #bcc3ce;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
 }
 
 .navLink:hover {
   background-color: rgba(250, 248, 244, 0.05);
-  color: #FAF8F4;
+  color: #faf8f4;
 }
 
 .navLinkActive {
-  background-color: #1C2B42;
-  color: #FAF8F4;
+  background-color: #1c2b42;
+  color: #faf8f4;
   font-weight: 500;
 }
 
 .navLinkActive::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 8px;
   bottom: 8px;
   width: 2.5px;
   border-radius: 2px;
-  background-color: #B8955A;
+  background-color: #b8955a;
 }
 
 .stageHint {
@@ -175,7 +177,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #B8955A;
+  background-color: #b8955a;
   opacity: 0.85;
 }
 
@@ -196,13 +198,13 @@
   background: none;
   border: none;
   border-radius: 8px;
-  color: #A0A7B4;
+  color: #a0a7b4;
   cursor: pointer;
 }
 
 .drawerCloseBtn:hover {
   background-color: rgba(250, 248, 244, 0.08);
-  color: #FAF8F4;
+  color: #faf8f4;
 }
 
 /* Right Main Column (Top Navigation + Scrollable Content) */
@@ -313,7 +315,9 @@
   font-weight: 500;
   color: var(--text-secondary);
   text-decoration: none;
-  transition: background-color 150ms ease-out, color 150ms ease-out;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
 }
 
 .switchRoleLink:hover {
@@ -338,7 +342,9 @@
   border-radius: 8px;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background-color 150ms ease-out, color 150ms ease-out;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
 }
 
 .iconBtn:hover {
@@ -363,8 +369,8 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background-color: #0F1B2D;
-  color: #FAF8F4;
+  background-color: #0f1b2d;
+  color: #faf8f4;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.03em;
@@ -397,5 +403,21 @@
   }
 }
 
-.iconBtn{position:relative}
-.notificationBadge{position:absolute;top:1px;right:0;display:grid;min-width:14px;height:14px;place-items:center;padding:0 3px;border:1px solid var(--bg-surface);border-radius:9px;background:var(--error);color:white;font:650 7px var(--font-body)}
+.iconBtn {
+  position: relative;
+}
+.notificationBadge {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  display: grid;
+  min-width: 14px;
+  height: 14px;
+  place-items: center;
+  padding: 0 3px;
+  border: 1px solid var(--bg-surface);
+  border-radius: 9px;
+  background: var(--error);
+  color: white;
+  font: 650 7px var(--font-body);
+}

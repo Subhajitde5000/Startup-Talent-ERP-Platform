@@ -83,7 +83,7 @@
 
 .divider::before,
 .divider::after {
-  content: '';
+  content: "";
   flex: 1;
   height: 1px;
   background-color: var(--border-subtle);
@@ -394,7 +394,9 @@
   background-color: var(--bg-page);
   color: var(--text-primary);
   flex-shrink: 0;
-  transition: border-color 160ms ease-out, color 160ms ease-out;
+  transition:
+    border-color 160ms ease-out,
+    color 160ms ease-out;
 }
 
 .roleOptionSelected .roleIconBox {

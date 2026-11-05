@@ -1,29 +1,28 @@
-'use client';
+"use client";
 
-import React, { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { AlertCircle, Check, Eye, EyeOff, Lock } from 'lucide-react';
-import { AuthSplitLayout } from '@/components/AuthSplitLayout';
-import { SsoButtons, SsoProvider } from '@/components/SsoButtons';
-import { ThemeTogglePill } from '@/components/ThemeTogglePill';
-import { REGISTRATION_DRAFT_KEY } from '@/lib/registrationDraft';
-import styles from './register.module.css';
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+import { EMAIL_REGEX } from "@/utils/validation";
+import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { AlertCircle, Check, Eye, EyeOff, Lock } from "lucide-react";
+import { AuthSplitLayout } from "@/components/AuthSplitLayout";
+import { SsoButtons, SsoProvider } from "@/components/SsoButtons";
+import { ThemeTogglePill } from "@/components/ThemeTogglePill";
+import { REGISTRATION_DRAFT_KEY } from "@/lib/registrationDraft";
+import styles from "./register.module.css";
 
 export default function RegisterPage() {
   const router = useRouter();
 
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const [nameError, setNameError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [bannerError, setBannerError] = useState<'none' | 'email_exists' | 'generic'>('none');
+  const [bannerError, setBannerError] = useState<"none" | "email_exists" | "generic">("none");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [ssoLoading, setSsoLoading] = useState<SsoProvider | null>(null);
@@ -50,21 +49,21 @@ export default function RegisterPage() {
   const hasNumberOrSymbol = /[\d\W_]/.test(password);
 
   const validateName = (value: string): string | null => {
-    if (!value.trim()) return 'Enter your full name.';
+    if (!value.trim()) return "Enter your full name.";
     return null;
   };
 
   const validateEmail = (value: string): string | null => {
     const trimmed = value.trim();
-    if (!trimmed) return 'Enter your email address.';
+    if (!trimmed) return "Enter your email address.";
     if (!EMAIL_REGEX.test(trimmed)) return "That doesn't look like a valid email.";
     return null;
   };
 
   const validatePassword = (value: string): string | null => {
-    if (!value) return 'Create a password.';
+    if (!value) return "Create a password.";
     if (value.length < 8 || !/[\d\W_]/.test(value)) {
-      return 'Use at least 8 characters with a number or symbol.';
+      return "Use at least 8 characters with a number or symbol.";
     }
     return null;
   };
@@ -75,33 +74,33 @@ export default function RegisterPage() {
     setNameError(null);
     setEmailError(null);
     setPasswordError(null);
-    setBannerError('none');
+    setBannerError("none");
 
     await new Promise((resolve) => setTimeout(resolve, 600));
 
     const demoEmail =
-      provider === 'google'
-        ? 'claire.chen@northstar.bio'
-        : provider === 'microsoft'
-          ? 'claire.chen@meridian.vc'
-          : 'claire.chen@talent.io';
+      provider === "google"
+        ? "claire.chen@northstar.bio"
+        : provider === "microsoft"
+          ? "claire.chen@meridian.vc"
+          : "claire.chen@talent.io";
 
     try {
       window.sessionStorage.setItem(
         REGISTRATION_DRAFT_KEY,
         JSON.stringify({
-          fullName: 'Claire Chen',
+          fullName: "Claire Chen",
           email: demoEmail,
           method: provider,
           emailVerified: false,
-        })
+        }),
       );
     } catch {
       // Ignore storage errors
     }
 
     setSsoLoading(null);
-    router.push('/verify-email');
+    router.push("/verify-email");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -130,13 +129,13 @@ export default function RegisterPage() {
       return;
     }
 
-    setBannerError('none');
+    setBannerError("none");
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: fullName.trim(),
           email: email.trim(),
@@ -147,20 +146,20 @@ export default function RegisterPage() {
       const result = await response.json();
 
       if (!response.ok || !result.ok) {
-        if (result.code === 'email_exists') {
-          setBannerError('email_exists');
+        if (result.code === "email_exists") {
+          setBannerError("email_exists");
           emailInputRef.current?.focus();
-        } else if (result.field === 'fullName') {
+        } else if (result.field === "fullName") {
           setNameError(result.message);
           nameInputRef.current?.focus();
-        } else if (result.field === 'email') {
+        } else if (result.field === "email") {
           setEmailError(result.message);
           emailInputRef.current?.focus();
-        } else if (result.field === 'password') {
+        } else if (result.field === "password") {
           setPasswordError(result.message);
           passwordInputRef.current?.focus();
         } else {
-          setBannerError('generic');
+          setBannerError("generic");
         }
         setIsSubmitting(false);
         return;
@@ -172,17 +171,17 @@ export default function RegisterPage() {
           JSON.stringify({
             fullName: fullName.trim(),
             email: email.trim(),
-            method: 'email',
+            method: "email",
             emailVerified: false,
-          })
+          }),
         );
       } catch {
         // Ignore storage errors
       }
 
-      router.push('/verify-email');
+      router.push("/verify-email");
     } catch {
-      setBannerError('generic');
+      setBannerError("generic");
       setIsSubmitting(false);
     }
   };
@@ -208,8 +207,8 @@ export default function RegisterPage() {
           <header className={styles.header}>
             <h1 className={styles.title}>Create your account</h1>
             <p className={styles.subtitle}>
-              Start with your details. Next, you&apos;ll confirm your email and
-              choose how you use the platform.
+              Start with your details. Next, you&apos;ll confirm your email and choose how you use
+              the platform.
             </p>
           </header>
         </div>
@@ -226,15 +225,9 @@ export default function RegisterPage() {
             <span>or register with email</span>
           </div>
 
-          <div
-            aria-live="polite"
-            style={{ display: bannerError === 'none' ? 'none' : 'block' }}
-          >
-            {bannerError === 'email_exists' && (
-              <div
-                className={`${styles.statusBanner} ${styles.statusBannerError}`}
-                role="alert"
-              >
+          <div aria-live="polite" style={{ display: bannerError === "none" ? "none" : "block" }}>
+            {bannerError === "email_exists" && (
+              <div className={`${styles.statusBanner} ${styles.statusBannerError}`} role="alert">
                 <AlertCircle
                   size={16}
                   strokeWidth={1.5}
@@ -242,7 +235,7 @@ export default function RegisterPage() {
                   aria-hidden="true"
                 />
                 <span>
-                  An account with this email already exists.{' '}
+                  An account with this email already exists.{" "}
                   <Link href="/" className="accent-link">
                     Sign in instead
                   </Link>
@@ -251,11 +244,8 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {bannerError === 'generic' && (
-              <div
-                className={`${styles.statusBanner} ${styles.statusBannerError}`}
-                role="alert"
-              >
+            {bannerError === "generic" && (
+              <div className={`${styles.statusBanner} ${styles.statusBannerError}`} role="alert">
                 <AlertCircle
                   size={16}
                   strokeWidth={1.5}
@@ -285,16 +275,11 @@ export default function RegisterPage() {
                   onChange={(e) => setFullName(e.target.value)}
                   onBlur={() => setNameError(validateName(fullName))}
                   aria-invalid={Boolean(nameError)}
-                  aria-describedby={nameError ? 'register-name-error' : undefined}
-                  className={`${styles.input} ${
-                    nameError ? styles.inputError : ''
-                  }`}
+                  aria-describedby={nameError ? "register-name-error" : undefined}
+                  className={`${styles.input} ${nameError ? styles.inputError : ""}`}
                 />
               </div>
-              <div
-                aria-live="polite"
-                style={{ display: nameError ? 'block' : 'none' }}
-              >
+              <div aria-live="polite" style={{ display: nameError ? "block" : "none" }}>
                 {nameError && (
                   <p id="register-name-error" className={styles.fieldError}>
                     <AlertCircle size={14} strokeWidth={1.5} aria-hidden="true" />
@@ -321,16 +306,11 @@ export default function RegisterPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   onBlur={() => setEmailError(validateEmail(email))}
                   aria-invalid={Boolean(emailError)}
-                  aria-describedby={emailError ? 'register-email-error' : undefined}
-                  className={`${styles.input} ${
-                    emailError ? styles.inputError : ''
-                  }`}
+                  aria-describedby={emailError ? "register-email-error" : undefined}
+                  className={`${styles.input} ${emailError ? styles.inputError : ""}`}
                 />
               </div>
-              <div
-                aria-live="polite"
-                style={{ display: emailError ? 'block' : 'none' }}
-              >
+              <div aria-live="polite" style={{ display: emailError ? "block" : "none" }}>
                 {emailError && (
                   <p id="register-email-error" className={styles.fieldError}>
                     <AlertCircle size={14} strokeWidth={1.5} aria-hidden="true" />
@@ -350,7 +330,7 @@ export default function RegisterPage() {
                   ref={passwordInputRef}
                   id="register-password"
                   name="password"
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   autoComplete="new-password"
                   placeholder="Create a password"
                   value={password}
@@ -359,18 +339,18 @@ export default function RegisterPage() {
                   aria-invalid={Boolean(passwordError)}
                   aria-describedby={
                     passwordError
-                      ? 'register-password-error register-password-rules'
-                      : 'register-password-rules'
+                      ? "register-password-error register-password-rules"
+                      : "register-password-rules"
                   }
                   className={`${styles.input} ${styles.inputWithAction} ${
-                    passwordError ? styles.inputError : ''
+                    passwordError ? styles.inputError : ""
                   }`}
                 />
                 <button
                   type="button"
                   className={styles.passwordToggle}
                   onClick={() => setShowPassword((prev) => !prev)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   aria-pressed={showPassword}
                 >
                   {showPassword ? (
@@ -381,10 +361,7 @@ export default function RegisterPage() {
                 </button>
               </div>
 
-              <div
-                aria-live="polite"
-                style={{ display: passwordError ? 'block' : 'none' }}
-              >
+              <div aria-live="polite" style={{ display: passwordError ? "block" : "none" }}>
                 {passwordError && (
                   <p id="register-password-error" className={styles.fieldError}>
                     <AlertCircle size={14} strokeWidth={1.5} aria-hidden="true" />
@@ -398,11 +375,7 @@ export default function RegisterPage() {
                 className={styles.passwordRules}
                 aria-label="Password requirements"
               >
-                <li
-                  className={`${styles.ruleItem} ${
-                    hasMinLength ? styles.ruleItemMet : ''
-                  }`}
-                >
+                <li className={`${styles.ruleItem} ${hasMinLength ? styles.ruleItemMet : ""}`}>
                   {hasMinLength ? (
                     <Check size={13} strokeWidth={2} aria-hidden="true" />
                   ) : (
@@ -410,11 +383,7 @@ export default function RegisterPage() {
                   )}
                   <span>8+ characters</span>
                 </li>
-                <li
-                  className={`${styles.ruleItem} ${
-                    hasNumberOrSymbol ? styles.ruleItemMet : ''
-                  }`}
-                >
+                <li className={`${styles.ruleItem} ${hasNumberOrSymbol ? styles.ruleItemMet : ""}`}>
                   {hasNumberOrSymbol ? (
                     <Check size={13} strokeWidth={2} aria-hidden="true" />
                   ) : (
@@ -435,7 +404,7 @@ export default function RegisterPage() {
                 {isSubmitting ? (
                   <span className={styles.spinner} aria-label="Creating account" />
                 ) : (
-                  'Continue'
+                  "Continue"
                 )}
               </button>
 
@@ -450,17 +419,17 @@ export default function RegisterPage() {
         {/* Footer & Fine Print */}
         <footer className={styles.footer}>
           <p className={styles.footerPrompt}>
-            Already have an account?{' '}
+            Already have an account?{" "}
             <Link href="/" className={styles.footerLink}>
               Sign in
             </Link>
           </p>
           <p className={styles.finePrint}>
-            By continuing you agree to our{' '}
+            By continuing you agree to our{" "}
             <Link href="/terms" className={styles.finePrintLink}>
               Terms
-            </Link>{' '}
-            and{' '}
+            </Link>{" "}
+            and{" "}
             <Link href="/privacy" className={styles.finePrintLink}>
               Privacy Policy
             </Link>

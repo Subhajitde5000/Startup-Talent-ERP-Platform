@@ -43,7 +43,7 @@
 
 .divider::before,
 .divider::after {
-  content: '';
+  content: "";
   flex: 1;
   height: 1px;
   background-color: var(--border-subtle);
@@ -136,7 +136,9 @@
   color: var(--accent-text);
   text-decoration: none;
   border-radius: 4px;
-  transition: color 160ms ease-out, box-shadow 160ms ease-out;
+  transition:
+    color 160ms ease-out,
+    box-shadow 160ms ease-out;
 }
 
 .forgotLink:hover,
@@ -217,7 +219,9 @@
   border-radius: 8px;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: color 160ms ease-out, background-color 160ms ease-out;
+  transition:
+    color 160ms ease-out,
+    background-color 160ms ease-out;
 }
 
 .passwordToggle:hover {

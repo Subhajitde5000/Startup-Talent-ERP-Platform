@@ -1,12 +1,7 @@
-export const REGISTRATION_DRAFT_KEY = 'meridian_registration_draft';
-export const USER_PROFILE_KEY = 'meridian_workspace_profile';
+export const REGISTRATION_DRAFT_KEY = "meridian_registration_draft";
+export const USER_PROFILE_KEY = "meridian_workspace_profile";
 
-export type OnboardingRole =
-  | 'Startup'
-  | 'Mentor'
-  | 'Investor'
-  | 'Job seeker'
-  | 'Employer';
+export type OnboardingRole = "Startup" | "Mentor" | "Investor" | "Job seeker" | "Employer";
 
 export interface StartupProfileData {
   companyName: string;

@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { Suspense, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
@@ -18,9 +18,9 @@ import {
   SlidersHorizontal,
   Sun,
   UserCheck,
-} from 'lucide-react';
-import { AuthSplitLayout } from '@/components/AuthSplitLayout';
-import { useTheme } from '@/components/ThemeProvider';
+} from "lucide-react";
+import { AuthSplitLayout } from "@/components/AuthSplitLayout";
+import { useTheme } from "@/components/ThemeProvider";
 import {
   CompletedWorkspaceProfile,
   EmployerProfileData,
@@ -31,26 +31,20 @@ import {
   REGISTRATION_DRAFT_KEY,
   StartupProfileData,
   USER_PROFILE_KEY,
-} from '@/lib/registrationDraft';
-import styles from './onboarding.module.css';
+} from "@/lib/registrationDraft";
+import styles from "./onboarding.module.css";
 
-const ALL_ROLES: OnboardingRole[] = [
-  'Startup',
-  'Mentor',
-  'Investor',
-  'Job seeker',
-  'Employer',
-];
+const ALL_ROLES: OnboardingRole[] = ["Startup", "Mentor", "Investor", "Job seeker", "Employer"];
 
 function parseRole(raw: string | null | undefined): OnboardingRole | null {
   if (!raw) return null;
   const normalized = raw.trim().toLowerCase();
-  if (normalized === 'startup' || normalized === 'founder') return 'Startup';
-  if (normalized === 'mentor') return 'Mentor';
-  if (normalized === 'investor') return 'Investor';
-  if (normalized === 'job seeker' || normalized === 'job-seeker' || normalized === 'talent')
-    return 'Job seeker';
-  if (normalized === 'employer') return 'Employer';
+  if (normalized === "startup" || normalized === "founder") return "Startup";
+  if (normalized === "mentor") return "Mentor";
+  if (normalized === "investor") return "Investor";
+  if (normalized === "job seeker" || normalized === "job-seeker" || normalized === "talent")
+    return "Job seeker";
+  if (normalized === "employer") return "Employer";
   return null;
 }
 
@@ -66,61 +60,57 @@ const ROLE_META: Record<
   }
 > = {
   Startup: {
-    badge: 'Startup workspace',
-    title: 'Set up your startup profile',
+    badge: "Startup workspace",
+    title: "Set up your startup profile",
     subtitle:
-      'Tell us about your company so we can configure your fundraising, milestones and hiring modules.',
+      "Tell us about your company so we can configure your fundraising, milestones and hiring modules.",
     brandHeadline:
-      'Configure your company room, fundraising milestones, and founding team operations.',
-    cta: 'Open startup dashboard',
+      "Configure your company room, fundraising milestones, and founding team operations.",
+    cta: "Open startup dashboard",
     icon: <Building2 size={14} strokeWidth={1.75} aria-hidden="true" />,
   },
   Mentor: {
-    badge: 'Mentor profile',
-    title: 'Complete your mentor profile',
+    badge: "Mentor profile",
+    title: "Complete your mentor profile",
     subtitle:
-      'Share your operating background and focus areas so founders can request high-signal office hours.',
+      "Share your operating background and focus areas so founders can request high-signal office hours.",
     brandHeadline:
-      'Share your operating experience to guide founders through pivotal inflection points.',
-    cta: 'Open mentor dashboard',
+      "Share your operating experience to guide founders through pivotal inflection points.",
+    cta: "Open mentor dashboard",
     icon: <Compass size={14} strokeWidth={1.75} aria-hidden="true" />,
   },
   Investor: {
-    badge: 'Investor workspace',
-    title: 'Configure your thesis',
+    badge: "Investor workspace",
+    title: "Configure your thesis",
     subtitle:
-      'Define your check size, stage and sector focus to personalize deal flow and diligence rooms.',
+      "Define your check size, stage and sector focus to personalize deal flow and diligence rooms.",
     brandHeadline:
-      'Set your investment thesis and stage focus for quiet, high-conviction deal rooms.',
-    cta: 'Open investor dashboard',
+      "Set your investment thesis and stage focus for quiet, high-conviction deal rooms.",
+    cta: "Open investor dashboard",
     icon: <Landmark size={14} strokeWidth={1.75} aria-hidden="true" />,
   },
-  'Job seeker': {
-    badge: 'Talent profile',
-    title: 'Build your talent profile',
+  "Job seeker": {
+    badge: "Talent profile",
+    title: "Build your talent profile",
     subtitle:
-      'Highlight your discipline, skills and stage preferences to match directly with vetted startups.',
-    brandHeadline:
-      'Match directly with founders and early teams building enduring companies.',
-    cta: 'Open talent dashboard',
+      "Highlight your discipline, skills and stage preferences to match directly with vetted startups.",
+    brandHeadline: "Match directly with founders and early teams building enduring companies.",
+    cta: "Open talent dashboard",
     icon: <UserCheck size={14} strokeWidth={1.75} aria-hidden="true" />,
   },
   Employer: {
-    badge: 'Employer workspace',
-    title: 'Set up your hiring profile',
+    badge: "Employer workspace",
+    title: "Set up your hiring profile",
     subtitle:
-      'Outline your company stage and open disciplines to connect with startup-ready engineers and operators.',
-    brandHeadline:
-      'Build your founding and growth-stage team with curated startup talent.',
-    cta: 'Open employer dashboard',
+      "Outline your company stage and open disciplines to connect with startup-ready engineers and operators.",
+    brandHeadline: "Build your founding and growth-stage team with curated startup talent.",
+    cta: "Open employer dashboard",
     icon: <Briefcase size={14} strokeWidth={1.75} aria-hidden="true" />,
   },
 };
 
 function toggleArrayItem(list: string[], value: string): string[] {
-  return list.includes(value)
-    ? list.filter((item) => item !== value)
-    : [...list, value];
+  return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
 
 function OnboardingContent() {
@@ -128,64 +118,62 @@ function OnboardingContent() {
   const searchParams = useSearchParams();
   const { theme, toggleTheme } = useTheme();
 
-  const queryRole = parseRole(searchParams.get('role'));
+  const queryRole = parseRole(searchParams.get("role"));
 
-  const [activeRole, setActiveRole] = useState<OnboardingRole>(
-    queryRole || 'Startup'
-  );
-  const [userName, setUserName] = useState('Claire Chen');
-  const [userEmail, setUserEmail] = useState('claire@northstar.bio');
+  const [activeRole, setActiveRole] = useState<OnboardingRole>(queryRole || "Startup");
+  const [userName, setUserName] = useState("Claire Chen");
+  const [userEmail, setUserEmail] = useState("claire@northstar.bio");
   const [previewOpen, setPreviewOpen] = useState(false);
 
   // 1. Startup state
   const [startup, setStartup] = useState<StartupProfileData>({
-    companyName: '',
-    oneLiner: '',
-    stage: 'Idea',
-    teamSize: '3–10',
-    sector: 'AI & Infrastructure',
-    priorities: ['Fundraising', 'Hiring talent'],
-    website: '',
+    companyName: "",
+    oneLiner: "",
+    stage: "Idea",
+    teamSize: "3–10",
+    sector: "AI & Infrastructure",
+    priorities: ["Fundraising", "Hiring talent"],
+    website: "",
   });
 
   // 2. Mentor state
   const [mentor, setMentor] = useState<MentorProfileData>({
-    headlineRole: '',
-    experienceYears: '6–10 years',
-    availability: '4 hrs / month',
-    expertise: ['Go-to-market', 'Fundraising & pitch'],
-    preferredStages: ['Idea / Pre-seed', 'Seed'],
-    linkedinUrl: '',
+    headlineRole: "",
+    experienceYears: "6–10 years",
+    availability: "4 hrs / month",
+    expertise: ["Go-to-market", "Fundraising & pitch"],
+    preferredStages: ["Idea / Pre-seed", "Seed"],
+    linkedinUrl: "",
   });
 
   // 3. Investor state
   const [investor, setInvestor] = useState<InvestorProfileData>({
-    investorType: 'Venture Fund',
-    firmName: '',
-    checkSize: '$250k – $1M',
-    targetStage: 'Seed',
-    sectors: ['AI & Infrastructure', 'B2B SaaS'],
-    credentialUrl: '',
+    investorType: "Venture Fund",
+    firmName: "",
+    checkSize: "$250k – $1M",
+    targetStage: "Seed",
+    sectors: ["AI & Infrastructure", "B2B SaaS"],
+    credentialUrl: "",
   });
 
   // 4. Job seeker state
   const [jobSeeker, setJobSeeker] = useState<JobSeekerProfileData>({
-    targetTitle: '',
-    experienceYears: '3–5 years',
-    workPreference: 'Hybrid',
-    skills: ['Full-stack TypeScript', 'AI / ML'],
-    preferredStages: ['Seed', 'Series A–B'],
-    portfolioUrl: '',
+    targetTitle: "",
+    experienceYears: "3–5 years",
+    workPreference: "Hybrid",
+    skills: ["Full-stack TypeScript", "AI / ML"],
+    preferredStages: ["Seed", "Series A–B"],
+    portfolioUrl: "",
   });
 
   // 5. Employer state
   const [employer, setEmployer] = useState<EmployerProfileData>({
-    companyName: '',
-    hiringLeadRole: '',
-    companySize: '11–50',
-    hiringTimeline: 'Immediate (this month)',
-    openFunctions: ['Software Engineering', 'Product & Design'],
-    companyWebsite: '',
+    companyName: "",
+    hiringLeadRole: "",
+    companySize: "11–50",
+    hiringTimeline: "Immediate (this month)",
+    openFunctions: ["Software Engineering", "Product & Design"],
+    companyWebsite: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -224,9 +212,7 @@ function OnboardingContent() {
 
   const meta = ROLE_META[activeRole];
   const requiresVerification =
-    activeRole === 'Investor' ||
-    activeRole === 'Mentor' ||
-    activeRole === 'Employer';
+    activeRole === "Investor" || activeRole === "Mentor" || activeRole === "Employer";
 
   const switchRolePreview = (nextRole: OnboardingRole) => {
     setActiveRole(nextRole);
@@ -237,7 +223,7 @@ function OnboardingContent() {
       const prev = raw ? JSON.parse(raw) : {};
       window.sessionStorage.setItem(
         REGISTRATION_DRAFT_KEY,
-        JSON.stringify({ ...prev, role: nextRole })
+        JSON.stringify({ ...prev, role: nextRole }),
       );
     } catch {
       // Ignore storage errors
@@ -247,58 +233,58 @@ function OnboardingContent() {
   const validateCurrentRole = (): Record<string, string> => {
     const nextErrors: Record<string, string> = {};
 
-    if (activeRole === 'Startup') {
+    if (activeRole === "Startup") {
       if (!startup.companyName.trim()) {
-        nextErrors.companyName = 'Enter your startup name.';
+        nextErrors.companyName = "Enter your startup name.";
       }
       if (!startup.oneLiner.trim()) {
-        nextErrors.oneLiner = 'Add a concise one-line description.';
+        nextErrors.oneLiner = "Add a concise one-line description.";
       }
       if (startup.priorities.length === 0) {
-        nextErrors.priorities = 'Select at least one priority.';
+        nextErrors.priorities = "Select at least one priority.";
       }
-    } else if (activeRole === 'Mentor') {
+    } else if (activeRole === "Mentor") {
       if (!mentor.headlineRole.trim()) {
-        nextErrors.headlineRole = 'Enter your current role and organization.';
+        nextErrors.headlineRole = "Enter your current role and organization.";
       }
       if (mentor.expertise.length === 0) {
-        nextErrors.expertise = 'Select at least one mentorship area.';
+        nextErrors.expertise = "Select at least one mentorship area.";
       }
       if (!mentor.linkedinUrl.trim()) {
-        nextErrors.linkedinUrl = 'Provide your LinkedIn profile for verification.';
+        nextErrors.linkedinUrl = "Provide your LinkedIn profile for verification.";
       }
-    } else if (activeRole === 'Investor') {
+    } else if (activeRole === "Investor") {
       if (!investor.firmName.trim()) {
-        nextErrors.firmName = 'Enter your fund, syndicate or entity name.';
+        nextErrors.firmName = "Enter your fund, syndicate or entity name.";
       }
       if (investor.sectors.length === 0) {
-        nextErrors.sectors = 'Select at least one sector in your thesis.';
+        nextErrors.sectors = "Select at least one sector in your thesis.";
       }
       if (!investor.credentialUrl.trim()) {
-        nextErrors.credentialUrl = 'Provide your firm website or LinkedIn URL.';
+        nextErrors.credentialUrl = "Provide your firm website or LinkedIn URL.";
       }
-    } else if (activeRole === 'Job seeker') {
+    } else if (activeRole === "Job seeker") {
       if (!jobSeeker.targetTitle.trim()) {
-        nextErrors.targetTitle = 'Enter your primary discipline or target role.';
+        nextErrors.targetTitle = "Enter your primary discipline or target role.";
       }
       if (jobSeeker.skills.length === 0) {
-        nextErrors.skills = 'Select at least one core skill.';
+        nextErrors.skills = "Select at least one core skill.";
       }
       if (!jobSeeker.portfolioUrl.trim()) {
-        nextErrors.portfolioUrl = 'Add a link to your LinkedIn, GitHub or portfolio.';
+        nextErrors.portfolioUrl = "Add a link to your LinkedIn, GitHub or portfolio.";
       }
-    } else if (activeRole === 'Employer') {
+    } else if (activeRole === "Employer") {
       if (!employer.companyName.trim()) {
-        nextErrors.companyName = 'Enter your company name.';
+        nextErrors.companyName = "Enter your company name.";
       }
       if (!employer.hiringLeadRole.trim()) {
-        nextErrors.hiringLeadRole = 'Enter your role or title.';
+        nextErrors.hiringLeadRole = "Enter your role or title.";
       }
       if (employer.openFunctions.length === 0) {
-        nextErrors.openFunctions = 'Select at least one function you are hiring for.';
+        nextErrors.openFunctions = "Select at least one function you are hiring for.";
       }
       if (!employer.companyWebsite.trim()) {
-        nextErrors.companyWebsite = 'Enter your company website.';
+        nextErrors.companyWebsite = "Enter your company website.";
       }
     }
 
@@ -322,17 +308,17 @@ function OnboardingContent() {
     setIsSubmitting(true);
 
     const onboardingPayload = {
-      startup: activeRole === 'Startup' ? startup : undefined,
-      mentor: activeRole === 'Mentor' ? mentor : undefined,
-      investor: activeRole === 'Investor' ? investor : undefined,
-      jobSeeker: activeRole === 'Job seeker' ? jobSeeker : undefined,
-      employer: activeRole === 'Employer' ? employer : undefined,
+      startup: activeRole === "Startup" ? startup : undefined,
+      mentor: activeRole === "Mentor" ? mentor : undefined,
+      investor: activeRole === "Investor" ? investor : undefined,
+      jobSeeker: activeRole === "Job seeker" ? jobSeeker : undefined,
+      employer: activeRole === "Employer" ? employer : undefined,
     };
 
     try {
-      const res = await fetch('/api/auth/onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/auth/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           role: activeRole,
           email: userEmail,
@@ -343,7 +329,7 @@ function OnboardingContent() {
 
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        setErrors({ form: data.message || 'Unable to complete onboarding.' });
+        setErrors({ form: data.message || "Unable to complete onboarding." });
         setIsSubmitting(false);
         return;
       }
@@ -358,26 +344,23 @@ function OnboardingContent() {
       };
 
       try {
-        window.localStorage.setItem(
-          USER_PROFILE_KEY,
-          JSON.stringify(completedProfile)
-        );
+        window.localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(completedProfile));
         window.sessionStorage.removeItem(REGISTRATION_DRAFT_KEY);
       } catch {
         // Ignore storage errors
       }
 
-      if (activeRole === 'Startup') {
-        router.push('/startup/dashboard');
+      if (activeRole === "Startup") {
+        router.push("/startup/dashboard");
       } else {
         router.push(
           `/dashboard?role=${encodeURIComponent(
-            activeRole
-          )}&email=${encodeURIComponent(userEmail)}&welcome=1`
+            activeRole,
+          )}&email=${encodeURIComponent(userEmail)}&welcome=1`,
         );
       }
     } catch {
-      setErrors({ form: 'Unable to save profile right now. Please try again.' });
+      setErrors({ form: "Unable to save profile right now. Please try again." });
       setIsSubmitting(false);
     }
   };
@@ -387,10 +370,7 @@ function OnboardingContent() {
       <div className={styles.sections}>
         {/* Step 4 of 4 Indicator + Role Header */}
         <div className={styles.stepHeader}>
-          <div
-            className={styles.stepMeta}
-            aria-label="Step 4 of 4: Role onboarding"
-          >
+          <div className={styles.stepMeta} aria-label="Step 4 of 4: Role onboarding">
             <div className={styles.stepLabelRow}>
               <span>Step 4 of 4</span>
               <span>Role onboarding</span>
@@ -416,7 +396,7 @@ function OnboardingContent() {
         {/* Role-Specific Onboarding Form */}
         <form className={styles.form} onSubmit={handleSubmit} noValidate>
           {/* 1. STARTUP ONBOARDING */}
-          {activeRole === 'Startup' && (
+          {activeRole === "Startup" && (
             <>
               <div className={styles.fieldGroup}>
                 <label htmlFor="onboarding-companyName" className={styles.label}>
@@ -427,21 +407,15 @@ function OnboardingContent() {
                   type="text"
                   placeholder="Northstar Bio"
                   value={startup.companyName}
-                  onChange={(e) =>
-                    setStartup({ ...startup, companyName: e.target.value })
-                  }
+                  onChange={(e) => setStartup({ ...startup, companyName: e.target.value })}
                   onBlur={() =>
                     setErrors((prev) => ({
                       ...prev,
-                      companyName: startup.companyName.trim()
-                        ? ''
-                        : 'Enter your startup name.',
+                      companyName: startup.companyName.trim() ? "" : "Enter your startup name.",
                     }))
                   }
                   aria-invalid={Boolean(errors.companyName)}
-                  className={`${styles.input} ${
-                    errors.companyName ? styles.inputError : ''
-                  }`}
+                  className={`${styles.input} ${errors.companyName ? styles.inputError : ""}`}
                 />
                 {errors.companyName && (
                   <p className={styles.fieldError} aria-live="polite">
@@ -460,21 +434,17 @@ function OnboardingContent() {
                   type="text"
                   placeholder="Programmable protein therapeutics for oncology"
                   value={startup.oneLiner}
-                  onChange={(e) =>
-                    setStartup({ ...startup, oneLiner: e.target.value })
-                  }
+                  onChange={(e) => setStartup({ ...startup, oneLiner: e.target.value })}
                   onBlur={() =>
                     setErrors((prev) => ({
                       ...prev,
                       oneLiner: startup.oneLiner.trim()
-                        ? ''
-                        : 'Add a concise one-line description.',
+                        ? ""
+                        : "Add a concise one-line description.",
                     }))
                   }
                   aria-invalid={Boolean(errors.oneLiner)}
-                  className={`${styles.input} ${
-                    errors.oneLiner ? styles.inputError : ''
-                  }`}
+                  className={`${styles.input} ${errors.oneLiner ? styles.inputError : ""}`}
                 />
                 {errors.oneLiner && (
                   <p className={styles.fieldError} aria-live="polite">
@@ -493,9 +463,7 @@ function OnboardingContent() {
                     <select
                       id="onboarding-stage"
                       value={startup.stage}
-                      onChange={(e) =>
-                        setStartup({ ...startup, stage: e.target.value })
-                      }
+                      onChange={(e) => setStartup({ ...startup, stage: e.target.value })}
                       className={styles.select}
                     >
                       <option value="Idea">Idea</option>
@@ -520,9 +488,7 @@ function OnboardingContent() {
                     <select
                       id="onboarding-teamSize"
                       value={startup.teamSize}
-                      onChange={(e) =>
-                        setStartup({ ...startup, teamSize: e.target.value })
-                      }
+                      onChange={(e) => setStartup({ ...startup, teamSize: e.target.value })}
                       className={styles.select}
                     >
                       <option value="1–2 founders">1–2 founders</option>
@@ -549,9 +515,7 @@ function OnboardingContent() {
                   <select
                     id="onboarding-sector"
                     value={startup.sector}
-                    onChange={(e) =>
-                      setStartup({ ...startup, sector: e.target.value })
-                    }
+                    onChange={(e) => setStartup({ ...startup, sector: e.target.value })}
                     className={styles.select}
                   >
                     <option value="AI & Infrastructure">AI &amp; Infrastructure</option>
@@ -580,11 +544,11 @@ function OnboardingContent() {
                   aria-label="Immediate workspace priorities"
                 >
                   {[
-                    'Fundraising',
-                    'Hiring talent',
-                    'Mentor advisory',
-                    'Cap table & ops',
-                    'Customer pilots',
+                    "Fundraising",
+                    "Hiring talent",
+                    "Mentor advisory",
+                    "Cap table & ops",
+                    "Customer pilots",
                   ].map((item) => {
                     const selected = startup.priorities.includes(item);
                     return (
@@ -596,16 +560,12 @@ function OnboardingContent() {
                           const next = toggleArrayItem(startup.priorities, item);
                           setStartup({ ...startup, priorities: next });
                           if (next.length > 0) {
-                            setErrors((prev) => ({ ...prev, priorities: '' }));
+                            setErrors((prev) => ({ ...prev, priorities: "" }));
                           }
                         }}
-                        className={`${styles.chip} ${
-                          selected ? styles.chipSelected : ''
-                        }`}
+                        className={`${styles.chip} ${selected ? styles.chipSelected : ""}`}
                       >
-                        {selected && (
-                          <Check size={13} strokeWidth={2} aria-hidden="true" />
-                        )}
+                        {selected && <Check size={13} strokeWidth={2} aria-hidden="true" />}
                         <span>{item}</span>
                       </button>
                     );
@@ -631,9 +591,7 @@ function OnboardingContent() {
                   type="url"
                   placeholder="https://northstar.bio"
                   value={startup.website}
-                  onChange={(e) =>
-                    setStartup({ ...startup, website: e.target.value })
-                  }
+                  onChange={(e) => setStartup({ ...startup, website: e.target.value })}
                   className={styles.input}
                 />
               </div>
@@ -641,7 +599,7 @@ function OnboardingContent() {
           )}
 
           {/* 2. MENTOR ONBOARDING */}
-          {activeRole === 'Mentor' && (
+          {activeRole === "Mentor" && (
             <>
               <div className={styles.fieldGroup}>
                 <label htmlFor="onboarding-headlineRole" className={styles.label}>
@@ -652,21 +610,17 @@ function OnboardingContent() {
                   type="text"
                   placeholder="Operating Partner, Horizon Ventures"
                   value={mentor.headlineRole}
-                  onChange={(e) =>
-                    setMentor({ ...mentor, headlineRole: e.target.value })
-                  }
+                  onChange={(e) => setMentor({ ...mentor, headlineRole: e.target.value })}
                   onBlur={() =>
                     setErrors((prev) => ({
                       ...prev,
                       headlineRole: mentor.headlineRole.trim()
-                        ? ''
-                        : 'Enter your current role and organization.',
+                        ? ""
+                        : "Enter your current role and organization.",
                     }))
                   }
                   aria-invalid={Boolean(errors.headlineRole)}
-                  className={`${styles.input} ${
-                    errors.headlineRole ? styles.inputError : ''
-                  }`}
+                  className={`${styles.input} ${errors.headlineRole ? styles.inputError : ""}`}
                 />
                 {errors.headlineRole && (
                   <p className={styles.fieldError} aria-live="polite">
@@ -678,19 +632,14 @@ function OnboardingContent() {
 
               <div className={styles.rowTwoCol}>
                 <div className={styles.fieldGroup}>
-                  <label
-                    htmlFor="onboarding-experienceYears"
-                    className={styles.label}
-                  >
+                  <label htmlFor="onboarding-experienceYears" className={styles.label}>
                     Operating experience
                   </label>
                   <div className={styles.selectWrapper}>
                     <select
                       id="onboarding-experienceYears"
                       value={mentor.experienceYears}
-                      onChange={(e) =>
-                        setMentor({ ...mentor, experienceYears: e.target.value })
-                      }
+                      onChange={(e) => setMentor({ ...mentor, experienceYears: e.target.value })}
                       className={styles.select}
                     >
                       <option value="3–5 years">3–5 years</option>
@@ -708,19 +657,14 @@ function OnboardingContent() {
                 </div>
 
                 <div className={styles.fieldGroup}>
-                  <label
-                    htmlFor="onboarding-availability"
-                    className={styles.label}
-                  >
+                  <label htmlFor="onboarding-availability" className={styles.label}>
                     Monthly availability
                   </label>
                   <div className={styles.selectWrapper}>
                     <select
                       id="onboarding-availability"
                       value={mentor.availability}
-                      onChange={(e) =>
-                        setMentor({ ...mentor, availability: e.target.value })
-                      }
+                      onChange={(e) => setMentor({ ...mentor, availability: e.target.value })}
                       className={styles.select}
                     >
                       <option value="2 hrs / month">2 hrs / month</option>
@@ -748,12 +692,12 @@ function OnboardingContent() {
                   aria-label="Areas of mentorship"
                 >
                   {[
-                    'Go-to-market',
-                    'Fundraising & pitch',
-                    'Product strategy',
-                    'Engineering & AI',
-                    'Hiring & org design',
-                    'Enterprise sales',
+                    "Go-to-market",
+                    "Fundraising & pitch",
+                    "Product strategy",
+                    "Engineering & AI",
+                    "Hiring & org design",
+                    "Enterprise sales",
                   ].map((area) => {
                     const selected = mentor.expertise.includes(area);
                     return (
@@ -765,16 +709,12 @@ function OnboardingContent() {
                           const next = toggleArrayItem(mentor.expertise, area);
                           setMentor({ ...mentor, expertise: next });
                           if (next.length > 0) {
-                            setErrors((prev) => ({ ...prev, expertise: '' }));
+                            setErrors((prev) => ({ ...prev, expertise: "" }));
                           }
                         }}
-                        className={`${styles.chip} ${
-                          selected ? styles.chipSelected : ''
-                        }`}
+                        className={`${styles.chip} ${selected ? styles.chipSelected : ""}`}
                       >
-                        {selected && (
-                          <Check size={13} strokeWidth={2} aria-hidden="true" />
-                        )}
+                        {selected && <Check size={13} strokeWidth={2} aria-hidden="true" />}
                         <span>{area}</span>
                       </button>
                     );
@@ -790,40 +730,27 @@ function OnboardingContent() {
 
               <div className={styles.fieldGroup}>
                 <span className={styles.label}>Preferred startup stages</span>
-                <div
-                  className={styles.chipGrid}
-                  role="group"
-                  aria-label="Preferred startup stages"
-                >
-                  {['Idea / Pre-seed', 'Seed', 'Series A', 'Growth'].map(
-                    (stage) => {
-                      const selected = mentor.preferredStages.includes(stage);
-                      return (
-                        <button
-                          key={stage}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() =>
-                            setMentor({
-                              ...mentor,
-                              preferredStages: toggleArrayItem(
-                                mentor.preferredStages,
-                                stage
-                              ),
-                            })
-                          }
-                          className={`${styles.chip} ${
-                            selected ? styles.chipSelected : ''
-                          }`}
-                        >
-                          {selected && (
-                            <Check size={13} strokeWidth={2} aria-hidden="true" />
-                          )}
-                          <span>{stage}</span>
-                        </button>
-                      );
-                    }
-                  )}
+                <div className={styles.chipGrid} role="group" aria-label="Preferred startup stages">
+                  {["Idea / Pre-seed", "Seed", "Series A", "Growth"].map((stage) => {
+                    const selected = mentor.preferredStages.includes(stage);
+                    return (
+                      <button
+                        key={stage}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() =>
+                          setMentor({
+                            ...mentor,
+                            preferredStages: toggleArrayItem(mentor.preferredStages, stage),
+                          })
+                        }
+                        className={`${styles.chip} ${selected ? styles.chipSelected : ""}`}
+                      >
+                        {selected && <Check size={13} strokeWidth={2} aria-hidden="true" />}
+                        <span>{stage}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -836,21 +763,17 @@ function OnboardingContent() {
                   type="url"
                   placeholder="https://linkedin.com/in/clairechen"
                   value={mentor.linkedinUrl}
-                  onChange={(e) =>
-                    setMentor({ ...mentor, linkedinUrl: e.target.value })
-                  }
+                  onChange={(e) => setMentor({ ...mentor, linkedinUrl: e.target.value })}
                   onBlur={() =>
                     setErrors((prev) => ({
                       ...prev,
                       linkedinUrl: mentor.linkedinUrl.trim()
-                        ? ''
-                        : 'Provide your LinkedIn profile for verification.',
+                        ? ""
+                        : "Provide your LinkedIn profile for verification.",
                     }))
                   }
                   aria-invalid={Boolean(errors.linkedinUrl)}
-                  className={`${styles.input} ${
-                    errors.linkedinUrl ? styles.inputError : ''
-                  }`}
+                  className={`${styles.input} ${errors.linkedinUrl ? styles.inputError : ""}`}
                 />
                 {errors.linkedinUrl && (
                   <p className={styles.fieldError} aria-live="polite">
@@ -863,31 +786,24 @@ function OnboardingContent() {
           )}
 
           {/* 3. INVESTOR ONBOARDING */}
-          {activeRole === 'Investor' && (
+          {activeRole === "Investor" && (
             <>
               <div className={styles.rowTwoCol}>
                 <div className={styles.fieldGroup}>
-                  <label
-                    htmlFor="onboarding-investorType"
-                    className={styles.label}
-                  >
+                  <label htmlFor="onboarding-investorType" className={styles.label}>
                     Investor type
                   </label>
                   <div className={styles.selectWrapper}>
                     <select
                       id="onboarding-investorType"
                       value={investor.investorType}
-                      onChange={(e) =>
-                        setInvestor({ ...investor, investorType: e.target.value })
-                      }
+                      onChange={(e) => setInvestor({ ...investor, investorType: e.target.value })}
                       className={styles.select}
                     >
                       <option value="Venture Fund">Venture Fund</option>
                       <option value="Angel Investor">Angel Investor</option>
                       <option value="Family Office">Family Office</option>
-                      <option value="Syndicate / Accelerator">
-                        Syndicate / Accelerator
-                      </option>
+                      <option value="Syndicate / Accelerator">Syndicate / Accelerator</option>
                     </select>
                     <ChevronDown
                       size={16}
@@ -907,21 +823,17 @@ function OnboardingContent() {
                     type="text"
                     placeholder="Meridian Capital"
                     value={investor.firmName}
-                    onChange={(e) =>
-                      setInvestor({ ...investor, firmName: e.target.value })
-                    }
+                    onChange={(e) => setInvestor({ ...investor, firmName: e.target.value })}
                     onBlur={() =>
                       setErrors((prev) => ({
                         ...prev,
                         firmName: investor.firmName.trim()
-                          ? ''
-                          : 'Enter your fund, syndicate or entity name.',
+                          ? ""
+                          : "Enter your fund, syndicate or entity name.",
                       }))
                     }
                     aria-invalid={Boolean(errors.firmName)}
-                    className={`${styles.input} ${
-                      errors.firmName ? styles.inputError : ''
-                    }`}
+                    className={`${styles.input} ${errors.firmName ? styles.inputError : ""}`}
                   />
                   {errors.firmName && (
                     <p className={styles.fieldError} aria-live="polite">
@@ -941,9 +853,7 @@ function OnboardingContent() {
                     <select
                       id="onboarding-checkSize"
                       value={investor.checkSize}
-                      onChange={(e) =>
-                        setInvestor({ ...investor, checkSize: e.target.value })
-                      }
+                      onChange={(e) => setInvestor({ ...investor, checkSize: e.target.value })}
                       className={styles.select}
                     >
                       <option value="$10k – $50k">$10k – $50k</option>
@@ -962,19 +872,14 @@ function OnboardingContent() {
                 </div>
 
                 <div className={styles.fieldGroup}>
-                  <label
-                    htmlFor="onboarding-targetStage"
-                    className={styles.label}
-                  >
+                  <label htmlFor="onboarding-targetStage" className={styles.label}>
                     Primary stage focus
                   </label>
                   <div className={styles.selectWrapper}>
                     <select
                       id="onboarding-targetStage"
                       value={investor.targetStage}
-                      onChange={(e) =>
-                        setInvestor({ ...investor, targetStage: e.target.value })
-                      }
+                      onChange={(e) => setInvestor({ ...investor, targetStage: e.target.value })}
                       className={styles.select}
                     >
                       <option value="Pre-seed">Pre-seed</option>
@@ -1002,12 +907,12 @@ function OnboardingContent() {
                   aria-label="Investment thesis sectors"
                 >
                   {[
-                    'AI & Infrastructure',
-                    'Fintech',
-                    'Biotech & Health',
-                    'Climate & Deep Tech',
-                    'B2B SaaS',
-                    'Developer Tools',
+                    "AI & Infrastructure",
+                    "Fintech",
+                    "Biotech & Health",
+                    "Climate & Deep Tech",
+                    "B2B SaaS",
+                    "Developer Tools",
                   ].map((sector) => {
                     const selected = investor.sectors.includes(sector);
                     return (
@@ -1019,16 +924,12 @@ function OnboardingContent() {
                           const next = toggleArrayItem(investor.sectors, sector);
                           setInvestor({ ...investor, sectors: next });
                           if (next.length > 0) {
-                            setErrors((prev) => ({ ...prev, sectors: '' }));
+                            setErrors((prev) => ({ ...prev, sectors: "" }));
                           }
                         }}
-                        className={`${styles.chip} ${
-                          selected ? styles.chipSelected : ''
-                        }`}
+                        className={`${styles.chip} ${selected ? styles.chipSelected : ""}`}
                       >
-                        {selected && (
-                          <Check size={13} strokeWidth={2} aria-hidden="true" />
-                        )}
+                        {selected && <Check size={13} strokeWidth={2} aria-hidden="true" />}
                         <span>{sector}</span>
                       </button>
                     );
@@ -1043,10 +944,7 @@ function OnboardingContent() {
               </div>
 
               <div className={styles.fieldGroup}>
-                <label
-                  htmlFor="onboarding-credentialUrl"
-                  className={styles.label}
-                >
+                <label htmlFor="onboarding-credentialUrl" className={styles.label}>
                   Firm website or LinkedIn
                 </label>
                 <input
@@ -1054,21 +952,17 @@ function OnboardingContent() {
                   type="url"
                   placeholder="https://meridiancapital.vc"
                   value={investor.credentialUrl}
-                  onChange={(e) =>
-                    setInvestor({ ...investor, credentialUrl: e.target.value })
-                  }
+                  onChange={(e) => setInvestor({ ...investor, credentialUrl: e.target.value })}
                   onBlur={() =>
                     setErrors((prev) => ({
                       ...prev,
                       credentialUrl: investor.credentialUrl.trim()
-                        ? ''
-                        : 'Provide your firm website or LinkedIn URL.',
+                        ? ""
+                        : "Provide your firm website or LinkedIn URL.",
                     }))
                   }
                   aria-invalid={Boolean(errors.credentialUrl)}
-                  className={`${styles.input} ${
-                    errors.credentialUrl ? styles.inputError : ''
-                  }`}
+                  className={`${styles.input} ${errors.credentialUrl ? styles.inputError : ""}`}
                 />
                 {errors.credentialUrl && (
                   <p className={styles.fieldError} aria-live="polite">
@@ -1081,7 +975,7 @@ function OnboardingContent() {
           )}
 
           {/* 4. JOB SEEKER ONBOARDING */}
-          {activeRole === 'Job seeker' && (
+          {activeRole === "Job seeker" && (
             <>
               <div className={styles.fieldGroup}>
                 <label htmlFor="onboarding-targetTitle" className={styles.label}>
@@ -1092,21 +986,17 @@ function OnboardingContent() {
                   type="text"
                   placeholder="Founding Product Engineer"
                   value={jobSeeker.targetTitle}
-                  onChange={(e) =>
-                    setJobSeeker({ ...jobSeeker, targetTitle: e.target.value })
-                  }
+                  onChange={(e) => setJobSeeker({ ...jobSeeker, targetTitle: e.target.value })}
                   onBlur={() =>
                     setErrors((prev) => ({
                       ...prev,
                       targetTitle: jobSeeker.targetTitle.trim()
-                        ? ''
-                        : 'Enter your primary discipline or target role.',
+                        ? ""
+                        : "Enter your primary discipline or target role.",
                     }))
                   }
                   aria-invalid={Boolean(errors.targetTitle)}
-                  className={`${styles.input} ${
-                    errors.targetTitle ? styles.inputError : ''
-                  }`}
+                  className={`${styles.input} ${errors.targetTitle ? styles.inputError : ""}`}
                 />
                 {errors.targetTitle && (
                   <p className={styles.fieldError} aria-live="polite">
@@ -1118,10 +1008,7 @@ function OnboardingContent() {
 
               <div className={styles.rowTwoCol}>
                 <div className={styles.fieldGroup}>
-                  <label
-                    htmlFor="onboarding-seekerExp"
-                    className={styles.label}
-                  >
+                  <label htmlFor="onboarding-seekerExp" className={styles.label}>
                     Years of experience
                   </label>
                   <div className={styles.selectWrapper}>
@@ -1191,13 +1078,13 @@ function OnboardingContent() {
                   aria-label="Core skills and stack"
                 >
                   {[
-                    'Full-stack TypeScript',
-                    'Systems & Backend',
-                    'AI / ML',
-                    'Product Design',
-                    'Product Management',
-                    'Growth & GTM',
-                    'Operations',
+                    "Full-stack TypeScript",
+                    "Systems & Backend",
+                    "AI / ML",
+                    "Product Design",
+                    "Product Management",
+                    "Growth & GTM",
+                    "Operations",
                   ].map((skill) => {
                     const selected = jobSeeker.skills.includes(skill);
                     return (
@@ -1209,16 +1096,12 @@ function OnboardingContent() {
                           const next = toggleArrayItem(jobSeeker.skills, skill);
                           setJobSeeker({ ...jobSeeker, skills: next });
                           if (next.length > 0) {
-                            setErrors((prev) => ({ ...prev, skills: '' }));
+                            setErrors((prev) => ({ ...prev, skills: "" }));
                           }
                         }}
-                        className={`${styles.chip} ${
-                          selected ? styles.chipSelected : ''
-                        }`}
+                        className={`${styles.chip} ${selected ? styles.chipSelected : ""}`}
                       >
-                        {selected && (
-                          <Check size={13} strokeWidth={2} aria-hidden="true" />
-                        )}
+                        {selected && <Check size={13} strokeWidth={2} aria-hidden="true" />}
                         <span>{skill}</span>
                       </button>
                     );
@@ -1234,17 +1117,8 @@ function OnboardingContent() {
 
               <div className={styles.fieldGroup}>
                 <span className={styles.label}>Preferred startup stages</span>
-                <div
-                  className={styles.chipGrid}
-                  role="group"
-                  aria-label="Preferred startup stages"
-                >
-                  {[
-                    'Pre-seed / Founding',
-                    'Seed',
-                    'Series A–B',
-                    'Growth',
-                  ].map((stage) => {
+                <div className={styles.chipGrid} role="group" aria-label="Preferred startup stages">
+                  {["Pre-seed / Founding", "Seed", "Series A–B", "Growth"].map((stage) => {
                     const selected = jobSeeker.preferredStages.includes(stage);
                     return (
                       <button
@@ -1254,19 +1128,12 @@ function OnboardingContent() {
                         onClick={() =>
                           setJobSeeker({
                             ...jobSeeker,
-                            preferredStages: toggleArrayItem(
-                              jobSeeker.preferredStages,
-                              stage
-                            ),
+                            preferredStages: toggleArrayItem(jobSeeker.preferredStages, stage),
                           })
                         }
-                        className={`${styles.chip} ${
-                          selected ? styles.chipSelected : ''
-                        }`}
+                        className={`${styles.chip} ${selected ? styles.chipSelected : ""}`}
                       >
-                        {selected && (
-                          <Check size={13} strokeWidth={2} aria-hidden="true" />
-                        )}
+                        {selected && <Check size={13} strokeWidth={2} aria-hidden="true" />}
                         <span>{stage}</span>
                       </button>
                     );
@@ -1275,10 +1142,7 @@ function OnboardingContent() {
               </div>
 
               <div className={styles.fieldGroup}>
-                <label
-                  htmlFor="onboarding-portfolioUrl"
-                  className={styles.label}
-                >
+                <label htmlFor="onboarding-portfolioUrl" className={styles.label}>
                   LinkedIn, GitHub or portfolio
                 </label>
                 <input
@@ -1286,21 +1150,17 @@ function OnboardingContent() {
                   type="url"
                   placeholder="https://github.com/clairechen"
                   value={jobSeeker.portfolioUrl}
-                  onChange={(e) =>
-                    setJobSeeker({ ...jobSeeker, portfolioUrl: e.target.value })
-                  }
+                  onChange={(e) => setJobSeeker({ ...jobSeeker, portfolioUrl: e.target.value })}
                   onBlur={() =>
                     setErrors((prev) => ({
                       ...prev,
                       portfolioUrl: jobSeeker.portfolioUrl.trim()
-                        ? ''
-                        : 'Add a link to your LinkedIn, GitHub or portfolio.',
+                        ? ""
+                        : "Add a link to your LinkedIn, GitHub or portfolio.",
                     }))
                   }
                   aria-invalid={Boolean(errors.portfolioUrl)}
-                  className={`${styles.input} ${
-                    errors.portfolioUrl ? styles.inputError : ''
-                  }`}
+                  className={`${styles.input} ${errors.portfolioUrl ? styles.inputError : ""}`}
                 />
                 {errors.portfolioUrl && (
                   <p className={styles.fieldError} aria-live="polite">
@@ -1313,14 +1173,11 @@ function OnboardingContent() {
           )}
 
           {/* 5. EMPLOYER ONBOARDING */}
-          {activeRole === 'Employer' && (
+          {activeRole === "Employer" && (
             <>
               <div className={styles.rowTwoCol}>
                 <div className={styles.fieldGroup}>
-                  <label
-                    htmlFor="onboarding-companyName"
-                    className={styles.label}
-                  >
+                  <label htmlFor="onboarding-companyName" className={styles.label}>
                     Company name
                   </label>
                   <input
@@ -1328,21 +1185,15 @@ function OnboardingContent() {
                     type="text"
                     placeholder="Vantage Systems"
                     value={employer.companyName}
-                    onChange={(e) =>
-                      setEmployer({ ...employer, companyName: e.target.value })
-                    }
+                    onChange={(e) => setEmployer({ ...employer, companyName: e.target.value })}
                     onBlur={() =>
                       setErrors((prev) => ({
                         ...prev,
-                        companyName: employer.companyName.trim()
-                          ? ''
-                          : 'Enter your company name.',
+                        companyName: employer.companyName.trim() ? "" : "Enter your company name.",
                       }))
                     }
                     aria-invalid={Boolean(errors.companyName)}
-                    className={`${styles.input} ${
-                      errors.companyName ? styles.inputError : ''
-                    }`}
+                    className={`${styles.input} ${errors.companyName ? styles.inputError : ""}`}
                   />
                   {errors.companyName && (
                     <p className={styles.fieldError} aria-live="polite">
@@ -1353,10 +1204,7 @@ function OnboardingContent() {
                 </div>
 
                 <div className={styles.fieldGroup}>
-                  <label
-                    htmlFor="onboarding-hiringLeadRole"
-                    className={styles.label}
-                  >
+                  <label htmlFor="onboarding-hiringLeadRole" className={styles.label}>
                     Your role / title
                   </label>
                   <input
@@ -1374,14 +1222,12 @@ function OnboardingContent() {
                       setErrors((prev) => ({
                         ...prev,
                         hiringLeadRole: employer.hiringLeadRole.trim()
-                          ? ''
-                          : 'Enter your role or title.',
+                          ? ""
+                          : "Enter your role or title.",
                       }))
                     }
                     aria-invalid={Boolean(errors.hiringLeadRole)}
-                    className={`${styles.input} ${
-                      errors.hiringLeadRole ? styles.inputError : ''
-                    }`}
+                    className={`${styles.input} ${errors.hiringLeadRole ? styles.inputError : ""}`}
                   />
                   {errors.hiringLeadRole && (
                     <p className={styles.fieldError} aria-live="polite">
@@ -1394,19 +1240,14 @@ function OnboardingContent() {
 
               <div className={styles.rowTwoCol}>
                 <div className={styles.fieldGroup}>
-                  <label
-                    htmlFor="onboarding-companySize"
-                    className={styles.label}
-                  >
+                  <label htmlFor="onboarding-companySize" className={styles.label}>
                     Company size
                   </label>
                   <div className={styles.selectWrapper}>
                     <select
                       id="onboarding-companySize"
                       value={employer.companySize}
-                      onChange={(e) =>
-                        setEmployer({ ...employer, companySize: e.target.value })
-                      }
+                      onChange={(e) => setEmployer({ ...employer, companySize: e.target.value })}
                       className={styles.select}
                     >
                       <option value="1–10">1–10</option>
@@ -1424,10 +1265,7 @@ function OnboardingContent() {
                 </div>
 
                 <div className={styles.fieldGroup}>
-                  <label
-                    htmlFor="onboarding-hiringTimeline"
-                    className={styles.label}
-                  >
+                  <label htmlFor="onboarding-hiringTimeline" className={styles.label}>
                     Hiring timeline
                   </label>
                   <div className={styles.selectWrapper}>
@@ -1442,9 +1280,7 @@ function OnboardingContent() {
                       }
                       className={styles.select}
                     >
-                      <option value="Immediate (this month)">
-                        Immediate (this month)
-                      </option>
+                      <option value="Immediate (this month)">Immediate (this month)</option>
                       <option value="This quarter">This quarter</option>
                       <option value="Building pipeline">Building pipeline</option>
                     </select>
@@ -1468,12 +1304,12 @@ function OnboardingContent() {
                   aria-label="Functions you are hiring for"
                 >
                   {[
-                    'Software Engineering',
-                    'AI & Data',
-                    'Product & Design',
-                    'Sales & GTM',
-                    'Operations & Finance',
-                    'Executive / Founding',
+                    "Software Engineering",
+                    "AI & Data",
+                    "Product & Design",
+                    "Sales & GTM",
+                    "Operations & Finance",
+                    "Executive / Founding",
                   ].map((fn) => {
                     const selected = employer.openFunctions.includes(fn);
                     return (
@@ -1485,16 +1321,12 @@ function OnboardingContent() {
                           const next = toggleArrayItem(employer.openFunctions, fn);
                           setEmployer({ ...employer, openFunctions: next });
                           if (next.length > 0) {
-                            setErrors((prev) => ({ ...prev, openFunctions: '' }));
+                            setErrors((prev) => ({ ...prev, openFunctions: "" }));
                           }
                         }}
-                        className={`${styles.chip} ${
-                          selected ? styles.chipSelected : ''
-                        }`}
+                        className={`${styles.chip} ${selected ? styles.chipSelected : ""}`}
                       >
-                        {selected && (
-                          <Check size={13} strokeWidth={2} aria-hidden="true" />
-                        )}
+                        {selected && <Check size={13} strokeWidth={2} aria-hidden="true" />}
                         <span>{fn}</span>
                       </button>
                     );
@@ -1509,10 +1341,7 @@ function OnboardingContent() {
               </div>
 
               <div className={styles.fieldGroup}>
-                <label
-                  htmlFor="onboarding-companyWebsite"
-                  className={styles.label}
-                >
+                <label htmlFor="onboarding-companyWebsite" className={styles.label}>
                   Company website
                 </label>
                 <input
@@ -1520,21 +1349,17 @@ function OnboardingContent() {
                   type="url"
                   placeholder="https://vantagesystems.io"
                   value={employer.companyWebsite}
-                  onChange={(e) =>
-                    setEmployer({ ...employer, companyWebsite: e.target.value })
-                  }
+                  onChange={(e) => setEmployer({ ...employer, companyWebsite: e.target.value })}
                   onBlur={() =>
                     setErrors((prev) => ({
                       ...prev,
                       companyWebsite: employer.companyWebsite.trim()
-                        ? ''
-                        : 'Enter your company website.',
+                        ? ""
+                        : "Enter your company website.",
                     }))
                   }
                   aria-invalid={Boolean(errors.companyWebsite)}
-                  className={`${styles.input} ${
-                    errors.companyWebsite ? styles.inputError : ''
-                  }`}
+                  className={`${styles.input} ${errors.companyWebsite ? styles.inputError : ""}`}
                 />
                 {errors.companyWebsite && (
                   <p className={styles.fieldError} aria-live="polite">
@@ -1558,12 +1383,12 @@ function OnboardingContent() {
               <Clock
                 size={15}
                 strokeWidth={1.5}
-                style={{ flexShrink: 0, marginTop: '2px' }}
+                style={{ flexShrink: 0, marginTop: "2px" }}
                 aria-hidden="true"
               />
               <span>
-                Your {activeRole.toLowerCase()} workspace will open in preview
-                mode while our team verifies your credentials.
+                Your {activeRole.toLowerCase()} workspace will open in preview mode while our team
+                verifies your credentials.
               </span>
             </div>
           )}
@@ -1614,14 +1439,10 @@ function OnboardingContent() {
                   key={role}
                   type="button"
                   onClick={() => switchRolePreview(role)}
-                  className={`${styles.previewRoleBtn} ${
-                    active ? styles.previewRoleActive : ''
-                  }`}
+                  className={`${styles.previewRoleBtn} ${active ? styles.previewRoleActive : ""}`}
                 >
                   <span>{role}</span>
-                  {active && (
-                    <span className={styles.previewDot} aria-hidden="true" />
-                  )}
+                  {active && <span className={styles.previewDot} aria-hidden="true" />}
                 </button>
               );
             })}
@@ -1643,11 +1464,9 @@ function OnboardingContent() {
             type="button"
             className={styles.iconPillBtn}
             onClick={toggleTheme}
-            aria-label={
-              theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'
-            }
+            aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
           >
-            {theme === 'light' ? (
+            {theme === "light" ? (
               <Moon size={15} strokeWidth={1.5} aria-hidden="true" />
             ) : (
               <Sun size={15} strokeWidth={1.5} aria-hidden="true" />

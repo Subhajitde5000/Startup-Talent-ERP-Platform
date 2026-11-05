@@ -1,4 +1,4 @@
-export type StartupStageId = 'idea' | 'prototype' | 'early-revenue' | 'mature';
+export type StartupStageId = "idea" | "prototype" | "early-revenue" | "mature";
 
 export interface StartupStageDefinition {
   id: StartupStageId;
@@ -14,10 +14,20 @@ export interface StartupStageDefinition {
   }>;
 }
 
-export type TaskStatus = 'pending' | 'in-progress' | 'in-review' | 'overdue' | 'completed';
-export type TaskPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
-export interface StartupTaskSubtask { id: string; title: string; completed: boolean; }
-export interface StartupTaskComment { id: string; author: string; text: string; createdAt: string; mentor?: boolean; }
+export type TaskStatus = "pending" | "in-progress" | "in-review" | "overdue" | "completed";
+export type TaskPriority = "Low" | "Medium" | "High" | "Urgent";
+export interface StartupTaskSubtask {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+export interface StartupTaskComment {
+  id: string;
+  author: string;
+  text: string;
+  createdAt: string;
+  mentor?: boolean;
+}
 
 export interface StartupTaskItem {
   id: string;
@@ -34,14 +44,14 @@ export interface StartupTaskItem {
   milestoneId?: string;
   linkedCriterionId?: string;
   mentorDeliverable?: boolean;
-  mentorStatus?: 'not-requested' | 'submitted' | 'approved';
+  mentorStatus?: "not-requested" | "submitted" | "approved";
   completedAt?: string;
   subtasks?: StartupTaskSubtask[];
   comments?: StartupTaskComment[];
   isMilestone?: boolean;
 }
 
-export type ActivityCategory = 'milestone' | 'mentor' | 'team' | 'document';
+export type ActivityCategory = "milestone" | "mentor" | "team" | "document";
 
 export interface StartupActivityItem {
   id: string;
@@ -57,9 +67,9 @@ export interface StartupTeamMember {
   name: string;
   role: string;
   email: string;
-  permission: 'Owner' | 'Admin' | 'Member' | 'Viewer';
+  permission: "Owner" | "Admin" | "Member" | "Viewer";
   department?: string;
-  status?: 'Active' | 'Pending' | 'Deactivated';
+  status?: "Active" | "Pending" | "Deactivated";
   joinedAt?: string;
   bio?: string;
   skills?: string[];
@@ -80,14 +90,14 @@ export interface AssignedMentorInfo {
     topic: string;
     dateLabel: string;
     timeLabel: string;
-    status: 'Confirmed' | 'Requested';
+    status: "Confirmed" | "Requested";
   };
 }
 
 export interface StartupDocumentItem {
   id: string;
   title: string;
-  folder: 'Pitch & Narrative' | 'Financials' | 'Cap Table' | 'Legal';
+  folder: "Pitch & Narrative" | "Financials" | "Cap Table" | "Legal";
   updatedAt: string;
 }
 

@@ -1,8 +1,83 @@
-'use client';
-import React,{useEffect,useState} from 'react';
-import MentorSharedPreviewFrame from '@/components/mentor/MentorSharedPreviewFrame';
-import {MentorHelpPage,MentorNotificationsPage,MentorTicketsPage} from '@/components/mentor/MentorSharedPages';
-import InvestorSharedPreviewFrame from '@/components/investor/InvestorSharedPreviewFrame';
-import {InvestorHelpPage,InvestorNotificationsPage,InvestorTicketsPage} from '@/components/investor/InvestorSharedPages';
-type SharedPage='notifications'|'help'|'tickets';
-export default function RoleAwareSharedPreview({page}:{page:SharedPage}){const [role,setRole]=useState<'checking'|'investor'|'mentor'>('checking');useEffect(()=>{setRole(new URLSearchParams(window.location.search).get('role')==='investor'?'investor':'mentor')},[]);if(role==='checking')return <div role="status" style={{padding:24,color:'#4a5568'}}>Loading the active role's shared page…</div>;if(role==='investor')return <InvestorSharedPreviewFrame>{page==='notifications'?<InvestorNotificationsPage/>:page==='help'?<InvestorHelpPage/>:<InvestorTicketsPage/>}</InvestorSharedPreviewFrame>;return <MentorSharedPreviewFrame>{page==='notifications'?<MentorNotificationsPage/>:page==='help'?<MentorHelpPage/>:<MentorTicketsPage/>}</MentorSharedPreviewFrame>}
+"use client";
+
+import React from "react";
+import { useSearchParams } from "next/navigation";
+import StartupSharedPreviewFrame from "@/components/startup/StartupSharedPreviewFrame";
+import {
+  StartupHelpPage,
+  StartupNotificationsPage,
+  StartupTicketsPage,
+} from "@/components/startup/StartupSharedPages";
+import MentorSharedPreviewFrame from "@/components/mentor/MentorSharedPreviewFrame";
+import {
+  MentorHelpPage,
+  MentorNotificationsPage,
+  MentorTicketsPage,
+} from "@/components/mentor/MentorSharedPages";
+import InvestorSharedPreviewFrame from "@/components/investor/InvestorSharedPreviewFrame";
+import {
+  InvestorHelpPage,
+  InvestorNotificationsPage,
+  InvestorTicketsPage,
+} from "@/components/investor/InvestorSharedPages";
+
+type SharedPage = "notifications" | "help" | "tickets";
+type SharedRole = "startup" | "mentor" | "investor";
+
+function roleFromParam(value: string | null): SharedRole {
+  const normalized = (value || "").toLowerCase();
+  if (normalized === "mentor") return "mentor";
+  if (normalized === "investor") return "investor";
+  return "startup";
+}
+
+/**
+ * Shared routes render inside the correct role shell. The role comes from the
+ * query string (`?role=mentor|investor|startup`) so deep links, sidebar links
+ * and SSR all agree. Founders are the default instead of being forced into the
+ * mentor frame.
+ */
+export default function RoleAwareSharedPreview({ page }: { page: SharedPage }) {
+  const params = useSearchParams();
+  const role = roleFromParam(params.get("role"));
+
+  if (role === "investor") {
+    return (
+      <InvestorSharedPreviewFrame>
+        {page === "notifications" ? (
+          <InvestorNotificationsPage />
+        ) : page === "help" ? (
+          <InvestorHelpPage />
+        ) : (
+          <InvestorTicketsPage />
+        )}
+      </InvestorSharedPreviewFrame>
+    );
+  }
+
+  if (role === "mentor") {
+    return (
+      <MentorSharedPreviewFrame>
+        {page === "notifications" ? (
+          <MentorNotificationsPage />
+        ) : page === "help" ? (
+          <MentorHelpPage />
+        ) : (
+          <MentorTicketsPage />
+        )}
+      </MentorSharedPreviewFrame>
+    );
+  }
+
+  return (
+    <StartupSharedPreviewFrame>
+      {page === "notifications" ? (
+        <StartupNotificationsPage />
+      ) : page === "help" ? (
+        <StartupHelpPage />
+      ) : (
+        <StartupTicketsPage />
+      )}
+    </StartupSharedPreviewFrame>
+  );
+}

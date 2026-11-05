@@ -1,8 +1,10 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { initials } from "@/utils/formatters";
+import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { SignOutLink } from "@/components/shared/SignOutLink";
 import {
   ArrowLeftRight,
   BarChart3,
@@ -32,93 +34,82 @@ import {
   UserPlus,
   Users,
   X,
-} from 'lucide-react';
-import { BrandLogo } from '@/components/BrandLogo';
-import { useTheme } from '@/components/ThemeProvider';
-import {
-  ALL_STARTUP_NAV_ITEMS,
-  STARTUP_NAV_GROUPS,
-} from '@/config/startupNavigation';
-import { useStartupWorkspace } from '@/context/StartupWorkspaceContext';
-import { useStartupNotifications } from '@/context/StartupNotificationContext';
-import styles from './StartupShell.module.css';
+} from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
+import { useTheme } from "@/components/ThemeProvider";
+import { ALL_STARTUP_NAV_ITEMS, STARTUP_NAV_GROUPS } from "@/config/startupNavigation";
+import { useStartupWorkspace } from "@/context/StartupWorkspaceContext";
+import { useStartupNotifications } from "@/context/StartupNotificationContext";
+import styles from "./StartupShell.module.css";
 
 function getNavIcon(id: string) {
-  const props = { size: 16, strokeWidth: 1.5, 'aria-hidden': true as const };
+  const props = { size: 16, strokeWidth: 1.5, "aria-hidden": true as const };
   switch (id) {
-    case 'dashboard':
+    case "dashboard":
       return <LayoutDashboard {...props} />;
-    case 'profile':
+    case "profile":
       return <Building2 {...props} />;
-    case 'team':
+    case "team":
       return <Users {...props} />;
-    case 'tasks':
+    case "tasks":
       return <ListChecks {...props} />;
-    case 'notifications':
+    case "notifications":
       return <Bell {...props} />;
-    case 'mentors':
+    case "mentors":
       return <Handshake {...props} />;
-    case 'mentors-find':
+    case "mentors-find":
       return <Search {...props} />;
-    case 'sessions':
+    case "sessions":
       return <CalendarDays {...props} />;
-    case 'readiness':
+    case "readiness":
       return <FileCheck2 {...props} />;
-    case 'investors':
+    case "investors":
       return <Briefcase {...props} />;
-    case 'investors-discover':
+    case "investors-discover":
       return <Search {...props} />;
-    case 'investors-pipeline':
+    case "investors-pipeline":
       return <KanbanSquare {...props} />;
-    case 'investor-messages':
+    case "investor-messages":
       return <MessageSquareText {...props} />;
-    case 'investor-meetings':
+    case "investor-meetings":
       return <CalendarDays {...props} />;
-    case 'rounds':
+    case "rounds":
       return <TrendingUp {...props} />;
-    case 'investors-settings':
+    case "investors-settings":
       return <Settings {...props} />;
-    case 'roadmap':
+    case "roadmap":
       return <Compass {...props} />;
-    case 'idea-validation':
+    case "idea-validation":
       return <Lightbulb {...props} />;
-    case 'customer-research':
+    case "customer-research":
       return <MessageSquareText {...props} />;
-    case 'market-analysis':
+    case "market-analysis":
       return <PieChart {...props} />;
-    case 'cofounders':
+    case "cofounders":
       return <Handshake {...props} />;
-    case 'projects':
+    case "projects":
       return <KanbanSquare {...props} />;
-    case 'prototype-testing':
+    case "prototype-testing":
       return <FlaskConical {...props} />;
-    case 'sales':
+    case "sales":
       return <TrendingUp {...props} />;
-    case 'analytics':
+    case "analytics":
       return <BarChart3 {...props} />;
-    case 'hiring':
+    case "hiring":
       return <UserPlus {...props} />;
-    case 'hiring-talent':
+    case "hiring-talent":
       return <Search {...props} />;
-    case 'hiring-interviews':
+    case "hiring-interviews":
       return <CalendarDays {...props} />;
-    case 'hiring-offers':
+    case "hiring-offers":
       return <FileCheck2 {...props} />;
-    case 'hiring-employer':
+    case "hiring-employer":
       return <Building2 {...props} />;
-    case 'data-room':
+    case "data-room":
       return <FolderKanban {...props} />;
     default:
       return <Briefcase {...props} />;
   }
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
 }
 
 export function StartupShell({ children }: { children: React.ReactNode }) {
@@ -135,27 +126,45 @@ export function StartupShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!drawerOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDrawerOpen(false);
+      if (e.key === "Escape") setDrawerOpen(false);
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [drawerOpen]);
 
   const currentStageDef =
-    data.stages.find((s) => s.id === data.startup.currentStage) ||
-    data.stages[0];
+    data.stages.find((s) => s.id === data.startup.currentStage) || data.stages[0];
 
-  const activeNavItem = ALL_STARTUP_NAV_ITEMS.find((item) => pathname === item.href) ||
-    [...ALL_STARTUP_NAV_ITEMS].filter((item) => pathname.startsWith(`${item.href}/`)).sort((a, b) => b.href.length - a.href.length)[0] ||
-    ALL_STARTUP_NAV_ITEMS.find((item) => item.id === 'roadmap' && pathname.startsWith('/startup/stage/'));
-  const stageSlug = pathname.startsWith('/startup/stage/') ? pathname.split('/').pop() : undefined;
-  const stageBreadcrumb = stageSlug ? data.stages.find((stage) => stage.id === stageSlug)?.label : undefined;
+  const activeNavItem = useMemo(
+    () =>
+      ALL_STARTUP_NAV_ITEMS.find((item) => pathname === item.href) ||
+      [...ALL_STARTUP_NAV_ITEMS]
+        .filter((item) => pathname.startsWith(`${item.href}/`))
+        .sort((a, b) => b.href.length - a.href.length)[0] ||
+      ALL_STARTUP_NAV_ITEMS.find(
+        (item) => item.id === "roadmap" && pathname.startsWith("/startup/stage/"),
+      ),
+    [pathname],
+  );
+  const stageSlug = pathname.startsWith("/startup/stage/") ? pathname.split("/").pop() : undefined;
+  const stageBreadcrumb = stageSlug
+    ? data.stages.find((stage) => stage.id === stageSlug)?.label
+    : undefined;
+  const sharedBreadcrumb =
+    pathname === "/help"
+      ? "Help center"
+      : pathname === "/help/tickets"
+        ? "Support tickets"
+        : pathname === "/notifications"
+          ? "Notifications"
+          : undefined;
   const currentBreadcrumb =
-    pathname === '/startup/settings'
-      ? 'Settings'
+    sharedBreadcrumb ||
+    (pathname === "/startup/settings"
+      ? "Settings"
       : stageBreadcrumb
-      ? `${stageBreadcrumb} Toolkit`
-      : activeNavItem?.label || 'Dashboard';
+        ? `${stageBreadcrumb} Toolkit`
+        : activeNavItem?.label || "Dashboard");
 
   const renderSidebarContents = (isMobile = false) => (
     <>
@@ -175,14 +184,10 @@ export function StartupShell({ children }: { children: React.ReactNode }) {
 
       <div className={styles.workspaceTag}>
         <div className={styles.workspaceTagInfo}>
-          <span className={styles.workspaceStartupName}>
-            {data.startup.name}
-          </span>
+          <span className={styles.workspaceStartupName}>{data.startup.name}</span>
           <span className={styles.workspaceSub}>Startup Workspace</span>
         </div>
-        <span className={styles.workspaceStageDot}>
-          {currentStageDef.label}
-        </span>
+        <span className={styles.workspaceStageDot}>{currentStageDef.label}</span>
       </div>
 
       <nav className={styles.navScroll} aria-label="Startup workspace modules">
@@ -190,18 +195,17 @@ export function StartupShell({ children }: { children: React.ReactNode }) {
           <div key={group.id} className={styles.navGroup}>
             <span className={styles.navGroupLabel}>{group.label}</span>
             {group.items.map((item) => {
-              const isActive = activeNavItem?.id === item.id || (item.id === 'roadmap' && pathname.startsWith('/startup/stage/'));
-              const isStageRecommended =
-                item.recommendedStage === data.startup.currentStage;
+              const isActive =
+                activeNavItem?.id === item.id ||
+                (item.id === "roadmap" && pathname.startsWith("/startup/stage/"));
+              const isStageRecommended = item.recommendedStage === data.startup.currentStage;
 
               return (
                 <Link
                   key={item.id}
                   href={item.href}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={`${styles.navLink} ${
-                    isActive ? styles.navLinkActive : ''
-                  }`}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`${styles.navLink} ${isActive ? styles.navLinkActive : ""}`}
                 >
                   {getNavIcon(item.id)}
                   <span>{item.label}</span>
@@ -222,19 +226,16 @@ export function StartupShell({ children }: { children: React.ReactNode }) {
       <div className={styles.sidebarFooter}>
         <Link
           href="/startup/settings"
-          aria-current={pathname === '/startup/settings' ? 'page' : undefined}
+          aria-current={pathname === "/startup/settings" ? "page" : undefined}
           className={`${styles.navLink} ${
-            pathname === '/startup/settings' ? styles.navLinkActive : ''
+            pathname === "/startup/settings" ? styles.navLinkActive : ""
           }`}
         >
           <Settings size={16} strokeWidth={1.5} aria-hidden="true" />
           <span>Settings</span>
         </Link>
 
-        <Link href="/" className={styles.navLink}>
-          <LogOut size={16} strokeWidth={1.5} aria-hidden="true" />
-          <span>Sign out</span>
-        </Link>
+        <SignOutLink className={styles.navLink} />
       </div>
     </>
   );
@@ -274,13 +275,11 @@ export function StartupShell({ children }: { children: React.ReactNode }) {
               <Menu size={18} strokeWidth={1.5} aria-hidden="true" />
             </button>
 
-            <div className={styles.breadcrumbs} aria-label="Breadcrumb">
+            <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
               <span>Startup Workspace</span>
               <span aria-hidden="true">/</span>
-              <span className={styles.breadcrumbCurrent}>
-                {currentBreadcrumb}
-              </span>
-            </div>
+              <span className={styles.breadcrumbCurrent}>{currentBreadcrumb}</span>
+            </nav>
           </div>
 
           <div className={styles.topBarRight}>
@@ -297,11 +296,15 @@ export function StartupShell({ children }: { children: React.ReactNode }) {
             <Link
               href="/startup/notifications"
               className={styles.iconBtn}
-              aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+              aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : "Notifications"}
               title="Notifications"
             >
               <Bell size={16} strokeWidth={1.5} aria-hidden="true" />
-              {unreadCount > 0 && <span className={styles.notificationBadge}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+              {unreadCount > 0 && (
+                <span className={styles.notificationBadge}>
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
             </Link>
 
             <Link
@@ -317,12 +320,10 @@ export function StartupShell({ children }: { children: React.ReactNode }) {
               type="button"
               className={styles.iconBtn}
               onClick={toggleTheme}
-              aria-label={
-                theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'
-              }
-              title={theme === 'light' ? 'Dark mode' : 'Light mode'}
+              aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+              title={theme === "light" ? "Dark mode" : "Light mode"}
             >
-              {theme === 'light' ? (
+              {theme === "light" ? (
                 <Moon size={16} strokeWidth={1.5} aria-hidden="true" />
               ) : (
                 <Sun size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -330,12 +331,8 @@ export function StartupShell({ children }: { children: React.ReactNode }) {
             </button>
 
             <div className={styles.avatarBadge}>
-              <span className={styles.avatarInitials}>
-                {getInitials(data.startup.founderName)}
-              </span>
-              <span className={styles.avatarName}>
-                {data.startup.founderName}
-              </span>
+              <span className={styles.avatarInitials}>{initials(data.startup.founderName)}</span>
+              <span className={styles.avatarName}>{data.startup.founderName}</span>
             </div>
           </div>
         </header>

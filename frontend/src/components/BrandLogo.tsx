@@ -1,27 +1,27 @@
-import React from 'react';
-import Link from 'next/link';
+import React from "react";
+import Link from "next/link";
 
 interface BrandLogoProps {
-  variant: 'ivory' | 'ink';
+  variant: "ivory" | "ink";
 }
 
 export function BrandLogo({ variant }: BrandLogoProps) {
-  const textColor = variant === 'ivory' ? '#FAF8F4' : 'var(--text-primary)';
-  const accentColor = variant === 'ivory' ? '#B8955A' : 'var(--accent)';
+  const textColor = variant === "ivory" ? "#FAF8F4" : "var(--text-primary)";
+  const accentColor = variant === "ivory" ? "#B8955A" : "var(--accent)";
 
   return (
     <Link
       href="/"
       aria-label="Meridian — Home"
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '10px',
-        textDecoration: 'none',
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "10px",
+        textDecoration: "none",
         color: textColor,
-        borderRadius: '6px',
-        minHeight: '44px',
-        padding: '4px 2px',
+        borderRadius: "6px",
+        minHeight: "44px",
+        padding: "4px 2px",
       }}
     >
       <svg
@@ -52,10 +52,10 @@ export function BrandLogo({ variant }: BrandLogoProps) {
       </svg>
       <span
         style={{
-          fontFamily: 'var(--font-heading)',
-          fontSize: '21px',
+          fontFamily: "var(--font-heading)",
+          fontSize: "21px",
           fontWeight: 600,
-          letterSpacing: '-0.015em',
+          letterSpacing: "-0.015em",
           lineHeight: 1,
           color: textColor,
         }}

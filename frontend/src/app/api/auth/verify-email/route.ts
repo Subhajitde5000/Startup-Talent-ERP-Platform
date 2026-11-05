@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const code = String(body.code || '').trim();
+    const code = String(body.code || "").trim();
 
     await new Promise((resolve) => setTimeout(resolve, 400));
 
@@ -11,19 +11,19 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           ok: false,
-          message: 'Enter the 6-digit verification code.',
+          message: "Enter the 6-digit verification code.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    if (code === '000000') {
+    if (code === "000000") {
       return NextResponse.json(
         {
           ok: false,
-          message: 'That verification code is invalid or expired.',
+          message: "That verification code is invalid or expired.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -33,8 +33,8 @@ export async function POST(request: Request) {
     });
   } catch {
     return NextResponse.json(
-      { ok: false, message: 'Unable to confirm email right now.' },
-      { status: 500 }
+      { ok: false, message: "Unable to confirm email right now." },
+      { status: 500 },
     );
   }
 }

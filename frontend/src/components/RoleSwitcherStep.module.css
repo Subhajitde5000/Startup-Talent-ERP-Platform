@@ -108,7 +108,9 @@
 .chevron {
   color: var(--text-secondary);
   flex-shrink: 0;
-  transition: transform 160ms ease-out, color 160ms ease-out;
+  transition:
+    transform 160ms ease-out,
+    color 160ms ease-out;
 }
 
 .roleCard:hover .chevron {

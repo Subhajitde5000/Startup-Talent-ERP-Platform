@@ -51,7 +51,7 @@
     justify-content: space-between;
     padding: var(--space-12);
     background-color: var(--bg-brand);
-    color: #FAF8F4;
+    color: #faf8f4;
     border-right: 1px solid rgba(250, 248, 244, 0.06);
     overflow: hidden;
     isolation: isolate;
@@ -65,8 +65,8 @@
     pointer-events: none;
     opacity: 0.045;
     background-image:
-      linear-gradient(to right, #FAF8F4 1px, transparent 1px),
-      linear-gradient(to bottom, #FAF8F4 1px, transparent 1px);
+      linear-gradient(to right, #faf8f4 1px, transparent 1px),
+      linear-gradient(to bottom, #faf8f4 1px, transparent 1px);
     background-size: 64px 64px;
   }
 
@@ -84,7 +84,7 @@
   .goldRule {
     width: 48px;
     height: 2px;
-    background-color: #B8955A;
+    background-color: #b8955a;
     margin-bottom: var(--space-6);
   }
 
@@ -94,7 +94,7 @@
     font-weight: 600;
     line-height: 1.28;
     letter-spacing: -0.015em;
-    color: #FAF8F4;
+    color: #faf8f4;
   }
 
   .brandFooter {
@@ -102,7 +102,7 @@
     font-size: 14px;
     font-weight: 400;
     letter-spacing: 0.02em;
-    color: #A0A7B4;
+    color: #a0a7b4;
   }
 
   .mobileBrandHeader {

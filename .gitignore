@@ -38,4 +38,9 @@ yarn-error.log*
 
 # typescript
 */.tsbuildinfo
+*.tsbuildinfo
 frontend/next-env.d.ts
+
+# local tooling / scratch artifacts
+frontend/*.tmp
+frontend/**/*.tmp

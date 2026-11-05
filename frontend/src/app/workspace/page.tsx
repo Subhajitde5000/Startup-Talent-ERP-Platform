@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+import { redirect } from "next/navigation";
 
 export default async function WorkspaceRedirectPage({
   searchParams,
@@ -8,12 +8,12 @@ export default async function WorkspaceRedirectPage({
   const resolved = await searchParams;
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(resolved)) {
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       query.set(key, value);
     } else if (Array.isArray(value) && value[0]) {
       query.set(key, value[0]);
     }
   }
   const qs = query.toString();
-  redirect(qs ? `/dashboard?${qs}` : '/dashboard');
+  redirect(qs ? `/dashboard?${qs}` : "/dashboard");
 }

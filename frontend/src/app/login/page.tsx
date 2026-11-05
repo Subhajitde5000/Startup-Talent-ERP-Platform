@@ -1,6 +1,10 @@
-import React from 'react';
-import { AuthSplitLayout } from '@/components/AuthSplitLayout';
-import { LoginForm } from '@/components/LoginForm';
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Sign in" };
+
+import React from "react";
+import { AuthSplitLayout } from "@/components/AuthSplitLayout";
+import { LoginForm } from "@/components/LoginForm";
 
 export default function LoginPage() {
   return (

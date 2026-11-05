@@ -1,284 +1,293 @@
-'use client';
+"use client";
 
-import React from 'react';
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, Compass } from 'lucide-react';
-import { ALL_STARTUP_NAV_ITEMS } from '@/config/startupNavigation';
-import { useStartupWorkspace } from '@/context/StartupWorkspaceContext';
-import styles from '@/components/startup/dashboard/DashboardWidgets.module.css';
+import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { ArrowLeft, Plus, Search } from "lucide-react";
+import { useStartupWorkspace } from "@/context/StartupWorkspaceContext";
+import { ALL_STARTUP_NAV_ITEMS } from "@/config/startupNavigation";
+import {
+  DEFAULT_MODULE_WORKSPACE,
+  MODULE_WORKSPACES,
+  ModuleRecord,
+} from "@/config/moduleWorkspaces";
+import styles from "./ModuleWorkspace.module.css";
 
-const MODULE_DETAILS: Record<
-  string,
-  {
-    pageNumber: number;
-    purpose: string;
-    plannedCapabilities: string[];
-  }
-> = {
-  profile: {
-    pageNumber: 15,
-    purpose:
-      'Maintain your company narrative, legal entity details, problem statement, and public founder profile.',
-    plannedCapabilities: [
-      'Company overview, sector tags, incorporation details, and one-line thesis',
-      'Problem / solution positioning and target customer persona summary',
-      'Visibility controls for mentors, talent candidates, and accredited investors',
-    ],
-  },
-  team: {
-    pageNumber: 16,
-    purpose:
-      'Organize founding team roles, responsibilities, permissions, and advisor collaborators.',
-    plannedCapabilities: [
-      'Active roster with department ownership and workspace access permissions',
-      'Pending teammate invitations and onboarding checklist tracking',
-      'Equity & responsibility alignment notes for co-founders',
-    ],
-  },
-  roadmap: {
-    pageNumber: 17,
-    purpose:
-      'Navigate the four startup lifecycle stages (Idea, Prototype, Early Revenue, Mature) and track exit criteria.',
-    plannedCapabilities: [
-      'Stage-by-stage exit criteria checklists and milestone dependencies',
-      'Quarterly timeline view connecting product, validation, and GTM goals',
-      'Mentor sign-off notes per completed stage milestone',
-    ],
-  },
-  'idea-validation': {
-    pageNumber: 18,
-    purpose:
-      'Document core hypotheses, structured experiments, and validation evidence before scaling engineering effort.',
-    plannedCapabilities: [
-      'Problem, value, and willingness-to-pay hypothesis cards',
-      'Experiment design log with pass/fail thresholds and learnings',
-      'Evidence links from customer discovery calls and landing page tests',
-    ],
-  },
-  'customer-research': {
-    pageNumber: 19,
-    purpose:
-      'Centralize discovery interview notes, pain-point synthesis, and early design-partner feedback.',
-    plannedCapabilities: [
-      'Structured interview repository tagged by buyer persona and urgency',
-      'Recurring pain-point patterns and verbatim customer quotes',
-      'Design partner pipeline from initial call to pilot commitment',
-    ],
-  },
-  'market-analysis': {
-    pageNumber: 20,
-    purpose:
-      'Map market sizing (bottom-up TAM/SAM/SOM), competitive positioning, and regulatory tailwinds.',
-    plannedCapabilities: [
-      'Bottom-up market sizing assumptions with transparent source citations',
-      'Competitor capability matrix and differentiation moat summary',
-      'Pricing benchmark comparison across incumbents and alternatives',
-    ],
-  },
-  cofounders: {
-    pageNumber: 21,
-    purpose:
-      'Define complementary co-founder profiles, evaluate alignment, and connect with vetted builders in the network.',
-    plannedCapabilities: [
-      'Co-founder role brief covering technical/commercial skill gaps',
-      'Structured values, commitment, and working-style alignment rubric',
-      'Saved candidate conversations and trial sprint tracker',
-    ],
-  },
-  projects: {
-    pageNumber: 22,
-    purpose:
-      'Coordinate execution sprints, milestones, and cross-functional tasks across product and go-to-market.',
-    plannedCapabilities: [
-      'Sprint board and list views synced with dashboard tasks & milestones',
-      'Owner assignment, due dates, and stage milestone linking',
-      'Weekly execution summary for team standups and mentor check-ins',
-    ],
-  },
-  'prototype-testing': {
-    pageNumber: 23,
-    purpose:
-      'Run structured usability sessions, pilot test cohorts, and iteration logs on your MVP or prototype.',
-    plannedCapabilities: [
-      'Prototype build releases and test cohort feedback tracking',
-      'Task completion observations, friction points, and bug triage',
-      'Go / no-go readiness checklist for moving into Early Revenue',
-    ],
-  },
-  sales: {
-    pageNumber: 24,
-    purpose:
-      'Track design partners, LOIs, pilot conversions, and repeatable early revenue pipelines.',
-    plannedCapabilities: [
-      'B2B/B2C deal stages from discovery to signed pilot or paid contract',
-      'Contract value, renewal dates, and conversion bottleneck notes',
-      'Repeatable acquisition channel tracking',
-    ],
-  },
-  analytics: {
-    pageNumber: 25,
-    purpose:
-      'Monitor honest operational KPIs—retention, unit economics, runway, and cohort engagement.',
-    plannedCapabilities: [
-      'Monthly burn, cash runway, and net revenue retention overview',
-      'Product activation and cohort engagement metrics',
-      'CSV / accounting integration hooks for live financial reporting',
-    ],
-  },
-  hiring: {
-    pageNumber: 26,
-    purpose:
-      'Publish startup roles to the Talent marketplace and manage candidate pipelines.',
-    plannedCapabilities: [
-      'Open role requisitions with compensation & equity bands',
-      'Inbound talent applications and stage-by-stage interview scorecards',
-      'Offer tracking and onboarding handoff to Team & Roles',
-    ],
-  },
-  'data-room': {
-    pageNumber: 27,
-    purpose:
-      'Curate investor-ready decks, financial models, IP documentation, and legal diligence folders.',
-    plannedCapabilities: [
-      'Structured diligence folders (Pitch, Financials, Cap Table, Legal)',
-      'Document readiness status and version history',
-      'Granular share permissions for mentors and prospective investors',
-    ],
-  },
-  settings: {
-    pageNumber: 0,
-    purpose:
-      'Manage Startup Workspace preferences, notification rules, and future API integrations.',
-    plannedCapabilities: [
-      'Workspace branding, fiscal calendar, and stage notification preferences',
-      'Role-based access controls and security audit log',
-      'Backend API & webhook configuration',
-    ],
-  },
-};
+const STATUS_ORDER: ModuleRecord["status"][] = ["Not started", "In progress", "Review", "Done"];
 
 export default function StartupModulePage() {
   const params = useParams<{ module: string }>();
-  const slug = params?.module || 'profile';
+  const slug = params?.module || "idea-validation";
   const { data } = useStartupWorkspace();
-
+  const config = MODULE_WORKSPACES[slug] || DEFAULT_MODULE_WORKSPACE;
   const navItem = ALL_STARTUP_NAV_ITEMS.find((item) => item.id === slug);
-  const meta = MODULE_DETAILS[slug] || {
-    pageNumber: 0,
-    purpose: 'Dedicated Startup Workspace module.',
-    plannedCapabilities: [
-      'Structured records synced with your Startup Workspace state',
-      'Stage-aware guidance and milestone integration',
-    ],
-  };
 
-  const title =
-    slug === 'settings'
-      ? 'Workspace Settings'
-      : navItem?.label || 'Startup Module';
+  const [records, setRecords] = useState<ModuleRecord[]>(config.records);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All statuses");
+  const [checked, setChecked] = useState<string[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState({ title: "", detail: "", owner: "" });
 
-  const moduleTasks = data.tasks.filter(
-    (t) => t.moduleHref === `/startup/${slug}`
+  useEffect(() => {
+    setRecords(config.records);
+    setQuery("");
+    setStatusFilter("All statuses");
+    setChecked([]);
+    setAdding(false);
+  }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filtered = useMemo(
+    () =>
+      records.filter(
+        (record) =>
+          (statusFilter === "All statuses" || record.status === statusFilter) &&
+          `${record.title} ${record.detail} ${record.owner} ${record.tag}`
+            .toLowerCase()
+            .includes(query.trim().toLowerCase()),
+      ),
+    [records, query, statusFilter],
   );
 
-  return (
-    <div className={styles.dashboardStack}>
-      <header className={styles.welcomeBar}>
-        <div className={styles.welcomeText}>
-          <span className={styles.eyebrow}>
-            {meta.pageNumber > 0
-              ? `Startup Workspace · Page ${meta.pageNumber} of 27`
-              : 'Startup Workspace'}
-          </span>
-          <h1 className={styles.greeting}>{title}</h1>
-          <p className={styles.subGreeting}>{meta.purpose}</p>
-        </div>
+  const moduleTasks = data.tasks.filter((task) => task.moduleHref === `/startup/${slug}`);
+  const stats = [
+    { label: config.recordLabel, value: String(records.length), hint: "Local demo records" },
+    {
+      label: "In progress",
+      value: String(records.filter((record) => record.status === "In progress").length),
+      hint: "Being worked on",
+    },
+    {
+      label: "Completed",
+      value: String(records.filter((record) => record.status === "Done").length),
+      hint: "Signed off locally",
+    },
+    ...config.stats.slice(2),
+  ];
 
-        <div className={styles.quickActionGroup}>
-          <Link
-            href="/startup/dashboard"
-            className={styles.secondaryActionBtn}
-            style={{ textDecoration: 'none' }}
-          >
-            <ArrowLeft size={15} strokeWidth={1.6} aria-hidden="true" />
-            <span>Back to Dashboard</span>
-          </Link>
+  const advance = (id: string) => {
+    setRecords((current) =>
+      current.map((record) => {
+        if (record.id !== id) return record;
+        const index = STATUS_ORDER.indexOf(record.status);
+        return {
+          ...record,
+          status: STATUS_ORDER[Math.min(index + 1, STATUS_ORDER.length - 1)],
+          updated: "Just now",
+        };
+      }),
+    );
+  };
+
+  const addRecord = () => {
+    if (!draft.title.trim()) return;
+    setRecords((current) => [
+      {
+        id: `local-${Date.now()}`,
+        title: draft.title.trim(),
+        detail: draft.detail.trim() || "New local demo record.",
+        owner: draft.owner.trim() || data.startup.founderName,
+        status: "Not started",
+        tag: "Added by you",
+        updated: "Just now",
+      },
+      ...current,
+    ]);
+    setDraft({ title: "", detail: "", owner: "" });
+    setAdding(false);
+  };
+
+  return (
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div>
+          <span className={styles.eyebrow}>{config.eyebrow}</span>
+          <h1 className={styles.title}>{navItem?.label || config.title}</h1>
+          <p className={styles.purpose}>{config.purpose}</p>
         </div>
+        <Link className={styles.backLink} href="/startup/dashboard">
+          <ArrowLeft size={15} aria-hidden="true" /> Back to dashboard
+        </Link>
       </header>
 
-      <section className={styles.card}>
-        <div className={styles.cardHeader}>
-          <div className={styles.cardTitleGroup}>
-            <h2 className={styles.cardTitle}>
-              Module Scaffold Ready for Next Iteration
-            </h2>
-            <p className={styles.cardSub}>
-              Connected to shared <strong>{data.startup.name}</strong> workspace
-              state ({data.startup.currentStage.replace('-', ' ')} stage)
-            </p>
+      <section className={styles.stats} aria-label="Module overview">
+        {stats.slice(0, 4).map((stat) => (
+          <div className={styles.stat} key={stat.label}>
+            <span>{stat.label}</span>
+            <strong>{stat.value}</strong>
+            <small>{stat.hint}</small>
           </div>
-
-          {navItem?.recommendedStage && (
-            <span className={styles.stageBadge}>
-              <Compass size={12} strokeWidth={1.7} aria-hidden="true" />
-              Core in {navItem.recommendedStage.replace('-', ' ')} stage
-            </span>
-          )}
-        </div>
-
-        <div className={styles.exitCriteriaSection}>
-          <span className={styles.exitCriteriaTitle}>
-            Planned module capabilities
-          </span>
-          <div className={styles.criteriaList}>
-            {meta.plannedCapabilities.map((item) => (
-              <div key={item} className={styles.criterionRow}>
-                <span className={styles.criterionLabel}>
-                  <CheckCircle2
-                    size={15}
-                    strokeWidth={1.6}
-                    style={{ color: 'var(--accent)', flexShrink: 0 }}
-                    aria-hidden="true"
-                  />
-                  <span>{item}</span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+        ))}
       </section>
 
-      {moduleTasks.length > 0 && (
-        <section className={styles.card}>
-          <div className={styles.cardHeader}>
-            <div className={styles.cardTitleGroup}>
-              <h3 className={styles.cardTitle}>
-                Linked Tasks in {title} ({moduleTasks.length})
-              </h3>
-              <p className={styles.cardSub}>
-                Synced directly from your Startup Dashboard task store
-              </p>
-            </div>
+      <section className={styles.card} aria-labelledby="module-records-heading">
+        <div className={styles.cardHeader}>
+          <div>
+            <h2 id="module-records-heading">{config.recordLabel}</h2>
+            <p>Filter, add and move demo records through the workflow.</p>
           </div>
+          <button
+            className={`${styles.button} ${styles.buttonPrimary}`}
+            type="button"
+            onClick={() => setAdding((value) => !value)}
+          >
+            <Plus size={15} aria-hidden="true" /> Add record
+          </button>
+        </div>
+        <div className={styles.toolbar}>
+          <label className={styles.search}>
+            <Search size={15} aria-hidden="true" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={`Search ${config.recordLabel.toLowerCase()}`}
+              aria-label={`Search ${config.recordLabel.toLowerCase()}`}
+            />
+          </label>
+          <select
+            className={styles.select}
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            aria-label="Filter by status"
+          >
+            <option>All statuses</option>
+            {config.statuses.map((item) => (
+              <option key={item}>{item}</option>
+            ))}
+          </select>
+        </div>
 
-          <div className={styles.taskList}>
-            {moduleTasks.map((task) => (
-              <div key={task.id} className={styles.taskRow}>
-                <div className={styles.taskBody}>
-                  <span className={styles.taskTitle}>{task.title}</span>
-                  <div className={styles.taskMetaRow}>
-                    <span>{task.dueLabel}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{task.owner}</span>
-                  </div>
+        {adding && (
+          <div className={styles.addForm}>
+            <input
+              className={styles.input}
+              value={draft.title}
+              onChange={(event) => setDraft((value) => ({ ...value, title: event.target.value }))}
+              placeholder="Record title"
+              aria-label="Record title"
+            />
+            <input
+              className={styles.input}
+              value={draft.detail}
+              onChange={(event) => setDraft((value) => ({ ...value, detail: event.target.value }))}
+              placeholder="Short detail"
+              aria-label="Record detail"
+            />
+            <button
+              className={`${styles.button} ${styles.buttonPrimary}`}
+              type="button"
+              onClick={addRecord}
+            >
+              Save record
+            </button>
+          </div>
+        )}
+
+        {filtered.length ? (
+          <div className={styles.records}>
+            {filtered.map((record) => (
+              <article className={styles.record} key={record.id}>
+                <div className={styles.recordHead}>
+                  <strong>{record.title}</strong>
+                  <span
+                    className={`${styles.badge} ${
+                      record.status === "Done"
+                        ? styles.badgeDone
+                        : record.status === "Review"
+                          ? styles.badgeReview
+                          : ""
+                    }`}
+                  >
+                    {record.status}
+                  </span>
                 </div>
-                <span className={styles.statusBadge}>{task.status}</span>
-              </div>
+                <p>{record.detail}</p>
+                <div className={styles.meta}>
+                  <span>{record.owner}</span>
+                  <span>·</span>
+                  <span>{record.tag}</span>
+                  <span>·</span>
+                  <span>{record.updated}</span>
+                </div>
+                <div className={styles.recordActions}>
+                  <button
+                    className={styles.smallButton}
+                    type="button"
+                    onClick={() => advance(record.id)}
+                    disabled={record.status === "Done"}
+                  >
+                    {record.status === "Done" ? "Completed" : "Advance status"}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className={styles.empty}>
+            No records match these filters. Try a different search or status.
+          </p>
+        )}
+      </section>
+
+      <div className={styles.twoColumn}>
+        <section className={styles.card} aria-labelledby="module-checklist-heading">
+          <div className={styles.cardHeader}>
+            <div>
+              <h2 id="module-checklist-heading">Stage checklist</h2>
+              <p>Local progress for this module&apos;s exit criteria.</p>
+            </div>
+            <span className={styles.badge}>
+              {checked.length} / {config.checklist.length} complete
+            </span>
+          </div>
+          <div className={styles.checklist}>
+            {config.checklist.map((item) => (
+              <label className={styles.checkItem} key={item}>
+                <input
+                  type="checkbox"
+                  checked={checked.includes(item)}
+                  onChange={(event) =>
+                    setChecked((current) =>
+                      event.target.checked
+                        ? [...current, item]
+                        : current.filter((value) => value !== item),
+                    )
+                  }
+                />
+                {item}
+              </label>
             ))}
           </div>
         </section>
-      )}
+
+        <section className={styles.card} aria-labelledby="module-tasks-heading">
+          <div className={styles.cardHeader}>
+            <div>
+              <h2 id="module-tasks-heading">Linked tasks</h2>
+              <p>From the shared founder workspace.</p>
+            </div>
+          </div>
+          {moduleTasks.length ? (
+            moduleTasks.map((task) => (
+              <div className={styles.taskRow} key={task.id}>
+                <span>{task.title}</span>
+                <small>{task.dueLabel}</small>
+              </div>
+            ))
+          ) : (
+            <p className={styles.empty}>
+              No tasks are linked to this module yet. Manage all work in the Tasks board.
+            </p>
+          )}
+          <Link className={styles.button} href="/startup/tasks">
+            Open Tasks board
+          </Link>
+        </section>
+      </div>
+
+      <p className={styles.demoNote}>
+        Illustrative demo data · records you add are kept in this browser session only.
+      </p>
     </div>
   );
 }

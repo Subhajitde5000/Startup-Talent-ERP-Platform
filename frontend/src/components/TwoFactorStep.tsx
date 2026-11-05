@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, ArrowLeft, Lock } from 'lucide-react';
-import styles from './TwoFactorStep.module.css';
+import React, { useEffect, useRef, useState } from "react";
+import { AlertCircle, ArrowLeft, Lock } from "lucide-react";
+import styles from "./TwoFactorStep.module.css";
 
 interface TwoFactorStepProps {
   email: string;
@@ -11,7 +11,7 @@ interface TwoFactorStepProps {
 }
 
 export function TwoFactorStep({ email, onVerified, onBack }: TwoFactorStepProps) {
-  const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
+  const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resentNotice, setResentNotice] = useState(false);
@@ -23,7 +23,7 @@ export function TwoFactorStep({ email, onVerified, onBack }: TwoFactorStepProps)
 
   const submitCode = async (codeValue: string) => {
     if (codeValue.length < 6) {
-      setError('Enter the 6-digit verification code.');
+      setError("Enter the 6-digit verification code.");
       const firstEmpty = digits.findIndex((d) => !d);
       inputsRef.current[firstEmpty >= 0 ? firstEmpty : 0]?.focus();
       return;
@@ -33,15 +33,15 @@ export function TwoFactorStep({ email, onVerified, onBack }: TwoFactorStepProps)
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/auth/verify-2fa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/auth/verify-2fa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, code: codeValue }),
       });
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        setError(data.message || 'Verification code is invalid or expired.');
+        setError(data.message || "Verification code is invalid or expired.");
         setIsSubmitting(false);
         inputsRef.current[0]?.focus();
         return;
@@ -49,16 +49,16 @@ export function TwoFactorStep({ email, onVerified, onBack }: TwoFactorStepProps)
 
       onVerified();
     } catch {
-      setError('Unable to verify code right now. Please try again.');
+      setError("Unable to verify code right now. Please try again.");
       setIsSubmitting(false);
     }
   };
 
   const handleChange = (index: number, raw: string) => {
-    const clean = raw.replace(/\D/g, '');
+    const clean = raw.replace(/\D/g, "");
     if (!clean) {
       const next = [...digits];
-      next[index] = '';
+      next[index] = "";
       setDigits(next);
       return;
     }
@@ -87,22 +87,22 @@ export function TwoFactorStep({ email, onVerified, onBack }: TwoFactorStepProps)
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !digits[index] && index > 0) {
+    if (e.key === "Backspace" && !digits[index] && index > 0) {
       inputsRef.current[index - 1]?.focus();
-    } else if (e.key === 'ArrowLeft' && index > 0) {
+    } else if (e.key === "ArrowLeft" && index > 0) {
       e.preventDefault();
       inputsRef.current[index - 1]?.focus();
-    } else if (e.key === 'ArrowRight' && index < 5) {
+    } else if (e.key === "ArrowRight" && index < 5) {
       e.preventDefault();
       inputsRef.current[index + 1]?.focus();
     }
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
     if (!pasted) return;
     e.preventDefault();
-    const next = ['', '', '', '', '', ''];
+    const next = ["", "", "", "", "", ""];
     for (let i = 0; i < pasted.length; i++) {
       next[i] = pasted[i];
     }
@@ -114,7 +114,7 @@ export function TwoFactorStep({ email, onVerified, onBack }: TwoFactorStepProps)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    submitCode(digits.join(''));
+    submitCode(digits.join(""));
   };
 
   return (
@@ -122,8 +122,8 @@ export function TwoFactorStep({ email, onVerified, onBack }: TwoFactorStepProps)
       <header className={styles.header}>
         <h1 className={styles.title}>Two-step verification</h1>
         <p className={styles.subtitle}>
-          Enter the six-digit code from your authenticator app for{' '}
-          <span className={styles.emailHighlight}>{email || 'your account'}</span>.
+          Enter the six-digit code from your authenticator app for{" "}
+          <span className={styles.emailHighlight}>{email || "your account"}</span>.
         </p>
       </header>
 
@@ -132,11 +132,7 @@ export function TwoFactorStep({ email, onVerified, onBack }: TwoFactorStepProps)
           <label id="otp-group-label" className={styles.codeLabel}>
             Verification code
           </label>
-          <div
-            className={styles.otpGrid}
-            role="group"
-            aria-labelledby="otp-group-label"
-          >
+          <div className={styles.otpGrid} role="group" aria-labelledby="otp-group-label">
             {digits.map((digit, index) => (
               <input
                 key={index}
@@ -147,15 +143,15 @@ export function TwoFactorStep({ email, onVerified, onBack }: TwoFactorStepProps)
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={6}
-                autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                autoComplete={index === 0 ? "one-time-code" : "off"}
                 aria-label={`Digit ${index + 1} of 6`}
                 aria-invalid={Boolean(error)}
-                aria-describedby={error ? 'otp-error' : 'otp-helper'}
+                aria-describedby={error ? "otp-error" : "otp-helper"}
                 value={digit}
                 onChange={(e) => handleChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
                 onPaste={handlePaste}
-                className={`${styles.otpInput} ${error ? styles.otpInputError : ''}`}
+                className={`${styles.otpInput} ${error ? styles.otpInputError : ""}`}
               />
             ))}
           </div>
@@ -167,11 +163,7 @@ export function TwoFactorStep({ email, onVerified, onBack }: TwoFactorStepProps)
                 <span>{error}</span>
               </p>
             ) : resentNotice ? (
-              <p
-                id="otp-helper"
-                className={styles.helperRow}
-                style={{ color: 'var(--success)' }}
-              >
+              <p id="otp-helper" className={styles.helperRow} style={{ color: "var(--success)" }}>
                 Backup verification code sent to your email.
               </p>
             ) : (
@@ -192,7 +184,7 @@ export function TwoFactorStep({ email, onVerified, onBack }: TwoFactorStepProps)
             {isSubmitting ? (
               <span className={styles.spinner} aria-label="Verifying code" />
             ) : (
-              'Verify and continue'
+              "Verify and continue"
             )}
           </button>
 
@@ -209,11 +201,7 @@ export function TwoFactorStep({ email, onVerified, onBack }: TwoFactorStepProps)
           <span>Back to sign in</span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => setResentNotice(true)}
-          className={styles.textBtn}
-        >
+        <button type="button" onClick={() => setResentNotice(true)} className={styles.textBtn}>
           Send email code
         </button>
       </div>

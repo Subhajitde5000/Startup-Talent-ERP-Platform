@@ -1,23 +1,23 @@
-'use client';
+"use client";
 
-import React, { Suspense, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertCircle, ArrowLeft, CheckCircle2, Lock } from 'lucide-react';
-import { AuthSplitLayout } from '@/components/AuthSplitLayout';
-import { ThemeTogglePill } from '@/components/ThemeTogglePill';
-import { REGISTRATION_DRAFT_KEY } from '@/lib/registrationDraft';
-import styles from '../register/register.module.css';
+import React, { Suspense, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AlertCircle, ArrowLeft, CheckCircle2, Lock } from "lucide-react";
+import { AuthSplitLayout } from "@/components/AuthSplitLayout";
+import { ThemeTogglePill } from "@/components/ThemeTogglePill";
+import { REGISTRATION_DRAFT_KEY } from "@/lib/registrationDraft";
+import styles from "../register/register.module.css";
 
 function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const queryEmail = searchParams.get('email') || '';
-  const fromLogin = searchParams.get('from') === 'login';
+  const queryEmail = searchParams.get("email") || "";
+  const fromLogin = searchParams.get("from") === "login";
 
   const [email, setEmail] = useState(queryEmail);
-  const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
+  const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
@@ -50,10 +50,10 @@ function VerifyEmailContent() {
   }, [resendCooldown]);
 
   const handleChange = (index: number, raw: string) => {
-    const clean = raw.replace(/\D/g, '');
+    const clean = raw.replace(/\D/g, "");
     if (!clean) {
       const next = [...digits];
-      next[index] = '';
+      next[index] = "";
       setDigits(next);
       return;
     }
@@ -80,29 +80,23 @@ function VerifyEmailContent() {
     }
   };
 
-  const handleKeyDown = (
-    index: number,
-    e: React.KeyboardEvent<HTMLInputElement>
-  ) => {
-    if (e.key === 'Backspace' && !digits[index] && index > 0) {
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !digits[index] && index > 0) {
       inputsRef.current[index - 1]?.focus();
-    } else if (e.key === 'ArrowLeft' && index > 0) {
+    } else if (e.key === "ArrowLeft" && index > 0) {
       e.preventDefault();
       inputsRef.current[index - 1]?.focus();
-    } else if (e.key === 'ArrowRight' && index < 5) {
+    } else if (e.key === "ArrowRight" && index < 5) {
       e.preventDefault();
       inputsRef.current[index + 1]?.focus();
     }
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    const pasted = e.clipboardData
-      .getData('text')
-      .replace(/\D/g, '')
-      .slice(0, 6);
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
     if (!pasted) return;
     e.preventDefault();
-    const next = ['', '', '', '', '', ''];
+    const next = ["", "", "", "", "", ""];
     for (let i = 0; i < pasted.length; i++) {
       next[i] = pasted[i];
     }
@@ -118,10 +112,10 @@ function VerifyEmailContent() {
     setError(null);
 
     try {
-      await fetch('/api/auth/resend-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email || 'user@company.com' }),
+      await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email || "user@company.com" }),
       });
       setResentSuccess(true);
       setResendCooldown(30);
@@ -134,9 +128,9 @@ function VerifyEmailContent() {
     e.preventDefault();
     if (isSubmitting) return;
 
-    const code = digits.join('');
+    const code = digits.join("");
     if (code.length < 6) {
-      setError('Enter the 6-digit verification code.');
+      setError("Enter the 6-digit verification code.");
       const firstEmpty = digits.findIndex((d) => !d);
       inputsRef.current[firstEmpty >= 0 ? firstEmpty : 0]?.focus();
       return;
@@ -146,18 +140,16 @@ function VerifyEmailContent() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/auth/verify-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/auth/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, code }),
       });
 
       const result = await response.json();
 
       if (!response.ok || !result.ok) {
-        setError(
-          result.message || 'That verification code is invalid or expired.'
-        );
+        setError(result.message || "That verification code is invalid or expired.");
         setIsSubmitting(false);
         inputsRef.current[0]?.focus();
         return;
@@ -172,21 +164,19 @@ function VerifyEmailContent() {
             ...prev,
             email: email || prev.email,
             emailVerified: true,
-          })
+          }),
         );
       } catch {
         // Ignore storage errors
       }
 
       if (fromLogin) {
-        router.push(
-          `/dashboard?email=${encodeURIComponent(email || 'user@company.com')}`
-        );
+        router.push(`/dashboard?email=${encodeURIComponent(email || "user@company.com")}`);
       } else {
-        router.push('/register/role');
+        router.push("/register/role");
       }
     } catch {
-      setError('Unable to confirm your email right now. Please try again.');
+      setError("Unable to confirm your email right now. Please try again.");
       setIsSubmitting(false);
     }
   };
@@ -197,21 +187,14 @@ function VerifyEmailContent() {
         {/* Step 2 of 4 Indicator (hidden only if arriving from login unverified banner) */}
         <div className={styles.stepHeader}>
           {!fromLogin && (
-            <div
-              className={styles.stepMeta}
-              aria-label="Step 2 of 4: Confirm email"
-            >
+            <div className={styles.stepMeta} aria-label="Step 2 of 4: Confirm email">
               <div className={styles.stepLabelRow}>
                 <span>Step 2 of 4</span>
                 <span>Confirm email</span>
               </div>
               <div className={styles.stepTrack} aria-hidden="true">
-                <span
-                  className={`${styles.stepSegment} ${styles.stepSegmentActive}`}
-                />
-                <span
-                  className={`${styles.stepSegment} ${styles.stepSegmentActive}`}
-                />
+                <span className={`${styles.stepSegment} ${styles.stepSegmentActive}`} />
+                <span className={`${styles.stepSegment} ${styles.stepSegmentActive}`} />
                 <span className={styles.stepSegment} />
                 <span className={styles.stepSegment} />
               </div>
@@ -221,9 +204,9 @@ function VerifyEmailContent() {
           <header className={styles.header}>
             <h1 className={styles.title}>Confirm your email</h1>
             <p className={styles.subtitle}>
-              We sent a six-digit verification code to{' '}
-              <strong>{email || 'your email address'}</strong>. Enter it below
-              to confirm your account.
+              We sent a six-digit verification code to{" "}
+              <strong>{email || "your email address"}</strong>. Enter it below to confirm your
+              account.
             </p>
           </header>
         </div>
@@ -235,11 +218,7 @@ function VerifyEmailContent() {
               Verification code
             </label>
 
-            <div
-              className={styles.otpGrid}
-              role="group"
-              aria-labelledby="verify-email-code-label"
-            >
+            <div className={styles.otpGrid} role="group" aria-labelledby="verify-email-code-label">
               {digits.map((digit, index) => (
                 <input
                   key={index}
@@ -250,19 +229,15 @@ function VerifyEmailContent() {
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={6}
-                  autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                  autoComplete={index === 0 ? "one-time-code" : "off"}
                   aria-label={`Digit ${index + 1} of 6`}
                   aria-invalid={Boolean(error)}
-                  aria-describedby={
-                    error ? 'verify-email-error' : 'verify-email-helper'
-                  }
+                  aria-describedby={error ? "verify-email-error" : "verify-email-helper"}
                   value={digit}
                   onChange={(e) => handleChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
                   onPaste={handlePaste}
-                  className={`${styles.otpInput} ${
-                    error ? styles.otpInputError : ''
-                  }`}
+                  className={`${styles.otpInput} ${error ? styles.otpInputError : ""}`}
                 />
               ))}
             </div>
@@ -276,9 +251,7 @@ function VerifyEmailContent() {
               ) : resentSuccess ? (
                 <p id="verify-email-helper" className={styles.successText}>
                   <CheckCircle2 size={14} strokeWidth={1.5} aria-hidden="true" />
-                  <span>
-                    New verification code sent to {email || 'your inbox'}.
-                  </span>
+                  <span>New verification code sent to {email || "your inbox"}.</span>
                 </p>
               ) : (
                 <p id="verify-email-helper" className={styles.helperText}>
@@ -298,7 +271,7 @@ function VerifyEmailContent() {
               {isSubmitting ? (
                 <span className={styles.spinner} aria-label="Confirming email" />
               ) : (
-                'Confirm email'
+                "Confirm email"
               )}
             </button>
 
@@ -312,7 +285,7 @@ function VerifyEmailContent() {
         {/* Resend & Back navigation */}
         <footer className={styles.footer}>
           <p className={styles.footerPrompt}>
-            Didn&apos;t receive the code?{' '}
+            Didn&apos;t receive the code?{" "}
             <button
               type="button"
               onClick={handleResend}
@@ -320,19 +293,16 @@ function VerifyEmailContent() {
               className={styles.resendBtn}
             >
               {isResending
-                ? 'Sending…'
+                ? "Sending…"
                 : resendCooldown > 0
                   ? `Resend in ${resendCooldown}s`
-                  : 'Resend code'}
+                  : "Resend code"}
             </button>
           </p>
 
-          <Link
-            href={fromLogin ? '/' : '/register'}
-            className={styles.footerLink}
-          >
+          <Link href={fromLogin ? "/" : "/register"} className={styles.footerLink}>
             <ArrowLeft size={15} strokeWidth={1.5} aria-hidden="true" />
-            <span>{fromLogin ? 'Back to sign in' : 'Change email address'}</span>
+            <span>{fromLogin ? "Back to sign in" : "Change email address"}</span>
           </Link>
         </footer>
       </div>

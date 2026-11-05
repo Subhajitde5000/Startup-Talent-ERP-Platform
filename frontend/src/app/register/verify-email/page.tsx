@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { redirect } from "next/navigation";
 
 export default function RegisterVerifyEmailAlias() {
-  redirect('/verify-email');
+  redirect("/verify-email");
 }

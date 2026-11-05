@@ -1,4 +1,14 @@
-import React from 'react';
-import {MentorRoleProvider} from '@/context/MentorRoleContext';
-import MentorShell from '@/components/mentor/MentorShell';
-export default function MentorLayout({children}:{children:React.ReactNode}){return <MentorRoleProvider><MentorShell>{children}</MentorShell></MentorRoleProvider>}
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Mentor workspace" };
+
+import React from "react";
+import { MentorRoleProvider } from "@/context/MentorRoleContext";
+import MentorShell from "@/components/mentor/MentorShell";
+export default function MentorLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <MentorRoleProvider>
+      <MentorShell>{children}</MentorShell>
+    </MentorRoleProvider>
+  );
+}

@@ -1,28 +1,17 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { CalendarClock } from 'lucide-react';
-import { AssignedMentorInfo } from '@/types/startup';
-import styles from './DashboardWidgets.module.css';
+import { initials } from "@/utils/formatters";
+import React from "react";
+import { CalendarClock } from "lucide-react";
+import { AssignedMentorInfo } from "@/types/startup";
+import styles from "./DashboardWidgets.module.css";
 
 interface MentorSectionCardProps {
   mentor: AssignedMentorInfo;
   onRequestSession: () => void;
 }
 
-function getInitials(name: string): string {
-  const cleaned = name.replace(/^Dr\.\s+/i, '').trim();
-  const parts = cleaned.split(/\s+/);
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-  }
-  return cleaned.slice(0, 2).toUpperCase();
-}
-
-export function MentorSectionCard({
-  mentor,
-  onRequestSession,
-}: MentorSectionCardProps) {
+export function MentorSectionCard({ mentor, onRequestSession }: MentorSectionCardProps) {
   return (
     <section className={styles.card} aria-label="Assigned mentor and advisory">
       <div className={styles.cardHeader}>
@@ -35,7 +24,7 @@ export function MentorSectionCard({
           type="button"
           onClick={onRequestSession}
           className={styles.secondaryActionBtn}
-          style={{ height: 34, padding: '0 12px', fontSize: '12.5px' }}
+          style={{ height: 34, padding: "0 12px", fontSize: "12.5px" }}
         >
           Request session
         </button>
@@ -44,7 +33,7 @@ export function MentorSectionCard({
       <div className={styles.mentorBody}>
         <div className={styles.mentorProfile}>
           <span className={styles.mentorAvatar} aria-hidden="true">
-            {getInitials(mentor.name)}
+            {initials(mentor.name)}
           </span>
           <div className={styles.mentorInfo}>
             <span className={styles.mentorName}>{mentor.name}</span>
@@ -59,16 +48,14 @@ export function MentorSectionCard({
                 <CalendarClock
                   size={13}
                   strokeWidth={1.6}
-                  style={{ verticalAlign: '-2px', marginRight: 5 }}
+                  style={{ verticalAlign: "-2px", marginRight: 5 }}
                   aria-hidden="true"
                 />
                 Next advisory session
               </span>
               <span>{mentor.nextSession.status}</span>
             </div>
-            <span className={styles.sessionTopic}>
-              {mentor.nextSession.topic}
-            </span>
+            <span className={styles.sessionTopic}>{mentor.nextSession.topic}</span>
             <span className={styles.sessionTime}>
               {mentor.nextSession.dateLabel} · {mentor.nextSession.timeLabel}
             </span>

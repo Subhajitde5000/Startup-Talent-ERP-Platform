@@ -1,24 +1,24 @@
 :root {
   /* Core design tokens from specification */
-  --ink: #0F1B2D;
-  --ink-soft: #1C2B42;
-  --ivory: #FAF8F4;
-  --white: #FFFFFF;
-  --gold: #B8955A;
-  --gold-dark: #9A7A45;
-  --gold-tint: #F3EBDD;
-  --warning: #B7791F;
-  --stone-700: #4A5568;
-  --stone-400: #A0A7B4;
-  --stone-200: #E5E1D8;
-  --error: #B42318;
-  --success: #2E7D5B;
+  --ink: #0f1b2d;
+  --ink-soft: #1c2b42;
+  --ivory: #faf8f4;
+  --white: #ffffff;
+  --gold: #b8955a;
+  --gold-dark: #9a7a45;
+  --gold-tint: #f3ebdd;
+  --warning: #b7791f;
+  --stone-700: #4a5568;
+  --stone-400: #a0a7b4;
+  --stone-200: #e5e1d8;
+  --error: #b42318;
+  --success: #2e7d5b;
   --radius: 10px;
 
   /* Semantic surface & text mappings (enables zero-friction dark mode swap) */
   --bg-page: var(--ivory);
   --bg-surface: var(--white);
-  --bg-sso-hover: #F4F1EA;
+  --bg-sso-hover: #f4f1ea;
   --bg-brand: var(--ink);
   --text-primary: var(--ink);
   --text-secondary: var(--stone-700);
@@ -42,10 +42,11 @@
   --status-error-border: rgba(180, 35, 24, 0.28);
   --status-success-bg: rgba(46, 125, 91, 0.06);
   --status-success-border: rgba(46, 125, 91, 0.28);
-  --status-neutral-bg: #F4F1EA;
+  --status-neutral-bg: #f4f1ea;
 
   /* Typography stacks */
-  --font-heading: var(--font-serif), Georgia, serif;
+  --font-serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --font-heading: var(--font-serif);
   --font-body: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* Spacing scale: 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64px */
@@ -62,30 +63,30 @@
 
 /* Optional Dark Mode token swap per Section 2 */
 [data-theme="dark"] {
-  --bg-page: #0B1422;
+  --bg-page: #0b1422;
   --bg-surface: #142033;
-  --bg-sso-hover: #1B2A42;
-  --bg-brand: #09111E;
-  --text-primary: #F2EFE8;
-  --text-secondary: #B4BDCB;
+  --bg-sso-hover: #1b2a42;
+  --bg-brand: #09111e;
+  --text-primary: #f2efe8;
+  --text-secondary: #b4bdcb;
   --text-placeholder: #728096;
-  --border-subtle: #26364D;
-  --border-hover: #3B5172;
-  --gold: #C9A66B;
-  --gold-dark: #C9A66B;
-  --accent: #C9A66B;
-  --accent-text: #C9A66B;
+  --border-subtle: #26364d;
+  --border-hover: #3b5172;
+  --gold: #c9a66b;
+  --gold-dark: #c9a66b;
+  --accent: #c9a66b;
+  --accent-text: #c9a66b;
   --focus-ring: rgba(201, 166, 107, 0.28);
 
-  --btn-primary-bg: #F2EFE8;
-  --btn-primary-hover: #E4DFD3;
-  --btn-primary-text: #0F1B2D;
-  --btn-disabled-bg: #1B293E;
-  --btn-disabled-text: #5E6D82;
-  --checkbox-accent: #C9A66B;
+  --btn-primary-bg: #f2efe8;
+  --btn-primary-hover: #e4dfd3;
+  --btn-primary-text: #0f1b2d;
+  --btn-disabled-bg: #1b293e;
+  --btn-disabled-text: #5e6d82;
+  --checkbox-accent: #c9a66b;
 
-  --error: #F2766B;
-  --success: #5AC092;
+  --error: #f2766b;
+  --success: #5ac092;
   --status-error-bg: rgba(242, 118, 107, 0.08);
   --status-error-border: rgba(242, 118, 107, 0.32);
   --status-success-bg: rgba(90, 192, 146, 0.08);
@@ -115,7 +116,9 @@ body {
   font-size: 16px;
   font-weight: 400;
   line-height: 1.5;
-  transition: background-color 180ms ease-out, color 180ms ease-out;
+  transition:
+    background-color 180ms ease-out,
+    color 180ms ease-out;
 }
 
 h1,
@@ -144,7 +147,9 @@ textarea:focus-visible,
   text-decoration: none;
   font-weight: 500;
   border-radius: 4px;
-  transition: color 160ms ease-out, box-shadow 160ms ease-out;
+  transition:
+    color 160ms ease-out,
+    box-shadow 160ms ease-out;
 }
 
 .accent-link:hover,

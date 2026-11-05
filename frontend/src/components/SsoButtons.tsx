@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React from 'react';
-import styles from './SsoButtons.module.css';
+import React from "react";
+import styles from "./SsoButtons.module.css";
 
-export type SsoProvider = 'google' | 'microsoft' | 'linkedin';
+export type SsoProvider = "google" | "microsoft" | "linkedin";
 
 interface SsoButtonsProps {
   onSelectProvider: (provider: SsoProvider) => void;
@@ -62,9 +62,9 @@ const PROVIDERS: Array<{
   label: string;
   icon: React.ReactNode;
 }> = [
-  { id: 'google', label: 'Continue with Google', icon: <GoogleIcon /> },
-  { id: 'microsoft', label: 'Continue with Microsoft', icon: <MicrosoftIcon /> },
-  { id: 'linkedin', label: 'Continue with LinkedIn', icon: <LinkedInIcon /> },
+  { id: "google", label: "Continue with Google", icon: <GoogleIcon /> },
+  { id: "microsoft", label: "Continue with Microsoft", icon: <MicrosoftIcon /> },
+  { id: "linkedin", label: "Continue with LinkedIn", icon: <LinkedInIcon /> },
 ];
 
 export function SsoButtons({

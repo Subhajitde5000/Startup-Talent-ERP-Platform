@@ -1,178 +1,3875 @@
-'use client';
+"use client";
 
-import React, { FormEvent, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { Activity, AlertCircle, ArrowDownRight, ArrowRight, ArrowUpRight, BarChart3, CalendarDays, CheckCircle2, ChevronDown, CircleHelp, Clock3, Download, ExternalLink, FileText, Filter, Info, LineChart, Plus, RefreshCw, Search, Send, ShieldCheck, Sparkles, Target, TrendingUp, Users, X } from 'lucide-react';
-import analyticsConfig from '@/data/startupAnalyticsConfig.json';
-import { useStartupWorkspace } from '@/context/StartupWorkspaceContext';
-import { StartupStageId, StartupTaskItem } from '@/types/startup';
-import styles from './StartupAnalytics.module.css';
+import { ANALYTICS_DEMO_STATE } from "@/data/startupDemoData";
+import type {
+  AnalyticsKpi,
+  AnalyticsState,
+  AnalyticsTab,
+  CompareTo,
+  Competitor,
+  DateRange,
+  MarketEntry,
+  MonthlyMetric,
+  SwotNote,
+} from "@/types/analytics";
+import { initials } from "@/utils/formatters";
+import { useRouter } from "next/navigation";
+import React, { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  Activity,
+  AlertCircle,
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
+  BarChart3,
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  CircleHelp,
+  Clock3,
+  Download,
+  ExternalLink,
+  FileText,
+  Filter,
+  Info,
+  LineChart,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Users,
+  X,
+} from "lucide-react";
+import analyticsConfig from "@/data/startupAnalyticsConfig.json";
+import { useStartupWorkspace } from "@/context/StartupWorkspaceContext";
+import { StartupStageId, StartupTaskItem } from "@/types/startup";
+import styles from "./StartupAnalytics.module.css";
 
-type AnalyticsTab='overview'|'journey'|'business'|'market';
-type DateRange='30d'|'90d'|'quarter'|'12m'|'custom';
-type CompareTo='previous'|'last-year'|'target';
-type MonthlyMetric={id:string;period:string;mrr?:number;revenue?:number;grossBurn?:number;cashBalance?:number;activeCustomers?:number;customersAtStart?:number;newCustomers?:number;churnedCustomers?:number;marketingSpend?:number;grossMarginPercent?:number;source:string;addedBy:string;updatedAt:string};
-type MarketEntry={tam?:number;sam?:number;som?:number;year?:string;source?:string;population?:number;averagePrice?:number;adoptionPercent?:number;updatedAt?:string};
-type Competitor={id:string;name:string;type:'Direct'|'Indirect'|'Substitute';targetCustomer:string;pricing:string;strengths:string;weaknesses:string;positionX:number;positionY:number;source:string;updatedAt:string};
-type AnalyticsKpi={id:string;name:string;target:string;current:string;owner:string;note?:string};
-type SwotNote={id:string;text:string;evidence?:string;createdAt:string};
-type AnalyticsState={monthly:MonthlyMetric[];market:MarketEntry;competitors:Competitor[];kpis:AnalyticsKpi[];swot:Record<'Strengths'|'Weaknesses'|'Opportunities'|'Threats',SwotNote[]>;notes:Record<string,string>};
-const STORAGE_KEY='meridian-startup-analytics-v1';
-const DEFAULT_STATE:AnalyticsState={monthly:[],market:{},competitors:[],kpis:[],swot:{Strengths:[],Weaknesses:[],Opportunities:[],Threats:[]},notes:{}};
-const DEFINITIONS=analyticsConfig.definitions as Record<string,string>;
-const TABS:Array<{id:AnalyticsTab;label:string;icon:React.ReactNode}>=[{id:'overview',label:'Overview',icon:<Activity size={15}/>},{id:'journey',label:'Journey',icon:<Target size={15}/>},{id:'business',label:'Business',icon:<BarChart3 size={15}/>},{id:'market',label:'Market',icon:<TrendingUp size={15}/>}];
-const PERIODS:Array<[DateRange,string]>=[['30d','Last 30 days'],['90d','Last 90 days'],['quarter','This quarter'],['12m','12 months'],['custom','Custom']];
-const STAGE_HREF:Record<StartupStageId,string>={idea:'/startup/stage/idea',prototype:'/startup/stage/prototype','early-revenue':'/startup/stage/early-revenue',mature:'/startup/stage/mature'};
-const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const money=(value?:number|null,compact=true)=>{if(value===undefined||value===null||!Number.isFinite(value))return '—';if(compact&&Math.abs(value)>=1e7)return `₹${(value/1e7).toFixed(1)} Cr`;if(compact&&Math.abs(value)>=1e5)return `₹${(value/1e5).toFixed(1)}L`;return new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(value);};
-const pct=(value?:number|null,decimals=1)=>value===undefined||value===null||!Number.isFinite(value)?'—':`${value>0?'+':''}${value.toFixed(decimals)}%`;
-const percent=pct;
-const monthLabel=(period:string)=>{const [year,month]=period.split('-').map(Number);return `${MONTHS[(month||1)-1]} ${String(year).slice(-2)}`;};
-const monthAgo=(n:number)=>{const date=new Date();date.setMonth(date.getMonth()-n);return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;};
-const stageLabel=(id:StartupStageId)=>id==='early-revenue'?'Early Revenue':id[0].toUpperCase()+id.slice(1);
-const sortMonthly=(records:MonthlyMetric[])=>[...records].sort((a,b)=>a.period.localeCompare(b.period));
-const getInitials=(name:string)=>name.split(/\s+/).map((part)=>part[0]).slice(0,2).join('').toUpperCase();
-const validNum=(value:string)=>{if(!value.trim())return undefined;const number=Number(value);return Number.isFinite(number)&&number>=0?number:undefined;};
-const runway=(entry?:MonthlyMetric)=>{if(entry?.cashBalance===undefined||entry.grossBurn===undefined||entry.revenue===undefined)return null;const net=entry.grossBurn-entry.revenue;return net>0?entry.cashBalance/net:null;};
-const metricChurn=(entry?:MonthlyMetric)=>entry?.customersAtStart&&entry.churnedCustomers!==undefined?entry.churnedCustomers/entry.customersAtStart*100:null;
-const isTaskOverdue=(task:StartupTaskItem)=>{if(task.status==='completed')return false;if(task.status==='overdue')return true;if(!task.dueDate)return false;return new Date(`${task.dueDate}T23:59:59`).getTime()<Date.now();};
+const STORAGE_KEY = "meridian-startup-analytics-v2";
+const DEFAULT_STATE: AnalyticsState = ANALYTICS_DEMO_STATE;
+const DEFINITIONS = analyticsConfig.definitions as Record<string, string>;
+const TABS: Array<{ id: AnalyticsTab; label: string; icon: React.ReactNode }> = [
+  { id: "overview", label: "Overview", icon: <Activity size={15} /> },
+  { id: "journey", label: "Journey", icon: <Target size={15} /> },
+  { id: "business", label: "Business", icon: <BarChart3 size={15} /> },
+  { id: "market", label: "Market", icon: <TrendingUp size={15} /> },
+];
+const PERIODS: Array<[DateRange, string]> = [
+  ["30d", "Last 30 days"],
+  ["90d", "Last 90 days"],
+  ["quarter", "This quarter"],
+  ["12m", "12 months"],
+  ["custom", "Custom"],
+];
+const STAGE_HREF: Record<StartupStageId, string> = {
+  idea: "/startup/stage/idea",
+  prototype: "/startup/stage/prototype",
+  "early-revenue": "/startup/stage/early-revenue",
+  mature: "/startup/stage/mature",
+};
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const money = (value?: number | null, compact = true) => {
+  if (value === undefined || value === null || !Number.isFinite(value)) return "—";
+  if (compact && Math.abs(value) >= 1e7) return `₹${(value / 1e7).toFixed(1)} Cr`;
+  if (compact && Math.abs(value) >= 1e5) return `₹${(value / 1e5).toFixed(1)}L`;
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+const pct = (value?: number | null, decimals = 1) =>
+  value === undefined || value === null || !Number.isFinite(value)
+    ? "—"
+    : `${value > 0 ? "+" : ""}${value.toFixed(decimals)}%`;
+const percent = pct;
+const monthLabel = (period: string) => {
+  const [year, month] = period.split("-").map(Number);
+  return `${MONTHS[(month || 1) - 1]} ${String(year).slice(-2)}`;
+};
+const monthAgo = (n: number) => {
+  const date = new Date();
+  date.setMonth(date.getMonth() - n);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+};
+const stageLabel = (id: StartupStageId) =>
+  id === "early-revenue" ? "Early Revenue" : id[0].toUpperCase() + id.slice(1);
+const sortMonthly = (records: MonthlyMetric[]) =>
+  [...records].sort((a, b) => a.period.localeCompare(b.period));
+const validNum = (value: string) => {
+  if (!value.trim()) return undefined;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : undefined;
+};
+const runway = (entry?: MonthlyMetric) => {
+  if (
+    entry?.cashBalance === undefined ||
+    entry.grossBurn === undefined ||
+    entry.revenue === undefined
+  )
+    return null;
+  const net = entry.grossBurn - entry.revenue;
+  return net > 0 ? entry.cashBalance / net : null;
+};
+const metricChurn = (entry?: MonthlyMetric) =>
+  entry?.customersAtStart && entry.churnedCustomers !== undefined
+    ? (entry.churnedCustomers / entry.customersAtStart) * 100
+    : null;
+const isTaskOverdue = (task: StartupTaskItem) => {
+  if (task.status === "completed") return false;
+  if (task.status === "overdue") return true;
+  if (!task.dueDate) return false;
+  return new Date(`${task.dueDate}T23:59:59`).getTime() < Date.now();
+};
 
-export default function StartupAnalyticsPage(){
- const {data}=useStartupWorkspace();const [state,setState]=useState<AnalyticsState>(DEFAULT_STATE);const [hydrated,setHydrated]=useState(false);
- const [tab,setTab]=useState<AnalyticsTab>('overview');const [dateRange,setDateRange]=useState<DateRange>('12m');const [compare,setCompare]=useState<CompareTo>('previous');const [segment,setSegment]=useState('all');const [customStart,setCustomStart]=useState(monthAgo(2));const [customEnd,setCustomEnd]=useState(new Date().toISOString().slice(0,7));
- const [updatedLabel,setUpdatedLabel]=useState('Workspace snapshot');const [toast,setToast]=useState('');const [dialog,setDialog]=useState<'data'|'competitor'|'kpi'|'share'|null>(null);const [detail,setDetail]=useState<{title:string;definition:string;metricKey?:string}|null>(null);const [exportMenu,setExportMenu]=useState(false);const [allMetrics,setAllMetrics]=useState(false);const [tables,setTables]=useState<Record<string,boolean>>({});const [marketScenario,setMarketScenario]=useState<'conservative'|'base'|'optimistic'>('base');const [swotDraft,setSwotDraft]=useState<Record<string,string>>({});const [trendSearch,setTrendSearch]=useState('');
- useEffect(()=>{try{const saved=localStorage.getItem(STORAGE_KEY);if(saved){const parsed=JSON.parse(saved) as Partial<AnalyticsState>;setState({...DEFAULT_STATE,...parsed,market:{...DEFAULT_STATE.market,...parsed.market},swot:{...DEFAULT_STATE.swot,...parsed.swot},notes:{...DEFAULT_STATE.notes,...parsed.notes}});setUpdatedLabel('Updated from this browser');}}catch{/* use blank analytics state */}setHydrated(true);},[]);
- useEffect(()=>{if(!hydrated)return;try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}catch{/* keep the current session usable */}},[state,hydrated]);
- useEffect(()=>{if(!toast)return;const timer=window.setTimeout(()=>setToast(''),4000);return()=>window.clearTimeout(timer);},[toast]);
- const founder=data.startup.founderName;const member=data.team.find((person)=>person.name===founder);const canEdit=!member||member.permission==='Owner'||member.permission==='Admin';
- const monthly=useMemo(()=>{const rows=sortMonthly(state.monthly);if(dateRange==='30d')return rows.slice(-1);if(dateRange==='90d')return rows.slice(-3);if(dateRange==='quarter'){const now=new Date();const start=`${now.getFullYear()}-${String(Math.floor(now.getMonth()/3)*3+1).padStart(2,'0')}`;return rows.filter((row)=>row.period>=start);}if(dateRange==='custom')return rows.filter((row)=>row.period>=customStart&&row.period<=customEnd);if(dateRange==='12m')return rows.filter((row)=>row.period>=monthAgo(11));return rows;},[state.monthly,dateRange,customStart,customEnd]);
- const ordered=useMemo(()=>sortMonthly(state.monthly),[state.monthly]);const latest=monthly[monthly.length-1]||ordered[ordered.length-1];const prior=monthly.length>1?monthly[monthly.length-2]:undefined;const growth=latest?.mrr!==undefined&&prior?.mrr!==undefined&&prior.mrr>0?(latest.mrr-prior.mrr)/prior.mrr*100:null;const comparisonRows=useMemo(()=>{if(compare==='target'||!monthly.length)return [];if(compare==='last-year')return monthly.map((row)=>ordered.find((entry)=>entry.period===`${Number(row.period.slice(0,4))-1}${row.period.slice(4)}`)).filter((row):row is MonthlyMetric=>!!row);const first=monthly[0].period;const earlier=ordered.filter((row)=>row.period<first);return earlier.slice(-monthly.length);},[compare,monthly,ordered]);const compareMrr=comparisonRows[comparisonRows.length-1]?.mrr;const selectedGrowth=compareMrr!==undefined&&compareMrr>0&&latest?.mrr!==undefined?(latest.mrr-compareMrr)/compareMrr*100:null;const compareLabel=compare==='last-year'?'same period last year':'previous period';
- const stage=data.stages.find((item)=>item.id===data.startup.currentStage)||data.stages[0];const stageTasks=data.tasks.filter((task)=>task.linkedCriterionId&&stage.exitCriteria.some((criterion)=>criterion.id===task.linkedCriterionId));
- const inputCompleteness=latest?['mrr','revenue','grossBurn','cashBalance','activeCustomers','newCustomers','churnedCustomers','marketingSpend'].filter((key)=>latest[key as keyof MonthlyMetric]!==undefined).length/8*100:0;
- const missingInputs=['Monthly recurring revenue','Revenue received','Gross burn','Cash balance','Customer counts','Sales & marketing spend'].filter((_,index)=>!latest||[latest.mrr,latest.revenue,latest.grossBurn,latest.cashBalance,latest.activeCustomers,latest.marketingSpend][index]===undefined);
- const openKpi=(title:string,definition:string,metricKey?:string)=>setDetail({title,definition,metricKey});const openDetail=(title:string,definition:string,metricKey?:string)=>setDetail({title,definition,metricKey});
- const showTable=(key:string)=>setTables((prev)=>({...prev,[key]:!prev[key]}));
- const refresh=()=>{setUpdatedLabel('Refreshed locally just now');setToast('Workspace values refreshed locally. External analytics sync is not configured.');};
- const saveMonthly=(entry:Omit<MonthlyMetric,'id'|'source'|'addedBy'|'updatedAt'>)=>{setState((prev)=>{const existing=prev.monthly.find((row)=>row.period===entry.period);const record:MonthlyMetric={...existing,...entry,id:existing?.id||`metric-${entry.period}`,source:'Entered by team',addedBy:founder,updatedAt:new Date().toISOString()};return {...prev,monthly:[...prev.monthly.filter((row)=>row.period!==entry.period),record]};});setUpdatedLabel('Updated just now');setToast(`${monthLabel(entry.period)} analytics saved in this browser.`);setDialog(null);};
- const saveMarket=(market:MarketEntry)=>{setState((prev)=>({...prev,market:{...market,updatedAt:new Date().toISOString()}}));setUpdatedLabel('Updated just now');setToast('Market assumptions saved locally.');setDialog(null);};
- const addCompetitor=(item:Omit<Competitor,'id'|'updatedAt'>)=>{setState((prev)=>({...prev,competitors:[...prev.competitors,{...item,id:`competitor-${Date.now()}`,updatedAt:new Date().toISOString()}]}));setToast('Team-entered competitor saved locally.');setDialog(null);};
- const addKpi=(item:Omit<AnalyticsKpi,'id'>)=>{setState((prev)=>({...prev,kpis:[...prev.kpis,{...item,id:`kpi-${Date.now()}`}]}));setToast('Custom KPI added locally.');setDialog(null);};
- const addNote=(key:string,note:string)=>{setState((prev)=>({...prev,notes:{...prev.notes,[key]:note}}));setToast('Note saved in this browser.');setDetail(null);};
- const exportCsv=()=>{const rows=[['Period','MRR INR','Revenue INR','Gross burn INR','Cash balance INR','Active customers','Customers at start','New customers','Churned customers','Marketing spend INR','Gross margin percent','Source','Added by'],...ordered.map((r)=>[r.period,r.mrr??'',r.revenue??'',r.grossBurn??'',r.cashBalance??'',r.activeCustomers??'',r.customersAtStart??'',r.newCustomers??'',r.churnedCustomers??'',r.marketingSpend??'',r.grossMarginPercent??'',r.source,r.addedBy])];const csv=rows.map((row)=>row.map((item)=>`"${String(item).replaceAll('"','""')}"`).join(',')).join('\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const anchor=document.createElement('a');anchor.href=url;anchor.download=`${data.startup.name.toLowerCase().replace(/\s+/g,'-')}-analytics.csv`;anchor.click();URL.revokeObjectURL(url);setExportMenu(false);setToast('Analytics CSV downloaded.');};
- const importCsv=async(file?:File)=>{if(!file)return;const lines=(await file.text()).split(/\r?\n/).filter(Boolean);if(lines.length<2){setToast('CSV has no monthly data rows.');return;}const headers=lines[0].split(',').map((item)=>item.trim().toLowerCase());const columns:Array<[string,keyof Omit<MonthlyMetric,'id'|'source'|'addedBy'|'updatedAt'>]>=[['mrr','mrr'],['revenue','revenue'],['grossburn','grossBurn'],['cashbalance','cashBalance'],['activecustomers','activeCustomers'],['customersatstart','customersAtStart'],['newcustomers','newCustomers'],['churnedcustomers','churnedCustomers'],['marketingspend','marketingSpend'],['grossmarginpercent','grossMarginPercent']];let imported=0;for(const line of lines.slice(1)){const cells=line.split(',').map((item)=>item.replace(/^"|"$/g,'').trim());const row:Record<string,string>={};headers.forEach((header,index)=>row[header.replace(/[^a-z]/g,'')]=cells[index]||'');if(!/^\d{4}-\d{2}$/.test(row.period||''))continue;const input:Omit<MonthlyMetric,'id'|'source'|'addedBy'|'updatedAt'>={period:row.period};columns.forEach(([csvKey,field])=>{const value=validNum(row[csvKey]||'');if(value!==undefined)(input as Record<string,unknown>)[field]=value;});saveMonthly(input);imported++;}setToast(imported?`${imported} monthly row${imported===1?'':'s'} imported locally.`:'No valid rows. Use YYYY-MM in the period column.');};
- const openAddData=()=>setDialog('data');
- const insightItems:Array<{title:string;detail:string;href?:string}>=[];if(growth!==null)insightItems.push({title:`MRR ${growth>=0?'grew':'declined'} ${Math.abs(growth).toFixed(1)}% in the latest entered month.`,detail:'Calculated from the two latest team-entered MRR values. Not financial advice.',href:'/startup/analytics'});else insightItems.push({title:'No recurring revenue trend yet.',detail:'Enter at least two monthly MRR values to calculate month-over-month growth.'});const overdue=data.tasks.filter(isTaskOverdue);if(overdue.length)insightItems.push({title:`${overdue.length} task${overdue.length===1?' is':'s are'} overdue.`,detail:`First up: ${overdue[0].title}`,href:'/startup/tasks'});else insightItems.push({title:'Readiness scoring is not available.',detail:'The verified readiness service and mentor sign-off history are not connected.',href:'/startup/stage'});
- const overviewKpis=[{label:'Readiness score',value:'Not assessed',change:'Verified service not connected',tone:'neutral' as const,definition:DEFINITIONS.readiness,key:'readiness',source:'Not connected'},{label:'MRR',value:latest?.mrr!==undefined?money(latest.mrr):'No data',change:compare==='target'?'No team target entered':selectedGrowth!==null?`${selectedGrowth>=0?'▲':'▼'} ${Math.abs(selectedGrowth).toFixed(1)}% vs ${compareLabel}`:compareMrr===undefined?'Comparison data unavailable':'No comparison yet',tone:selectedGrowth===null?'neutral' as const:selectedGrowth>=0?'good' as const:'bad' as const,definition:`${DEFINITIONS.mrr} Comparison uses the selected team-entered period; targets are not configured.`,key:'mrr',source:latest?.source||'Not connected'},{label:'Runway',value:runway(latest)!==null?`${runway(latest)!.toFixed(1)} mo`:'Not calculated',change:latest?.cashBalance!==undefined?'Based on entered cash & net burn':'Cash and burn not entered',tone:'neutral' as const,definition:DEFINITIONS.runway,key:'runway',source:latest?.source||'Not connected'},{label:'Active pipeline',value:'Not connected',change:'Sales pipeline data unavailable',tone:'neutral' as const,definition:'Open pipeline is the sum of qualified deals. Sales pipeline data is not connected.',key:'pipeline',source:'Not connected'}];
- return <div className={styles.analyticsPage}><a href="#analytics-main" className={styles.skipLink}>Skip to analytics</a>
-  <header className={styles.pageHeader}><div><span className={styles.eyebrow}>Startup workspace · Analytics</span><h1>Analytics</h1><p>Understand your progress, your business and your market.</p></div><div className={styles.headerActions}><label className={styles.dateSelect}><CalendarDays size={14}/><select aria-label="Analytics date range" value={dateRange} onChange={(event)=>setDateRange(event.target.value as DateRange)}>{PERIODS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><label className={styles.importButton}><Download size={14}/>Import CSV<input type="file" accept=".csv,text/csv" disabled={!canEdit} onChange={(event)=>{void importCsv(event.target.files?.[0]);event.currentTarget.value='';}}/></label><div className={styles.exportWrap}><button type="button" className={styles.secondaryButton} onClick={()=>setExportMenu(!exportMenu)}><Download size={14}/>Export<ChevronDown size={13}/></button>{exportMenu&&<div className={styles.exportMenu}><button type="button" onClick={exportCsv}><FileText size={13}/>Download CSV</button><button type="button" onClick={()=>{window.print();setExportMenu(false);}}><FileText size={13}/>Print / Save PDF</button><button type="button" onClick={()=>{setDialog('share');setExportMenu(false);}}><ExternalLink size={13}/>Share report</button></div>}</div>{canEdit&&<button type="button" className={styles.primaryButton} onClick={openAddData}><Plus size={14}/>Add data</button>}</div></header>
-  {dateRange==='custom'&&<div className={styles.customDates}><label>From<input type="month" value={customStart} onChange={(event)=>setCustomStart(event.target.value)}/></label><label>To<input type="month" value={customEnd} onChange={(event)=>setCustomEnd(event.target.value)}/></label></div>}
-  <div className={styles.controlLine}><div className={styles.lastUpdated}><span className={styles.liveDot}/><span>Last updated: {updatedLabel}</span><button type="button" onClick={refresh}><RefreshCw size={12}/>Refresh</button></div><div className={styles.filterControls}><label>Compare to<select value={compare} onChange={(event)=>setCompare(event.target.value as CompareTo)}><option value="previous">Previous period</option><option value="last-year">Same period last year</option><option value="target">Target</option></select></label><label>Segment<select value={segment} onChange={(event)=>setSegment(event.target.value)}><option value="all">All segments</option><option value="customer">Customer segment · not connected</option></select></label></div></div>
-  <p className={styles.filterNote} aria-live="polite">{compare==='target'?'No team-entered targets are configured; target comparisons are unavailable.':comparisonRows.length?`MRR comparison uses ${comparisonRows.length} prior team-entered month${comparisonRows.length===1?'':'s'} (${compareLabel}).`:`No ${compareLabel} records are available for comparison.`}{segment!=='all'?' Customer segment analytics are not connected.':''}</p>
-  <nav className={styles.tabs} role="tablist" aria-label="Analytics tabs">{TABS.map((item)=><button key={item.id} type="button" role="tab" id={`tab-${item.id}`} aria-selected={tab===item.id} aria-controls={`panel-${item.id}`} tabIndex={tab===item.id?0:-1} onClick={()=>setTab(item.id)} className={tab===item.id?styles.tabActive:styles.tab}>{item.icon}{item.label}</button>)}</nav>
-  <div className={styles.sampleBanner}><Info size={15}/><span><strong>Analytics integrations are not connected.</strong> Manual figures save in this browser. Workspace-derived numbers are labelled separately; no readiness score, investor funnel or peer benchmark is fabricated.</span></div>
-  <main id="analytics-main" className={styles.tabPanel} role="tabpanel" aria-labelledby={`tab-${tab}`}>
-   {tab==='overview'&&<OverviewTab data={data} currentStage={stage} tasks={data.tasks} kpis={overviewKpis} monthly={monthly} latest={latest} growth={growth} completeness={inputCompleteness} missing={missingInputs} showTables={tables} showTable={showTable} openKpi={openKpi} openData={openAddData} openDetail={openDetail} insights={insightItems.slice(0,3)} stageTasks={stageTasks}/>}
-   {tab==='journey'&&<JourneyTab data={data} currentStage={stage} mentorTasks={data.tasks.filter((task)=>task.mentorDeliverable)} allTasks={data.tasks}/>}
-   {tab==='business'&&<BusinessTab stage={stage.id} monthly={monthly} latest={latest} growth={growth} kpis={state.kpis} allMetrics={allMetrics} setAllMetrics={setAllMetrics} onAddData={openAddData} onAddKpi={()=>setDialog('kpi')} showTables={tables} showTable={showTable} openKpi={openKpi} openDetail={openDetail} data={data}/>}
-   {tab==='market'&&<MarketTab market={state.market} competitors={state.competitors} scenario={marketScenario} setScenario={setMarketScenario} onEdit={openAddData} onAddCompetitor={()=>setDialog('competitor')} swot={state.swot} swotDraft={swotDraft} setSwotDraft={setSwotDraft} onAddSwot={(category,text)=>{if(!text.trim())return;setState((prev)=>({...prev,swot:{...prev.swot,[category]:[...prev.swot[category],{id:`swot-${Date.now()}`,text:text.trim(),createdAt:new Date().toISOString()}]}}));setSwotDraft((prev)=>({...prev,[category]:''}));setToast(`${category} note added locally.`);}} onDeleteCompetitor={(id)=>setState((prev)=>({...prev,competitors:prev.competitors.filter((item)=>item.id!==id)}))} onDeleteSwot={(category,id)=>setState((prev)=>({...prev,swot:{...prev.swot,[category]:prev.swot[category].filter((note)=>note.id!==id)}}))} search={trendSearch} setSearch={setTrendSearch}/>}
-  </main>{!canEdit&&<div className={styles.readOnlyNotice}><ShieldCheck size={15}/>Read-only analytics access. Ask an Owner or Admin to edit inputs or export.</div>}
-  {dialog==='data'&&<AddDataDialog tab={tab} market={state.market} onClose={()=>setDialog(null)} onSaveMonthly={saveMonthly} onSaveMarket={saveMarket}/>}
-  {dialog==='competitor'&&<CompetitorDialog onClose={()=>setDialog(null)} onSave={addCompetitor}/>}{dialog==='kpi'&&<KpiDialog founder={founder} onClose={()=>setDialog(null)} onSave={addKpi}/>}{dialog==='share'&&<ShareDialog onClose={()=>setDialog(null)}/>}
-  {detail&&<AnalyticsDrawer detail={detail} records={ordered} note={state.notes[detail.metricKey||detail.title]||''} onSaveNote={(note)=>addNote(detail.metricKey||detail.title,note)} onClose={()=>setDetail(null)} onEdit={()=>{setDetail(null);setDialog('data');}}/>}
-  {toast&&<div className={styles.toast} role="status"><CheckCircle2 size={15}/>{toast}<button type="button" aria-label="Dismiss" onClick={()=>setToast('')}><X size={14}/></button></div>}
- </div>;
+export default function StartupAnalyticsPage() {
+  const { data } = useStartupWorkspace();
+  const [state, setState] = useState<AnalyticsState>(DEFAULT_STATE);
+  const [hydrated, setHydrated] = useState(false);
+  const [tab, setTab] = useState<AnalyticsTab>("overview");
+  const [dateRange, setDateRange] = useState<DateRange>("12m");
+  const [compare, setCompare] = useState<CompareTo>("previous");
+  const [segment, setSegment] = useState("all");
+  const [customStart, setCustomStart] = useState(monthAgo(2));
+  const [customEnd, setCustomEnd] = useState(new Date().toISOString().slice(0, 7));
+  const [updatedLabel, setUpdatedLabel] = useState("Workspace snapshot");
+  const [toast, setToast] = useState("");
+  const [dialog, setDialog] = useState<"data" | "competitor" | "kpi" | "share" | null>(null);
+  const [detail, setDetail] = useState<{
+    title: string;
+    definition: string;
+    metricKey?: string;
+  } | null>(null);
+  const [exportMenu, setExportMenu] = useState(false);
+  const [allMetrics, setAllMetrics] = useState(false);
+  const [tables, setTables] = useState<Record<string, boolean>>({});
+  const [marketScenario, setMarketScenario] = useState<"conservative" | "base" | "optimistic">(
+    "base",
+  );
+  const [swotDraft, setSwotDraft] = useState<Record<string, string>>({});
+  const [trendSearch, setTrendSearch] = useState("");
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as Partial<AnalyticsState>;
+        setState({
+          ...DEFAULT_STATE,
+          ...parsed,
+          market: { ...DEFAULT_STATE.market, ...parsed.market },
+          swot: { ...DEFAULT_STATE.swot, ...parsed.swot },
+          notes: { ...DEFAULT_STATE.notes, ...parsed.notes },
+        });
+        setUpdatedLabel("Updated from this browser");
+      }
+    } catch {
+      /* use blank analytics state */
+    }
+    setHydrated(true);
+  }, []);
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      /* keep the current session usable */
+    }
+  }, [state, hydrated]);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(""), 4000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+  const founder = data.startup.founderName;
+  const member = data.team.find((person) => person.name === founder);
+  const canEdit = !member || member.permission === "Owner" || member.permission === "Admin";
+  const monthly = useMemo(() => {
+    const rows = sortMonthly(state.monthly);
+    if (dateRange === "30d") return rows.slice(-1);
+    if (dateRange === "90d") return rows.slice(-3);
+    if (dateRange === "quarter") {
+      const now = new Date();
+      const start = `${now.getFullYear()}-${String(Math.floor(now.getMonth() / 3) * 3 + 1).padStart(2, "0")}`;
+      return rows.filter((row) => row.period >= start);
+    }
+    if (dateRange === "custom")
+      return rows.filter((row) => row.period >= customStart && row.period <= customEnd);
+    if (dateRange === "12m") return rows.filter((row) => row.period >= monthAgo(11));
+    return rows;
+  }, [state.monthly, dateRange, customStart, customEnd]);
+  const ordered = useMemo(() => sortMonthly(state.monthly), [state.monthly]);
+  const latest = monthly[monthly.length - 1] || ordered[ordered.length - 1];
+  const prior = monthly.length > 1 ? monthly[monthly.length - 2] : undefined;
+  const growth =
+    latest?.mrr !== undefined && prior?.mrr !== undefined && prior.mrr > 0
+      ? ((latest.mrr - prior.mrr) / prior.mrr) * 100
+      : null;
+  const comparisonRows = useMemo(() => {
+    if (compare === "target" || !monthly.length) return [];
+    if (compare === "last-year")
+      return monthly
+        .map((row) =>
+          ordered.find(
+            (entry) =>
+              entry.period === `${Number(row.period.slice(0, 4)) - 1}${row.period.slice(4)}`,
+          ),
+        )
+        .filter((row): row is MonthlyMetric => !!row);
+    const first = monthly[0].period;
+    const earlier = ordered.filter((row) => row.period < first);
+    return earlier.slice(-monthly.length);
+  }, [compare, monthly, ordered]);
+  const compareMrr = comparisonRows[comparisonRows.length - 1]?.mrr;
+  const selectedGrowth =
+    compareMrr !== undefined && compareMrr > 0 && latest?.mrr !== undefined
+      ? ((latest.mrr - compareMrr) / compareMrr) * 100
+      : null;
+  const compareLabel = compare === "last-year" ? "same period last year" : "previous period";
+  const stage = data.stages.find((item) => item.id === data.startup.currentStage) || data.stages[0];
+  const stageTasks = data.tasks.filter(
+    (task) =>
+      task.linkedCriterionId &&
+      stage.exitCriteria.some((criterion) => criterion.id === task.linkedCriterionId),
+  );
+  const inputCompleteness = latest
+    ? ([
+        "mrr",
+        "revenue",
+        "grossBurn",
+        "cashBalance",
+        "activeCustomers",
+        "newCustomers",
+        "churnedCustomers",
+        "marketingSpend",
+      ].filter((key) => latest[key as keyof MonthlyMetric] !== undefined).length /
+        8) *
+      100
+    : 0;
+  const missingInputs = [
+    "Monthly recurring revenue",
+    "Revenue received",
+    "Gross burn",
+    "Cash balance",
+    "Customer counts",
+    "Sales & marketing spend",
+  ].filter(
+    (_, index) =>
+      !latest ||
+      [
+        latest.mrr,
+        latest.revenue,
+        latest.grossBurn,
+        latest.cashBalance,
+        latest.activeCustomers,
+        latest.marketingSpend,
+      ][index] === undefined,
+  );
+  const openKpi = (title: string, definition: string, metricKey?: string) =>
+    setDetail({ title, definition, metricKey });
+  const openDetail = (title: string, definition: string, metricKey?: string) =>
+    setDetail({ title, definition, metricKey });
+  const showTable = (key: string) => setTables((prev) => ({ ...prev, [key]: !prev[key] }));
+  const refresh = () => {
+    setUpdatedLabel("Refreshed locally just now");
+    setToast("Workspace values refreshed locally. External analytics sync is not configured.");
+  };
+  const saveMonthly = (entry: Omit<MonthlyMetric, "id" | "source" | "addedBy" | "updatedAt">) => {
+    setState((prev) => {
+      const existing = prev.monthly.find((row) => row.period === entry.period);
+      const record: MonthlyMetric = {
+        ...existing,
+        ...entry,
+        id: existing?.id || `metric-${entry.period}`,
+        source: "Entered by team",
+        addedBy: founder,
+        updatedAt: new Date().toISOString(),
+      };
+      return {
+        ...prev,
+        monthly: [...prev.monthly.filter((row) => row.period !== entry.period), record],
+      };
+    });
+    setUpdatedLabel("Updated just now");
+    setToast(`${monthLabel(entry.period)} analytics saved in this browser.`);
+    setDialog(null);
+  };
+  const saveMarket = (market: MarketEntry) => {
+    setState((prev) => ({ ...prev, market: { ...market, updatedAt: new Date().toISOString() } }));
+    setUpdatedLabel("Updated just now");
+    setToast("Market assumptions saved locally.");
+    setDialog(null);
+  };
+  const addCompetitor = (item: Omit<Competitor, "id" | "updatedAt">) => {
+    setState((prev) => ({
+      ...prev,
+      competitors: [
+        ...prev.competitors,
+        { ...item, id: `competitor-${Date.now()}`, updatedAt: new Date().toISOString() },
+      ],
+    }));
+    setToast("Team-entered competitor saved locally.");
+    setDialog(null);
+  };
+  const addKpi = (item: Omit<AnalyticsKpi, "id">) => {
+    setState((prev) => ({ ...prev, kpis: [...prev.kpis, { ...item, id: `kpi-${Date.now()}` }] }));
+    setToast("Custom KPI added locally.");
+    setDialog(null);
+  };
+  const addNote = (key: string, note: string) => {
+    setState((prev) => ({ ...prev, notes: { ...prev.notes, [key]: note } }));
+    setToast("Note saved in this browser.");
+    setDetail(null);
+  };
+  const exportCsv = () => {
+    const rows = [
+      [
+        "Period",
+        "MRR INR",
+        "Revenue INR",
+        "Gross burn INR",
+        "Cash balance INR",
+        "Active customers",
+        "Customers at start",
+        "New customers",
+        "Churned customers",
+        "Marketing spend INR",
+        "Gross margin percent",
+        "Source",
+        "Added by",
+      ],
+      ...ordered.map((r) => [
+        r.period,
+        r.mrr ?? "",
+        r.revenue ?? "",
+        r.grossBurn ?? "",
+        r.cashBalance ?? "",
+        r.activeCustomers ?? "",
+        r.customersAtStart ?? "",
+        r.newCustomers ?? "",
+        r.churnedCustomers ?? "",
+        r.marketingSpend ?? "",
+        r.grossMarginPercent ?? "",
+        r.source,
+        r.addedBy,
+      ]),
+    ];
+    const csv = rows
+      .map((row) => row.map((item) => `"${String(item).replaceAll('"', '""')}"`).join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${data.startup.name.toLowerCase().replace(/\s+/g, "-")}-analytics.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setExportMenu(false);
+    setToast("Analytics CSV downloaded.");
+  };
+  const importCsv = async (file?: File) => {
+    if (!file) return;
+    const lines = (await file.text()).split(/\r?\n/).filter(Boolean);
+    if (lines.length < 2) {
+      setToast("CSV has no monthly data rows.");
+      return;
+    }
+    const headers = lines[0].split(",").map((item) => item.trim().toLowerCase());
+    const columns: Array<
+      [string, keyof Omit<MonthlyMetric, "id" | "source" | "addedBy" | "updatedAt">]
+    > = [
+      ["mrr", "mrr"],
+      ["revenue", "revenue"],
+      ["grossburn", "grossBurn"],
+      ["cashbalance", "cashBalance"],
+      ["activecustomers", "activeCustomers"],
+      ["customersatstart", "customersAtStart"],
+      ["newcustomers", "newCustomers"],
+      ["churnedcustomers", "churnedCustomers"],
+      ["marketingspend", "marketingSpend"],
+      ["grossmarginpercent", "grossMarginPercent"],
+    ];
+    let imported = 0;
+    for (const line of lines.slice(1)) {
+      const cells = line.split(",").map((item) => item.replace(/^"|"$/g, "").trim());
+      const row: Record<string, string> = {};
+      headers.forEach((header, index) => (row[header.replace(/[^a-z]/g, "")] = cells[index] || ""));
+      if (!/^\d{4}-\d{2}$/.test(row.period || "")) continue;
+      const input: Omit<MonthlyMetric, "id" | "source" | "addedBy" | "updatedAt"> = {
+        period: row.period,
+      };
+      columns.forEach(([csvKey, field]) => {
+        const value = validNum(row[csvKey] || "");
+        if (value !== undefined) (input as Record<string, unknown>)[field] = value;
+      });
+      saveMonthly(input);
+      imported++;
+    }
+    setToast(
+      imported
+        ? `${imported} monthly row${imported === 1 ? "" : "s"} imported locally.`
+        : "No valid rows. Use YYYY-MM in the period column.",
+    );
+  };
+  const openAddData = () => setDialog("data");
+  const insightItems: Array<{ title: string; detail: string; href?: string }> = [];
+  if (growth !== null)
+    insightItems.push({
+      title: `MRR ${growth >= 0 ? "grew" : "declined"} ${Math.abs(growth).toFixed(1)}% in the latest entered month.`,
+      detail: "Calculated from the two latest team-entered MRR values. Not financial advice.",
+      href: "/startup/analytics",
+    });
+  else
+    insightItems.push({
+      title: "No recurring revenue trend yet.",
+      detail: "Enter at least two monthly MRR values to calculate month-over-month growth.",
+    });
+  const overdue = data.tasks.filter(isTaskOverdue);
+  if (overdue.length)
+    insightItems.push({
+      title: `${overdue.length} task${overdue.length === 1 ? " is" : "s are"} overdue.`,
+      detail: `First up: ${overdue[0].title}`,
+      href: "/startup/tasks",
+    });
+  else
+    insightItems.push({
+      title: "Readiness scoring is not available.",
+      detail: "The verified readiness service and mentor sign-off history are not connected.",
+      href: "/startup/stage",
+    });
+  const overviewKpis = [
+    {
+      label: "Readiness score",
+      value: "Not assessed",
+      change: "Verified service not connected",
+      tone: "neutral" as const,
+      definition: DEFINITIONS.readiness,
+      key: "readiness",
+      source: "Not connected",
+    },
+    {
+      label: "MRR",
+      value: latest?.mrr !== undefined ? money(latest.mrr) : "No data",
+      change:
+        compare === "target"
+          ? "No team target entered"
+          : selectedGrowth !== null
+            ? `${selectedGrowth >= 0 ? "▲" : "▼"} ${Math.abs(selectedGrowth).toFixed(1)}% vs ${compareLabel}`
+            : compareMrr === undefined
+              ? "Comparison data unavailable"
+              : "No comparison yet",
+      tone:
+        selectedGrowth === null
+          ? ("neutral" as const)
+          : selectedGrowth >= 0
+            ? ("good" as const)
+            : ("bad" as const),
+      definition: `${DEFINITIONS.mrr} Comparison uses the selected team-entered period; targets are not configured.`,
+      key: "mrr",
+      source: latest?.source || "Not connected",
+    },
+    {
+      label: "Runway",
+      value: runway(latest) !== null ? `${runway(latest)!.toFixed(1)} mo` : "Not calculated",
+      change:
+        latest?.cashBalance !== undefined
+          ? "Based on entered cash & net burn"
+          : "Cash and burn not entered",
+      tone: "neutral" as const,
+      definition: DEFINITIONS.runway,
+      key: "runway",
+      source: latest?.source || "Not connected",
+    },
+    {
+      label: "Active pipeline",
+      value: "Not connected",
+      change: "Sales pipeline data unavailable",
+      tone: "neutral" as const,
+      definition:
+        "Open pipeline is the sum of qualified deals. Sales pipeline data is not connected.",
+      key: "pipeline",
+      source: "Not connected",
+    },
+  ];
+  return (
+    <div className={styles.analyticsPage}>
+      <a href="#analytics-main" className={styles.skipLink}>
+        Skip to analytics
+      </a>
+      <header className={styles.pageHeader}>
+        <div>
+          <span className={styles.eyebrow}>Startup workspace · Analytics</span>
+          <h1>Analytics</h1>
+          <p>Understand your progress, your business and your market.</p>
+        </div>
+        <div className={styles.headerActions}>
+          <label className={styles.dateSelect}>
+            <CalendarDays size={14} />
+            <select
+              aria-label="Analytics date range"
+              value={dateRange}
+              onChange={(event) => setDateRange(event.target.value as DateRange)}
+            >
+              {PERIODS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.importButton}>
+            <Download size={14} />
+            Import CSV
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              disabled={!canEdit}
+              onChange={(event) => {
+                void importCsv(event.target.files?.[0]);
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+          <div className={styles.exportWrap}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => setExportMenu(!exportMenu)}
+            >
+              <Download size={14} />
+              Export
+              <ChevronDown size={13} />
+            </button>
+            {exportMenu && (
+              <div className={styles.exportMenu}>
+                <button type="button" onClick={exportCsv}>
+                  <FileText size={13} />
+                  Download CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.print();
+                    setExportMenu(false);
+                  }}
+                >
+                  <FileText size={13} />
+                  Print / Save PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDialog("share");
+                    setExportMenu(false);
+                  }}
+                >
+                  <ExternalLink size={13} />
+                  Share report
+                </button>
+              </div>
+            )}
+          </div>
+          {canEdit && (
+            <button type="button" className={styles.primaryButton} onClick={openAddData}>
+              <Plus size={14} />
+              Add data
+            </button>
+          )}
+        </div>
+      </header>
+      {dateRange === "custom" && (
+        <div className={styles.customDates}>
+          <label>
+            From
+            <input
+              type="month"
+              value={customStart}
+              onChange={(event) => setCustomStart(event.target.value)}
+            />
+          </label>
+          <label>
+            To
+            <input
+              type="month"
+              value={customEnd}
+              onChange={(event) => setCustomEnd(event.target.value)}
+            />
+          </label>
+        </div>
+      )}
+      <div className={styles.controlLine}>
+        <div className={styles.lastUpdated}>
+          <span className={styles.liveDot} />
+          <span>Last updated: {updatedLabel}</span>
+          <button type="button" onClick={refresh}>
+            <RefreshCw size={12} />
+            Refresh
+          </button>
+        </div>
+        <div className={styles.filterControls}>
+          <label>
+            Compare to
+            <select
+              value={compare}
+              onChange={(event) => setCompare(event.target.value as CompareTo)}
+            >
+              <option value="previous">Previous period</option>
+              <option value="last-year">Same period last year</option>
+              <option value="target">Target</option>
+            </select>
+          </label>
+          <label>
+            Segment
+            <select value={segment} onChange={(event) => setSegment(event.target.value)}>
+              <option value="all">All segments</option>
+              <option value="customer">Customer segment · not connected</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <p className={styles.filterNote} aria-live="polite">
+        {compare === "target"
+          ? "No team-entered targets are configured; target comparisons are unavailable."
+          : comparisonRows.length
+            ? `MRR comparison uses ${comparisonRows.length} prior team-entered month${comparisonRows.length === 1 ? "" : "s"} (${compareLabel}).`
+            : `No ${compareLabel} records are available for comparison.`}
+        {segment !== "all" ? " Customer segment analytics are not connected." : ""}
+      </p>
+      <nav className={styles.tabs} role="tablist" aria-label="Analytics tabs">
+        {TABS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            id={`tab-${item.id}`}
+            aria-selected={tab === item.id}
+            aria-controls={`panel-${item.id}`}
+            tabIndex={tab === item.id ? 0 : -1}
+            onClick={() => setTab(item.id)}
+            className={tab === item.id ? styles.tabActive : styles.tab}
+          >
+            {item.icon}
+            {item.label}
+          </button>
+        ))}
+      </nav>
+      <div className={styles.sampleBanner}>
+        <Info size={15} />
+        <span>
+          <strong>Analytics integrations are not connected.</strong> Manual figures save in this
+          browser. Workspace-derived numbers are labelled separately; no readiness score, investor
+          funnel or peer benchmark is fabricated.
+        </span>
+      </div>
+      <main
+        id="analytics-main"
+        className={styles.tabPanel}
+        role="tabpanel"
+        aria-labelledby={`tab-${tab}`}
+      >
+        {tab === "overview" && (
+          <OverviewTab
+            data={data}
+            currentStage={stage}
+            tasks={data.tasks}
+            kpis={overviewKpis}
+            monthly={monthly}
+            latest={latest}
+            growth={growth}
+            completeness={inputCompleteness}
+            missing={missingInputs}
+            showTables={tables}
+            showTable={showTable}
+            openKpi={openKpi}
+            openData={openAddData}
+            openDetail={openDetail}
+            insights={insightItems.slice(0, 3)}
+            stageTasks={stageTasks}
+          />
+        )}
+        {tab === "journey" && (
+          <JourneyTab
+            data={data}
+            currentStage={stage}
+            mentorTasks={data.tasks.filter((task) => task.mentorDeliverable)}
+            allTasks={data.tasks}
+          />
+        )}
+        {tab === "business" && (
+          <BusinessTab
+            stage={stage.id}
+            monthly={monthly}
+            latest={latest}
+            growth={growth}
+            kpis={state.kpis}
+            allMetrics={allMetrics}
+            setAllMetrics={setAllMetrics}
+            onAddData={openAddData}
+            onAddKpi={() => setDialog("kpi")}
+            showTables={tables}
+            showTable={showTable}
+            openKpi={openKpi}
+            openDetail={openDetail}
+            data={data}
+          />
+        )}
+        {tab === "market" && (
+          <MarketTab
+            market={state.market}
+            competitors={state.competitors}
+            scenario={marketScenario}
+            setScenario={setMarketScenario}
+            onEdit={openAddData}
+            onAddCompetitor={() => setDialog("competitor")}
+            swot={state.swot}
+            swotDraft={swotDraft}
+            setSwotDraft={setSwotDraft}
+            onAddSwot={(category, text) => {
+              if (!text.trim()) return;
+              setState((prev) => ({
+                ...prev,
+                swot: {
+                  ...prev.swot,
+                  [category]: [
+                    ...prev.swot[category],
+                    {
+                      id: `swot-${Date.now()}`,
+                      text: text.trim(),
+                      createdAt: new Date().toISOString(),
+                    },
+                  ],
+                },
+              }));
+              setSwotDraft((prev) => ({ ...prev, [category]: "" }));
+              setToast(`${category} note added locally.`);
+            }}
+            onDeleteCompetitor={(id) =>
+              setState((prev) => ({
+                ...prev,
+                competitors: prev.competitors.filter((item) => item.id !== id),
+              }))
+            }
+            onDeleteSwot={(category, id) =>
+              setState((prev) => ({
+                ...prev,
+                swot: {
+                  ...prev.swot,
+                  [category]: prev.swot[category].filter((note) => note.id !== id),
+                },
+              }))
+            }
+            search={trendSearch}
+            setSearch={setTrendSearch}
+          />
+        )}
+      </main>
+      {!canEdit && (
+        <div className={styles.readOnlyNotice}>
+          <ShieldCheck size={15} />
+          Read-only analytics access. Ask an Owner or Admin to edit inputs or export.
+        </div>
+      )}
+      {dialog === "data" && (
+        <AddDataDialog
+          tab={tab}
+          market={state.market}
+          onClose={() => setDialog(null)}
+          onSaveMonthly={saveMonthly}
+          onSaveMarket={saveMarket}
+        />
+      )}
+      {dialog === "competitor" && (
+        <CompetitorDialog onClose={() => setDialog(null)} onSave={addCompetitor} />
+      )}
+      {dialog === "kpi" && (
+        <KpiDialog founder={founder} onClose={() => setDialog(null)} onSave={addKpi} />
+      )}
+      {dialog === "share" && <ShareDialog onClose={() => setDialog(null)} />}
+      {detail && (
+        <AnalyticsDrawer
+          detail={detail}
+          records={ordered}
+          note={state.notes[detail.metricKey || detail.title] || ""}
+          onSaveNote={(note) => addNote(detail.metricKey || detail.title, note)}
+          onClose={() => setDetail(null)}
+          onEdit={() => {
+            setDetail(null);
+            setDialog("data");
+          }}
+        />
+      )}
+      {toast && (
+        <div className={styles.toast} role="status">
+          <CheckCircle2 size={15} />
+          {toast}
+          <button type="button" aria-label="Dismiss" onClick={() => setToast("")}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
-function BusinessTab({stage,monthly,latest,prior,growth,kpis,allMetrics,setAllMetrics,onAddData,onAddKpi,showTables,showTable,openKpi,openDetail,data}:{stage:StartupStageId;monthly:MonthlyMetric[];latest?:MonthlyMetric;prior?:MonthlyMetric;growth:number|null;kpis:AnalyticsKpi[];allMetrics:boolean;setAllMetrics:(value:boolean)=>void;onAddData:()=>void;onAddKpi:()=>void;showTables:Record<string,boolean>;showTable:(key:string)=>void;openKpi:(title:string,definition:string,key?:string)=>void;openDetail:(title:string,definition:string,key:string)=>void;data:ReturnType<typeof useStartupWorkspace>['data']}){
-  const cac=latest?.marketingSpend!==undefined&&latest.newCustomers&&latest.newCustomers>0?latest.marketingSpend/latest.newCustomers:null;
-  const arpc=latest?.mrr!==undefined&&latest.activeCustomers?latest.mrr/latest.activeCustomers:null;
-  const churn=metricChurn(latest);const ltv=arpc!==null&&latest?.grossMarginPercent!==undefined&&churn!==null&&churn>0?arpc*(latest.grossMarginPercent/100)/(churn/100):null;
-  const payback=cac!==null&&arpc!==null&&latest?.grossMarginPercent?cac/(arpc*latest.grossMarginPercent/100):null;
-  const stageChecklist=data.stages.find((item)=>item.id===stage);const checklistMet=stageChecklist?.exitCriteria.filter((item)=>item.completed).length||0;
-  const businessKpis:Kpi[] = stage==='idea'?[{label:'Criteria marked met',value:`${checklistMet} / ${stageChecklist?.exitCriteria.length||0}`,change:'Checklist only · not a readiness score',tone:'neutral',definition:'Count of current-stage criteria marked complete. It is not a weighted score or mentor approval.',source:'Workspace state',key:'criteria'},{label:'Customer interviews',value:'Interview log not connected',change:'No interview records available',tone:'neutral',definition:'Interview counts must come from the customer research module. Tasks are not counted as interviews.',source:'Not connected',key:'interviews'},{label:'Pilot interest',value:'Not tracked',change:'Customer interest data unavailable',tone:'neutral',definition:'Pilot intent and letters of intent are not connected to this analytics view.',source:'Not connected',key:'pilot-interest'},{label:'Cash balance',value:latest?.cashBalance!==undefined?money(latest.cashBalance):'No data',change:latest?.cashBalance!==undefined?`Entered for ${monthLabel(latest.period)}`:'No manual entry yet',tone:'neutral',definition:'Cash balance entered by the team for the selected period. No bank feed is connected.',source:latest?.source||'Not connected',key:'cash'}]:stage==='prototype'?[{label:'Test users',value:'Testing log not connected',change:'No tester records available',tone:'neutral',definition:'Test-user counts come from the prototype testing module; task records are not substituted.',source:'Not connected',key:'testers'},{label:'Feedback resolved',value:'Not tracked',change:'Feedback tool not connected',tone:'neutral',definition:'Resolved feedback count requires a connected prototype-feedback log.',source:'Not connected',key:'feedback'},{label:'MRR',value:latest?.mrr!==undefined?money(latest.mrr):'No data',change:growth!==null?`${percent(growth)} vs prior month`:'No monthly entries',tone:growth===null?'neutral':growth>=0?'good':'bad',definition:DEFINITIONS.mrr,source:latest?.source||'Not connected',key:'mrr'},{label:'Cash balance',value:latest?.cashBalance!==undefined?money(latest.cashBalance):'No data',change:latest?.cashBalance!==undefined?`Entered for ${monthLabel(latest.period)}`:'No manual entry yet',tone:'neutral',definition:'Cash balance entered by the team. No bank feed is connected.',source:latest?.source||'Not connected',key:'cash'}]:stage==='early-revenue'?[{label:'MRR',value:latest?.mrr!==undefined?money(latest.mrr):'No data',change:growth!==null?`${percent(growth)} vs prior month`:'Requires two monthly entries',tone:growth===null?'neutral':growth>=0?'good':'bad',definition:DEFINITIONS.mrr,source:latest?.source||'Not connected',key:'mrr'},{label:'Active customers',value:latest?.activeCustomers!==undefined?String(latest.activeCustomers):'No data',change:'Manual monthly input',tone:'neutral',definition:'Count of active paying customers entered by the team.',source:latest?.source||'Not connected',key:'customers'},{label:'Customer churn',value:churn!==null?percent(-churn):'Not calculated',change:churn!==null?`Based on ${latest?.churnedCustomers} lost / ${latest?.customersAtStart} at start`:'Customer start/loss counts required',tone:churn===null?'neutral':'bad',definition:DEFINITIONS.churn,source:latest?.source||'Not connected',key:'churn'},{label:'CAC',value:cac!==null?money(cac):'Not calculated',change:'Marketing spend ÷ new customers',tone:'neutral',definition:DEFINITIONS.cac,source:latest?.source||'Not connected',key:'cac'}]:[{label:'Revenue',value:latest?.revenue!==undefined?money(latest.revenue):'No data',change:'Latest entered month',tone:'neutral',definition:'Revenue received during the entered period. This value is manually entered.',source:latest?.source||'Not connected',key:'revenue'},{label:'Revenue growth',value:growth!==null?percent(growth):'Not calculated',change:'Based on MRR entries',tone:growth===null?'neutral':growth>=0?'good':'bad',definition:DEFINITIONS.growth,source:latest?.source||'Not connected',key:'growth'},{label:'Gross margin',value:latest?.grossMarginPercent!==undefined?percent(latest.grossMarginPercent):'No data',change:'Entered by the team',tone:'neutral',definition:'Gross margin percentage is a team-entered input; cost of goods sold is not independently verified.',source:latest?.source||'Not connected',key:'margin'},{label:'Runway',value:runway(latest)!==null?`${runway(latest)!.toFixed(1)} months`:'Not calculated',change:latest?.cashBalance!==undefined?'Cash ÷ positive net burn':'Cash and burn inputs required',tone:'neutral',definition:DEFINITIONS.runway,source:latest?.source||'Not connected',key:'runway'}];
-  const visibleKpis=allMetrics?[{label:'MRR',value:latest?.mrr!==undefined?money(latest.mrr):'No data',change:growth!==null?`${percent(growth)} vs prior month`:'No monthly entries',tone:growth===null?'neutral':growth>=0?'good':'bad',definition:DEFINITIONS.mrr,source:latest?.source||'Not connected',key:'mrr'},...businessKpis.filter((item)=>item.label!=='MRR'),{label:'Runway',value:runway(latest)!==null?`${runway(latest)!.toFixed(1)} months`:'Not calculated',change:'Based on latest cash and net burn',tone:'neutral',definition:DEFINITIONS.runway,source:latest?.source||'Not connected',key:'runway'}]:businessKpis;
-  const metricSource=monthly.some((entry)=>entry.source==='Entered by team')?'Entered by team':'Not connected';
-  const hasRevenue=monthly.some((entry)=>entry.mrr!==undefined||entry.revenue!==undefined);
-  const hasBurn=monthly.some((entry)=>entry.grossBurn!==undefined);
-  const hasCustomers=monthly.some((entry)=>entry.activeCustomers!==undefined);
-  return <div className={styles.tabStack}>
-    <div className={styles.businessHeading}><div><span className={styles.stageTag}>Stage-aware view · {stageLabel(stage)}</span><p>{allMetrics?'Showing all configured metrics.':'Showing the metrics most relevant to the current stage.'}</p></div><div className={styles.businessActions}><button type="button" className={styles.secondaryButton} onClick={()=>setAllMetrics(!allMetrics)}><Filter size={13}/>{allMetrics?'Stage view':'All metrics'}</button><button type="button" className={styles.primaryButton} onClick={onAddData}><Plus size={14}/> Add monthly data</button></div></div>
-    <div className={styles.kpiGrid}>{visibleKpis.slice(0,allMetrics?6:4).map((item)=><KpiCard key={item.key+item.label} label={item.label} value={item.value} change={item.change} tone={item.tone as Kpi['tone']} definition={item.definition} source={item.source==='Workspace state'?'Workspace state':item.source==='Not connected'?'Not connected':'Entered by team'} updated={item.source==='Not connected'?'No source connected':'Latest local entry'} trend={item.key==='mrr'?monthly.map((entry)=>entry.mrr).filter((value):value is number=>value!==undefined):[]} onClick={()=>openKpi(item.label,item.definition,item.key)}/>)}</div>
-    <div className={styles.sectionTitle}><div><h2>Revenue</h2><p>Monthly values entered by the team. Gaps are left blank.</p></div></div>
-    <div className={styles.chartGrid}><ChartCard id="business-mrr" title="MRR trend" insight={growth!==null?`MRR ${growth>=0?'increased':'decreased'} ${Math.abs(growth).toFixed(1)}% from the previous entered month.`:'Add monthly MRR values; growth requires at least two periods.'} source={hasRevenue?metricSource:'Not connected'} updated={latest?monthLabel(latest.period):'No source connected'} chart={<TrendLine records={monthly} keys={[{key:'mrr',label:'MRR',color:'var(--ink)'}]}/>} table={<MetricsTable records={monthly}/>} empty="Add a monthly recurring revenue value to see the trend." hasData={hasRevenue} tableShown={!!showTables['business-mrr']} onToggleTable={()=>showTable('business-mrr')} onHow={()=>openDetail('MRR trend',`${DEFINITIONS.mrr} ${DEFINITIONS.growth}`,'business-mrr')} onAdd={onAddData}/>
-    <ChartCard id="business-revenue-burn" title="Revenue vs gross burn" insight={hasRevenue&&hasBurn?'Entered monthly revenue and gross burn are shown side by side.':'No revenue or gross-burn series has been entered.'} source={hasRevenue||hasBurn?metricSource:'Not connected'} updated={latest?monthLabel(latest.period):'No source connected'} chart={<BarChart records={monthly} firstKey="revenue" secondKey="grossBurn" firstLabel="Revenue" secondLabel="Gross burn"/>} table={<MetricsTable records={monthly}/>} empty="Add revenue and cost inputs to compare cash inflows and spend." hasData={hasRevenue||hasBurn} tableShown={!!showTables['business-revenue-burn']} onToggleTable={()=>showTable('business-revenue-burn')} onHow={()=>openDetail('Revenue vs gross burn','Revenue is cash received; gross burn is total cash spent before revenue. Both values are team-entered for each month.','business-revenue-burn')} onAdd={onAddData}/></div>
-    <section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Revenue mix &amp; concentration</h2><p>Customer, product and segment-level breakdowns</p></div><Target size={16}/></div><EmptyDataInline title="Customer-level revenue isn’t connected." detail="No customer names, subscription plans or segment revenue are available, so top-customer concentration and revenue mix are not shown." action="Add monthly data" onClick={onAddData}/></section>
-    <section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Forecast</h2><p>Simple projection · assumptions shown with every estimate</p></div><LineChart size={16}/></div>{monthly.filter((entry)=>entry.mrr!==undefined).length>=3?<ForecastPanel monthly={monthly.filter((entry)=>entry.mrr!==undefined)}/>:<EmptyDataInline title="Three monthly MRR entries are needed." detail="A simple line projection can be calculated from at least three team-entered months. It is not financial advice and does not account for seasonality or planned changes." action="Add data" onClick={onAddData}/>}</section>
-    <div className={styles.sectionTitle}><div><h2>Costs, burn &amp; runway</h2><p>Runway uses only the latest entered cash and burn figures.</p></div></div>
-    <div className={styles.twoColumn}><section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Burn and cash</h2><p>Gross burn, net burn and current runway</p></div><Activity size={16}/></div>{latest?.grossBurn!==undefined||latest?.cashBalance!==undefined?<div className={styles.financialFacts}><UsageMetric label="Gross burn" value={money(latest?.grossBurn)} detail={latest?monthLabel(latest.period):'No period'}/><UsageMetric label="Net burn" value={latest?.grossBurn!==undefined&&latest.revenue!==undefined?money(latest.grossBurn-latest.revenue):'Needs burn + revenue'} detail={latest?.grossBurn!==undefined&&latest.revenue!==undefined?'Gross burn − revenue':'Not calculated'}/><UsageMetric label="Cash balance" value={money(latest?.cashBalance)} detail="Manual team entry"/><UsageMetric label="Estimated runway" value={runway(latest)!==null?`${runway(latest)!.toFixed(1)} months`:'Not calculated'} detail={runway(latest)!==null?'Cash ÷ positive net burn':'Requires cash, burn and revenue'}/></div>:<EmptyDataInline title="No cash or burn data entered." detail="Enter gross burn, revenue and cash balance for the same month to calculate a simple runway estimate." action="Add monthly data" onClick={onAddData}/>}</section>
-    <section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Burn scenarios</h2><p>Requires entered cash and burn inputs</p></div><CircleHelp size={15}/></div>{runway(latest)!==null?<div className={styles.scenarioList}><span>Current entered values <strong>{runway(latest)!.toFixed(1)} months</strong></span><span>Revenue grows 10% <strong>Not projected</strong></span><span>Hire two people <strong>Cost inputs missing</strong></span><small>Scenario changes require explicit assumptions; payroll costs and future revenue are not available.</small></div>:<div className={styles.emptyInline}><Info size={16}/><span>No scenario estimate until current cash and positive net burn are entered.</span></div>}</section></div>
-    <div className={styles.sectionTitle}><div><h2>Customers &amp; retention</h2><p>Customer counts are team-entered; cohort-level records are not connected.</p></div></div>
-    <div className={styles.chartGrid}><ChartCard id="business-customers" title="Active customers" insight={hasCustomers?'Counts from monthly team inputs.':'No monthly customer counts entered.'} source={hasCustomers?metricSource:'Not connected'} updated={latest?monthLabel(latest.period):'No source connected'} chart={<TrendLine records={monthly} keys={[{key:'activeCustomers',label:'Active customers',color:'var(--ink)'}]}/>} table={<MetricsTable records={monthly}/>} empty="Add active customer counts to view customer growth." hasData={hasCustomers} tableShown={!!showTables['business-customers']} onToggleTable={()=>showTable('business-customers')} onHow={()=>openDetail('Active customers','Active customer counts are entered manually by the team for each month.','business-customers')} onAdd={onAddData}/>
-    <ChartCard id="business-customer-flows" title="New vs churned customers" insight={latest?.newCustomers!==undefined||latest?.churnedCustomers!==undefined?'Customer additions and losses from entered periods.':'Customer flow data has not been entered.'} source={monthly.some((row)=>row.newCustomers!==undefined||row.churnedCustomers!==undefined)?metricSource:'Not connected'} updated={latest?monthLabel(latest.period):'No source connected'} chart={<BarChart records={monthly} firstKey="newCustomers" secondKey="churnedCustomers" firstLabel="New" secondLabel="Churned"/>} table={<MetricsTable records={monthly}/>} empty="Enter new and churned customer counts to compare periods." hasData={monthly.some((row)=>row.newCustomers!==undefined||row.churnedCustomers!==undefined)} tableShown={!!showTables['business-customer-flows']} onToggleTable={()=>showTable('business-customer-flows')} onHow={()=>openDetail('New vs churned customers','Counts are entered per month. Churn rate = customers lost ÷ customers at the start of the same period.','business-customer-flows')} onAdd={onAddData}/></div>
-    <div className={styles.twoColumn}><section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Retention &amp; cohort analysis</h2><p>Retention by signup cohort and NRR</p></div><Activity size={16}/></div><EmptyDataInline title="Cohort and subscription events aren’t available." detail="Cohort retention and net revenue retention require dated customer and expansion/contraction records, which are not connected." /></section><section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Churn &amp; customer value</h2><p>Calculates only when inputs are present</p></div><CircleHelp size={15}/></div><div className={styles.financialFacts}><UsageMetric label="Churn rate" value={churn!==null?percent(churn):'Not calculated'} detail={churn!==null?'Churned ÷ customers at start':'Enter both customer counts'}/><UsageMetric label="Average revenue / customer" value={arpc!==null?money(arpc,false):'Not calculated'} detail="MRR ÷ active customers"/><UsageMetric label="Net revenue retention" value="Not calculated" detail="Expansion and contraction data required"/><UsageMetric label="Cohort retention" value="Not connected" detail="No cohort events"/></div></section></div>
-    <div className={styles.sectionTitle}><div><h2>Sales, unit economics &amp; operations</h2><p>Separate verified inputs from disconnected modules.</p></div></div>
-    <div className={styles.twoColumn}><section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Sales funnel</h2><p>Lead → Contacted → Demo → Proposal → Won</p></div><TrendingUp size={16}/></div><EmptyDataInline title="Sales pipeline is not connected." detail="Conversion rates, deal cycle and channel performance are hidden until deal-stage records are available." action="Open sales workspace" href="/startup/sales"/></section><section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Unit economics</h2><p>Inputs and formulas shown for each estimate</p></div><CircleHelp size={15}/></div><div className={styles.economicsGrid}><EconomicsMetric label="CAC" value={cac!==null?money(cac):'—'} formula="Sales & marketing spend ÷ new customers"/><EconomicsMetric label="LTV" value={ltv!==null?money(ltv):'—'} formula="ARPC × gross margin ÷ churn rate"/><EconomicsMetric label="LTV : CAC" value={ltv!==null&&cac?`${(ltv/cac).toFixed(1)} : 1`:'—'} formula="LTV divided by CAC"/><EconomicsMetric label="Payback" value={payback!==null?`${payback.toFixed(1)} mo`:'—'} formula="CAC ÷ (ARPC × gross margin)"/></div><p className={styles.disclaimer}>Healthy ranges vary by sector and business model; no verdict is given. Add marketing spend, new customers, gross margin and churn inputs to calculate.</p></section></div>
-    <div className={styles.twoColumn}><UnconnectedPanel title="Product & operations" subtitle="Activation, WAU, feature usage, support and NPS" message="Product analytics, support tickets and feedback events are not connected. No engagement rates are estimated."/><section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Team &amp; hiring</h2><p>Current roster snapshot, not a historical hiring trend.</p></div><Users size={16}/></div><div className={styles.financialFacts}><UsageMetric label="Current team" value={String(data.team.length)} detail="From workspace roster"/><UsageMetric label="Open hiring requests" value="Not connected" detail="Jobs module not connected"/><UsageMetric label="Time to hire" value="Not calculated" detail="No applicant history"/><UsageMetric label="Revenue per employee" value={latest?.revenue!==undefined&&data.team.length?money(latest.revenue/data.team.length):'Not calculated'} detail={latest?.revenue!==undefined?'Entered revenue ÷ current roster':'Revenue input needed'}/></div></section></div>
-    <section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Goals &amp; custom KPIs</h2><p>Targets are team-entered and not scored by the platform.</p></div><button type="button" className={styles.secondaryButton} onClick={onAddKpi} disabled={!canEditFrom(kpis,data)}><Plus size={13}/> Add KPI</button></div>{kpis.length?<div className={styles.kpiTableWrap}><table className={styles.dataTable}><thead><tr><th>KPI</th><th>Target</th><th>Current</th><th>Owner</th><th>Note</th></tr></thead><tbody>{kpis.map((item)=><tr key={item.id}><td>{item.name}</td><td>{item.target||'—'}</td><td>{item.current||'—'}</td><td>{item.owner}</td><td>{item.note||'Team entered'}</td></tr>)}</tbody></table></div>:<EmptyDataInline title="No custom KPIs have been added." detail="Owners and Admins can add team-defined targets. Values remain local until a KPI service is connected." action="Add KPI" onClick={onAddKpi}/>}</section>
-    <p className={styles.dataCaption}>Financial values are entered by the team in this browser. They are not linked to accounting, payments, or a bank feed.</p>
-  </div>;
+function BusinessTab({
+  stage,
+  monthly,
+  latest,
+  prior,
+  growth,
+  kpis,
+  allMetrics,
+  setAllMetrics,
+  onAddData,
+  onAddKpi,
+  showTables,
+  showTable,
+  openKpi,
+  openDetail,
+  data,
+}: {
+  stage: StartupStageId;
+  monthly: MonthlyMetric[];
+  latest?: MonthlyMetric;
+  prior?: MonthlyMetric;
+  growth: number | null;
+  kpis: AnalyticsKpi[];
+  allMetrics: boolean;
+  setAllMetrics: (value: boolean) => void;
+  onAddData: () => void;
+  onAddKpi: () => void;
+  showTables: Record<string, boolean>;
+  showTable: (key: string) => void;
+  openKpi: (title: string, definition: string, key?: string) => void;
+  openDetail: (title: string, definition: string, key: string) => void;
+  data: ReturnType<typeof useStartupWorkspace>["data"];
+}) {
+  const cac =
+    latest?.marketingSpend !== undefined && latest.newCustomers && latest.newCustomers > 0
+      ? latest.marketingSpend / latest.newCustomers
+      : null;
+  const arpc =
+    latest?.mrr !== undefined && latest.activeCustomers
+      ? latest.mrr / latest.activeCustomers
+      : null;
+  const churn = metricChurn(latest);
+  const ltv =
+    arpc !== null && latest?.grossMarginPercent !== undefined && churn !== null && churn > 0
+      ? (arpc * (latest.grossMarginPercent / 100)) / (churn / 100)
+      : null;
+  const payback =
+    cac !== null && arpc !== null && latest?.grossMarginPercent
+      ? cac / ((arpc * latest.grossMarginPercent) / 100)
+      : null;
+  const stageChecklist = data.stages.find((item) => item.id === stage);
+  const checklistMet = stageChecklist?.exitCriteria.filter((item) => item.completed).length || 0;
+  const businessKpis: Kpi[] =
+    stage === "idea"
+      ? [
+          {
+            label: "Criteria marked met",
+            value: `${checklistMet} / ${stageChecklist?.exitCriteria.length || 0}`,
+            change: "Checklist only · not a readiness score",
+            tone: "neutral",
+            definition:
+              "Count of current-stage criteria marked complete. It is not a weighted score or mentor approval.",
+            source: "Workspace state",
+            key: "criteria",
+          },
+          {
+            label: "Customer interviews",
+            value: "Interview log not connected",
+            change: "No interview records available",
+            tone: "neutral",
+            definition:
+              "Interview counts must come from the customer research module. Tasks are not counted as interviews.",
+            source: "Not connected",
+            key: "interviews",
+          },
+          {
+            label: "Pilot interest",
+            value: "Not tracked",
+            change: "Customer interest data unavailable",
+            tone: "neutral",
+            definition:
+              "Pilot intent and letters of intent are not connected to this analytics view.",
+            source: "Not connected",
+            key: "pilot-interest",
+          },
+          {
+            label: "Cash balance",
+            value: latest?.cashBalance !== undefined ? money(latest.cashBalance) : "No data",
+            change:
+              latest?.cashBalance !== undefined
+                ? `Entered for ${monthLabel(latest.period)}`
+                : "No manual entry yet",
+            tone: "neutral",
+            definition:
+              "Cash balance entered by the team for the selected period. No bank feed is connected.",
+            source: latest?.source || "Not connected",
+            key: "cash",
+          },
+        ]
+      : stage === "prototype"
+        ? [
+            {
+              label: "Test users",
+              value: "Testing log not connected",
+              change: "No tester records available",
+              tone: "neutral",
+              definition:
+                "Test-user counts come from the prototype testing module; task records are not substituted.",
+              source: "Not connected",
+              key: "testers",
+            },
+            {
+              label: "Feedback resolved",
+              value: "Not tracked",
+              change: "Feedback tool not connected",
+              tone: "neutral",
+              definition: "Resolved feedback count requires a connected prototype-feedback log.",
+              source: "Not connected",
+              key: "feedback",
+            },
+            {
+              label: "MRR",
+              value: latest?.mrr !== undefined ? money(latest.mrr) : "No data",
+              change: growth !== null ? `${percent(growth)} vs prior month` : "No monthly entries",
+              tone: growth === null ? "neutral" : growth >= 0 ? "good" : "bad",
+              definition: DEFINITIONS.mrr,
+              source: latest?.source || "Not connected",
+              key: "mrr",
+            },
+            {
+              label: "Cash balance",
+              value: latest?.cashBalance !== undefined ? money(latest.cashBalance) : "No data",
+              change:
+                latest?.cashBalance !== undefined
+                  ? `Entered for ${monthLabel(latest.period)}`
+                  : "No manual entry yet",
+              tone: "neutral",
+              definition: "Cash balance entered by the team. No bank feed is connected.",
+              source: latest?.source || "Not connected",
+              key: "cash",
+            },
+          ]
+        : stage === "early-revenue"
+          ? [
+              {
+                label: "MRR",
+                value: latest?.mrr !== undefined ? money(latest.mrr) : "No data",
+                change:
+                  growth !== null
+                    ? `${percent(growth)} vs prior month`
+                    : "Requires two monthly entries",
+                tone: growth === null ? "neutral" : growth >= 0 ? "good" : "bad",
+                definition: DEFINITIONS.mrr,
+                source: latest?.source || "Not connected",
+                key: "mrr",
+              },
+              {
+                label: "Active customers",
+                value:
+                  latest?.activeCustomers !== undefined
+                    ? String(latest.activeCustomers)
+                    : "No data",
+                change: "Manual monthly input",
+                tone: "neutral",
+                definition: "Count of active paying customers entered by the team.",
+                source: latest?.source || "Not connected",
+                key: "customers",
+              },
+              {
+                label: "Customer churn",
+                value: churn !== null ? percent(-churn) : "Not calculated",
+                change:
+                  churn !== null
+                    ? `Based on ${latest?.churnedCustomers} lost / ${latest?.customersAtStart} at start`
+                    : "Customer start/loss counts required",
+                tone: churn === null ? "neutral" : "bad",
+                definition: DEFINITIONS.churn,
+                source: latest?.source || "Not connected",
+                key: "churn",
+              },
+              {
+                label: "CAC",
+                value: cac !== null ? money(cac) : "Not calculated",
+                change: "Marketing spend ÷ new customers",
+                tone: "neutral",
+                definition: DEFINITIONS.cac,
+                source: latest?.source || "Not connected",
+                key: "cac",
+              },
+            ]
+          : [
+              {
+                label: "Revenue",
+                value: latest?.revenue !== undefined ? money(latest.revenue) : "No data",
+                change: "Latest entered month",
+                tone: "neutral",
+                definition:
+                  "Revenue received during the entered period. This value is manually entered.",
+                source: latest?.source || "Not connected",
+                key: "revenue",
+              },
+              {
+                label: "Revenue growth",
+                value: growth !== null ? percent(growth) : "Not calculated",
+                change: "Based on MRR entries",
+                tone: growth === null ? "neutral" : growth >= 0 ? "good" : "bad",
+                definition: DEFINITIONS.growth,
+                source: latest?.source || "Not connected",
+                key: "growth",
+              },
+              {
+                label: "Gross margin",
+                value:
+                  latest?.grossMarginPercent !== undefined
+                    ? percent(latest.grossMarginPercent)
+                    : "No data",
+                change: "Entered by the team",
+                tone: "neutral",
+                definition:
+                  "Gross margin percentage is a team-entered input; cost of goods sold is not independently verified.",
+                source: latest?.source || "Not connected",
+                key: "margin",
+              },
+              {
+                label: "Runway",
+                value:
+                  runway(latest) !== null
+                    ? `${runway(latest)!.toFixed(1)} months`
+                    : "Not calculated",
+                change:
+                  latest?.cashBalance !== undefined
+                    ? "Cash ÷ positive net burn"
+                    : "Cash and burn inputs required",
+                tone: "neutral",
+                definition: DEFINITIONS.runway,
+                source: latest?.source || "Not connected",
+                key: "runway",
+              },
+            ];
+  const visibleKpis = allMetrics
+    ? [
+        {
+          label: "MRR",
+          value: latest?.mrr !== undefined ? money(latest.mrr) : "No data",
+          change: growth !== null ? `${percent(growth)} vs prior month` : "No monthly entries",
+          tone: growth === null ? "neutral" : growth >= 0 ? "good" : "bad",
+          definition: DEFINITIONS.mrr,
+          source: latest?.source || "Not connected",
+          key: "mrr",
+        },
+        ...businessKpis.filter((item) => item.label !== "MRR"),
+        {
+          label: "Runway",
+          value:
+            runway(latest) !== null ? `${runway(latest)!.toFixed(1)} months` : "Not calculated",
+          change: "Based on latest cash and net burn",
+          tone: "neutral",
+          definition: DEFINITIONS.runway,
+          source: latest?.source || "Not connected",
+          key: "runway",
+        },
+      ]
+    : businessKpis;
+  const metricSource = monthly.some((entry) => entry.source === "Entered by team")
+    ? "Entered by team"
+    : "Not connected";
+  const hasRevenue = monthly.some(
+    (entry) => entry.mrr !== undefined || entry.revenue !== undefined,
+  );
+  const hasBurn = monthly.some((entry) => entry.grossBurn !== undefined);
+  const hasCustomers = monthly.some((entry) => entry.activeCustomers !== undefined);
+  return (
+    <div className={styles.tabStack}>
+      <div className={styles.businessHeading}>
+        <div>
+          <span className={styles.stageTag}>Stage-aware view · {stageLabel(stage)}</span>
+          <p>
+            {allMetrics
+              ? "Showing all configured metrics."
+              : "Showing the metrics most relevant to the current stage."}
+          </p>
+        </div>
+        <div className={styles.businessActions}>
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            onClick={() => setAllMetrics(!allMetrics)}
+          >
+            <Filter size={13} />
+            {allMetrics ? "Stage view" : "All metrics"}
+          </button>
+          <button type="button" className={styles.primaryButton} onClick={onAddData}>
+            <Plus size={14} /> Add monthly data
+          </button>
+        </div>
+      </div>
+      <div className={styles.kpiGrid}>
+        {visibleKpis.slice(0, allMetrics ? 6 : 4).map((item) => (
+          <KpiCard
+            key={item.key + item.label}
+            label={item.label}
+            value={item.value}
+            change={item.change}
+            tone={item.tone as Kpi["tone"]}
+            definition={item.definition}
+            source={
+              item.source === "Workspace state"
+                ? "Workspace state"
+                : item.source === "Not connected"
+                  ? "Not connected"
+                  : "Entered by team"
+            }
+            updated={item.source === "Not connected" ? "No source connected" : "Latest local entry"}
+            trend={
+              item.key === "mrr"
+                ? monthly
+                    .map((entry) => entry.mrr)
+                    .filter((value): value is number => value !== undefined)
+                : []
+            }
+            onClick={() => openKpi(item.label, item.definition, item.key)}
+          />
+        ))}
+      </div>
+      <div className={styles.sectionTitle}>
+        <div>
+          <h2>Revenue</h2>
+          <p>Monthly values entered by the team. Gaps are left blank.</p>
+        </div>
+      </div>
+      <div className={styles.chartGrid}>
+        <ChartCard
+          id="business-mrr"
+          title="MRR trend"
+          insight={
+            growth !== null
+              ? `MRR ${growth >= 0 ? "increased" : "decreased"} ${Math.abs(growth).toFixed(1)}% from the previous entered month.`
+              : "Add monthly MRR values; growth requires at least two periods."
+          }
+          source={hasRevenue ? metricSource : "Not connected"}
+          updated={latest ? monthLabel(latest.period) : "No source connected"}
+          chart={
+            <TrendLine
+              records={monthly}
+              keys={[{ key: "mrr", label: "MRR", color: "var(--ink)" }]}
+            />
+          }
+          table={<MetricsTable records={monthly} />}
+          empty="Add a monthly recurring revenue value to see the trend."
+          hasData={hasRevenue}
+          tableShown={!!showTables["business-mrr"]}
+          onToggleTable={() => showTable("business-mrr")}
+          onHow={() =>
+            openDetail("MRR trend", `${DEFINITIONS.mrr} ${DEFINITIONS.growth}`, "business-mrr")
+          }
+          onAdd={onAddData}
+        />
+        <ChartCard
+          id="business-revenue-burn"
+          title="Revenue vs gross burn"
+          insight={
+            hasRevenue && hasBurn
+              ? "Entered monthly revenue and gross burn are shown side by side."
+              : "No revenue or gross-burn series has been entered."
+          }
+          source={hasRevenue || hasBurn ? metricSource : "Not connected"}
+          updated={latest ? monthLabel(latest.period) : "No source connected"}
+          chart={
+            <BarChart
+              records={monthly}
+              firstKey="revenue"
+              secondKey="grossBurn"
+              firstLabel="Revenue"
+              secondLabel="Gross burn"
+            />
+          }
+          table={<MetricsTable records={monthly} />}
+          empty="Add revenue and cost inputs to compare cash inflows and spend."
+          hasData={hasRevenue || hasBurn}
+          tableShown={!!showTables["business-revenue-burn"]}
+          onToggleTable={() => showTable("business-revenue-burn")}
+          onHow={() =>
+            openDetail(
+              "Revenue vs gross burn",
+              "Revenue is cash received; gross burn is total cash spent before revenue. Both values are team-entered for each month.",
+              "business-revenue-burn",
+            )
+          }
+          onAdd={onAddData}
+        />
+      </div>
+      <section className={styles.panelCard}>
+        <div className={styles.panelTitle}>
+          <div>
+            <h2>Revenue mix &amp; concentration</h2>
+            <p>Customer, product and segment-level breakdowns</p>
+          </div>
+          <Target size={16} />
+        </div>
+        <EmptyDataInline
+          title="Customer-level revenue isn’t connected."
+          detail="No customer names, subscription plans or segment revenue are available, so top-customer concentration and revenue mix are not shown."
+          action="Add monthly data"
+          onClick={onAddData}
+        />
+      </section>
+      <section className={styles.panelCard}>
+        <div className={styles.panelTitle}>
+          <div>
+            <h2>Forecast</h2>
+            <p>Simple projection · assumptions shown with every estimate</p>
+          </div>
+          <LineChart size={16} />
+        </div>
+        {monthly.filter((entry) => entry.mrr !== undefined).length >= 3 ? (
+          <ForecastPanel monthly={monthly.filter((entry) => entry.mrr !== undefined)} />
+        ) : (
+          <EmptyDataInline
+            title="Three monthly MRR entries are needed."
+            detail="A simple line projection can be calculated from at least three team-entered months. It is not financial advice and does not account for seasonality or planned changes."
+            action="Add data"
+            onClick={onAddData}
+          />
+        )}
+      </section>
+      <div className={styles.sectionTitle}>
+        <div>
+          <h2>Costs, burn &amp; runway</h2>
+          <p>Runway uses only the latest entered cash and burn figures.</p>
+        </div>
+      </div>
+      <div className={styles.twoColumn}>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Burn and cash</h2>
+              <p>Gross burn, net burn and current runway</p>
+            </div>
+            <Activity size={16} />
+          </div>
+          {latest?.grossBurn !== undefined || latest?.cashBalance !== undefined ? (
+            <div className={styles.financialFacts}>
+              <UsageMetric
+                label="Gross burn"
+                value={money(latest?.grossBurn)}
+                detail={latest ? monthLabel(latest.period) : "No period"}
+              />
+              <UsageMetric
+                label="Net burn"
+                value={
+                  latest?.grossBurn !== undefined && latest.revenue !== undefined
+                    ? money(latest.grossBurn - latest.revenue)
+                    : "Needs burn + revenue"
+                }
+                detail={
+                  latest?.grossBurn !== undefined && latest.revenue !== undefined
+                    ? "Gross burn − revenue"
+                    : "Not calculated"
+                }
+              />
+              <UsageMetric
+                label="Cash balance"
+                value={money(latest?.cashBalance)}
+                detail="Manual team entry"
+              />
+              <UsageMetric
+                label="Estimated runway"
+                value={
+                  runway(latest) !== null
+                    ? `${runway(latest)!.toFixed(1)} months`
+                    : "Not calculated"
+                }
+                detail={
+                  runway(latest) !== null
+                    ? "Cash ÷ positive net burn"
+                    : "Requires cash, burn and revenue"
+                }
+              />
+            </div>
+          ) : (
+            <EmptyDataInline
+              title="No cash or burn data entered."
+              detail="Enter gross burn, revenue and cash balance for the same month to calculate a simple runway estimate."
+              action="Add monthly data"
+              onClick={onAddData}
+            />
+          )}
+        </section>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Burn scenarios</h2>
+              <p>Requires entered cash and burn inputs</p>
+            </div>
+            <CircleHelp size={15} />
+          </div>
+          {runway(latest) !== null ? (
+            <div className={styles.scenarioList}>
+              <span>
+                Current entered values <strong>{runway(latest)!.toFixed(1)} months</strong>
+              </span>
+              <span>
+                Revenue grows 10% <strong>Not projected</strong>
+              </span>
+              <span>
+                Hire two people <strong>Cost inputs missing</strong>
+              </span>
+              <small>
+                Scenario changes require explicit assumptions; payroll costs and future revenue are
+                not available.
+              </small>
+            </div>
+          ) : (
+            <div className={styles.emptyInline}>
+              <Info size={16} />
+              <span>
+                No scenario estimate until current cash and positive net burn are entered.
+              </span>
+            </div>
+          )}
+        </section>
+      </div>
+      <div className={styles.sectionTitle}>
+        <div>
+          <h2>Customers &amp; retention</h2>
+          <p>Customer counts are team-entered; cohort-level records are not connected.</p>
+        </div>
+      </div>
+      <div className={styles.chartGrid}>
+        <ChartCard
+          id="business-customers"
+          title="Active customers"
+          insight={
+            hasCustomers
+              ? "Counts from monthly team inputs."
+              : "No monthly customer counts entered."
+          }
+          source={hasCustomers ? metricSource : "Not connected"}
+          updated={latest ? monthLabel(latest.period) : "No source connected"}
+          chart={
+            <TrendLine
+              records={monthly}
+              keys={[{ key: "activeCustomers", label: "Active customers", color: "var(--ink)" }]}
+            />
+          }
+          table={<MetricsTable records={monthly} />}
+          empty="Add active customer counts to view customer growth."
+          hasData={hasCustomers}
+          tableShown={!!showTables["business-customers"]}
+          onToggleTable={() => showTable("business-customers")}
+          onHow={() =>
+            openDetail(
+              "Active customers",
+              "Active customer counts are entered manually by the team for each month.",
+              "business-customers",
+            )
+          }
+          onAdd={onAddData}
+        />
+        <ChartCard
+          id="business-customer-flows"
+          title="New vs churned customers"
+          insight={
+            latest?.newCustomers !== undefined || latest?.churnedCustomers !== undefined
+              ? "Customer additions and losses from entered periods."
+              : "Customer flow data has not been entered."
+          }
+          source={
+            monthly.some(
+              (row) => row.newCustomers !== undefined || row.churnedCustomers !== undefined,
+            )
+              ? metricSource
+              : "Not connected"
+          }
+          updated={latest ? monthLabel(latest.period) : "No source connected"}
+          chart={
+            <BarChart
+              records={monthly}
+              firstKey="newCustomers"
+              secondKey="churnedCustomers"
+              firstLabel="New"
+              secondLabel="Churned"
+            />
+          }
+          table={<MetricsTable records={monthly} />}
+          empty="Enter new and churned customer counts to compare periods."
+          hasData={monthly.some(
+            (row) => row.newCustomers !== undefined || row.churnedCustomers !== undefined,
+          )}
+          tableShown={!!showTables["business-customer-flows"]}
+          onToggleTable={() => showTable("business-customer-flows")}
+          onHow={() =>
+            openDetail(
+              "New vs churned customers",
+              "Counts are entered per month. Churn rate = customers lost ÷ customers at the start of the same period.",
+              "business-customer-flows",
+            )
+          }
+          onAdd={onAddData}
+        />
+      </div>
+      <div className={styles.twoColumn}>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Retention &amp; cohort analysis</h2>
+              <p>Retention by signup cohort and NRR</p>
+            </div>
+            <Activity size={16} />
+          </div>
+          <EmptyDataInline
+            title="Cohort and subscription events aren’t available."
+            detail="Cohort retention and net revenue retention require dated customer and expansion/contraction records, which are not connected."
+          />
+        </section>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Churn &amp; customer value</h2>
+              <p>Calculates only when inputs are present</p>
+            </div>
+            <CircleHelp size={15} />
+          </div>
+          <div className={styles.financialFacts}>
+            <UsageMetric
+              label="Churn rate"
+              value={churn !== null ? percent(churn) : "Not calculated"}
+              detail={
+                churn !== null ? "Churned ÷ customers at start" : "Enter both customer counts"
+              }
+            />
+            <UsageMetric
+              label="Average revenue / customer"
+              value={arpc !== null ? money(arpc, false) : "Not calculated"}
+              detail="MRR ÷ active customers"
+            />
+            <UsageMetric
+              label="Net revenue retention"
+              value="Not calculated"
+              detail="Expansion and contraction data required"
+            />
+            <UsageMetric label="Cohort retention" value="Not connected" detail="No cohort events" />
+          </div>
+        </section>
+      </div>
+      <div className={styles.sectionTitle}>
+        <div>
+          <h2>Sales, unit economics &amp; operations</h2>
+          <p>Separate verified inputs from disconnected modules.</p>
+        </div>
+      </div>
+      <div className={styles.twoColumn}>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Sales funnel</h2>
+              <p>Lead → Contacted → Demo → Proposal → Won</p>
+            </div>
+            <TrendingUp size={16} />
+          </div>
+          <EmptyDataInline
+            title="Sales pipeline is not connected."
+            detail="Conversion rates, deal cycle and channel performance are hidden until deal-stage records are available."
+            action="Open sales workspace"
+            href="/startup/sales"
+          />
+        </section>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Unit economics</h2>
+              <p>Inputs and formulas shown for each estimate</p>
+            </div>
+            <CircleHelp size={15} />
+          </div>
+          <div className={styles.economicsGrid}>
+            <EconomicsMetric
+              label="CAC"
+              value={cac !== null ? money(cac) : "—"}
+              formula="Sales & marketing spend ÷ new customers"
+            />
+            <EconomicsMetric
+              label="LTV"
+              value={ltv !== null ? money(ltv) : "—"}
+              formula="ARPC × gross margin ÷ churn rate"
+            />
+            <EconomicsMetric
+              label="LTV : CAC"
+              value={ltv !== null && cac ? `${(ltv / cac).toFixed(1)} : 1` : "—"}
+              formula="LTV divided by CAC"
+            />
+            <EconomicsMetric
+              label="Payback"
+              value={payback !== null ? `${payback.toFixed(1)} mo` : "—"}
+              formula="CAC ÷ (ARPC × gross margin)"
+            />
+          </div>
+          <p className={styles.disclaimer}>
+            Healthy ranges vary by sector and business model; no verdict is given. Add marketing
+            spend, new customers, gross margin and churn inputs to calculate.
+          </p>
+        </section>
+      </div>
+      <div className={styles.twoColumn}>
+        <UnconnectedPanel
+          title="Product & operations"
+          subtitle="Activation, WAU, feature usage, support and NPS"
+          message="Product analytics, support tickets and feedback events are not connected. No engagement rates are estimated."
+        />
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Team &amp; hiring</h2>
+              <p>Current roster snapshot, not a historical hiring trend.</p>
+            </div>
+            <Users size={16} />
+          </div>
+          <div className={styles.financialFacts}>
+            <UsageMetric
+              label="Current team"
+              value={String(data.team.length)}
+              detail="From workspace roster"
+            />
+            <UsageMetric
+              label="Open hiring requests"
+              value="Not connected"
+              detail="Jobs module not connected"
+            />
+            <UsageMetric
+              label="Time to hire"
+              value="Not calculated"
+              detail="No applicant history"
+            />
+            <UsageMetric
+              label="Revenue per employee"
+              value={
+                latest?.revenue !== undefined && data.team.length
+                  ? money(latest.revenue / data.team.length)
+                  : "Not calculated"
+              }
+              detail={
+                latest?.revenue !== undefined
+                  ? "Entered revenue ÷ current roster"
+                  : "Revenue input needed"
+              }
+            />
+          </div>
+        </section>
+      </div>
+      <section className={styles.panelCard}>
+        <div className={styles.panelTitle}>
+          <div>
+            <h2>Goals &amp; custom KPIs</h2>
+            <p>Targets are team-entered and not scored by the platform.</p>
+          </div>
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            onClick={onAddKpi}
+            disabled={!canEditFrom(kpis, data)}
+          >
+            <Plus size={13} /> Add KPI
+          </button>
+        </div>
+        {kpis.length ? (
+          <div className={styles.kpiTableWrap}>
+            <table className={styles.dataTable}>
+              <thead>
+                <tr>
+                  <th>KPI</th>
+                  <th>Target</th>
+                  <th>Current</th>
+                  <th>Owner</th>
+                  <th>Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {kpis.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.name}</td>
+                    <td>{item.target || "—"}</td>
+                    <td>{item.current || "—"}</td>
+                    <td>{item.owner}</td>
+                    <td>{item.note || "Team entered"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyDataInline
+            title="No custom KPIs have been added."
+            detail="Owners and Admins can add team-defined targets. Values remain local until a KPI service is connected."
+            action="Add KPI"
+            onClick={onAddKpi}
+          />
+        )}
+      </section>
+      <p className={styles.dataCaption}>
+        Financial values are entered by the team in this browser. They are not linked to accounting,
+        payments, or a bank feed.
+      </p>
+    </div>
+  );
 }
-function canEditFrom(kpis:AnalyticsKpi[],data:ReturnType<typeof useStartupWorkspace>['data']){const member=data.team.find((person)=>person.name===data.startup.founderName);return !member||member.permission==='Owner'||member.permission==='Admin';}
-function EconomicsMetric({label,value,formula}:{label:string;value:string;formula:string}){return <div className={styles.economicsMetric}><span>{label}</span><strong>{value}</strong><small>{formula}</small></div>;}
-function ForecastPanel({monthly}:{monthly:MonthlyMetric[]}){const vals=monthly.slice(-3).map((entry)=>entry.mrr).filter((value):value is number=>value!==undefined);const growth=vals.length>=2&&vals[vals.length-2]!==0?(vals[vals.length-1]-vals[vals.length-2])/vals[vals.length-2]:null;if(growth===null)return <EmptyDataInline title="MRR growth rate cannot be derived." detail="Enter two non-zero monthly MRR values first."/>;const monthlyGrowth=growth;return <div className={styles.forecastSummary}><Sparkles size={17}/><div><strong>Simple 3-month extrapolation available</strong><p>Uses the latest period-over-period MRR growth rate ({percent(monthlyGrowth*100)}), repeated for three months. This is a mechanical scenario, not a forecast or advice.</p><small>Projected next MRR: {money(vals[vals.length-1]*Math.pow(1+monthlyGrowth,3))} · Assumes the same growth continues.</small></div></div>;}
+function canEditFrom(kpis: AnalyticsKpi[], data: ReturnType<typeof useStartupWorkspace>["data"]) {
+  const member = data.team.find((person) => person.name === data.startup.founderName);
+  return !member || member.permission === "Owner" || member.permission === "Admin";
+}
+function EconomicsMetric({
+  label,
+  value,
+  formula,
+}: {
+  label: string;
+  value: string;
+  formula: string;
+}) {
+  return (
+    <div className={styles.economicsMetric}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{formula}</small>
+    </div>
+  );
+}
+function ForecastPanel({ monthly }: { monthly: MonthlyMetric[] }) {
+  const vals = monthly
+    .slice(-3)
+    .map((entry) => entry.mrr)
+    .filter((value): value is number => value !== undefined);
+  const growth =
+    vals.length >= 2 && vals[vals.length - 2] !== 0
+      ? (vals[vals.length - 1] - vals[vals.length - 2]) / vals[vals.length - 2]
+      : null;
+  if (growth === null)
+    return (
+      <EmptyDataInline
+        title="MRR growth rate cannot be derived."
+        detail="Enter two non-zero monthly MRR values first."
+      />
+    );
+  const monthlyGrowth = growth;
+  return (
+    <div className={styles.forecastSummary}>
+      <Sparkles size={17} />
+      <div>
+        <strong>Simple 3-month extrapolation available</strong>
+        <p>
+          Uses the latest period-over-period MRR growth rate ({percent(monthlyGrowth * 100)}),
+          repeated for three months. This is a mechanical scenario, not a forecast or advice.
+        </p>
+        <small>
+          Projected next MRR: {money(vals[vals.length - 1] * Math.pow(1 + monthlyGrowth, 3))} ·
+          Assumes the same growth continues.
+        </small>
+      </div>
+    </div>
+  );
+}
 
-type Kpi={label:string;value:string;change:string;tone:'good'|'bad'|'neutral';definition:string;source:string;key:string};
-function SourceChip({source,updated}:{source:string;updated:string}){const notConnected=source==='Not connected';return <span className={`${styles.sourceChip} ${notConnected?styles.sourceUnavailable:''}`} title={`${source} · ${updated}`}><i/>{source}<small>{updated}</small></span>;}
-function MiniSparkline({values}:{values:number[]}){if(values.length<2)return <span className={styles.sparkEmpty} aria-hidden="true"/>;const max=Math.max(...values),min=Math.min(...values),range=max-min||1;const pts=values.map((value,index)=>`${6+index*88/(values.length-1)},${27-(value-min)/range*21}`).join(' ');const last=pts.split(' ').at(-1)?.split(',')||['0','0'];return <svg className={styles.sparkline} viewBox="0 0 100 30" role="img" aria-label="Recent trend"><polyline points={pts} fill="none" stroke="var(--ink)" strokeWidth="1.8"/><circle cx={last[0]} cy={last[1]} r="2.6" fill="var(--gold)"/></svg>;}
-function KpiCard({label,value,change,tone,definition,source,updated,trend,onClick,target}:{label:string;value:string;change:string;tone:'good'|'bad'|'neutral';definition:string;source:string;updated:string;trend?:number[];onClick:()=>void;target?:string}){return <button type="button" className={styles.kpiCard} onClick={onClick} title={definition}><span className={styles.kpiLabel}>{label}<CircleHelp size={12}/></span><strong className={styles.kpiValue}>{value}</strong><span className={`${styles.changeChip} ${styles[`change-${tone}`]}`}>{tone==='good'?<ArrowUpRight size={12}/>:tone==='bad'?<ArrowDownRight size={12}/>:<Info size={11}/>} {change}</span><MiniSparkline values={trend||[]}/>{target&&<div className={styles.kpiTarget}><span>{target}</span><div><i/></div></div>}<SourceChip source={source} updated={updated}/></button>;}
-function InsightStrip({items}:{items:Array<{title:string;detail:string;href?:string}>}){return <section className={styles.insightStrip} aria-label="Auto insights">{items.map((item,index)=><article className={styles.insightCard} key={item.title}><span className={styles.insightIcon}>{index===0?<Sparkles size={15}/>:<AlertCircle size={15}/>}</span><div><small>Auto insight · not advice</small><h3>{item.title}</h3><p>{item.detail}</p>{item.href&&<Link href={item.href}>View details <ArrowRight size={11}/></Link>}</div></article>)}</section>;}
-function ChartCard({id,title,insight,source,updated,chart,table,empty,hasData,tableShown,onToggleTable,onHow,onAdd}:{id:string;title:string;insight:string;source:string;updated:string;chart:React.ReactNode;table:React.ReactNode;empty:string;hasData:boolean;tableShown:boolean;onToggleTable:()=>void;onHow:()=>void;onAdd:()=>void}){return <section className={styles.chartCard}><div className={styles.chartHeader}><div><h2>{title}</h2><p className={styles.chartInsight}>{insight}</p></div><SourceChip source={source} updated={updated}/></div>{hasData?<>{tableShown?<div className={styles.chartTable}>{table}</div>:<div className={styles.chartArea}>{chart}</div>}<div className={styles.chartFooter}><button type="button" onClick={onToggleTable}>{tableShown?'View chart':'View as table'}</button><button type="button" onClick={onHow}>How is this calculated?</button></div></>:<div className={styles.chartEmpty}><span className={styles.emptyChartIcon}><BarChart3 size={19}/></span><strong>{empty}</strong><p>There are no verified entries for this period yet. Charts use entered data only.</p><button type="button" className={styles.inlineAdd} onClick={onAdd}><Plus size={13}/> Add data</button></div>}</section>;}
-function TrendLine({records,keys}:{records:MonthlyMetric[];keys:Array<{key:keyof MonthlyMetric;label:string;color:string;dash?:boolean}>}){const rows=records.filter((row)=>keys.some((series)=>typeof row[series.key]==='number'));if(!rows.length)return <div className={styles.emptyChartSpace}/>;const values=rows.flatMap((row)=>keys.map((series)=>row[series.key]).filter((value):value is number=>typeof value==='number'));const max=Math.max(...values,1);const point=(row:MonthlyMetric,index:number,key:keyof MonthlyMetric)=>`${36+index*500/Math.max(rows.length-1,1)},${174-(Number(row[key]||0)/max)*140}`;return <div className={styles.svgChart}><div className={styles.chartLegend}>{keys.map((series)=><span key={String(series.key)}><i style={{background:series.color}}/>{series.label}</span>)}</div><svg viewBox="0 0 560 220" role="img" aria-label={`${keys.map((series)=>series.label).join(' and ')} trend`}><title>{keys.map((series)=>series.label).join(' and ')} monthly trend</title>{[0,1,2,3].map((i)=><g key={i}><line x1="35" x2="545" y1={34+i*46} y2={34+i*46} stroke="var(--border-subtle)"/><text x="2" y={38+i*46} fill="var(--text-secondary)" fontSize="9">{money(max*(3-i)/3)}</text></g>)}{keys.map((series)=><g key={String(series.key)}><polyline points={rows.map((row,index)=>typeof row[series.key]==='number'?point(row,index,series.key):'').filter(Boolean).join(' ')} fill="none" stroke={series.color} strokeWidth="2.5" strokeDasharray={series.dash?'5 4':undefined}/>{rows.map((row,index)=>{const value=row[series.key];if(typeof value!=='number')return null;return <circle key={row.period} cx={36+index*500/Math.max(rows.length-1,1)} cy={174-(value/max)*140} r="3.5" fill={index===rows.length-1?'var(--gold)':series.color}><title>{monthLabel(row.period)}: {money(value,false)}</title></circle>;})}</g>)}{rows.map((row,index)=><text key={row.id} x={36+index*500/Math.max(rows.length-1,1)} y="201" textAnchor="middle" fill="var(--text-secondary)" fontSize="9">{monthLabel(row.period)}</text>)}</svg></div>;}
-function BarChart({records,firstKey,secondKey,firstLabel,secondLabel}:{records:MonthlyMetric[];firstKey:keyof MonthlyMetric;secondKey:keyof MonthlyMetric;firstLabel:string;secondLabel:string}){const rows=records.filter((row)=>typeof row[firstKey]==='number'||typeof row[secondKey]==='number');if(!rows.length)return <div className={styles.emptyChartSpace}/>;const max=Math.max(1,...rows.flatMap((row)=>[Number(row[firstKey]||0),Number(row[secondKey]||0)]));return <div className={styles.svgChart}><div className={styles.chartLegend}><span><i className={styles.legendInk}/>{firstLabel}</span><span><i className={styles.legendStone}/>{secondLabel}</span></div><div className={styles.barChart}>{rows.map((row)=><div className={styles.barGroup} key={row.id}><div className={styles.barPair}><span title={`${firstLabel}: ${money(Number(row[firstKey]||0))}`} style={{height:`${Math.max(2,Number(row[firstKey]||0)/max*100)}%`}}/><span title={`${secondLabel}: ${money(Number(row[secondKey]||0))}`} style={{height:`${Math.max(2,Number(row[secondKey]||0)/max*100)}%`}}/></div><small>{monthLabel(row.period)}</small></div>)}</div></div>;}
-function MetricsTable({records}:{records:MonthlyMetric[]}){return <div className={styles.tableScroll}><table className={styles.dataTable}><thead><tr><th>Period</th><th>MRR</th><th>Revenue</th><th>Gross burn</th><th>Cash</th><th>Customers</th><th>Source</th></tr></thead><tbody>{records.length?records.map((row)=><tr key={row.id}><td>{monthLabel(row.period)}</td><td>{money(row.mrr)}</td><td>{money(row.revenue)}</td><td>{money(row.grossBurn)}</td><td>{money(row.cashBalance)}</td><td>{row.activeCustomers??'—'}</td><td><SourceChip source={row.source} updated={new Date(row.updatedAt).toLocaleDateString('en-IN')}/></td></tr>):<tr><td colSpan={7}>No rows have been entered for this range.</td></tr>}</tbody></table></div>;}
-function EmptyDataInline({title,detail,action,onClick,href}:{title:string;detail:string;action?:string;onClick?:()=>void;href?:string}){return <div className={styles.emptyDataInline}><span><Info size={17}/></span><div><strong>{title}</strong><p>{detail}</p>{action&&href&&<Link href={href}>{action}<ArrowRight size={12}/></Link>}{action&&onClick&&<button type="button" onClick={onClick}>{action}<ArrowRight size={12}/></button>}</div></div>;}
-function UnconnectedPanel({title,subtitle,message}:{title:string;subtitle:string;message:string}){return <section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>{title}</h2><p>{subtitle}</p></div><ExternalLink size={15}/></div><EmptyDataInline title="Source not connected" detail={message}/></section>;}
-function UsageMetric({label,value,detail}:{label:string;value:string;detail:string}){return <div className={styles.usageMetric}><small>{label}</small><strong>{value}</strong><span>{detail}</span></div>;}
+type Kpi = {
+  label: string;
+  value: string;
+  change: string;
+  tone: "good" | "bad" | "neutral";
+  definition: string;
+  source: string;
+  key: string;
+};
+function SourceChip({ source, updated }: { source: string; updated: string }) {
+  const notConnected = source === "Not connected";
+  return (
+    <span
+      className={`${styles.sourceChip} ${notConnected ? styles.sourceUnavailable : ""}`}
+      title={`${source} · ${updated}`}
+    >
+      <i />
+      {source}
+      <small>{updated}</small>
+    </span>
+  );
+}
+function MiniSparkline({ values }: { values: number[] }) {
+  if (values.length < 2) return <span className={styles.sparkEmpty} aria-hidden="true" />;
+  const max = Math.max(...values),
+    min = Math.min(...values),
+    range = max - min || 1;
+  const pts = values
+    .map(
+      (value, index) =>
+        `${6 + (index * 88) / (values.length - 1)},${27 - ((value - min) / range) * 21}`,
+    )
+    .join(" ");
+  const last = pts.split(" ").at(-1)?.split(",") || ["0", "0"];
+  return (
+    <svg className={styles.sparkline} viewBox="0 0 100 30" role="img" aria-label="Recent trend">
+      <polyline points={pts} fill="none" stroke="var(--ink)" strokeWidth="1.8" />
+      <circle cx={last[0]} cy={last[1]} r="2.6" fill="var(--gold)" />
+    </svg>
+  );
+}
+function KpiCard({
+  label,
+  value,
+  change,
+  tone,
+  definition,
+  source,
+  updated,
+  trend,
+  onClick,
+  target,
+}: {
+  label: string;
+  value: string;
+  change: string;
+  tone: "good" | "bad" | "neutral";
+  definition: string;
+  source: string;
+  updated: string;
+  trend?: number[];
+  onClick: () => void;
+  target?: string;
+}) {
+  return (
+    <button type="button" className={styles.kpiCard} onClick={onClick} title={definition}>
+      <span className={styles.kpiLabel}>
+        {label}
+        <CircleHelp size={12} />
+      </span>
+      <strong className={styles.kpiValue}>{value}</strong>
+      <span className={`${styles.changeChip} ${styles[`change-${tone}`]}`}>
+        {tone === "good" ? (
+          <ArrowUpRight size={12} />
+        ) : tone === "bad" ? (
+          <ArrowDownRight size={12} />
+        ) : (
+          <Info size={11} />
+        )}{" "}
+        {change}
+      </span>
+      <MiniSparkline values={trend || []} />
+      {target && (
+        <div className={styles.kpiTarget}>
+          <span>{target}</span>
+          <div>
+            <i />
+          </div>
+        </div>
+      )}
+      <SourceChip source={source} updated={updated} />
+    </button>
+  );
+}
+function InsightStrip({
+  items,
+}: {
+  items: Array<{ title: string; detail: string; href?: string }>;
+}) {
+  return (
+    <section className={styles.insightStrip} aria-label="Auto insights">
+      {items.map((item, index) => (
+        <article className={styles.insightCard} key={item.title}>
+          <span className={styles.insightIcon}>
+            {index === 0 ? <Sparkles size={15} /> : <AlertCircle size={15} />}
+          </span>
+          <div>
+            <small>Auto insight · not advice</small>
+            <h3>{item.title}</h3>
+            <p>{item.detail}</p>
+            {item.href && (
+              <Link href={item.href}>
+                View details <ArrowRight size={11} />
+              </Link>
+            )}
+          </div>
+        </article>
+      ))}
+    </section>
+  );
+}
+function ChartCard({
+  id,
+  title,
+  insight,
+  source,
+  updated,
+  chart,
+  table,
+  empty,
+  hasData,
+  tableShown,
+  onToggleTable,
+  onHow,
+  onAdd,
+}: {
+  id: string;
+  title: string;
+  insight: string;
+  source: string;
+  updated: string;
+  chart: React.ReactNode;
+  table: React.ReactNode;
+  empty: string;
+  hasData: boolean;
+  tableShown: boolean;
+  onToggleTable: () => void;
+  onHow: () => void;
+  onAdd: () => void;
+}) {
+  return (
+    <section className={styles.chartCard}>
+      <div className={styles.chartHeader}>
+        <div>
+          <h2>{title}</h2>
+          <p className={styles.chartInsight}>{insight}</p>
+        </div>
+        <SourceChip source={source} updated={updated} />
+      </div>
+      {hasData ? (
+        <>
+          {tableShown ? (
+            <div className={styles.chartTable}>{table}</div>
+          ) : (
+            <div className={styles.chartArea}>{chart}</div>
+          )}
+          <div className={styles.chartFooter}>
+            <button type="button" onClick={onToggleTable}>
+              {tableShown ? "View chart" : "View as table"}
+            </button>
+            <button type="button" onClick={onHow}>
+              How is this calculated?
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className={styles.chartEmpty}>
+          <span className={styles.emptyChartIcon}>
+            <BarChart3 size={19} />
+          </span>
+          <strong>{empty}</strong>
+          <p>There are no verified entries for this period yet. Charts use entered data only.</p>
+          <button type="button" className={styles.inlineAdd} onClick={onAdd}>
+            <Plus size={13} /> Add data
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+function TrendLine({
+  records,
+  keys,
+}: {
+  records: MonthlyMetric[];
+  keys: Array<{ key: keyof MonthlyMetric; label: string; color: string; dash?: boolean }>;
+}) {
+  const rows = records.filter((row) => keys.some((series) => typeof row[series.key] === "number"));
+  if (!rows.length) return <div className={styles.emptyChartSpace} />;
+  const values = rows.flatMap((row) =>
+    keys
+      .map((series) => row[series.key])
+      .filter((value): value is number => typeof value === "number"),
+  );
+  const max = Math.max(...values, 1);
+  const point = (row: MonthlyMetric, index: number, key: keyof MonthlyMetric) =>
+    `${36 + (index * 500) / Math.max(rows.length - 1, 1)},${174 - (Number(row[key] || 0) / max) * 140}`;
+  return (
+    <div className={styles.svgChart}>
+      <div className={styles.chartLegend}>
+        {keys.map((series) => (
+          <span key={String(series.key)}>
+            <i style={{ background: series.color }} />
+            {series.label}
+          </span>
+        ))}
+      </div>
+      <svg
+        viewBox="0 0 560 220"
+        role="img"
+        aria-label={`${keys.map((series) => series.label).join(" and ")} trend`}
+      >
+        <title>{keys.map((series) => series.label).join(" and ")} monthly trend</title>
+        {[0, 1, 2, 3].map((i) => (
+          <g key={i}>
+            <line
+              x1="35"
+              x2="545"
+              y1={34 + i * 46}
+              y2={34 + i * 46}
+              stroke="var(--border-subtle)"
+            />
+            <text x="2" y={38 + i * 46} fill="var(--text-secondary)" fontSize="9">
+              {money((max * (3 - i)) / 3)}
+            </text>
+          </g>
+        ))}
+        {keys.map((series) => (
+          <g key={String(series.key)}>
+            <polyline
+              points={rows
+                .map((row, index) =>
+                  typeof row[series.key] === "number" ? point(row, index, series.key) : "",
+                )
+                .filter(Boolean)
+                .join(" ")}
+              fill="none"
+              stroke={series.color}
+              strokeWidth="2.5"
+              strokeDasharray={series.dash ? "5 4" : undefined}
+            />
+            {rows.map((row, index) => {
+              const value = row[series.key];
+              if (typeof value !== "number") return null;
+              return (
+                <circle
+                  key={row.period}
+                  cx={36 + (index * 500) / Math.max(rows.length - 1, 1)}
+                  cy={174 - (value / max) * 140}
+                  r="3.5"
+                  fill={index === rows.length - 1 ? "var(--gold)" : series.color}
+                >
+                  <title>
+                    {monthLabel(row.period)}: {money(value, false)}
+                  </title>
+                </circle>
+              );
+            })}
+          </g>
+        ))}
+        {rows.map((row, index) => (
+          <text
+            key={row.id}
+            x={36 + (index * 500) / Math.max(rows.length - 1, 1)}
+            y="201"
+            textAnchor="middle"
+            fill="var(--text-secondary)"
+            fontSize="9"
+          >
+            {monthLabel(row.period)}
+          </text>
+        ))}
+      </svg>
+    </div>
+  );
+}
+function BarChart({
+  records,
+  firstKey,
+  secondKey,
+  firstLabel,
+  secondLabel,
+}: {
+  records: MonthlyMetric[];
+  firstKey: keyof MonthlyMetric;
+  secondKey: keyof MonthlyMetric;
+  firstLabel: string;
+  secondLabel: string;
+}) {
+  const rows = records.filter(
+    (row) => typeof row[firstKey] === "number" || typeof row[secondKey] === "number",
+  );
+  if (!rows.length) return <div className={styles.emptyChartSpace} />;
+  const max = Math.max(
+    1,
+    ...rows.flatMap((row) => [Number(row[firstKey] || 0), Number(row[secondKey] || 0)]),
+  );
+  return (
+    <div className={styles.svgChart}>
+      <div className={styles.chartLegend}>
+        <span>
+          <i className={styles.legendInk} />
+          {firstLabel}
+        </span>
+        <span>
+          <i className={styles.legendStone} />
+          {secondLabel}
+        </span>
+      </div>
+      <div className={styles.barChart}>
+        {rows.map((row) => (
+          <div className={styles.barGroup} key={row.id}>
+            <div className={styles.barPair}>
+              <span
+                title={`${firstLabel}: ${money(Number(row[firstKey] || 0))}`}
+                style={{ height: `${Math.max(2, (Number(row[firstKey] || 0) / max) * 100)}%` }}
+              />
+              <span
+                title={`${secondLabel}: ${money(Number(row[secondKey] || 0))}`}
+                style={{ height: `${Math.max(2, (Number(row[secondKey] || 0) / max) * 100)}%` }}
+              />
+            </div>
+            <small>{monthLabel(row.period)}</small>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+function MetricsTable({ records }: { records: MonthlyMetric[] }) {
+  return (
+    <div className={styles.tableScroll}>
+      <table className={styles.dataTable}>
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>MRR</th>
+            <th>Revenue</th>
+            <th>Gross burn</th>
+            <th>Cash</th>
+            <th>Customers</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          {records.length ? (
+            records.map((row) => (
+              <tr key={row.id}>
+                <td>{monthLabel(row.period)}</td>
+                <td>{money(row.mrr)}</td>
+                <td>{money(row.revenue)}</td>
+                <td>{money(row.grossBurn)}</td>
+                <td>{money(row.cashBalance)}</td>
+                <td>{row.activeCustomers ?? "—"}</td>
+                <td>
+                  <SourceChip
+                    source={row.source}
+                    updated={new Date(row.updatedAt).toLocaleDateString("en-IN")}
+                  />
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={7}>No rows have been entered for this range.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+function EmptyDataInline({
+  title,
+  detail,
+  action,
+  onClick,
+  href,
+}: {
+  title: string;
+  detail: string;
+  action?: string;
+  onClick?: () => void;
+  href?: string;
+}) {
+  return (
+    <div className={styles.emptyDataInline}>
+      <span>
+        <Info size={17} />
+      </span>
+      <div>
+        <strong>{title}</strong>
+        <p>{detail}</p>
+        {action && href && (
+          <Link href={href}>
+            {action}
+            <ArrowRight size={12} />
+          </Link>
+        )}
+        {action && onClick && (
+          <button type="button" onClick={onClick}>
+            {action}
+            <ArrowRight size={12} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+function UnconnectedPanel({
+  title,
+  subtitle,
+  message,
+}: {
+  title: string;
+  subtitle: string;
+  message: string;
+}) {
+  return (
+    <section className={styles.panelCard}>
+      <div className={styles.panelTitle}>
+        <div>
+          <h2>{title}</h2>
+          <p>{subtitle}</p>
+        </div>
+        <ExternalLink size={15} />
+      </div>
+      <EmptyDataInline title="Source not connected" detail={message} />
+    </section>
+  );
+}
+function UsageMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className={styles.usageMetric}>
+      <small>{label}</small>
+      <strong>{value}</strong>
+      <span>{detail}</span>
+    </div>
+  );
+}
 
-function OverviewTab({data,currentStage,tasks,kpis,monthly,latest,growth,completeness,missing,showTables,showTable,openKpi,openData,openDetail,insights,stageTasks}:{data:ReturnType<typeof useStartupWorkspace>['data'];currentStage:ReturnType<typeof useStartupWorkspace>['data']['stages'][number];tasks:StartupTaskItem[];kpis:Kpi[];monthly:MonthlyMetric[];latest?:MonthlyMetric;growth:number|null;completeness:number;missing:string[];showTables:Record<string,boolean>;showTable:(key:string)=>void;openKpi:(title:string,definition:string,key?:string)=>void;openData:()=>void;openDetail:(title:string,definition:string,key?:string)=>void;insights:Array<{title:string;detail:string;href?:string}>;stageTasks:StartupTaskItem[]}){
- const open=tasks.filter((task)=>task.status!=='completed');const overdue=open.filter(isTaskOverdue);const waiting=tasks.filter((task)=>task.mentorDeliverable&&task.status==='completed'&&task.mentorStatus!=='approved');const attention=[...overdue,...waiting.filter((task)=>!overdue.some((item)=>item.id===task.id))].slice(0,5);const chartRows=monthly.filter((row)=>row.revenue!==undefined||row.grossBurn!==undefined);const financeSource=chartRows.some((row)=>row.source==='Entered by team')?'Entered by team':'Not connected';
- return <div className={styles.overviewLayout}><div className={styles.contentColumn}><InsightStrip items={insights.slice(0,3)}/><section className={styles.kpiGrid} aria-label="Analytics overview KPIs">{kpis.map((item)=>{const trend=item.key==='mrr'?monthly.map((entry)=>entry.mrr).filter((value):value is number=>value!==undefined):[];return <KpiCard key={item.key} label={item.label} value={item.value} change={item.change} tone={item.tone} definition={item.definition} source={item.source==='Workspace state'?'Workspace state':item.source==='Not connected'?'Not connected':'Entered by team'} updated={item.source==='Not connected'?'No source connected':'Latest workspace entry'} trend={trend} onClick={()=>openKpi(item.label,item.definition,item.key)}/>;})}</section>
- <div className={styles.sectionTitle}><div><h2>Progress at a glance</h2><p>Current stage and finance inputs; not a readiness score.</p></div><Link href="/startup/stage">Open stage overview <ArrowRight size={13}/></Link></div>
- <section className={styles.stageProgressCard}><div className={styles.stageProgressHeading}><div><span className={styles.eyebrow}>CURRENT STAGE</span><h3>{currentStage.label}</h3></div><span className={styles.smallPill}>{currentStage.exitCriteria.filter((item)=>item.completed).length}/{currentStage.exitCriteria.length} checklist items marked met</span></div><div className={styles.stageJourney}>{data.stages.map((stage,index)=>{const current=stage.id===data.startup.currentStage;const currentIndex=data.stages.findIndex((item)=>item.id===data.startup.currentStage);const past=index<currentIndex;const count=stage.exitCriteria.filter((item)=>item.completed).length;return <Link href={STAGE_HREF[stage.id]} key={stage.id} className={`${styles.journeyStage} ${current?styles.journeyCurrent:''} ${past?styles.journeyPast:''}`} aria-current={current?'step':undefined}><span className={styles.journeyDot}>{past?<CheckCircle2 size={13}/>:String(index+1).padStart(2,'0')}</span><strong>{stage.label}</strong><small>{count}/{stage.exitCriteria.length} marked met</small></Link>;})}</div><div className={styles.stageProgressFooter}><span>Stage start dates and approval history aren’t recorded.</span><Link href={STAGE_HREF[currentStage.id]}>View stage criteria <ArrowRight size={12}/></Link></div></section>
- <div className={styles.chartGrid}><ChartCard id="overview-finance" title="Revenue vs burn" insight={chartRows.length?`${chartRows.length} entered month${chartRows.length===1?'':'s'} shown; no projection.`:'Add a first month of revenue and burn to see the chart.'} source={financeSource} updated={chartRows.length?'Latest manual entry':'No source connected'} chart={<BarChart records={monthly} firstKey="revenue" secondKey="grossBurn" firstLabel="Revenue" secondLabel="Gross burn"/>} table={<MetricsTable records={monthly}/>} empty="Add your first month of revenue and cost inputs." hasData={chartRows.length>0} tableShown={!!showTables['overview-finance']} onToggleTable={()=>showTable('overview-finance')} onHow={()=>openDetail('Revenue vs burn','Revenue is entered cash received. Gross burn is entered total cash spent before revenue. Values are shown by month; no forecast is included.','overview-finance')} onAdd={openData}/>
- <ChartCard id="overview-goals" title="Goals & next steps" insight={`${stageTasks.length} task${stageTasks.length===1?'':'s'} linked to current-stage criteria.`} source="Workspace state" updated="Current task and stage records" chart={<GoalList tasks={stageTasks} criteria={currentStage.exitCriteria} stageId={currentStage.id}/>} table={<GoalList tasks={stageTasks} criteria={currentStage.exitCriteria} stageId={currentStage.id}/>} empty="No tasks are linked to stage criteria yet." hasData={stageTasks.length>0} tableShown={!!showTables['overview-goals']} onToggleTable={()=>showTable('overview-goals')} onHow={()=>openDetail('Goals & next steps','Tasks are counted only when explicitly linked to a criterion. Checklist completion is separate from mentor approval.','overview-goals')} onAdd={()=>{window.location.href='/startup/tasks';}}/></div>
- <section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Attention</h2><p>Open tasks and local deliverables requiring a next step.</p></div><AlertCircle size={16}/></div>{attention.length?<div className={styles.attentionList}>{attention.map((task)=><Link href="/startup/tasks" className={styles.attentionItem} key={task.id}><span className={isTaskOverdue(task)?styles.attentionRisk:styles.attentionAmber}>{isTaskOverdue(task)?<Clock3 size={13}/>:<Send size={13}/>}</span><span><strong>{task.title}</strong><small>{isTaskOverdue(task)?'Overdue task':`Mentor deliverable · ${task.owner}`}</small></span><ArrowRight size={13}/></Link>)}</div>:<div className={styles.emptyInline}><CheckCircle2 size={16}/><span>No overdue tasks or completed mentor deliverables waiting in this sample.</span></div>}<div className={styles.attentionFooter}><Link href="/startup/tasks">View task hub <ArrowRight size={12}/></Link><small>External reviews and access-expiry events aren’t connected.</small></div></section></div>
- <aside className={styles.sideColumn}><section className={styles.sideCard}><div className={styles.sideSectionHead}><div><h2>Data completeness</h2><p>Optional fields in latest monthly record</p></div><Info size={15}/></div><div className={styles.completenessRing} style={{'--progress':`${completeness}%`} as React.CSSProperties}><strong>{Math.round(completeness)}%</strong><small>entered</small></div><p className={styles.sideExplanation}>{latest?`${Math.round(completeness)}% of the listed input fields are present for ${monthLabel(latest.period)}.`:'No monthly financial inputs have been entered.'}</p><div className={styles.missingList}>{missing.slice(0,5).map((item)=><span key={item}><CircleHelp size={12}/>{item}</span>)}</div><button type="button" className={styles.sideAction} onClick={openData}><Plus size={13}/> Add monthly data</button></section>
- <section className={styles.sideCard}><div className={styles.sideSectionHead}><div><h2>Workspace snapshot</h2><p>Current counts, not usage trends</p></div><Users size={15}/></div><div className={styles.snapshotList}><span>Team members <strong>{data.team.length}</strong></span><span>Open tasks <strong>{open.length}</strong></span><span>Documents <strong>{data.documents.length}</strong></span><span>Linked stage tasks <strong>{stageTasks.length}</strong></span></div><small className={styles.dataCaption}>Historical usage by week isn’t connected.</small></section>
- <section className={styles.sideCard}><div className={styles.sideSectionHead}><div><h2>Calculation notes</h2><p>Formula and input requirements</p></div><CircleHelp size={15}/></div><ul className={styles.definitionList}><li>Runway = entered cash ÷ positive net burn</li><li>MRR growth needs two monthly entries</li><li>Readiness scoring requires a verified service</li></ul></section></aside></div>;
+function OverviewTab({
+  data,
+  currentStage,
+  tasks,
+  kpis,
+  monthly,
+  latest,
+  growth,
+  completeness,
+  missing,
+  showTables,
+  showTable,
+  openKpi,
+  openData,
+  openDetail,
+  insights,
+  stageTasks,
+}: {
+  data: ReturnType<typeof useStartupWorkspace>["data"];
+  currentStage: ReturnType<typeof useStartupWorkspace>["data"]["stages"][number];
+  tasks: StartupTaskItem[];
+  kpis: Kpi[];
+  monthly: MonthlyMetric[];
+  latest?: MonthlyMetric;
+  growth: number | null;
+  completeness: number;
+  missing: string[];
+  showTables: Record<string, boolean>;
+  showTable: (key: string) => void;
+  openKpi: (title: string, definition: string, key?: string) => void;
+  openData: () => void;
+  openDetail: (title: string, definition: string, key?: string) => void;
+  insights: Array<{ title: string; detail: string; href?: string }>;
+  stageTasks: StartupTaskItem[];
+}) {
+  const router = useRouter();
+  const open = tasks.filter((task) => task.status !== "completed");
+  const overdue = open.filter(isTaskOverdue);
+  const waiting = tasks.filter(
+    (task) =>
+      task.mentorDeliverable && task.status === "completed" && task.mentorStatus !== "approved",
+  );
+  const attention = [
+    ...overdue,
+    ...waiting.filter((task) => !overdue.some((item) => item.id === task.id)),
+  ].slice(0, 5);
+  const chartRows = monthly.filter(
+    (row) => row.revenue !== undefined || row.grossBurn !== undefined,
+  );
+  const financeSource = chartRows.some((row) => row.source === "Entered by team")
+    ? "Entered by team"
+    : "Not connected";
+  return (
+    <div className={styles.overviewLayout}>
+      <div className={styles.contentColumn}>
+        <InsightStrip items={insights.slice(0, 3)} />
+        <section className={styles.kpiGrid} aria-label="Analytics overview KPIs">
+          {kpis.map((item) => {
+            const trend =
+              item.key === "mrr"
+                ? monthly
+                    .map((entry) => entry.mrr)
+                    .filter((value): value is number => value !== undefined)
+                : [];
+            return (
+              <KpiCard
+                key={item.key}
+                label={item.label}
+                value={item.value}
+                change={item.change}
+                tone={item.tone}
+                definition={item.definition}
+                source={
+                  item.source === "Workspace state"
+                    ? "Workspace state"
+                    : item.source === "Not connected"
+                      ? "Not connected"
+                      : "Entered by team"
+                }
+                updated={
+                  item.source === "Not connected" ? "No source connected" : "Latest workspace entry"
+                }
+                trend={trend}
+                onClick={() => openKpi(item.label, item.definition, item.key)}
+              />
+            );
+          })}
+        </section>
+        <div className={styles.sectionTitle}>
+          <div>
+            <h2>Progress at a glance</h2>
+            <p>Current stage and finance inputs; not a readiness score.</p>
+          </div>
+          <Link href="/startup/stage">
+            Open stage overview <ArrowRight size={13} />
+          </Link>
+        </div>
+        <section className={styles.stageProgressCard}>
+          <div className={styles.stageProgressHeading}>
+            <div>
+              <span className={styles.eyebrow}>CURRENT STAGE</span>
+              <h3>{currentStage.label}</h3>
+            </div>
+            <span className={styles.smallPill}>
+              {currentStage.exitCriteria.filter((item) => item.completed).length}/
+              {currentStage.exitCriteria.length} checklist items marked met
+            </span>
+          </div>
+          <div className={styles.stageJourney}>
+            {data.stages.map((stage, index) => {
+              const current = stage.id === data.startup.currentStage;
+              const currentIndex = data.stages.findIndex(
+                (item) => item.id === data.startup.currentStage,
+              );
+              const past = index < currentIndex;
+              const count = stage.exitCriteria.filter((item) => item.completed).length;
+              return (
+                <Link
+                  href={STAGE_HREF[stage.id]}
+                  key={stage.id}
+                  className={`${styles.journeyStage} ${current ? styles.journeyCurrent : ""} ${past ? styles.journeyPast : ""}`}
+                  aria-current={current ? "step" : undefined}
+                >
+                  <span className={styles.journeyDot}>
+                    {past ? <CheckCircle2 size={13} /> : String(index + 1).padStart(2, "0")}
+                  </span>
+                  <strong>{stage.label}</strong>
+                  <small>
+                    {count}/{stage.exitCriteria.length} marked met
+                  </small>
+                </Link>
+              );
+            })}
+          </div>
+          <div className={styles.stageProgressFooter}>
+            <span>Stage start dates and approval history aren’t recorded.</span>
+            <Link href={STAGE_HREF[currentStage.id]}>
+              View stage criteria <ArrowRight size={12} />
+            </Link>
+          </div>
+        </section>
+        <div className={styles.chartGrid}>
+          <ChartCard
+            id="overview-finance"
+            title="Revenue vs burn"
+            insight={
+              chartRows.length
+                ? `${chartRows.length} entered month${chartRows.length === 1 ? "" : "s"} shown; no projection.`
+                : "Add a first month of revenue and burn to see the chart."
+            }
+            source={financeSource}
+            updated={chartRows.length ? "Latest manual entry" : "No source connected"}
+            chart={
+              <BarChart
+                records={monthly}
+                firstKey="revenue"
+                secondKey="grossBurn"
+                firstLabel="Revenue"
+                secondLabel="Gross burn"
+              />
+            }
+            table={<MetricsTable records={monthly} />}
+            empty="Add your first month of revenue and cost inputs."
+            hasData={chartRows.length > 0}
+            tableShown={!!showTables["overview-finance"]}
+            onToggleTable={() => showTable("overview-finance")}
+            onHow={() =>
+              openDetail(
+                "Revenue vs burn",
+                "Revenue is entered cash received. Gross burn is entered total cash spent before revenue. Values are shown by month; no forecast is included.",
+                "overview-finance",
+              )
+            }
+            onAdd={openData}
+          />
+          <ChartCard
+            id="overview-goals"
+            title="Goals & next steps"
+            insight={`${stageTasks.length} task${stageTasks.length === 1 ? "" : "s"} linked to current-stage criteria.`}
+            source="Workspace state"
+            updated="Current task and stage records"
+            chart={
+              <GoalList
+                tasks={stageTasks}
+                criteria={currentStage.exitCriteria}
+                stageId={currentStage.id}
+              />
+            }
+            table={
+              <GoalList
+                tasks={stageTasks}
+                criteria={currentStage.exitCriteria}
+                stageId={currentStage.id}
+              />
+            }
+            empty="No tasks are linked to stage criteria yet."
+            hasData={stageTasks.length > 0}
+            tableShown={!!showTables["overview-goals"]}
+            onToggleTable={() => showTable("overview-goals")}
+            onHow={() =>
+              openDetail(
+                "Goals & next steps",
+                "Tasks are counted only when explicitly linked to a criterion. Checklist completion is separate from mentor approval.",
+                "overview-goals",
+              )
+            }
+            onAdd={() => {
+              router.push("/startup/tasks");
+            }}
+          />
+        </div>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Attention</h2>
+              <p>Open tasks and local deliverables requiring a next step.</p>
+            </div>
+            <AlertCircle size={16} />
+          </div>
+          {attention.length ? (
+            <div className={styles.attentionList}>
+              {attention.map((task) => (
+                <Link href="/startup/tasks" className={styles.attentionItem} key={task.id}>
+                  <span
+                    className={isTaskOverdue(task) ? styles.attentionRisk : styles.attentionAmber}
+                  >
+                    {isTaskOverdue(task) ? <Clock3 size={13} /> : <Send size={13} />}
+                  </span>
+                  <span>
+                    <strong>{task.title}</strong>
+                    <small>
+                      {isTaskOverdue(task) ? "Overdue task" : `Mentor deliverable · ${task.owner}`}
+                    </small>
+                  </span>
+                  <ArrowRight size={13} />
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.emptyInline}>
+              <CheckCircle2 size={16} />
+              <span>No overdue tasks or completed mentor deliverables waiting in this sample.</span>
+            </div>
+          )}
+          <div className={styles.attentionFooter}>
+            <Link href="/startup/tasks">
+              View task hub <ArrowRight size={12} />
+            </Link>
+            <small>External reviews and access-expiry events aren’t connected.</small>
+          </div>
+        </section>
+      </div>
+      <aside className={styles.sideColumn}>
+        <section className={styles.sideCard}>
+          <div className={styles.sideSectionHead}>
+            <div>
+              <h2>Data completeness</h2>
+              <p>Optional fields in latest monthly record</p>
+            </div>
+            <Info size={15} />
+          </div>
+          <div
+            className={styles.completenessRing}
+            style={{ "--progress": `${completeness}%` } as React.CSSProperties}
+          >
+            <strong>{Math.round(completeness)}%</strong>
+            <small>entered</small>
+          </div>
+          <p className={styles.sideExplanation}>
+            {latest
+              ? `${Math.round(completeness)}% of the listed input fields are present for ${monthLabel(latest.period)}.`
+              : "No monthly financial inputs have been entered."}
+          </p>
+          <div className={styles.missingList}>
+            {missing.slice(0, 5).map((item) => (
+              <span key={item}>
+                <CircleHelp size={12} />
+                {item}
+              </span>
+            ))}
+          </div>
+          <button type="button" className={styles.sideAction} onClick={openData}>
+            <Plus size={13} /> Add monthly data
+          </button>
+        </section>
+        <section className={styles.sideCard}>
+          <div className={styles.sideSectionHead}>
+            <div>
+              <h2>Workspace snapshot</h2>
+              <p>Current counts, not usage trends</p>
+            </div>
+            <Users size={15} />
+          </div>
+          <div className={styles.snapshotList}>
+            <span>
+              Team members <strong>{data.team.length}</strong>
+            </span>
+            <span>
+              Open tasks <strong>{open.length}</strong>
+            </span>
+            <span>
+              Documents <strong>{data.documents.length}</strong>
+            </span>
+            <span>
+              Linked stage tasks <strong>{stageTasks.length}</strong>
+            </span>
+          </div>
+          <small className={styles.dataCaption}>Historical usage by week isn’t connected.</small>
+        </section>
+        <section className={styles.sideCard}>
+          <div className={styles.sideSectionHead}>
+            <div>
+              <h2>Calculation notes</h2>
+              <p>Formula and input requirements</p>
+            </div>
+            <CircleHelp size={15} />
+          </div>
+          <ul className={styles.definitionList}>
+            <li>Runway = entered cash ÷ positive net burn</li>
+            <li>MRR growth needs two monthly entries</li>
+            <li>Readiness scoring requires a verified service</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  );
 }
-function GoalList({tasks,criteria,stageId}:{tasks:StartupTaskItem[];criteria:Array<{id:string;label:string;completed:boolean}>;stageId:StartupStageId}){return <div className={styles.goalList}>{criteria.slice(0,5).map((criterion)=>{const linked=tasks.filter((task)=>task.linkedCriterionId===criterion.id);const value=criterion.completed?100:linked.length?Math.round(linked.filter((task)=>task.status==='completed').length/linked.length*100):0;return <div className={styles.goalRow} key={criterion.id}><span className={criterion.completed?styles.goalCheck:styles.goalCircle}>{criterion.completed?<CheckCircle2 size={13}/>:<Target size={12}/>}</span><div className={styles.goalInfo}><strong>{criterion.label}</strong><small>{criterion.completed?'Checklist item marked met':linked.length?`${linked.length} linked task${linked.length===1?'':'s'}`:'No linked task'}</small><div className={styles.thinTrack}><span style={{width:`${value}%`}}/></div></div><span className={styles.goalPct}>{criterion.completed?'Met':linked.length?`${value}%`:'—'}</span></div>;})}<Link href={STAGE_HREF[stageId]} className={styles.inlineLink}>Open stage criteria <ArrowRight size={12}/></Link></div>;}
-function JourneyTab({data,currentStage,mentorTasks,allTasks}:{data:ReturnType<typeof useStartupWorkspace>['data'];currentStage:ReturnType<typeof useStartupWorkspace>['data']['stages'][number];mentorTasks:StartupTaskItem[];allTasks:StartupTaskItem[]}){const done=currentStage.exitCriteria.filter((item)=>item.completed).length;const awaiting=mentorTasks.filter((task)=>task.status==='completed'&&task.mentorStatus!=='approved');return <div className={styles.tabStack}><div className={styles.kpiGrid}>{[{label:'Readiness score',value:'Not assessed',sub:'Verified service not connected',def:DEFINITIONS.readiness},{label:'Current criteria',value:`${done}/${currentStage.exitCriteria.length}`,sub:'Marked met · not approved',def:'Count of current-stage checklist items marked complete. Not a weighted score.'},{label:'Mentor sessions held',value:'Not tracked',sub:'No session history',def:'Mentor-session history is not available in this workspace.'},{label:'Investor views',value:'Not connected',sub:'No profile analytics source',def:'Investor view data is not connected.'}].map((item)=><KpiCard key={item.label} label={item.label} value={item.value} change={item.sub} tone="neutral" definition={item.def} source={item.label==='Current criteria'?'Workspace state':'Not connected'} updated={item.label==='Current criteria'?'Current checklist':'No source connected'} onClick={()=>{}}/>)}</div>
- <section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Stage progress</h2><p>Start dates and duration are blank until history is recorded.</p></div><Link href="/startup/stage">Stage overview <ArrowRight size={13}/></Link></div><div className={styles.longTimeline}>{data.stages.map((stage,index)=>{const current=stage.id===data.startup.currentStage;const past=data.stages.findIndex((item)=>item.id===stage.id)<data.stages.findIndex((item)=>item.id===data.startup.currentStage);return <Link href={STAGE_HREF[stage.id]} key={stage.id} className={`${styles.timelineStage} ${current?styles.timelineStageCurrent:''} ${past?styles.timelineStagePast:''}`}><span>{past?<CheckCircle2 size={14}/>:`0${index+1}`}</span><div><strong>{stage.label}</strong><small>{stage.exitCriteria.filter((criterion)=>criterion.completed).length}/{stage.exitCriteria.length} marked met</small><small>Start date · not recorded</small></div></Link>;})}</div></section>
- <div className={styles.twoColumn}><section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Readiness breakdown</h2><p>The verified readiness service is not connected.</p></div><CircleHelp size={16}/></div><div className={styles.readinessBreakdown}><div><span>Current-stage checklist</span><strong>{done}/{currentStage.exitCriteria.length} marked met</strong><div className={styles.thinTrack}><span style={{width:`${currentStage.exitCriteria.length?done/currentStage.exitCriteria.length*100:0}%`}}/></div></div><div><span>Traction data</span><strong>Not connected</strong><div className={styles.thinTrack}><span/></div></div><div><span>Mentor sign-offs</span><strong>Not connected</strong><div className={styles.thinTrack}><span/></div></div></div><p className={styles.disclaimer}>Checklist completion is a workspace count, not a weighted score or funding verdict.</p></section>
- <section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Mentor impact</h2><p>Session history unavailable; next session is shown.</p></div><Users size={16}/></div><div className={styles.mentorSession}><span className={styles.mentorAvatar}>{getInitials(data.mentor.name)}</span><div><strong>{data.mentor.name}</strong><small>{data.mentor.nextSession.status} · {data.mentor.nextSession.topic}</small><small>{data.mentor.nextSession.dateLabel} · {data.mentor.nextSession.timeLabel}</small></div></div><div className={styles.journeyMiniStats}><span>Sessions held <strong>Not tracked</strong></span><span>Completed deliverables awaiting review <strong>{awaiting.length}</strong></span><span>On-time completion <strong>Not calculated</strong></span></div><p className={styles.dataCaption}>Deliverables are local task records; mentor sign-off is not connected.</p></section></div>
- <div className={styles.twoColumn}><UnconnectedPanel title="Investor funnel" subtitle="Profile views → shortlist → meetings → closed" message="Investor activity isn’t connected, so no views or conversion rates are shown."/><UnconnectedPanel title="Hiring funnel" subtitle="Applicants → shortlist → interview → offer → hired" message="Hiring pipeline records aren’t available; connect the Jobs module to populate this section."/></div>
- <section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Workspace usage snapshot</h2><p>Current counts only — no individual monitoring or weekly trends.</p></div><Activity size={16}/></div><div className={styles.usageGrid}><UsageMetric label="Team members" value={String(data.team.length)} detail="Current roster"/><UsageMetric label="Task records" value={String(allTasks.length)} detail="Workspace sample"/><UsageMetric label="Completed tasks" value={String(allTasks.filter((task)=>task.status==='completed').length)} detail="Current status count"/><UsageMetric label="Documents" value={String(data.documents.length)} detail="Workspace list"/></div></section></div>;}
-function MarketTab({market,competitors,scenario,setScenario,onEdit,onAddCompetitor,swot,swotDraft,setSwotDraft,onAddSwot,onDeleteCompetitor,onDeleteSwot,search,setSearch}:{market:MarketEntry;competitors:Competitor[];scenario:'conservative'|'base'|'optimistic';setScenario:(value:'conservative'|'base'|'optimistic')=>void;onEdit:()=>void;onAddCompetitor:()=>void;swot:AnalyticsState['swot'];swotDraft:Record<string,string>;setSwotDraft:React.Dispatch<React.SetStateAction<Record<string,string>>>;onAddSwot:(category:keyof AnalyticsState['swot'],text:string)=>void;onDeleteCompetitor:(id:string)=>void;onDeleteSwot:(category:keyof AnalyticsState['swot'],id:string)=>void;search:string;setSearch:(value:string)=>void}){
- const confidence=market.source?.trim()?'Medium · team estimate':'Low · source missing';const somScale=scenario==='conservative'?.5:scenario==='optimistic'?1.5:1;const shownSom=market.som!==undefined?market.som*somScale:undefined;const marketValues=[market.tam,market.sam,shownSom];const maxMarket=Math.max(...marketValues.filter((value):value is number=>value!==undefined),1);const trendText=search.trim().toLowerCase();const tracked=competitors.filter((item)=>!trendText||item.name.toLowerCase().includes(trendText)||item.targetCustomer.toLowerCase().includes(trendText));
- return <div className={styles.tabStack}><div className={styles.marketWarning}><AlertCircle size={16}/><span><strong>Market figures are estimates.</strong> Check sources and assumptions before using them in a pitch or funding decision.</span></div>
- <div className={styles.kpiGrid}>{[{label:'Serviceable market (SAM)',value:market.sam!==undefined?money(market.sam):'No estimate',sub:market.source?'Team-entered estimate':'Enter a value and source',def:'Serviceable available market as entered by the team. The platform has not verified the method or source.'},{label:'Estimated market share',value:'Not calculated',sub:'Requires validated SOM and market data',def:'Market share is not calculated because comparable market and sales data are not connected.'},{label:'Market growth rate',value:'Not available',sub:'No cited trend data',def:'Growth rate requires a dated source and a comparable time series.'},{label:'Competitors tracked',value:String(competitors.length),sub:'Team-entered entries only',def:'Count of competitor records entered in this workspace.'}].map((item)=><KpiCard key={item.label} label={item.label} value={item.value} change={item.sub} tone="neutral" definition={item.def} source={item.label==='Competitors tracked'?'Entered by team':'Not connected'} updated={item.label==='Competitors tracked'?'Local competitor records':'No verified source'} onClick={()=>{}}/>)}</div>
- <div className={styles.twoColumn}><section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Market size</h2><p>TAM → SAM → SOM · {market.year||'year not entered'}</p></div><button type="button" className={styles.secondaryButton} onClick={onEdit}><Plus size={13}/>Edit assumptions</button></div>{market.tam!==undefined||market.sam!==undefined||market.som!==undefined?<><div className={styles.marketBars}>{[{key:'tam',label:'TAM',value:market.tam,color:'var(--ink)'},{key:'sam',label:'SAM',value:market.sam,color:'var(--gold)'},{key:'som',label:`SOM · ${scenario}`,value:shownSom,color:'var(--stone-400)'}].map((item)=><div className={styles.marketBarRow} key={item.key}><span>{item.label}</span><div><i style={{width:`${item.value===undefined?0:Math.max(2,item.value/maxMarket*100)}%`,background:item.color}}/></div><strong>{money(item.value)}</strong></div>)}</div><div className={styles.scenarioToggle}><span>Scenario for SOM</span>{(['conservative','base','optimistic'] as const).map((item)=><button type="button" key={item} aria-pressed={scenario===item} disabled={market.som===undefined} onClick={()=>setScenario(item)}>{item[0].toUpperCase()+item.slice(1)}</button>)}</div><div className={styles.assumptionGrid}><span>Population / accounts<strong>{market.population?.toLocaleString('en-IN')||'Not entered'}</strong></span><span>Average annual price<strong>{market.averagePrice!==undefined?money(market.averagePrice):'Not entered'}</strong></span><span>Adoption assumption<strong>{market.adoptionPercent!==undefined?`${market.adoptionPercent}%`:scenario==='base'?'Base estimate entered directly':'Scenario only'}</strong></span><span>Confidence<strong>{confidence}</strong></span></div><p className={styles.dataCaption}>SOM scenarios scale the entered base SOM by 0.5× / 1× / 1.5×. Scenario multipliers are illustrative assumptions, not research findings.</p><div className={styles.sourceLine}><span>Source: {market.source||'No source attached'}</span><span>Updated: {market.updatedAt?new Date(market.updatedAt).toLocaleDateString('en-IN'):'Not recorded'}</span></div></>:<EmptyDataInline title="No market-size figures entered." detail="Enter TAM, SAM and SOM values, year, assumptions and a source. Unsourced values remain low confidence." action="Edit assumptions" onClick={onEdit}/>}</section>
- <section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Market size over time</h2><p>Trend and forecast require dated, comparable estimates.</p></div><LineChart size={16}/></div><EmptyDataInline title="No market history available." detail="A single estimate is not a trend. Add dated, sourced values before drawing a growth line or forecast." action="Add market data" onClick={onEdit}/></section></div>
- <div className={styles.sectionTitle}><div><h2>Competitor landscape</h2><p>Manually entered team records only; private data is never scraped.</p></div><button type="button" className={styles.primaryButton} onClick={onAddCompetitor}><Plus size={14}/> Add competitor</button></div>
- <section className={styles.panelCard}><div className={styles.competitorToolbar}><div className={styles.searchSmall}><Search size={14}/><input value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Search competitors or target customer" aria-label="Search competitor entries"/></div><SourceChip source="Entered by team" updated="No platform scrape"/></div>{tracked.length?<div className={styles.tableScroll}><table className={styles.dataTable}><thead><tr><th>Name</th><th>Type</th><th>Target customer</th><th>Pricing</th><th>Strengths</th><th>Weaknesses</th><th>Source / updated</th><th></th></tr></thead><tbody>{tracked.map((item)=><tr key={item.id}><td><strong>{item.name}</strong></td><td>{item.type}</td><td>{item.targetCustomer||'—'}</td><td>{item.pricing||'—'}</td><td>{item.strengths||'—'}</td><td>{item.weaknesses||'—'}</td><td>{item.source||'No source'}<small className={styles.tableSub}>{new Date(item.updatedAt).toLocaleDateString('en-IN')}</small></td><td><button type="button" className={styles.iconButton} onClick={()=>onDeleteCompetitor(item.id)} aria-label={`Delete ${item.name}`}><X size={13}/></button></td></tr>)}</tbody></table></div>:<EmptyDataInline title={competitors.length?'No competitors match the search.':'No competitor records yet.'} detail={competitors.length?'Clear the search or add another entry.':'Add competitor entries with the team’s source and confidence context.'} action="Add competitor" onClick={onAddCompetitor}/>}</section>
- <div className={styles.twoColumn}><section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Positioning map</h2><p>Price index vs feature depth · team-assigned 0–10 inputs</p></div><Target size={16}/></div>{competitors.length?<PositioningMap competitors={competitors}/>:<EmptyDataInline title="No positioning data to plot." detail="Add at least one competitor and enter comparable 0–10 position values. The chart is based only on team entries." action="Add competitor" onClick={onAddCompetitor}/>}</section><section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Feature comparison</h2><p>Competitor capabilities and evidence</p></div><Filter size={15}/></div><EmptyDataInline title="No feature comparison criteria entered." detail="Feature-level comparisons are not inferred from competitor names. Record sourced attributes in a future iteration."/></section></div>
- <div className={styles.twoColumn}><section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Industry trends</h2><p>Curated platform content is not connected.</p></div><TrendingUp size={16}/></div><label className={styles.searchSmall}><Search size={14}/><input value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Search market data"/></label><EmptyDataInline title="No sourced trend entries." detail="Add team research with a source and date, or connect curated platform content. Search interest data is not available."/></section><section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Customer demand &amp; segments</h2><p>Interview and segment analytics</p></div><Users size={16}/></div><EmptyDataInline title="Demand signals aren’t connected." detail="Waitlist, inbound-lead and interview pain-level records are not available. Task records are not counted as customers or interviews."/></section></div>
- <div className={styles.twoColumn}><section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Peer benchmarks</h2><p>Opt-in, anonymized comparison · minimum 10 startups</p></div><ShieldCheck size={16}/></div><div className={styles.benchmarkLock}><ShieldCheck size={20}/><strong>Benchmark unavailable</strong><p>There is no verified, consented peer group available in this demo. Individual startup data is never shown.</p><small>Minimum cohort size: {analyticsConfig.benchmarkMinimum}. No benchmark values are estimated.</small></div></section><UnconnectedPanel title="Funding & investor landscape" subtitle="Sector deals, rounds and aggregate interest" message="Funding activity and investor-stage data require cited platform or external sources. No numbers or investor names are shown here."/></div>
- <section className={styles.panelCard}><div className={styles.panelTitle}><div><h2>Market notes · SWOT</h2><p>Team-authored observations; add evidence in the note.</p></div><Info size={15}/></div><div className={styles.swotGrid}>{(['Strengths','Weaknesses','Opportunities','Threats'] as const).map((category)=> <section className={styles.swotColumn} key={category}><h3>{category}</h3><div className={styles.swotNotes}>{swot[category].map((note)=><article key={note.id}><p>{note.text}</p><small>Team note · {new Date(note.createdAt).toLocaleDateString('en-IN')}</small><button type="button" onClick={()=>onDeleteSwot(category,note.id)} aria-label={`Delete ${category} note`}><X size={12}/></button></article>)}{!swot[category].length&&<small className={styles.noSwot}>No notes added.</small>}</div><form className={styles.swotForm} onSubmit={(event)=>{event.preventDefault();onAddSwot(category,swotDraft[category]||'');}}><input value={swotDraft[category]||''} onChange={(event)=>setSwotDraft((prev)=>({...prev,[category]:event.target.value}))} maxLength={300} placeholder={`Add a ${category.toLowerCase()} note`}/><button type="submit" disabled={!swotDraft[category]?.trim()} aria-label={`Add ${category} note`}><Plus size={14}/></button></form></section>)}</div><p className={styles.dataCaption}>These notes are stored locally and are not automatically exported to a pitch or data room.</p></section>
- </div>;
+function GoalList({
+  tasks,
+  criteria,
+  stageId,
+}: {
+  tasks: StartupTaskItem[];
+  criteria: Array<{ id: string; label: string; completed: boolean }>;
+  stageId: StartupStageId;
+}) {
+  return (
+    <div className={styles.goalList}>
+      {criteria.slice(0, 5).map((criterion) => {
+        const linked = tasks.filter((task) => task.linkedCriterionId === criterion.id);
+        const value = criterion.completed
+          ? 100
+          : linked.length
+            ? Math.round(
+                (linked.filter((task) => task.status === "completed").length / linked.length) * 100,
+              )
+            : 0;
+        return (
+          <div className={styles.goalRow} key={criterion.id}>
+            <span className={criterion.completed ? styles.goalCheck : styles.goalCircle}>
+              {criterion.completed ? <CheckCircle2 size={13} /> : <Target size={12} />}
+            </span>
+            <div className={styles.goalInfo}>
+              <strong>{criterion.label}</strong>
+              <small>
+                {criterion.completed
+                  ? "Checklist item marked met"
+                  : linked.length
+                    ? `${linked.length} linked task${linked.length === 1 ? "" : "s"}`
+                    : "No linked task"}
+              </small>
+              <div className={styles.thinTrack}>
+                <span style={{ width: `${value}%` }} />
+              </div>
+            </div>
+            <span className={styles.goalPct}>
+              {criterion.completed ? "Met" : linked.length ? `${value}%` : "—"}
+            </span>
+          </div>
+        );
+      })}
+      <Link href={STAGE_HREF[stageId]} className={styles.inlineLink}>
+        Open stage criteria <ArrowRight size={12} />
+      </Link>
+    </div>
+  );
 }
-function PositioningMap({competitors}:{competitors:Competitor[]}){return <div className={styles.positionMap}><span className={styles.axisY}>Feature depth</span><svg viewBox="0 0 520 245" role="img" aria-label="Team-entered competitor positioning plot"><line x1="52" y1="18" x2="52" y2="210" stroke="var(--stone-400)"/><line x1="52" y1="210" x2="500" y2="210" stroke="var(--stone-400)"/>{[0,1,2,3,4].map((n)=><g key={n}><line x1="52" x2="500" y1={18+n*48} y2={18+n*48} stroke="var(--border-subtle)"/><line x1={52+n*112} x2={52+n*112} y1="18" y2="210" stroke="var(--border-subtle)"/></g>)}{competitors.map((item,index)=><g key={item.id}><circle cx={52+Math.max(0,Math.min(10,item.positionX))*44.8} cy={210-Math.max(0,Math.min(10,item.positionY))*19.2} r="6" fill="var(--ink)"/><text x={58+Math.max(0,Math.min(10,item.positionX))*44.8} y={206-Math.max(0,Math.min(10,item.positionY))*19.2} fontSize="9" fill="var(--text-primary)">{item.name.slice(0,16)||`Competitor ${index+1}`}</text></g>)}</svg><span className={styles.axisX}>Price index →</span><p>Relative axes are entered by the team (0–10); they are not market-measured values.</p></div>;}
-function AddDataDialog({tab,market,onClose,onSaveMonthly,onSaveMarket}:{tab:AnalyticsTab;market:MarketEntry;onClose:()=>void;onSaveMonthly:(entry:Omit<MonthlyMetric,'id'|'source'|'addedBy'|'updatedAt'>)=>void;onSaveMarket:(entry:MarketEntry)=>void}){return tab==='market'?<MarketDataDialog market={market} onClose={onClose} onSave={onSaveMarket}/>:<MonthlyDataDialog onClose={onClose} onSave={onSaveMonthly}/>;}
-function ModalFrame({title,subtitle,eyebrow='Analytics',onClose,children}:{title:string;subtitle:string;eyebrow?:string;onClose:()=>void;children:React.ReactNode}){useEffect(()=>{const handler=(event:globalThis.KeyboardEvent)=>{if(event.key==='Escape')onClose();};window.addEventListener('keydown',handler);return()=>window.removeEventListener('keydown',handler);},[onClose]);return <div className={styles.modalBackdrop} role="presentation" onMouseDown={onClose}><section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="analytics-dialog-title" onMouseDown={(event)=>event.stopPropagation()}><header className={styles.modalHeader}><div><span className={styles.eyebrow}>{eyebrow}</span><h2 id="analytics-dialog-title">{title}</h2><p>{subtitle}</p></div><button type="button" aria-label="Close dialog" onClick={onClose}><X size={17}/></button></header>{children}</section></div>;}
-function MonthlyDataDialog({onClose,onSave}:{onClose:()=>void;onSave:(entry:Omit<MonthlyMetric,'id'|'source'|'addedBy'|'updatedAt'>)=>void}){const [period,setPeriod]=useState(new Date().toISOString().slice(0,7));const [fields,setFields]=useState<Record<string,string>>({});const [error,setError]=useState('');const fieldList=[['mrr','Monthly recurring revenue (₹)'],['revenue','Revenue received (₹)'],['grossBurn','Gross cash spend / burn (₹)'],['cashBalance','Cash balance (₹)'],['activeCustomers','Active customers'],['customersAtStart','Customers at start of period'],['newCustomers','New customers'],['churnedCustomers','Churned customers'],['marketingSpend','Sales & marketing spend (₹)'],['grossMarginPercent','Gross margin (%)']];const submit=(event:FormEvent)=>{event.preventDefault();const parsed:Record<string,number|undefined>={};fieldList.forEach(([key])=>{parsed[key]=validNum(fields[key]||'');});if(!Object.values(parsed).some((value)=>value!==undefined)){setError('Enter at least one metric value for this month.');return;}const entry:Omit<MonthlyMetric,'id'|'source'|'addedBy'|'updatedAt'>={period};Object.entries(parsed).forEach(([key,value])=>{if(value!==undefined)(entry as Record<string,unknown>)[key]=value;});onSave(entry);};return <ModalFrame title="Add monthly data" subtitle="Enter only values you can support. These figures stay in this browser; no accounting connection is active." onClose={onClose}><form className={styles.modalForm} onSubmit={submit}><label className={styles.formField}><span>Month</span><input type="month" required value={period} onChange={(event)=>setPeriod(event.target.value)}/></label><div className={styles.entryGrid}>{fieldList.map(([key,label])=><label className={styles.formField} key={key}><span>{label}</span><input type="number" min="0" step="any" value={fields[key]||''} onChange={(event)=>setFields((prev)=>({...prev,[key]:event.target.value}))} placeholder="Leave blank if not known"/></label>)}</div><p className={styles.formHelp}>MRR excludes one-time revenue. Net burn is calculated as gross burn − revenue. Runway is calculated only when cash, burn and revenue are all entered.</p>{error&&<p className={styles.formError} role="alert">{error}</p>}<div className={styles.dialogActions}><button type="button" className={styles.secondaryButton} onClick={onClose}>Cancel</button><button type="submit" className={styles.primaryButton}><Plus size={14}/>Save monthly data</button></div></form></ModalFrame>;}
-function MarketDataDialog({market,onClose,onSave}:{market:MarketEntry;onClose:()=>void;onSave:(entry:MarketEntry)=>void}){const [values,setValues]=useState<Record<string,string>>({tam:market.tam?.toString()||'',sam:market.sam?.toString()||'',som:market.som?.toString()||'',year:market.year||String(new Date().getFullYear()),source:market.source||'',population:market.population?.toString()||'',averagePrice:market.averagePrice?.toString()||'',adoptionPercent:market.adoptionPercent?.toString()||''});const [error,setError]=useState('');const submit=(event:FormEvent)=>{event.preventDefault();const tam=validNum(values.tam),sam=validNum(values.sam),som=validNum(values.som);if(tam!==undefined&&sam!==undefined&&sam>tam){setError('SAM cannot be larger than TAM.');return;}if(sam!==undefined&&som!==undefined&&som>sam){setError('SOM cannot be larger than SAM.');return;}if(tam===undefined&&sam===undefined&&som===undefined){setError('Enter at least one market size figure.');return;}onSave({tam,sam,som,year:values.year,source:values.source.trim(),population:validNum(values.population),averagePrice:validNum(values.averagePrice),adoptionPercent:validNum(values.adoptionPercent)});};return <ModalFrame title="Market assumptions" subtitle="Enter your method and source. Unsourced figures are labelled low confidence." onClose={onClose}><form className={styles.modalForm} onSubmit={submit}><div className={styles.formGrid}><label className={styles.formField}><span>TAM (₹)</span><input type="number" min="0" value={values.tam} onChange={(event)=>setValues({...values,tam:event.target.value})} placeholder="Total addressable market"/></label><label className={styles.formField}><span>SAM (₹)</span><input type="number" min="0" value={values.sam} onChange={(event)=>setValues({...values,sam:event.target.value})} placeholder="Serviceable market"/></label><label className={styles.formField}><span>SOM base estimate (₹)</span><input type="number" min="0" value={values.som} onChange={(event)=>setValues({...values,som:event.target.value})} placeholder="Obtainable market"/></label><label className={styles.formField}><span>Estimate year</span><input value={values.year} maxLength={4} onChange={(event)=>setValues({...values,year:event.target.value})} placeholder="2026"/></label><label className={styles.formField}><span>Population / accounts (optional)</span><input type="number" min="0" value={values.population} onChange={(event)=>setValues({...values,population:event.target.value})}/></label><label className={styles.formField}><span>Average annual price (₹)</span><input type="number" min="0" value={values.averagePrice} onChange={(event)=>setValues({...values,averagePrice:event.target.value})}/></label><label className={styles.formField}><span>Adoption assumption (%)</span><input type="number" min="0" max="100" value={values.adoptionPercent} onChange={(event)=>setValues({...values,adoptionPercent:event.target.value})}/></label></div><label className={styles.formField}><span>Source or method</span><textarea rows={2} maxLength={500} value={values.source} onChange={(event)=>setValues({...values,source:event.target.value})} placeholder="Report name, URL, calculation method or interview notes"/></label><p className={styles.formHelp}>With a source, confidence is shown as medium (team-entered). No source means low confidence. The conservative/base/optimistic SOM controls only scale your entered base estimate.</p>{error&&<p className={styles.formError} role="alert">{error}</p>}<div className={styles.dialogActions}><button type="button" className={styles.secondaryButton} onClick={onClose}>Cancel</button><button type="submit" className={styles.primaryButton}>Save assumptions</button></div></form></ModalFrame>;}
-function CompetitorDialog({onClose,onSave}:{onClose:()=>void;onSave:(item:Omit<Competitor,'id'|'updatedAt'>)=>void}){const [fields,setFields]=useState({name:'',type:'Direct' as Competitor['type'],targetCustomer:'',pricing:'',strengths:'',weaknesses:'',positionX:'5',positionY:'5',source:''});const [error,setError]=useState('');const submit=(event:FormEvent)=>{event.preventDefault();if(!fields.name.trim()){setError('Enter a competitor name.');return;}onSave({...fields,name:fields.name.trim(),positionX:Number(fields.positionX)||0,positionY:Number(fields.positionY)||0,source:fields.source.trim()});};return <ModalFrame title="Add competitor" subtitle="Team-entered only. Add a source; this workspace does not scrape private competitor data." onClose={onClose}><form className={styles.modalForm} onSubmit={submit}><div className={styles.formGrid}><label className={styles.formField}><span>Name *</span><input maxLength={100} value={fields.name} onChange={(event)=>setFields({...fields,name:event.target.value})}/></label><label className={styles.formField}><span>Type</span><select value={fields.type} onChange={(event)=>setFields({...fields,type:event.target.value as Competitor['type']})}><option>Direct</option><option>Indirect</option><option>Substitute</option></select></label><label className={styles.formField}><span>Target customer</span><input value={fields.targetCustomer} onChange={(event)=>setFields({...fields,targetCustomer:event.target.value})}/></label><label className={styles.formField}><span>Pricing notes</span><input value={fields.pricing} onChange={(event)=>setFields({...fields,pricing:event.target.value})}/></label><label className={styles.formField}><span>Price index · 0–10</span><input type="number" min="0" max="10" value={fields.positionX} onChange={(event)=>setFields({...fields,positionX:event.target.value})}/></label><label className={styles.formField}><span>Feature depth · 0–10</span><input type="number" min="0" max="10" value={fields.positionY} onChange={(event)=>setFields({...fields,positionY:event.target.value})}/></label><label className={styles.formField}><span>Strengths</span><textarea rows={2} value={fields.strengths} onChange={(event)=>setFields({...fields,strengths:event.target.value})}/></label><label className={styles.formField}><span>Weaknesses</span><textarea rows={2} value={fields.weaknesses} onChange={(event)=>setFields({...fields,weaknesses:event.target.value})}/></label></div><label className={styles.formField}><span>Source / notes</span><input value={fields.source} onChange={(event)=>setFields({...fields,source:event.target.value})} placeholder="URL, report or team note"/></label>{error&&<p className={styles.formError} role="alert">{error}</p>}<div className={styles.dialogActions}><button type="button" className={styles.secondaryButton} onClick={onClose}>Cancel</button><button className={styles.primaryButton}>Save competitor</button></div></form></ModalFrame>;}
-function KpiDialog({founder,onClose,onSave}:{founder:string;onClose:()=>void;onSave:(item:Omit<AnalyticsKpi,'id'>)=>void}){const [fields,setFields]=useState({name:'',target:'',current:'',owner:founder,note:''});const [error,setError]=useState('');const submit=(event:FormEvent)=>{event.preventDefault();if(!fields.name.trim()){setError('Enter a KPI name.');return;}onSave({...fields,name:fields.name.trim()});};return <ModalFrame title="Add custom KPI" subtitle="KPI targets and current values are entered by your team, not validated by the platform." onClose={onClose}><form className={styles.modalForm} onSubmit={submit}><div className={styles.formGrid}><label className={styles.formField}><span>KPI name *</span><input value={fields.name} onChange={(event)=>setFields({...fields,name:event.target.value})} placeholder="e.g. Activation rate"/></label><label className={styles.formField}><span>Owner</span><input value={fields.owner} onChange={(event)=>setFields({...fields,owner:event.target.value})}/></label><label className={styles.formField}><span>Target</span><input value={fields.target} onChange={(event)=>setFields({...fields,target:event.target.value})} placeholder="e.g. 25%"/></label><label className={styles.formField}><span>Current value</span><input value={fields.current} onChange={(event)=>setFields({...fields,current:event.target.value})} placeholder="e.g. 18%"/></label></div><label className={styles.formField}><span>Definition / source note</span><textarea rows={2} value={fields.note} onChange={(event)=>setFields({...fields,note:event.target.value})}/></label>{error&&<p className={styles.formError}>{error}</p>}<div className={styles.dialogActions}><button type="button" className={styles.secondaryButton} onClick={onClose}>Cancel</button><button className={styles.primaryButton}>Add KPI</button></div></form></ModalFrame>;}
-function ShareDialog({onClose}:{onClose:()=>void}){return <ModalFrame title="Share analytics report" subtitle="Sharing respects profile and data-room permissions." onClose={onClose}><div className={styles.shareNotice}><ShieldCheck size={22}/><strong>Report links aren’t connected yet.</strong><p>No public or view-only link has been created. Export a CSV or use Print / Save as PDF to share a reviewed copy outside this workspace.</p><div className={styles.dialogActions}><button type="button" className={styles.secondaryButton} onClick={onClose}>Close</button></div></div></ModalFrame>;}
-function AnalyticsDrawer({detail,records,note,onSaveNote,onClose,onEdit}:{detail:{title:string;definition:string;metricKey?:string};records:MonthlyMetric[];note:string;onSaveNote:(note:string)=>void;onClose:()=>void;onEdit:()=>void}){const [draft,setDraft]=useState(note);useEffect(()=>{const handler=(event:globalThis.KeyboardEvent)=>{if(event.key==='Escape')onClose();};window.addEventListener('keydown',handler);return()=>window.removeEventListener('keydown',handler);},[onClose]);return <div className={styles.drawerBackdrop} role="presentation" onMouseDown={onClose}><aside className={styles.detailDrawer} role="dialog" aria-modal="true" aria-labelledby="detail-title" onMouseDown={(event)=>event.stopPropagation()}><header className={styles.drawerHeader}><div><span className={styles.eyebrow}>Analytics detail</span><h2 id="detail-title">{detail.title}</h2></div><button type="button" onClick={onClose} aria-label="Close details"><X size={17}/></button></header><div className={styles.drawerBody}><section><h3>Definition &amp; formula</h3><p>{detail.definition}</p></section><section><h3>Underlying monthly values</h3>{records.length?<MetricsTable records={records}/>:<p className={styles.dataCaption}>No monthly values have been entered.</p>}</section><section><h3>Team note</h3><textarea rows={4} maxLength={1000} value={draft} onChange={(event)=>setDraft(event.target.value)} placeholder="Add an annotation for your team…"/><button type="button" className={styles.primaryButton} onClick={()=>onSaveNote(draft)}>Save note</button></section><p className={styles.formHelp}>Manual edits and annotations are stored in this browser. No API or external source is connected.</p></div><footer className={styles.drawerFooter}><button type="button" className={styles.secondaryButton} onClick={onEdit}>Edit data</button><button type="button" className={styles.primaryButton} onClick={onClose}>Done</button></footer></aside></div>;}
+function JourneyTab({
+  data,
+  currentStage,
+  mentorTasks,
+  allTasks,
+}: {
+  data: ReturnType<typeof useStartupWorkspace>["data"];
+  currentStage: ReturnType<typeof useStartupWorkspace>["data"]["stages"][number];
+  mentorTasks: StartupTaskItem[];
+  allTasks: StartupTaskItem[];
+}) {
+  const done = currentStage.exitCriteria.filter((item) => item.completed).length;
+  const awaiting = mentorTasks.filter(
+    (task) => task.status === "completed" && task.mentorStatus !== "approved",
+  );
+  return (
+    <div className={styles.tabStack}>
+      <div className={styles.kpiGrid}>
+        {[
+          {
+            label: "Readiness score",
+            value: "Not assessed",
+            sub: "Verified service not connected",
+            def: DEFINITIONS.readiness,
+          },
+          {
+            label: "Current criteria",
+            value: `${done}/${currentStage.exitCriteria.length}`,
+            sub: "Marked met · not approved",
+            def: "Count of current-stage checklist items marked complete. Not a weighted score.",
+          },
+          {
+            label: "Mentor sessions held",
+            value: "Not tracked",
+            sub: "No session history",
+            def: "Mentor-session history is not available in this workspace.",
+          },
+          {
+            label: "Investor views",
+            value: "Not connected",
+            sub: "No profile analytics source",
+            def: "Investor view data is not connected.",
+          },
+        ].map((item) => (
+          <KpiCard
+            key={item.label}
+            label={item.label}
+            value={item.value}
+            change={item.sub}
+            tone="neutral"
+            definition={item.def}
+            source={item.label === "Current criteria" ? "Workspace state" : "Not connected"}
+            updated={
+              item.label === "Current criteria" ? "Current checklist" : "No source connected"
+            }
+            onClick={() => {}}
+          />
+        ))}
+      </div>
+      <section className={styles.panelCard}>
+        <div className={styles.panelTitle}>
+          <div>
+            <h2>Stage progress</h2>
+            <p>Start dates and duration are blank until history is recorded.</p>
+          </div>
+          <Link href="/startup/stage">
+            Stage overview <ArrowRight size={13} />
+          </Link>
+        </div>
+        <div className={styles.longTimeline}>
+          {data.stages.map((stage, index) => {
+            const current = stage.id === data.startup.currentStage;
+            const past =
+              data.stages.findIndex((item) => item.id === stage.id) <
+              data.stages.findIndex((item) => item.id === data.startup.currentStage);
+            return (
+              <Link
+                href={STAGE_HREF[stage.id]}
+                key={stage.id}
+                className={`${styles.timelineStage} ${current ? styles.timelineStageCurrent : ""} ${past ? styles.timelineStagePast : ""}`}
+              >
+                <span>{past ? <CheckCircle2 size={14} /> : `0${index + 1}`}</span>
+                <div>
+                  <strong>{stage.label}</strong>
+                  <small>
+                    {stage.exitCriteria.filter((criterion) => criterion.completed).length}/
+                    {stage.exitCriteria.length} marked met
+                  </small>
+                  <small>Start date · not recorded</small>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+      <div className={styles.twoColumn}>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Readiness breakdown</h2>
+              <p>The verified readiness service is not connected.</p>
+            </div>
+            <CircleHelp size={16} />
+          </div>
+          <div className={styles.readinessBreakdown}>
+            <div>
+              <span>Current-stage checklist</span>
+              <strong>
+                {done}/{currentStage.exitCriteria.length} marked met
+              </strong>
+              <div className={styles.thinTrack}>
+                <span
+                  style={{
+                    width: `${currentStage.exitCriteria.length ? (done / currentStage.exitCriteria.length) * 100 : 0}%`,
+                  }}
+                />
+              </div>
+            </div>
+            <div>
+              <span>Traction data</span>
+              <strong>Not connected</strong>
+              <div className={styles.thinTrack}>
+                <span />
+              </div>
+            </div>
+            <div>
+              <span>Mentor sign-offs</span>
+              <strong>Not connected</strong>
+              <div className={styles.thinTrack}>
+                <span />
+              </div>
+            </div>
+          </div>
+          <p className={styles.disclaimer}>
+            Checklist completion is a workspace count, not a weighted score or funding verdict.
+          </p>
+        </section>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Mentor impact</h2>
+              <p>Session history unavailable; next session is shown.</p>
+            </div>
+            <Users size={16} />
+          </div>
+          <div className={styles.mentorSession}>
+            <span className={styles.mentorAvatar}>{initials(data.mentor.name)}</span>
+            <div>
+              <strong>{data.mentor.name}</strong>
+              <small>
+                {data.mentor.nextSession.status} · {data.mentor.nextSession.topic}
+              </small>
+              <small>
+                {data.mentor.nextSession.dateLabel} · {data.mentor.nextSession.timeLabel}
+              </small>
+            </div>
+          </div>
+          <div className={styles.journeyMiniStats}>
+            <span>
+              Sessions held <strong>Not tracked</strong>
+            </span>
+            <span>
+              Completed deliverables awaiting review <strong>{awaiting.length}</strong>
+            </span>
+            <span>
+              On-time completion <strong>Not calculated</strong>
+            </span>
+          </div>
+          <p className={styles.dataCaption}>
+            Deliverables are local task records; mentor sign-off is not connected.
+          </p>
+        </section>
+      </div>
+      <div className={styles.twoColumn}>
+        <UnconnectedPanel
+          title="Investor funnel"
+          subtitle="Profile views → shortlist → meetings → closed"
+          message="Investor activity isn’t connected, so no views or conversion rates are shown."
+        />
+        <UnconnectedPanel
+          title="Hiring funnel"
+          subtitle="Applicants → shortlist → interview → offer → hired"
+          message="Hiring pipeline records aren’t available; connect the Jobs module to populate this section."
+        />
+      </div>
+      <section className={styles.panelCard}>
+        <div className={styles.panelTitle}>
+          <div>
+            <h2>Workspace usage snapshot</h2>
+            <p>Current counts only — no individual monitoring or weekly trends.</p>
+          </div>
+          <Activity size={16} />
+        </div>
+        <div className={styles.usageGrid}>
+          <UsageMetric
+            label="Team members"
+            value={String(data.team.length)}
+            detail="Current roster"
+          />
+          <UsageMetric
+            label="Task records"
+            value={String(allTasks.length)}
+            detail="Workspace sample"
+          />
+          <UsageMetric
+            label="Completed tasks"
+            value={String(allTasks.filter((task) => task.status === "completed").length)}
+            detail="Current status count"
+          />
+          <UsageMetric
+            label="Documents"
+            value={String(data.documents.length)}
+            detail="Workspace list"
+          />
+        </div>
+      </section>
+    </div>
+  );
+}
+function MarketTab({
+  market,
+  competitors,
+  scenario,
+  setScenario,
+  onEdit,
+  onAddCompetitor,
+  swot,
+  swotDraft,
+  setSwotDraft,
+  onAddSwot,
+  onDeleteCompetitor,
+  onDeleteSwot,
+  search,
+  setSearch,
+}: {
+  market: MarketEntry;
+  competitors: Competitor[];
+  scenario: "conservative" | "base" | "optimistic";
+  setScenario: (value: "conservative" | "base" | "optimistic") => void;
+  onEdit: () => void;
+  onAddCompetitor: () => void;
+  swot: AnalyticsState["swot"];
+  swotDraft: Record<string, string>;
+  setSwotDraft: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  onAddSwot: (category: keyof AnalyticsState["swot"], text: string) => void;
+  onDeleteCompetitor: (id: string) => void;
+  onDeleteSwot: (category: keyof AnalyticsState["swot"], id: string) => void;
+  search: string;
+  setSearch: (value: string) => void;
+}) {
+  const confidence = market.source?.trim() ? "Medium · team estimate" : "Low · source missing";
+  const somScale = scenario === "conservative" ? 0.5 : scenario === "optimistic" ? 1.5 : 1;
+  const shownSom = market.som !== undefined ? market.som * somScale : undefined;
+  const marketValues = [market.tam, market.sam, shownSom];
+  const maxMarket = Math.max(
+    ...marketValues.filter((value): value is number => value !== undefined),
+    1,
+  );
+  const trendText = search.trim().toLowerCase();
+  const tracked = competitors.filter(
+    (item) =>
+      !trendText ||
+      item.name.toLowerCase().includes(trendText) ||
+      item.targetCustomer.toLowerCase().includes(trendText),
+  );
+  return (
+    <div className={styles.tabStack}>
+      <div className={styles.marketWarning}>
+        <AlertCircle size={16} />
+        <span>
+          <strong>Market figures are estimates.</strong> Check sources and assumptions before using
+          them in a pitch or funding decision.
+        </span>
+      </div>
+      <div className={styles.kpiGrid}>
+        {[
+          {
+            label: "Serviceable market (SAM)",
+            value: market.sam !== undefined ? money(market.sam) : "No estimate",
+            sub: market.source ? "Team-entered estimate" : "Enter a value and source",
+            def: "Serviceable available market as entered by the team. The platform has not verified the method or source.",
+          },
+          {
+            label: "Estimated market share",
+            value: "Not calculated",
+            sub: "Requires validated SOM and market data",
+            def: "Market share is not calculated because comparable market and sales data are not connected.",
+          },
+          {
+            label: "Market growth rate",
+            value: "Not available",
+            sub: "No cited trend data",
+            def: "Growth rate requires a dated source and a comparable time series.",
+          },
+          {
+            label: "Competitors tracked",
+            value: String(competitors.length),
+            sub: "Team-entered entries only",
+            def: "Count of competitor records entered in this workspace.",
+          },
+        ].map((item) => (
+          <KpiCard
+            key={item.label}
+            label={item.label}
+            value={item.value}
+            change={item.sub}
+            tone="neutral"
+            definition={item.def}
+            source={item.label === "Competitors tracked" ? "Entered by team" : "Not connected"}
+            updated={
+              item.label === "Competitors tracked"
+                ? "Local competitor records"
+                : "No verified source"
+            }
+            onClick={() => {}}
+          />
+        ))}
+      </div>
+      <div className={styles.twoColumn}>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Market size</h2>
+              <p>TAM → SAM → SOM · {market.year || "year not entered"}</p>
+            </div>
+            <button type="button" className={styles.secondaryButton} onClick={onEdit}>
+              <Plus size={13} />
+              Edit assumptions
+            </button>
+          </div>
+          {market.tam !== undefined || market.sam !== undefined || market.som !== undefined ? (
+            <>
+              <div className={styles.marketBars}>
+                {[
+                  { key: "tam", label: "TAM", value: market.tam, color: "var(--ink)" },
+                  { key: "sam", label: "SAM", value: market.sam, color: "var(--gold)" },
+                  {
+                    key: "som",
+                    label: `SOM · ${scenario}`,
+                    value: shownSom,
+                    color: "var(--stone-400)",
+                  },
+                ].map((item) => (
+                  <div className={styles.marketBarRow} key={item.key}>
+                    <span>{item.label}</span>
+                    <div>
+                      <i
+                        style={{
+                          width: `${item.value === undefined ? 0 : Math.max(2, (item.value / maxMarket) * 100)}%`,
+                          background: item.color,
+                        }}
+                      />
+                    </div>
+                    <strong>{money(item.value)}</strong>
+                  </div>
+                ))}
+              </div>
+              <div className={styles.scenarioToggle}>
+                <span>Scenario for SOM</span>
+                {(["conservative", "base", "optimistic"] as const).map((item) => (
+                  <button
+                    type="button"
+                    key={item}
+                    aria-pressed={scenario === item}
+                    disabled={market.som === undefined}
+                    onClick={() => setScenario(item)}
+                  >
+                    {item[0].toUpperCase() + item.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.assumptionGrid}>
+                <span>
+                  Population / accounts
+                  <strong>{market.population?.toLocaleString("en-IN") || "Not entered"}</strong>
+                </span>
+                <span>
+                  Average annual price
+                  <strong>
+                    {market.averagePrice !== undefined ? money(market.averagePrice) : "Not entered"}
+                  </strong>
+                </span>
+                <span>
+                  Adoption assumption
+                  <strong>
+                    {market.adoptionPercent !== undefined
+                      ? `${market.adoptionPercent}%`
+                      : scenario === "base"
+                        ? "Base estimate entered directly"
+                        : "Scenario only"}
+                  </strong>
+                </span>
+                <span>
+                  Confidence<strong>{confidence}</strong>
+                </span>
+              </div>
+              <p className={styles.dataCaption}>
+                SOM scenarios scale the entered base SOM by 0.5× / 1× / 1.5×. Scenario multipliers
+                are illustrative assumptions, not research findings.
+              </p>
+              <div className={styles.sourceLine}>
+                <span>Source: {market.source || "No source attached"}</span>
+                <span>
+                  Updated:{" "}
+                  {market.updatedAt
+                    ? new Date(market.updatedAt).toLocaleDateString("en-IN")
+                    : "Not recorded"}
+                </span>
+              </div>
+            </>
+          ) : (
+            <EmptyDataInline
+              title="No market-size figures entered."
+              detail="Enter TAM, SAM and SOM values, year, assumptions and a source. Unsourced values remain low confidence."
+              action="Edit assumptions"
+              onClick={onEdit}
+            />
+          )}
+        </section>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Market size over time</h2>
+              <p>Trend and forecast require dated, comparable estimates.</p>
+            </div>
+            <LineChart size={16} />
+          </div>
+          <EmptyDataInline
+            title="No market history available."
+            detail="A single estimate is not a trend. Add dated, sourced values before drawing a growth line or forecast."
+            action="Add market data"
+            onClick={onEdit}
+          />
+        </section>
+      </div>
+      <div className={styles.sectionTitle}>
+        <div>
+          <h2>Competitor landscape</h2>
+          <p>Manually entered team records only; private data is never scraped.</p>
+        </div>
+        <button type="button" className={styles.primaryButton} onClick={onAddCompetitor}>
+          <Plus size={14} /> Add competitor
+        </button>
+      </div>
+      <section className={styles.panelCard}>
+        <div className={styles.competitorToolbar}>
+          <div className={styles.searchSmall}>
+            <Search size={14} />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search competitors or target customer"
+              aria-label="Search competitor entries"
+            />
+          </div>
+          <SourceChip source="Entered by team" updated="No platform scrape" />
+        </div>
+        {tracked.length ? (
+          <div className={styles.tableScroll}>
+            <table className={styles.dataTable}>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Target customer</th>
+                  <th>Pricing</th>
+                  <th>Strengths</th>
+                  <th>Weaknesses</th>
+                  <th>Source / updated</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {tracked.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <strong>{item.name}</strong>
+                    </td>
+                    <td>{item.type}</td>
+                    <td>{item.targetCustomer || "—"}</td>
+                    <td>{item.pricing || "—"}</td>
+                    <td>{item.strengths || "—"}</td>
+                    <td>{item.weaknesses || "—"}</td>
+                    <td>
+                      {item.source || "No source"}
+                      <small className={styles.tableSub}>
+                        {new Date(item.updatedAt).toLocaleDateString("en-IN")}
+                      </small>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className={styles.iconButton}
+                        onClick={() => onDeleteCompetitor(item.id)}
+                        aria-label={`Delete ${item.name}`}
+                      >
+                        <X size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyDataInline
+            title={
+              competitors.length ? "No competitors match the search." : "No competitor records yet."
+            }
+            detail={
+              competitors.length
+                ? "Clear the search or add another entry."
+                : "Add competitor entries with the team’s source and confidence context."
+            }
+            action="Add competitor"
+            onClick={onAddCompetitor}
+          />
+        )}
+      </section>
+      <div className={styles.twoColumn}>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Positioning map</h2>
+              <p>Price index vs feature depth · team-assigned 0–10 inputs</p>
+            </div>
+            <Target size={16} />
+          </div>
+          {competitors.length ? (
+            <PositioningMap competitors={competitors} />
+          ) : (
+            <EmptyDataInline
+              title="No positioning data to plot."
+              detail="Add at least one competitor and enter comparable 0–10 position values. The chart is based only on team entries."
+              action="Add competitor"
+              onClick={onAddCompetitor}
+            />
+          )}
+        </section>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Feature comparison</h2>
+              <p>Competitor capabilities and evidence</p>
+            </div>
+            <Filter size={15} />
+          </div>
+          <EmptyDataInline
+            title="No feature comparison criteria entered."
+            detail="Feature-level comparisons are not inferred from competitor names. Record sourced attributes in a future iteration."
+          />
+        </section>
+      </div>
+      <div className={styles.twoColumn}>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Industry trends</h2>
+              <p>Curated platform content is not connected.</p>
+            </div>
+            <TrendingUp size={16} />
+          </div>
+          <label className={styles.searchSmall}>
+            <Search size={14} />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search market data"
+            />
+          </label>
+          <EmptyDataInline
+            title="No sourced trend entries."
+            detail="Add team research with a source and date, or connect curated platform content. Search interest data is not available."
+          />
+        </section>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Customer demand &amp; segments</h2>
+              <p>Interview and segment analytics</p>
+            </div>
+            <Users size={16} />
+          </div>
+          <EmptyDataInline
+            title="Demand signals aren’t connected."
+            detail="Waitlist, inbound-lead and interview pain-level records are not available. Task records are not counted as customers or interviews."
+          />
+        </section>
+      </div>
+      <div className={styles.twoColumn}>
+        <section className={styles.panelCard}>
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>Peer benchmarks</h2>
+              <p>Opt-in, anonymized comparison · minimum 10 startups</p>
+            </div>
+            <ShieldCheck size={16} />
+          </div>
+          <div className={styles.benchmarkLock}>
+            <ShieldCheck size={20} />
+            <strong>Benchmark unavailable</strong>
+            <p>
+              There is no verified, consented peer group available in this demo. Individual startup
+              data is never shown.
+            </p>
+            <small>
+              Minimum cohort size: {analyticsConfig.benchmarkMinimum}. No benchmark values are
+              estimated.
+            </small>
+          </div>
+        </section>
+        <UnconnectedPanel
+          title="Funding & investor landscape"
+          subtitle="Sector deals, rounds and aggregate interest"
+          message="Funding activity and investor-stage data require cited platform or external sources. No numbers or investor names are shown here."
+        />
+      </div>
+      <section className={styles.panelCard}>
+        <div className={styles.panelTitle}>
+          <div>
+            <h2>Market notes · SWOT</h2>
+            <p>Team-authored observations; add evidence in the note.</p>
+          </div>
+          <Info size={15} />
+        </div>
+        <div className={styles.swotGrid}>
+          {(["Strengths", "Weaknesses", "Opportunities", "Threats"] as const).map((category) => (
+            <section className={styles.swotColumn} key={category}>
+              <h3>{category}</h3>
+              <div className={styles.swotNotes}>
+                {swot[category].map((note) => (
+                  <article key={note.id}>
+                    <p>{note.text}</p>
+                    <small>
+                      Team note · {new Date(note.createdAt).toLocaleDateString("en-IN")}
+                    </small>
+                    <button
+                      type="button"
+                      onClick={() => onDeleteSwot(category, note.id)}
+                      aria-label={`Delete ${category} note`}
+                    >
+                      <X size={12} />
+                    </button>
+                  </article>
+                ))}
+                {!swot[category].length && <small className={styles.noSwot}>No notes added.</small>}
+              </div>
+              <form
+                className={styles.swotForm}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  onAddSwot(category, swotDraft[category] || "");
+                }}
+              >
+                <input
+                  value={swotDraft[category] || ""}
+                  onChange={(event) =>
+                    setSwotDraft((prev) => ({ ...prev, [category]: event.target.value }))
+                  }
+                  maxLength={300}
+                  placeholder={`Add a ${category.toLowerCase()} note`}
+                />
+                <button
+                  type="submit"
+                  disabled={!swotDraft[category]?.trim()}
+                  aria-label={`Add ${category} note`}
+                >
+                  <Plus size={14} />
+                </button>
+              </form>
+            </section>
+          ))}
+        </div>
+        <p className={styles.dataCaption}>
+          These notes are stored locally and are not automatically exported to a pitch or data room.
+        </p>
+      </section>
+    </div>
+  );
+}
+function PositioningMap({ competitors }: { competitors: Competitor[] }) {
+  return (
+    <div className={styles.positionMap}>
+      <span className={styles.axisY}>Feature depth</span>
+      <svg viewBox="0 0 520 245" role="img" aria-label="Team-entered competitor positioning plot">
+        <line x1="52" y1="18" x2="52" y2="210" stroke="var(--stone-400)" />
+        <line x1="52" y1="210" x2="500" y2="210" stroke="var(--stone-400)" />
+        {[0, 1, 2, 3, 4].map((n) => (
+          <g key={n}>
+            <line
+              x1="52"
+              x2="500"
+              y1={18 + n * 48}
+              y2={18 + n * 48}
+              stroke="var(--border-subtle)"
+            />
+            <line
+              x1={52 + n * 112}
+              x2={52 + n * 112}
+              y1="18"
+              y2="210"
+              stroke="var(--border-subtle)"
+            />
+          </g>
+        ))}
+        {competitors.map((item, index) => (
+          <g key={item.id}>
+            <circle
+              cx={52 + Math.max(0, Math.min(10, item.positionX)) * 44.8}
+              cy={210 - Math.max(0, Math.min(10, item.positionY)) * 19.2}
+              r="6"
+              fill="var(--ink)"
+            />
+            <text
+              x={58 + Math.max(0, Math.min(10, item.positionX)) * 44.8}
+              y={206 - Math.max(0, Math.min(10, item.positionY)) * 19.2}
+              fontSize="9"
+              fill="var(--text-primary)"
+            >
+              {item.name.slice(0, 16) || `Competitor ${index + 1}`}
+            </text>
+          </g>
+        ))}
+      </svg>
+      <span className={styles.axisX}>Price index →</span>
+      <p>Relative axes are entered by the team (0–10); they are not market-measured values.</p>
+    </div>
+  );
+}
+function AddDataDialog({
+  tab,
+  market,
+  onClose,
+  onSaveMonthly,
+  onSaveMarket,
+}: {
+  tab: AnalyticsTab;
+  market: MarketEntry;
+  onClose: () => void;
+  onSaveMonthly: (entry: Omit<MonthlyMetric, "id" | "source" | "addedBy" | "updatedAt">) => void;
+  onSaveMarket: (entry: MarketEntry) => void;
+}) {
+  return tab === "market" ? (
+    <MarketDataDialog market={market} onClose={onClose} onSave={onSaveMarket} />
+  ) : (
+    <MonthlyDataDialog onClose={onClose} onSave={onSaveMonthly} />
+  );
+}
+function ModalFrame({
+  title,
+  subtitle,
+  eyebrow = "Analytics",
+  onClose,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  eyebrow?: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    const handler = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+  return (
+    <div className={styles.modalBackdrop} role="presentation" onMouseDown={onClose}>
+      <section
+        className={styles.modal}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="analytics-dialog-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header className={styles.modalHeader}>
+          <div>
+            <span className={styles.eyebrow}>{eyebrow}</span>
+            <h2 id="analytics-dialog-title">{title}</h2>
+            <p>{subtitle}</p>
+          </div>
+          <button type="button" aria-label="Close dialog" onClick={onClose}>
+            <X size={17} />
+          </button>
+        </header>
+        {children}
+      </section>
+    </div>
+  );
+}
+function MonthlyDataDialog({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void;
+  onSave: (entry: Omit<MonthlyMetric, "id" | "source" | "addedBy" | "updatedAt">) => void;
+}) {
+  const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
+  const [fields, setFields] = useState<Record<string, string>>({});
+  const [error, setError] = useState("");
+  const fieldList = [
+    ["mrr", "Monthly recurring revenue (₹)"],
+    ["revenue", "Revenue received (₹)"],
+    ["grossBurn", "Gross cash spend / burn (₹)"],
+    ["cashBalance", "Cash balance (₹)"],
+    ["activeCustomers", "Active customers"],
+    ["customersAtStart", "Customers at start of period"],
+    ["newCustomers", "New customers"],
+    ["churnedCustomers", "Churned customers"],
+    ["marketingSpend", "Sales & marketing spend (₹)"],
+    ["grossMarginPercent", "Gross margin (%)"],
+  ];
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const parsed: Record<string, number | undefined> = {};
+    fieldList.forEach(([key]) => {
+      parsed[key] = validNum(fields[key] || "");
+    });
+    if (!Object.values(parsed).some((value) => value !== undefined)) {
+      setError("Enter at least one metric value for this month.");
+      return;
+    }
+    const entry: Omit<MonthlyMetric, "id" | "source" | "addedBy" | "updatedAt"> = { period };
+    Object.entries(parsed).forEach(([key, value]) => {
+      if (value !== undefined) (entry as Record<string, unknown>)[key] = value;
+    });
+    onSave(entry);
+  };
+  return (
+    <ModalFrame
+      title="Add monthly data"
+      subtitle="Enter only values you can support. These figures stay in this browser; no accounting connection is active."
+      onClose={onClose}
+    >
+      <form className={styles.modalForm} onSubmit={submit}>
+        <label className={styles.formField}>
+          <span>Month</span>
+          <input
+            type="month"
+            required
+            value={period}
+            onChange={(event) => setPeriod(event.target.value)}
+          />
+        </label>
+        <div className={styles.entryGrid}>
+          {fieldList.map(([key, label]) => (
+            <label className={styles.formField} key={key}>
+              <span>{label}</span>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={fields[key] || ""}
+                onChange={(event) => setFields((prev) => ({ ...prev, [key]: event.target.value }))}
+                placeholder="Leave blank if not known"
+              />
+            </label>
+          ))}
+        </div>
+        <p className={styles.formHelp}>
+          MRR excludes one-time revenue. Net burn is calculated as gross burn − revenue. Runway is
+          calculated only when cash, burn and revenue are all entered.
+        </p>
+        {error && (
+          <p className={styles.formError} role="alert">
+            {error}
+          </p>
+        )}
+        <div className={styles.dialogActions}>
+          <button type="button" className={styles.secondaryButton} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className={styles.primaryButton}>
+            <Plus size={14} />
+            Save monthly data
+          </button>
+        </div>
+      </form>
+    </ModalFrame>
+  );
+}
+function MarketDataDialog({
+  market,
+  onClose,
+  onSave,
+}: {
+  market: MarketEntry;
+  onClose: () => void;
+  onSave: (entry: MarketEntry) => void;
+}) {
+  const [values, setValues] = useState<Record<string, string>>({
+    tam: market.tam?.toString() || "",
+    sam: market.sam?.toString() || "",
+    som: market.som?.toString() || "",
+    year: market.year || String(new Date().getFullYear()),
+    source: market.source || "",
+    population: market.population?.toString() || "",
+    averagePrice: market.averagePrice?.toString() || "",
+    adoptionPercent: market.adoptionPercent?.toString() || "",
+  });
+  const [error, setError] = useState("");
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const tam = validNum(values.tam),
+      sam = validNum(values.sam),
+      som = validNum(values.som);
+    if (tam !== undefined && sam !== undefined && sam > tam) {
+      setError("SAM cannot be larger than TAM.");
+      return;
+    }
+    if (sam !== undefined && som !== undefined && som > sam) {
+      setError("SOM cannot be larger than SAM.");
+      return;
+    }
+    if (tam === undefined && sam === undefined && som === undefined) {
+      setError("Enter at least one market size figure.");
+      return;
+    }
+    onSave({
+      tam,
+      sam,
+      som,
+      year: values.year,
+      source: values.source.trim(),
+      population: validNum(values.population),
+      averagePrice: validNum(values.averagePrice),
+      adoptionPercent: validNum(values.adoptionPercent),
+    });
+  };
+  return (
+    <ModalFrame
+      title="Market assumptions"
+      subtitle="Enter your method and source. Unsourced figures are labelled low confidence."
+      onClose={onClose}
+    >
+      <form className={styles.modalForm} onSubmit={submit}>
+        <div className={styles.formGrid}>
+          <label className={styles.formField}>
+            <span>TAM (₹)</span>
+            <input
+              type="number"
+              min="0"
+              value={values.tam}
+              onChange={(event) => setValues({ ...values, tam: event.target.value })}
+              placeholder="Total addressable market"
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>SAM (₹)</span>
+            <input
+              type="number"
+              min="0"
+              value={values.sam}
+              onChange={(event) => setValues({ ...values, sam: event.target.value })}
+              placeholder="Serviceable market"
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>SOM base estimate (₹)</span>
+            <input
+              type="number"
+              min="0"
+              value={values.som}
+              onChange={(event) => setValues({ ...values, som: event.target.value })}
+              placeholder="Obtainable market"
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Estimate year</span>
+            <input
+              value={values.year}
+              maxLength={4}
+              onChange={(event) => setValues({ ...values, year: event.target.value })}
+              placeholder="2026"
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Population / accounts (optional)</span>
+            <input
+              type="number"
+              min="0"
+              value={values.population}
+              onChange={(event) => setValues({ ...values, population: event.target.value })}
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Average annual price (₹)</span>
+            <input
+              type="number"
+              min="0"
+              value={values.averagePrice}
+              onChange={(event) => setValues({ ...values, averagePrice: event.target.value })}
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Adoption assumption (%)</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={values.adoptionPercent}
+              onChange={(event) => setValues({ ...values, adoptionPercent: event.target.value })}
+            />
+          </label>
+        </div>
+        <label className={styles.formField}>
+          <span>Source or method</span>
+          <textarea
+            rows={2}
+            maxLength={500}
+            value={values.source}
+            onChange={(event) => setValues({ ...values, source: event.target.value })}
+            placeholder="Report name, URL, calculation method or interview notes"
+          />
+        </label>
+        <p className={styles.formHelp}>
+          With a source, confidence is shown as medium (team-entered). No source means low
+          confidence. The conservative/base/optimistic SOM controls only scale your entered base
+          estimate.
+        </p>
+        {error && (
+          <p className={styles.formError} role="alert">
+            {error}
+          </p>
+        )}
+        <div className={styles.dialogActions}>
+          <button type="button" className={styles.secondaryButton} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className={styles.primaryButton}>
+            Save assumptions
+          </button>
+        </div>
+      </form>
+    </ModalFrame>
+  );
+}
+function CompetitorDialog({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void;
+  onSave: (item: Omit<Competitor, "id" | "updatedAt">) => void;
+}) {
+  const [fields, setFields] = useState({
+    name: "",
+    type: "Direct" as Competitor["type"],
+    targetCustomer: "",
+    pricing: "",
+    strengths: "",
+    weaknesses: "",
+    positionX: "5",
+    positionY: "5",
+    source: "",
+  });
+  const [error, setError] = useState("");
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!fields.name.trim()) {
+      setError("Enter a competitor name.");
+      return;
+    }
+    onSave({
+      ...fields,
+      name: fields.name.trim(),
+      positionX: Number(fields.positionX) || 0,
+      positionY: Number(fields.positionY) || 0,
+      source: fields.source.trim(),
+    });
+  };
+  return (
+    <ModalFrame
+      title="Add competitor"
+      subtitle="Team-entered only. Add a source; this workspace does not scrape private competitor data."
+      onClose={onClose}
+    >
+      <form className={styles.modalForm} onSubmit={submit}>
+        <div className={styles.formGrid}>
+          <label className={styles.formField}>
+            <span>Name *</span>
+            <input
+              maxLength={100}
+              value={fields.name}
+              onChange={(event) => setFields({ ...fields, name: event.target.value })}
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Type</span>
+            <select
+              value={fields.type}
+              onChange={(event) =>
+                setFields({ ...fields, type: event.target.value as Competitor["type"] })
+              }
+            >
+              <option>Direct</option>
+              <option>Indirect</option>
+              <option>Substitute</option>
+            </select>
+          </label>
+          <label className={styles.formField}>
+            <span>Target customer</span>
+            <input
+              value={fields.targetCustomer}
+              onChange={(event) => setFields({ ...fields, targetCustomer: event.target.value })}
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Pricing notes</span>
+            <input
+              value={fields.pricing}
+              onChange={(event) => setFields({ ...fields, pricing: event.target.value })}
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Price index · 0–10</span>
+            <input
+              type="number"
+              min="0"
+              max="10"
+              value={fields.positionX}
+              onChange={(event) => setFields({ ...fields, positionX: event.target.value })}
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Feature depth · 0–10</span>
+            <input
+              type="number"
+              min="0"
+              max="10"
+              value={fields.positionY}
+              onChange={(event) => setFields({ ...fields, positionY: event.target.value })}
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Strengths</span>
+            <textarea
+              rows={2}
+              value={fields.strengths}
+              onChange={(event) => setFields({ ...fields, strengths: event.target.value })}
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Weaknesses</span>
+            <textarea
+              rows={2}
+              value={fields.weaknesses}
+              onChange={(event) => setFields({ ...fields, weaknesses: event.target.value })}
+            />
+          </label>
+        </div>
+        <label className={styles.formField}>
+          <span>Source / notes</span>
+          <input
+            value={fields.source}
+            onChange={(event) => setFields({ ...fields, source: event.target.value })}
+            placeholder="URL, report or team note"
+          />
+        </label>
+        {error && (
+          <p className={styles.formError} role="alert">
+            {error}
+          </p>
+        )}
+        <div className={styles.dialogActions}>
+          <button type="button" className={styles.secondaryButton} onClick={onClose}>
+            Cancel
+          </button>
+          <button className={styles.primaryButton}>Save competitor</button>
+        </div>
+      </form>
+    </ModalFrame>
+  );
+}
+function KpiDialog({
+  founder,
+  onClose,
+  onSave,
+}: {
+  founder: string;
+  onClose: () => void;
+  onSave: (item: Omit<AnalyticsKpi, "id">) => void;
+}) {
+  const [fields, setFields] = useState({
+    name: "",
+    target: "",
+    current: "",
+    owner: founder,
+    note: "",
+  });
+  const [error, setError] = useState("");
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!fields.name.trim()) {
+      setError("Enter a KPI name.");
+      return;
+    }
+    onSave({ ...fields, name: fields.name.trim() });
+  };
+  return (
+    <ModalFrame
+      title="Add custom KPI"
+      subtitle="KPI targets and current values are entered by your team, not validated by the platform."
+      onClose={onClose}
+    >
+      <form className={styles.modalForm} onSubmit={submit}>
+        <div className={styles.formGrid}>
+          <label className={styles.formField}>
+            <span>KPI name *</span>
+            <input
+              value={fields.name}
+              onChange={(event) => setFields({ ...fields, name: event.target.value })}
+              placeholder="e.g. Activation rate"
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Owner</span>
+            <input
+              value={fields.owner}
+              onChange={(event) => setFields({ ...fields, owner: event.target.value })}
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Target</span>
+            <input
+              value={fields.target}
+              onChange={(event) => setFields({ ...fields, target: event.target.value })}
+              placeholder="e.g. 25%"
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Current value</span>
+            <input
+              value={fields.current}
+              onChange={(event) => setFields({ ...fields, current: event.target.value })}
+              placeholder="e.g. 18%"
+            />
+          </label>
+        </div>
+        <label className={styles.formField}>
+          <span>Definition / source note</span>
+          <textarea
+            rows={2}
+            value={fields.note}
+            onChange={(event) => setFields({ ...fields, note: event.target.value })}
+          />
+        </label>
+        {error && <p className={styles.formError}>{error}</p>}
+        <div className={styles.dialogActions}>
+          <button type="button" className={styles.secondaryButton} onClick={onClose}>
+            Cancel
+          </button>
+          <button className={styles.primaryButton}>Add KPI</button>
+        </div>
+      </form>
+    </ModalFrame>
+  );
+}
+function ShareDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <ModalFrame
+      title="Share analytics report"
+      subtitle="Sharing respects profile and data-room permissions."
+      onClose={onClose}
+    >
+      <div className={styles.shareNotice}>
+        <ShieldCheck size={22} />
+        <strong>Report links aren’t connected yet.</strong>
+        <p>
+          No public or view-only link has been created. Export a CSV or use Print / Save as PDF to
+          share a reviewed copy outside this workspace.
+        </p>
+        <div className={styles.dialogActions}>
+          <button type="button" className={styles.secondaryButton} onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </ModalFrame>
+  );
+}
+function AnalyticsDrawer({
+  detail,
+  records,
+  note,
+  onSaveNote,
+  onClose,
+  onEdit,
+}: {
+  detail: { title: string; definition: string; metricKey?: string };
+  records: MonthlyMetric[];
+  note: string;
+  onSaveNote: (note: string) => void;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  const [draft, setDraft] = useState(note);
+  useEffect(() => {
+    const handler = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+  return (
+    <div className={styles.drawerBackdrop} role="presentation" onMouseDown={onClose}>
+      <aside
+        className={styles.detailDrawer}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="detail-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header className={styles.drawerHeader}>
+          <div>
+            <span className={styles.eyebrow}>Analytics detail</span>
+            <h2 id="detail-title">{detail.title}</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close details">
+            <X size={17} />
+          </button>
+        </header>
+        <div className={styles.drawerBody}>
+          <section>
+            <h3>Definition &amp; formula</h3>
+            <p>{detail.definition}</p>
+          </section>
+          <section>
+            <h3>Underlying monthly values</h3>
+            {records.length ? (
+              <MetricsTable records={records} />
+            ) : (
+              <p className={styles.dataCaption}>No monthly values have been entered.</p>
+            )}
+          </section>
+          <section>
+            <h3>Team note</h3>
+            <textarea
+              rows={4}
+              maxLength={1000}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="Add an annotation for your team…"
+            />
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={() => onSaveNote(draft)}
+            >
+              Save note
+            </button>
+          </section>
+          <p className={styles.formHelp}>
+            Manual edits and annotations are stored in this browser. No API or external source is
+            connected.
+          </p>
+        </div>
+        <footer className={styles.drawerFooter}>
+          <button type="button" className={styles.secondaryButton} onClick={onEdit}>
+            Edit data
+          </button>
+          <button type="button" className={styles.primaryButton} onClick={onClose}>
+            Done
+          </button>
+        </footer>
+      </aside>
+    </div>
+  );
+}
