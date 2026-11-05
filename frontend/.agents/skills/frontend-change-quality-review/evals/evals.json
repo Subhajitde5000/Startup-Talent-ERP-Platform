@@ -1,0 +1,41 @@
+{
+  "skill_name": "frontend-change-quality-review",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Review a checkout diff that adds automatic retries to all failed POST requests. The author says it improves reliability.",
+      "expected_output": "A severity-ordered review that identifies duplicate side-effect risk with a precise, actionable remediation.",
+      "files": [],
+      "expectations": [
+        "The non-idempotent retry risk is reported as a high-severity finding.",
+        "The finding explains a concrete duplicate-order scenario.",
+        "The remediation mentions idempotency or disabling unsafe retries.",
+        "The review avoids unrelated style commentary."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Review a new modal component implemented with a clickable div, no focus management, and an Escape key handler attached globally on every render.",
+      "expected_output": "Actionable accessibility, lifecycle, and interaction findings ordered by user impact.",
+      "files": [],
+      "expectations": [
+        "Keyboard semantics and accessible dialog behavior are identified.",
+        "Focus entry, containment, restoration, and Escape behavior are reviewed.",
+        "The repeated global listener lifecycle risk is explained.",
+        "Each finding includes a focused remediation."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Review a product-list change that adds useMemo and useCallback everywhere, uses array indexes as keys, and renders 5,000 rows at once.",
+      "expected_output": "A risk-focused review that prioritizes list identity and rendering volume over speculative memoization style comments.",
+      "files": [],
+      "expectations": [
+        "Unstable index keys for changing lists are identified.",
+        "Rendering 5,000 rows is prioritized as the dominant performance risk.",
+        "Virtualization or pagination is suggested based on repository patterns.",
+        "Memoization is evaluated by measured value rather than blanket preference."
+      ]
+    }
+  ]
+}
