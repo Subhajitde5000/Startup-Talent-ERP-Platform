@@ -541,7 +541,7 @@ function ApplicationTrackerPage() {
         {/* Main: applications */}
         <div className="lg:col-span-8">
           {tab === 'Board' && (
-            <div className="grid gap-4 lg:grid-cols-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
               {stageOrder.map(stage => {
                 const items = applications.filter(a => a.stage === stage);
                 return (
@@ -577,8 +577,8 @@ function ApplicationTrackerPage() {
             </div>
           )}
           {tab === 'List' && (
-            <div className="rounded-xl border border-[#E5E1D8] bg-white overflow-hidden">
-              <table className="w-full text-left text-sm border-collapse">
+            <div className="rounded-xl border border-[#E5E1D8] bg-white overflow-x-auto">
+              <table className="w-full text-left text-sm border-collapse min-w-full">
                 <thead>
                   <tr className="border-b border-[#E5E1D8]">
                     <th className="pb-3 text-[10px] text-[#4A5568] font-medium">Job</th>
@@ -852,7 +852,7 @@ function ApplicationDetailPage({ applicationId }) {
           )}
           {tab === 'Messages' && (
             <Card title="Messages with {app.company}" padded>
-              <div className="space-y-3 rounded-lg border border-[#E5E1D8] bg-[#FAF8F4] p-4 h-[300px] overflow-y-auto">
+              <div className="space-y-3 rounded-lg border border-[#E5E1D8] bg-[#FAF8F4] p-4 min-h-[300px] overflow-y-auto">
                 <div className="flex items-start gap-2">
                   <div className="grid h-8 w-8 place-items-center rounded-full bg-[#0F1B2D] text-white text-xs font-bold">AS</div>
                   <div className="flex-1">

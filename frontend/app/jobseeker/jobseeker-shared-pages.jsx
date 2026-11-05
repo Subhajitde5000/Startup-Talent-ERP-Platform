@@ -718,7 +718,7 @@ function MessagesPage({ page }) {
     <JobSeekerShell active={activeShell} page={page}>
       {/* Safety banner */}
       {!user.emailVerified && (
-        <div className="mx-auto max-w-[1400px] px-4 sm:px-7 lg:ml-[238px] lg:px-8 mb-4">
+        <div className="mx-auto max-w-[1400px] px-4 sm:px-7 mb-4">
           <Card title="Verify your email" padded>
             <p className="text-xs text-[#4A5568] mb-3">
               Verify your email to hear from employers. New employer
@@ -728,16 +728,16 @@ function MessagesPage({ page }) {
           </Card>
         </div>
       )}
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-7 lg:ml-[238px] lg:px-8">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-7 ">
         <SectionHead
           title="Messages"
           subtitle="Conversations with employers, recruiters, interviews, offers and support."
         >
           <Btn onClick={() => {}}>New message</Btn>
         </SectionHead>
-        <div className="grid gap-6 lg:grid-cols-[320px_1fr_320px] mt-4">
+        <div className="grid gap-6 lg:grid-cols-[280px_1fr_280px] mt-4">
           {/* Left: conversation list */}
-          <div className="lg:col-span-1 space-y-3">
+          <div className="hidden lg:block lg:col-span-1 space-y-3">
             <Card title="Conversations" padded>
               <div className="flex items-center gap-2 mb-3">
                 <Search size={14} className="text-[#4A5568]" />
@@ -815,9 +815,7 @@ function MessagesPage({ page }) {
           </div>
 
           {/* Center: thread */}
-          <div
-            className={`lg:col-span-1 ${RADIUS_CARD} border border-[#E5E1D8] bg-white flex flex-col h-[calc(100vh-140px)]`}
-          >
+          <div className={`lg:col-span-1 ${RADIUS_CARD} border border-[#E5E1D8] bg-white flex flex-col min-h-[400px] flex-1`}>
             {viewThread ? (
               <>
                 <div className="border-b border-[#E5E1D8] px-6 py-4 flex items-center justify-between">
@@ -914,7 +912,7 @@ function MessagesPage({ page }) {
           </div>
 
           {/* Right: context panel */}
-          <div className="lg:col-span-1 space-y-3">
+          <div className="hidden lg:block lg:col-span-1 space-y-3">
             <Card title="Job and company" padded>
               <div className="flex items-center gap-3 mb-3">
                 <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#1C2B42] text-[10px] font-semibold text-white">
@@ -1009,7 +1007,7 @@ function MessagesPage({ page }) {
         </div>
       </div>
       {/* Scam safety strip */}
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-7 lg:ml-[238px] lg:px-8 mt-6">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-7 mt-6">
         <Card title padded className="bg-[#FDF3E0] border-[#F3EBDD]">
           <div className="flex items-start gap-3 px-6 pt-4 pb-5">
             <AlertTriangle size={14} className="text-[#9A6210] mt-0.5" />
@@ -1075,7 +1073,7 @@ function NotificationsPage({ page }) {
 
   return (
     <JobSeekerShell active="Dashboard" page={page}>
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-7 lg:ml-[238px] lg:px-8">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-7 ">
         <SectionHead
           title="Notifications"
           subtitle="Job seeker events: alerts, applications, interviews, offers, resumes, practice and billing."
@@ -1179,7 +1177,7 @@ function SettingsPage({ page }) {
   const [section, setSection] = useState("Account");
   return (
     <JobSeekerShell active="Settings" page={page}>
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-7 lg:ml-[238px] lg:px-8">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-7 ">
         {!user.emailVerified && (
           <Card title padded className="bg-[#FDF3E0] border-[#F3EBDD] mb-4">
             <div className="flex items-start gap-3 px-6 pt-4 pb-3">
@@ -1201,7 +1199,8 @@ function SettingsPage({ page }) {
             </div>
           </Card>
         )}
-        <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+          <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+            {/* Left nav hidden on mobile, stacks below on tablet */}
           {/* Left section menu */}
           <nav className="lg:col-span-1 space-y-1">
             {settingsSections.map((s) => (
@@ -1672,7 +1671,7 @@ function HelpPage({ page }) {
   const [ticketOpen, setTicketOpen] = useState(false);
   return (
     <JobSeekerShell active="Help" page={page}>
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-7 lg:ml-[238px] lg:px-8">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-7 ">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
           <div>
             <h2 className="text-sm font-serif font-serif font-semibold">

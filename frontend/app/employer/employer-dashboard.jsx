@@ -139,11 +139,9 @@ function Card({ title, padded = true, children, className = "" }) {
     >
       {title && (
         <div
-          className={`border-b border-[#E5E1D8] pb-3 ${padded ? "px-6 pt-5" : "px-6 pt-3"}`}
+          className={`border-b border-[#E5E1D8] pb-3 ${padded ? "px-6 pt-4" : "px-6 pt-3"}`}
         >
-          <span className="text-[10px] text-[#4A5568] font-medium uppercase tracking-wide">
-            {title}
-          </span>
+          <h3 className="text-sm font-semibold">{title}</h3>
         </div>
       )}
       <div
@@ -155,11 +153,12 @@ function Card({ title, padded = true, children, className = "" }) {
   );
 }
 
-function Btn({ children, onClick, secondary, small, className = "" }) {
+function Btn({ children, onClick, secondary, small, size, className = "" }) {
+  const isSmall = small || size === "small";
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-transparent bg-white px-4 py-2 text-xs font-medium text-[#0F1B2D] transition ${secondary ? "border-[#E5E1D8] text-[#4A5568] hover:bg-[#F3EBDD]" : "bg-[#0F1B2D] text-white hover:bg-[#1C2B42]"} ${small ? "px-2.5 py-1.5 text-[10px]" : ""} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg border border-transparent bg-white px-4 py-2 text-xs font-medium text-[#0F1B2D] transition ${secondary ? "border-[#E5E1D8] text-[#4A5568] bg-[#F4F1EA] hover:bg-[#F3EBDD]" : "bg-[#0F1B2D] text-white hover:bg-[#1C2B42]"} ${isSmall ? "px-2.5 py-1.5 text-[10px] min-w-[72px]" : "px-4 py-2 text-xs min-w-[80px]"} ${className}`}
     >
       {children}
     </button>
@@ -746,8 +745,8 @@ function DashboardPage({ page }) {
       page={page}
     >
       {/* Greeting and company status */}
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 lg:ml-[238px] lg:px-8 mb-6">
-        <Card title padded className="bg-[#FAF8F4] border-transparent">
+      <div className="mb-6">
+        <Card title padded>
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 px-6 pt-5 pb-4">
             <div className="flex items-center gap-3">
               <span className="grid h-9 w-9 place-items-center rounded-full border border-white/30 font-serif">
@@ -780,7 +779,7 @@ function DashboardPage({ page }) {
       </div>
 
       {/* Next best action */}
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 lg:ml-[238px] lg:px-8 mb-6">
+      <div className="mb-6">
         <Card title padded className={`bg-[#FDF3E0] border-[#F3EBDD]`}>
           <div className="flex items-start gap-3 px-6 pt-4 pb-3">
             <Sparkles size={13} className="text-[#9A7A45] mt-0.5" />
@@ -810,7 +809,7 @@ function DashboardPage({ page }) {
       </div>
 
       {/* KPI row */}
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 lg:ml-[238px] lg:px-8 mb-6">
+      <div className="mb-6">
         <div className="grid gap-4 lg:grid-cols-4">
           {kpis.map((k) => (
             <Card key={k.label} title padded>
@@ -838,7 +837,7 @@ function DashboardPage({ page }) {
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 lg:ml-[238px] lg:px-8 mb-6">
+      <div className="mb-6">
         <div className="grid gap-6 lg:grid-cols-12">
           {/* Main column: Needs your attention */}
           <div className="lg:col-span-8 space-y-6">
@@ -977,16 +976,18 @@ function DashboardPage({ page }) {
                         </div>
                       </div>
                       <div className="flex items-end gap-2">
-                        <Btn onClick={() => {}} small>
-                          Open pipeline
-                        </Btn>
-                        <Btn onClick={() => {}} secondary small>
-                          Edit
-                        </Btn>
-                        <MoreHorizontal
-                          size={14}
-                          className="text-[#4A5568] ml-2"
-                        />
+                      <Btn onClick={() => {}} small>
+                        Open pipeline
+                      </Btn>
+                      <Btn onClick={() => {}} secondary small>
+                        Edit
+                      </Btn>
+                      <button
+                        onClick={() => {}}
+                        className="p-2 text-[#4A5568] hover:text-[#0F1B2D] hover:bg-[#F3EBDD] rounded-lg transition"
+                      >
+                        <MoreHorizontal size={14} />
+                      </button>
                       </div>
                     </div>
                   );

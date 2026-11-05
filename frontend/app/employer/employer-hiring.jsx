@@ -750,7 +750,7 @@ function HiringOverviewPage({ page }) {
   const tabs = ["Jobs", "Requests", "Needs attention"];
   return (
     <EmployerShell active="Dashboard" page={page}>
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 lg:ml-[238px] lg:px-8">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 ">
         <SectionHead
           title="Hiring Overview"
           subtitle="Jobs, internal hiring requests and what needs your attention today."
@@ -1055,7 +1055,7 @@ function HiringOverviewPage({ page }) {
 function NewHiringRequestPage({ page }) {
   return (
     <EmployerShell active="Dashboard" page={page}>
-      <div className="mx-auto max-w-[720px] px-4 sm:px-7 lg:ml-[238px] lg:px-8">
+      <div className="mx-auto max-w-[720px] px-4 sm:px-7 ">
         <SectionHead
           title="New hiring request"
           subtitle="Record a hiring need and send it for internal approval before writing a job post."
@@ -1226,7 +1226,7 @@ function NewHiringRequestPage({ page }) {
 function JobEditorPage({ page, jobId, editMode }) {
   return (
     <EmployerShell active="Jobs" page={page}>
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 lg:ml-[238px] lg:px-8">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 ">
         <SectionHead
           title={editMode ? "Edit job post" : "New job post"}
           subtitle="Write, preview and publish a job post with screening questions."
@@ -1539,7 +1539,7 @@ function JobEditorPage({ page, jobId, editMode }) {
           </div>
           <div className="lg:col-span-5 space-y-6">
             <Card title="Live preview" padded>
-              <div className="h-[600px] overflow-y-auto border border-[#E5E1D8] rounded-lg bg-[#FAF8F4] p-4">
+              <div className="min-h-[400px] overflow-y-auto border border-[#E5E1D8] rounded-lg bg-[#FAF8F4] p-4">
                 <b className="text-sm font-serif font-serif font-semibold block mb-1">
                   Senior Product Designer
                 </b>
@@ -1588,7 +1588,7 @@ function JobDetailPipelinePage({ page, jobId }) {
   ];
   return (
     <EmployerShell active="Jobs" page={page}>
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 lg:ml-[238px] lg:px-8">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 ">
         <SectionHead
           title="Product Designer"
           subtitle="Applied → Shortlisted → Interview → Offer → Hired"
@@ -1916,7 +1916,7 @@ function CandidateProfilePage({ page, jobId, applicantId }) {
   const app = applications[0];
   return (
     <EmployerShell active="Jobs" page={page}>
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 lg:ml-[238px] lg:px-8">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 ">
         <SectionHead
           title={app.blind ? "Candidate #23" : app.name}
           subtitle={app.headline}
@@ -1998,7 +1998,7 @@ function CandidateProfilePage({ page, jobId, applicantId }) {
                 <p className="text-[11px] text-[#4A5568] mb-3">
                   Immutable snapshot of the resume submitted by the candidate.
                 </p>
-                <div className="h-[400px] border border-[#E5E1D8] rounded-lg p-4 bg-[#FAF8F4] text-[11px] text-[#4A5568]">
+                <div className="min-h-[400px] border border-[#E5E1D8] rounded-lg p-4 bg-[#FAF8F4] text-[11px] text-[#4A5568]">
                   Resume content preview — Aanya Sen, Senior Product Designer…
                 </div>
                 <div className="mt-3 flex items-center gap-2">
@@ -2120,7 +2120,7 @@ function CandidateProfilePage({ page, jobId, applicantId }) {
                   Secure thread with the candidate. Messages stay on the
                   platform.
                 </p>
-                <div className="h-[300px] border border-[#E5E1D8] rounded-lg p-3 space-y-3 text-[11px] text-[#4A5568]">
+                <div className="min-h-[300px] overflow-y-auto border border-[#E5E1D8] rounded-lg p-3 space-y-3 text-[11px] text-[#4A5568]">
                   <div className="flex justify-end">
                     <span className="bg-[#E5E1D8] rounded-lg p-2 max-w-[80%]">
                       Hi, thanks for the update!
@@ -2268,7 +2268,7 @@ function CompareCandidatesPage({ page, jobId }) {
   ]);
   return (
     <EmployerShell active="Jobs" page={page}>
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 lg:ml-[238px] lg:px-8">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 ">
         <SectionHead
           title="Compare candidates"
           subtitle="Side-by-side on the same criteria. Up to 4 candidates."
@@ -2429,7 +2429,7 @@ function TalentSearchPage({ page }) {
   const tabs = ["Search", "Shortlists", "Invitations"];
   return (
     <EmployerShell active="Candidates" page={page}>
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 lg:ml-[238px] lg:px-8">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 ">
         <SectionHead
           title="Talent search"
           subtitle="Find opted-in candidates, shortlist, and invite them to apply."
@@ -2594,7 +2594,7 @@ function InterviewsPage({ page }) {
   const tabs = ["Upcoming", "Needs feedback", "Past", "Calendar"];
   return (
     <EmployerShell active="Interviews" page={page}>
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 lg:ml-[238px] lg:px-8">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 ">
         <SectionHead
           title="Interviews"
           subtitle="Schedule, scorecards and feedback reminders."
@@ -2744,7 +2744,7 @@ function OffersPage({ page }) {
   ];
   return (
     <EmployerShell active="Offers" page={page}>
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 lg:ml-[238px] lg:px-8">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 ">
         <SectionHead
           title="Offers"
           subtitle="Draft, approve, send and track offers."
@@ -2831,7 +2831,7 @@ function OfferDetailPage({ page, offerId }) {
   const tabs = ["Terms", "Approvals", "Negotiation", "Documents", "History"];
   return (
     <EmployerShell active="Offers" page={page}>
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 lg:ml-[238px] lg:px-8">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-7 ">
         <SectionHead
           title="Offer — Aanya Sen"
           subtitle="Product Designer · v2 · Sent · Expires in 48 hours"
