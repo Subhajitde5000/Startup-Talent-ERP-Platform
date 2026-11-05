@@ -1,0 +1,1 @@
+import './globals.css';export const metadata={title:'Forma — Workspace',description:'Startup and talent workspace'};export default function RootLayout({children}){return <html lang="en"><body>{children}</body></html>}
