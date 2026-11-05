@@ -1,2 +1,2 @@
-import MentorShared from '../mentor/mentor-shared';
-export default function Page(){return <MentorShared page="notifications"/>}
+import InvestorShared from '../investor/investor-shared';
+export default function Page(){return <InvestorShared page="notifications"/>}
