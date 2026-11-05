@@ -1,0 +1,41 @@
+{
+  "skill_name": "react-ui-engineering",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "In a Next.js App Router project, add a product detail view with server-fetched content and a client-side add-to-cart interaction. Minimize shipped JavaScript and avoid hydration errors.",
+      "expected_output": "A clear Server and Client Component boundary with typed data, accessible interaction, tests, and hydration validation.",
+      "files": [],
+      "expectations": [
+        "The response identifies the smallest required Client Component boundary.",
+        "Server-owned data is not unnecessarily duplicated into client state.",
+        "Hydration stability and accessible interaction are explicitly validated.",
+        "The response follows existing Next.js repository patterns."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Create a reusable React combobox with controlled value, async options, keyboard navigation, loading, empty, and error states. Use the existing design tokens and test utilities.",
+      "expected_output": "A typed, accessible component API with explicit state ownership and behavior-focused interaction tests.",
+      "files": [],
+      "expectations": [
+        "Controlled behavior and callback payloads are explicit.",
+        "Keyboard, focus, accessible name, and status announcements are covered.",
+        "The component does not import feature state or APIs.",
+        "Tests use user-visible roles and interactions."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "A React results table feels slow when filters change. Optimize it without changing behavior. The repository already uses React Query and a virtualization library.",
+      "expected_output": "A measured performance diagnosis that distinguishes server cache, render ownership, virtualization, and memoization concerns.",
+      "files": [],
+      "expectations": [
+        "The response measures or identifies the dominant render bottleneck before optimizing.",
+        "Existing query and virtualization patterns are inspected and reused.",
+        "Memoization is not added speculatively.",
+        "Behavior-preserving tests and performance verification are included."
+      ]
+    }
+  ]
+}
