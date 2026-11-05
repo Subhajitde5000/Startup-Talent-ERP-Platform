@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   ArrowLeftRight,
   BarChart3,
+  Bell,
   CalendarDays,
   FileCheck2,
   Search,
@@ -39,6 +40,7 @@ import {
   STARTUP_NAV_GROUPS,
 } from '@/config/startupNavigation';
 import { useStartupWorkspace } from '@/context/StartupWorkspaceContext';
+import { useStartupNotifications } from '@/context/StartupNotificationContext';
 import styles from './StartupShell.module.css';
 
 function getNavIcon(id: string) {
@@ -52,6 +54,30 @@ function getNavIcon(id: string) {
       return <Users {...props} />;
     case 'tasks':
       return <ListChecks {...props} />;
+    case 'notifications':
+      return <Bell {...props} />;
+    case 'mentors':
+      return <Handshake {...props} />;
+    case 'mentors-find':
+      return <Search {...props} />;
+    case 'sessions':
+      return <CalendarDays {...props} />;
+    case 'readiness':
+      return <FileCheck2 {...props} />;
+    case 'investors':
+      return <Briefcase {...props} />;
+    case 'investors-discover':
+      return <Search {...props} />;
+    case 'investors-pipeline':
+      return <KanbanSquare {...props} />;
+    case 'investor-messages':
+      return <MessageSquareText {...props} />;
+    case 'investor-meetings':
+      return <CalendarDays {...props} />;
+    case 'rounds':
+      return <TrendingUp {...props} />;
+    case 'investors-settings':
+      return <Settings {...props} />;
     case 'roadmap':
       return <Compass {...props} />;
     case 'idea-validation':
@@ -99,6 +125,7 @@ export function StartupShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const { data } = useStartupWorkspace();
+  const { unreadCount } = useStartupNotifications();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -266,6 +293,16 @@ export function StartupShell({ children }: { children: React.ReactNode }) {
                 <span>Mock data</span>
               </span>
             )}
+
+            <Link
+              href="/startup/notifications"
+              className={styles.iconBtn}
+              aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+              title="Notifications"
+            >
+              <Bell size={16} strokeWidth={1.5} aria-hidden="true" />
+              {unreadCount > 0 && <span className={styles.notificationBadge}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+            </Link>
 
             <Link
               href="/dashboard?role=Mentor"
