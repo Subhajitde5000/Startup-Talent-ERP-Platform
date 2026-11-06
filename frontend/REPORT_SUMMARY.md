@@ -71,7 +71,36 @@ This report covers the remediation of issues identified in `uploads/role-ui-deta
 
 ---
 
-## Part 3: New Admin Dashboard Page
+## Part 3: New Admin Verification and Approvals Page
+
+**Note:** The `uploads/admin-verifications-design.md` file was not found in the uploads directory. This page was built using `uploads/admin-dashboard-design.md` (verification queue specifications in Part 4.3) as the design reference, following the same conventions as the Admin Dashboard.
+
+**Files:** `app/admin/admin-verifications.jsx`, `app/admin/verifications/page.js`
+
+**Route:** `/admin/verifications`
+
+**Features implemented:**
+- **Verification queue table** — 8 sample verifications across Startups, Mentors, Investors (KYC), Employers
+- **Stats strip** — Pending review, Claimed, At risk, Breached counts with large serif numbers
+- **Filters** — Type, Status, Priority, SLA dropdowns with client-side filtering
+- **Per-row actions** — Claim (locks item for 10 minutes), Open (opens review drawer)
+- **Review drawer** — Verification details, documents submitted with download, review decision (Approve/Reject/Needs changes), audit log note
+- **SLA status chips** — On track / At risk / Breached with color coding
+- **Risk indicator** — Low/Medium/High risk with score
+- **Table view toggle** — Grid/List view buttons
+- **Refresh** — Manual refresh with updated IST timestamp
+
+**Role-based visibility:** Built for Verification reviewers and Super admins. Server-side role enforcement per Part 5 of the admin dashboard design.
+
+**Design tokens:** Match admin-dashboard-design.md Part 2 (INK #0F1B2D, IVORY #FAF8F4, GOLD #B8955A, etc.).
+
+**Typography:** Page title 28px serif, stat numbers 32px serif, card titles 15px, body 14px, captions 12px. IST timestamps.
+
+**Data minimization:** Counts, IDs, categories only. No personal data, message text, or document contents on the queue page.
+
+---
+
+## Part 4: New Admin Dashboard Page
 
 **Files:** `app/admin/admin-dashboard.jsx`, `app/admin/page.js`
 
@@ -120,6 +149,7 @@ Created with links to Employer Dashboard and Home. All broken sidebar links now 
 |-------|--------|
 | `npx next build` | ✅ Green, 110 static pages, no errors |
 | `/admin` | ✅ HTTP 200 |
+| `/admin/verifications` | ✅ HTTP 200 |
 | `/employer/billing` | ✅ HTTP 200 |
 | `/employer/dashboard` | ✅ HTTP 200 |
 | `/employer/hiring` | ✅ HTTP 200 |
@@ -135,7 +165,7 @@ Created with links to Employer Dashboard and Home. All broken sidebar links now 
 | Admin page content | ✅ All sections, tokens, buttons render |
 | SSR safety | ✅ No `window`/`document` access during render (all in useEffect) |
 
-**Admin page content verified rendering:** Dashboard, Next up, Needs attention, Platform health, Platform pulse, Deadlines, Team workload, My work, Verifications, Moderation, Reports, Support, Start review, Skip for now, Open queue, PRODUCTION strip, Updated IST timestamp.
+**Admin page content verified rendering:** Dashboard, Next up, Needs attention, Platform health, Platform pulse, Deadlines, Team workload, My work, Verifications, Moderation, Reports, Support, Start review, Skip for now, Open queue, PRODUCTION strip, Updated IST timestamp. **Admin Verifications:** Verifications & Approvals title, Verification queue table, stats strip (Pending/Claimed/At risk/Breached), filters, VER-4412/VER-4414/VER-4418 IDs, Claim/Approve/Reject/Needs changes buttons, Documents submitted, Review decision drawer.
 
 ---
 
@@ -159,6 +189,8 @@ All demo data preserved for testing: companies, users, plans, packs, add-ons, cr
 **Created:**
 - `app/admin/admin-dashboard.jsx` — Admin Dashboard page
 - `app/admin/page.js` — Admin route wrapper
+- `app/admin/admin-verifications.jsx` — Admin Verification and Approvals page
+- `app/admin/verifications/page.js` — Verifications route wrapper
 - `app/employer/employer-billing.jsx` — Billing page
 - `app/employer/billing/page.js` — Billing route wrapper
 - `app/not-found.js` — 404 page
