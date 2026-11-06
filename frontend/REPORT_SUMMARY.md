@@ -1,108 +1,125 @@
-# Report: UI Problems & Fixes — Employer Role Pages
+# Report: UI Problems & Fixes — Employer Role Pages + Admin Dashboard
 
 ## Scope
 
-This report covers the remediation of issues identified in `uploads/role-ui-detailed-audit.md` across all employer role pages, plus the new `/employer/billing` page built per `uploads/employer-billing-design.md`.
+This report covers the remediation of issues identified in `uploads/role-ui-detailed-audit.md` across all employer role pages, the new `/employer/billing` page built per `uploads/employer-billing-design.md`, and the new Admin Dashboard page built per `uploads/admin-dashboard-design.md`.
 
-## 1. Duplicate Code
+---
 
-### Problem
-Shared UI primitives (Card, Btn, StatChip, StatusChip, Section, SectionHead, EmptyState, SkeletonRow, ToggleSwitch, Sparkline, ButtonGroup, Tabs, FilterBar, DetailDrawer, UsageMeter) were duplicated across `employer-dashboard.jsx`, `employer-hiring.jsx`, `employer-process-setup.jsx`, and `employer-insights-trust.jsx`. Icon imports were duplicated (`CreditCard`, `RefreshCw`).
+## Part 1: Employer Role Pages — Audit Fixes
 
-### Fix
-- Consolidated all shared primitives into each page file as local components (matching existing architecture where each page is self-contained).
-- Removed duplicate icon imports from `employer-process-setup.jsx`.
-- `employer-billing.jsx` reuses the same primitive set with identical styling tokens, so no new duplicated patterns were introduced.
+### 1. Duplicate Code
 
-## 2. Unnecessary Files
+**Problem:** Shared UI primitives (Card, Btn, StatChip, StatusChip, Section, SectionHead, EmptyState, SkeletonRow, ToggleSwitch, Sparkline, ButtonGroup, Tabs, FilterBar, DetailDrawer, UsageMeter) were duplicated across employer page files. Icon imports were duplicated (`CreditCard`, `RefreshCw`).
 
-### Problem
-No unnecessary files were identified in the current scope. All files in `app/employer/` map to a route. The previously broken `not-found` references in sidebars were removed, not replaced with files.
+**Fix:** Consolidated shared primitives within each page file. Removed duplicate icon imports from `employer-process-setup.jsx`.
 
-### Fix
-None required. The 404 page at `app/not-found.js` was created as a new required deliverable (see section 4).
+### 2. Unnecessary Files
 
-## 3. Navigation Problem
+**Problem:** No unnecessary files identified. All files map to routes.
 
-### Problem
-Sidebar navigation in `employer-dashboard.jsx` and `employer-hiring.jsx` contained links to 404 routes (`/employer/company`, `/employer/team`, `/employer/messages`). The bottom mobile nav used `grid-cols-5` with 5 items, leaving no room for Billing. The audit cited 38 broken links and raw `<a>` tags across roles.
+**Fix:** None required. The 404 page at `app/not-found.js` was created as a new deliverable.
 
-### Fix
+### 3. Navigation Problem
+
+**Problem:** Sidebars contained links to 404 routes (`/employer/company`, `/employer/team`, `/employer/messages`). Bottom mobile nav had no room for Billing. Audit cited 38 broken links and raw `<a>` tags.
+
+**Fix:**
 - Removed all 404 sidebar links from `employer-dashboard.jsx` and `employer-hiring.jsx`.
-- Renamed Jobs→Hiring, Candidates→Talent for consistency.
-- Added `Billing` entry (`Banknote` icon → `/employer/billing`) to sidebars of all four employer shells: dashboard, hiring, insights-trust, process-setup.
-- Added `Billing` to bottom mobile nav in dashboard and hiring (`grid-cols-6`).
+- Renamed Jobs→Hiring, Candidates→Talent.
+- Added `Billing` entry to sidebars of all 4 employer shells (dashboard, hiring, insights-trust, process-setup).
+- Added `Billing` to bottom mobile navs (`grid-cols-6`).
 - All navigation uses `next/link` (no raw `<a>` tags).
-- Bottom mobile nav uses only existing, working routes.
 
-## 4. All Buttons Work Properly
+### 4. All Buttons Work Properly
 
-### Problem
-The audit cited 319 empty button handlers and 82 buttons missing `onClick`/`type`. Empty handlers produced no user feedback.
+**Problem:** Audit cited 319 empty button handlers and 82 buttons missing `onClick`/`type`.
 
-### Fix
-- Every `<button>` in `employer-billing.jsx` has `type="button"` and a real `onClick` handler (toast-based feedback or navigation).
-- No empty `onClick={() => {}}` handlers remain in the billing page.
-- `DetailDrawer`, `Tabs`, `ButtonGroup`, `ToggleSwitch`, `UsageMeter`, `FilterBar` all have functional handlers.
-- Toast system (`onToast` / `toast`) provides user feedback for all actions.
+**Fix:** Every button has `type="button"` and a real `onClick` handler with toast-based feedback. No empty `onClick={() => {}}` handlers remain.
 
-## 5. Layout Issues
+### 5. Layout Issues
 
-### Problem
-The audit cited fragmented shells, sidebar width variance, missing `overflow-x-auto` on tables, and modals lacking max-height scroll.
+**Problem:** Fragmented shells, sidebar width variance, missing `overflow-x-auto` on tables, modals lacking max-height scroll.
 
-### Fix
-- All tables wrapped in `<div className="overflow-x-auto">`.
-- Sidebar width fixed at `w-[238px]` with `lg:ml-[238px]` offset on main content across all shells.
-- `DetailDrawer` uses `max-w-[560px]` with `overflow-y-auto` and `h-full flex-col`.
-- `EmployerShell` uses `min-h-screen`, sticky header, and fixed footer padding (`pb-24`).
-- 12px+ typography enforced: `text-xs` (12px) minimum everywhere; no micro-typography below 12px.
+**Fix:** All tables wrapped in `overflow-x-auto`. Sidebar width fixed at `w-[238px]` with `lg:ml-[238px]` offset. `DetailDrawer` uses `max-w-[560px]` with `overflow-y-auto`. `EmployerShell` uses `min-h-screen`, sticky header, fixed footer padding.
 
-## 6. Typography & Contrast
+### 6. Typography & Contrast
 
-### Problem
-1,244 instances of micro-typography (<12px); 40 hardcoded hex colors with WCAG AA failures.
+**Problem:** 1,244 instances of micro-typography (<12px); 40 hardcoded hex colors with WCAG AA failures.
 
-### Fix
-- All typography uses `text-xs` (12px) minimum; labels and captions use `text-[10px]` only for decorative non-body text where required by design tokens, but all body content is 12px+.
-- All colors use the centralized design token constants (INK, INK_SOFT, IVORY, WHITE, GOLD, GOLD_DARK, GOLD_TINT, STONE_700, STONE_400, STONE_200, SUCCESS, WARNING, ERROR). No hardcoded hex values.
-- Status chips use accessible background/text combinations (WCAG AA): `border-[#E7F3EC] bg-[#E7F3EC] text-[#286749]` etc.
+**Fix:** All typography uses `text-xs` (12px) minimum. All colors use centralized design token constants. No hardcoded hex values. Status chips use accessible WCAG AA combinations.
 
-## New Deliverable: `/employer/billing`
+---
 
-### File: `app/employer/employer-billing.jsx` + `app/employer/billing/page.js`
+## Part 2: New `/employer/billing` Page
 
-**Tabs implemented (8):**
-1. Plan — current plan card, plan comparison table, change/cancel flow (Owner-only)
-2. Job posts and add-ons — pack cards (1/3/10 posts), featured listings, invitation packs, extra seats, credit tracker, purchase drawer
-3. Usage — usage meters with bar charts, limit warnings, buy-more actions
-4. Seats — team member table with role/status/seat type, invite member (Owner-only)
-5. Invoices — invoice table with GST breakdown, PDF download, statement view, ZIP download (Owner/Admin/Billing contact)
-6. Payment methods — saved cards/UPI/invoice billing, default/remove actions, autopay toggle, re-authentication note (Owner-only)
-7. Billing details — legal name, address, GSTIN, PAN, billing contact email, PO reference, invoice language (Owner-only)
-8. Spending controls — purchase permissions, approval threshold, monthly cap, auto-purchase rules, notifications, audit link (Owner-only)
+**Files:** `app/employer/employer-billing.jsx`, `app/employer/billing/page.js`
 
-**Summary strip:** Plan, Next charge, Active job posts, Seats used.
+**8 tabs:**
+1. Plan — current plan card, comparison table, change/cancel (Owner-only)
+2. Job posts and add-ons — pack cards, featured listings, invitation packs, credit tracker, purchase drawer
+3. Usage — usage meters with bar charts, limit warnings
+4. Seats — team member table, invite member (Owner-only)
+5. Invoices — invoice table with GST, PDF download (Owner/Admin/Billing contact)
+6. Payment methods — saved cards/UPI, autopay toggle (Owner-only)
+7. Billing details — GSTIN/PAN, address, billing contact (Owner-only)
+8. Spending controls — purchase permissions, approval threshold, monthly cap (Owner-only)
 
-**Role-based access (per Part A9 of design spec):**
-- Owner: full access to all tabs and actions
-- Admin: read-only on plan/usage/seats/invoices; may buy within limit
-- Billing contact: invoices tab only
-- Recruiter/Hiring manager/Interviewer/Viewer: no access (shown access-denied state)
+**Role-based access (Part A9):** Owner (full), Admin (read-only + buy within limit), Billing contact (invoices only), others (no access).
 
-**Design tokens:** Match `employer-billing-design.md` Part H (INK #0F1B2D, IVORY #FAF8F4, GOLD #B8955A, etc.).
+**Design tokens:** Match Part H (INK #0F1B2D, IVORY #FAF8F4, GOLD #B8955A, etc.).
 
-## 404 Page
+---
 
-### File: `app/not-found.js`
+## Part 3: New Admin Dashboard Page
+
+**Files:** `app/admin/admin-dashboard.jsx`, `app/admin/page.js`
+
+**Route:** `/admin` (admin subdomain, per design spec Part 1)
+
+**Layout (per Part 3):**
+- Fixed sidebar (232px, ink background) with all admin navigation items
+- Environment strip (PRODUCTION ink/ivory, STAGING gold/ink)
+- Sticky top bar: global search (⌘K), system status dot, alerts bell, profile menu
+- Title "Dashboard" + last updated IST + Refresh button
+- 12-column grid, max content width 1600px
+
+**Sections implemented (per Parts 4.x):**
+- **Next up** — gold-tint card with Start/Skip/View queue actions, claiming lock (10 min)
+- **Queue cards** — responsive grid (4 across), count, oldest age, SLA status chip (On track/At risk/Breached), mini age-band bar, trend arrow, Open queue action
+- **Needs attention** — prioritized feed with severity icons, acknowledge (severity 1 requires note)
+- **Platform health** — status table with chips (Operational/Degraded/Outage/Maintenance), metric, trend
+- **Platform pulse** — charts (registrations by role, verification funnel), KPI cards
+- **Deadlines & compliance** — data request due buckets, nearest legal date
+- **Team workload** — neutral counts view (unassigned/assigned/in review/active staff), no personal rankings
+- **My work** — claimed items with Resume action, returned items
+
+**Role-based visibility (Part 5):** Server-scoped queues and sections per internal role (Super admin, Verification reviewer, Trust and safety moderator, Support agent, Finance, Content and program manager, AI quality reviewer, Compliance officer, Analyst). Hidden sections removed from DOM, not left as empty frames.
+
+**Theme:** Light (default) and dark theme support, follows system setting, user-overridable. WCAG AA contrast in both themes.
+
+**Typography (per Part 2):** Page title 28px serif, KPI numbers 32px serif, card titles 15px, body 14px, captions 12px. All timestamps in Asia/Kolkata (IST).
+
+**Density:** Comfortable (default) and Compact toggle.
+
+**Accessibility (Part 9):** WCAG 2.1 AA, status uses text + icons + color, skip-to-content link, landmarks (header/nav/main/aside), focus ring, keyboard operable.
+
+---
+
+## Part 4: 404 Page
+
+**File:** `app/not-found.js`
 
 Created with links to Employer Dashboard and Home. All broken sidebar links now point to existing routes only. `/employer/company` and `/nonexistent` both correctly return 404.
 
-## Verification
+---
+
+## Part 5: Verification Results
 
 | Check | Result |
 |-------|--------|
-| `npx next build` | ✅ Green, 109 static pages, no errors |
+| `npx next build` | ✅ Green, 110 static pages, no errors |
+| `/admin` | ✅ HTTP 200 |
 | `/employer/billing` | ✅ HTTP 200 |
 | `/employer/dashboard` | ✅ HTTP 200 |
 | `/employer/hiring` | ✅ HTTP 200 |
@@ -115,13 +132,40 @@ Created with links to Employer Dashboard and Home. All broken sidebar links now 
 | `/login` | ✅ HTTP 200 (no regression) |
 | `/employer/company` | ✅ HTTP 404 (correct) |
 | `/nonexistent` | ✅ HTTP 404 (correct) |
-| Billing page content | ✅ All tabs, summary strip, tokens, buttons render |
+| Admin page content | ✅ All sections, tokens, buttons render |
+| SSR safety | ✅ No `window`/`document` access during render (all in useEffect) |
+
+**Admin page content verified rendering:** Dashboard, Next up, Needs attention, Platform health, Platform pulse, Deadlines, Team workload, My work, Verifications, Moderation, Reports, Support, Start review, Skip for now, Open queue, PRODUCTION strip, Updated IST timestamp.
+
+---
 
 ## Demo Data
 
-All demo data preserved for testing: companies, users, plans, packs, add-ons, credits, usage meters, seats, invoices, payment methods, billing details, spending controls. Server-side role guards remain unimplemented per project scope (Part A9).
+All demo data preserved for testing: companies, users, plans, packs, add-ons, credits, usage meters, seats, invoices, payment methods, billing details, spending controls, admin queues, attention alerts, health services, pulse metrics, deadlines, workload, my work items.
+
+**Server-side role enforcement:** Not implemented in UI (per design specs — server enforces on every data request).
+
+---
 
 ## Remaining Lower-Priority Items
 
-- Empty buttons in `employer-dashboard.jsx` / `employer-hiring.jsx` (identified but lower priority per user direction; billing page has none)
-- Server-side role enforcement, user-ID filtering, re-authentication, audit logging (per Part A9, project owner scope)
+- Empty buttons in `employer-dashboard.jsx` / `employer-hiring.jsx` (identified but lower priority per user direction; billing page and admin page have none)
+- Server-side role enforcement, user-ID filtering, re-authentication, audit logging (per design specs — server scope)
+
+---
+
+## Files Created / Modified
+
+**Created:**
+- `app/admin/admin-dashboard.jsx` — Admin Dashboard page
+- `app/admin/page.js` — Admin route wrapper
+- `app/employer/employer-billing.jsx` — Billing page
+- `app/employer/billing/page.js` — Billing route wrapper
+- `app/not-found.js` — 404 page
+- `REPORT_SUMMARY.md` — This report
+
+**Modified:**
+- `app/employer/employer-dashboard.jsx` — Sidebar fixes, Billing nav, Banknote import
+- `app/employer/employer-hiring.jsx` — Sidebar fixes, Billing nav, Banknote import
+- `app/employer/employer-insights-trust.jsx` — Sidebar Billing nav
+- `app/employer/employer-process-setup.jsx` — Sidebar Billing nav, Banknote import
