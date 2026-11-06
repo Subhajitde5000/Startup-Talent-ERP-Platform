@@ -3,118 +3,56 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   Search,
-  Bookmark,
-  Briefcase,
-  CalendarDays,
-  FileText,
-  Mic,
-  MessageCircle,
-  Settings,
-  HelpCircle,
   Bell,
   ChevronDown,
-  MapPin,
-  ArrowRight,
-  CheckCircle2,
+  HelpCircle,
+  Settings,
+  LayoutDashboard,
+  Briefcase,
+  CalendarDays,
+  Mail,
+  Award as AwardIcon,
+  BarChart3,
+  Shield,
+  Activity,
+  Building as BuildingIcon,
+  Users,
+  MessageCircle,
+  FileText,
   Clock,
   AlertCircle,
   Info,
-  Sparkles,
-  MoreHorizontal,
   X,
-  Send,
-  Eye,
-  ShieldCheck,
-  SlidersHorizontal,
-  UserRound,
+  ArrowRight,
+  CheckCircle2,
+  AlertTriangle,
   Star,
-  ExternalLink,
-  Plus,
-  Target,
-  TrendingUp,
-  Building2,
-  Video,
-  ChevronLeft,
   ChevronRight,
-  Shield,
-  Share2,
-  RefreshCcw,
-  Pin,
-  HardHat,
-  LayoutGrid,
-  LayoutDashboard,
-  List,
-  Gauge,
-  Users,
-  Briefcase as Briefcase2,
-  FileText as FileText2,
-  ClipboardList,
-  BarChart3,
-  Rocket,
-  Award,
-  Zap,
-  Smartphone,
-  Mail,
-  Loader2,
-  Check,
-  CheckCheck,
-  PlusCircle,
-  ArrowUpRight,
-  Trash2,
-  Phone,
+  ShieldCheck,
   Headphones,
   Globe,
-  Link as LinkIcon,
-  Copy,
   Download,
-  Printer,
-  Wrench,
-  Menu,
-  LogOut,
-  File,
-  Image,
-  Pause,
-  Play,
-  StopCircle,
-  Mic as MicIcon,
-  Video as VideoIcon,
-  Link2,
-  Target as TargetIcon,
-  GitBranch,
-  User as UserIcon,
-  EyeOff,
-  LayoutList,
-  Maximize,
-  Minimize,
-  Inbox,
-  Paperclip,
-  Lock,
-  ShieldAlert,
-  AlertTriangle,
-  TrendingDown,
-  Unlock,
-  UserPlus,
-  Building as BuildingIcon,
-  Briefcase as BriefcaseIcon,
-  Monitor,
-  Activity,
-  PieChart,
-  Timer,
-  Clock as ClockIcon,
-  Edit,
-  Eye as EyeIcon,
-  User as User2,
-  GraduationCap,
-  Award as AwardIcon,
-  Trophy,
-  Link as Link2Icon,
-  Cloud,
-  Folder,
-  Shield as ShieldIcon,
-  Clock as Clock2,
+  LayoutGrid,
+  List,
   LineChart,
+  PieChart,
   Banknote,
   Ticket,
+  Target,
+  TrendingUp,
+  TrendingDown,
+  ShieldAlert,
+  Eye,
+  User as UserIcon,
+  UserRound,
+  Eye as EyeIcon,
+  Copy,
+  Printer,
+  Wrench,
+  Lock,
+  Link as LinkIcon,
+  Share2,
+  RefreshCcw,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -166,7 +104,7 @@ const user = {
   signedIn: true,
 };
 
-// Team-role scope helper (enforced by server in production)
+// Team-role scope helpers (enforced by server in production)
 const canViewAnalytics = () =>
   ["Owner", "Admin", "Recruiter", "Hiring manager"].includes(user.teamRole);
 const canViewTrust = () =>
@@ -179,15 +117,31 @@ const isOwnerOrAdmin = () =>
   ["Owner", "Admin"].includes(user.teamRole);
 
 /* ------------------------------------------------------------------ */
-/*  Shared UI primitives                                              */
+/*  Simple toast for button feedback                                  */
+/* ------------------------------------------------------------------ */
+let toastListeners  = [];
+export function onToast(listener) {
+  toastListeners.push(listener);
+  return () => {
+    toastListeners = toastListeners.filter((l) => l !== listener);
+  };
+}
+function toast(msg) {
+  toastListeners.forEach((l) => l(msg));
+}
+
+/* ------------------------------------------------------------------ */
+/*  Shared UI primitives (accessible sizes, WCAG AA)                  */
 /* ------------------------------------------------------------------ */
 
 function Card({ title, padded = true, children, className = "" }) {
   return (
-    <div className={`${RADIUS_CARD} border border-[#E5E1D8] bg-white ${className}`}>
+    <div
+      className={`${RADIUS_CARD} border border-[#E5E1D8] bg-white ${className}`}
+    >
       {title && (
         <div className={`border-b border-[#E5E1D8] pb-3 ${padded ? "px-6 pt-4" : "px-6 pt-3"}`}>
-          <h3 className="text-sm font-semibold">{title}</h3>
+          <h3 className="text-xs font-semibold">{title}</h3>
         </div>
       )}
       <div className={`${padded ? "px-6" : "px-0"} ${padded ? "pb-5" : "pb-0"}`}>
@@ -204,12 +158,18 @@ function Btn({
   small,
   size,
   destructive,
+  type = "button",
   className = "",
 }) {
   const isSmall = small || size === "small";
+  const handleClick = (e) => {
+    e.preventDefault();
+    if (onClick) onClick(e);
+  };
   return (
     <button
-      onClick={onClick}
+      type={type}
+      onClick={handleClick}
       className={`inline-flex items-center justify-center gap-2 rounded-lg border border-transparent bg-white px-4 py-2 text-xs font-medium text-[#0F1B2D] transition ${secondary
         ? `border-[#E5E1D8] text-[#4A5568] bg-[#F4F1EA] hover:bg-[#F3EBDD]`
         : destructive
@@ -228,7 +188,7 @@ function StatChip({ label, value, delta }) {
     <div className="flex flex-col gap-1">
       <span className="text-[10px] text-[#4A5568]">{label}</span>
       <div className="flex items-baseline gap-1">
-        <b className="text-sm font-serif font-semibold">{value}</b>
+        <b className="text-xs font-serif font-semibold">{value}</b>
         {delta && <span className="text-[10px] text-[#286749]">{delta}</span>}
       </div>
     </div>
@@ -265,7 +225,9 @@ function StatusChip({ status, kind = "draft" }) {
   };
   const map = maps[kind] || maps.draft;
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-medium ${map[status] || map.Draft || ""}`}>
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${map[status] || map.Draft || ""}`}
+    >
       {status}
     </span>
   );
@@ -274,7 +236,7 @@ function StatusChip({ status, kind = "draft" }) {
 function Section({ title, children, className = "" }) {
   return (
     <div className={`space-y-4 ${className}`}>
-      <h3 className="text-sm font-semibold">{title}</h3>
+      <h3 className="text-xs font-semibold">{title}</h3>
       {children}
     </div>
   );
@@ -284,7 +246,7 @@ function SectionHead({ title, subtitle, children, className = "" }) {
   return (
     <div className={`flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 ${className}`}>
       <div>
-        <h2 className="text-sm font-serif font-semibold">{title}</h2>
+        <h2 className="text-xs font-serif font-semibold">{title}</h2>
         {subtitle && (
           <p className="text-[10px] text-[#4A5568] mt-1">{subtitle}</p>
         )}
@@ -300,8 +262,8 @@ function EmptyState({ icon: Icon, title, subtitle, action, actionLabel }) {
       <div className="grid h-14 w-14 place-items-center rounded-full bg-[#F3EBDD]">
         <Icon size={20} />
       </div>
-      <h3 className="text-sm font-semibold">{title}</h3>
-      <p className="text-[12px] text-[#4A5568] max-w-[260px]">{subtitle}</p>
+      <h3 className="text-xs font-semibold">{title}</h3>
+      <p className="text-[10px] text-[#4A5568] max-w-[260px]">{subtitle}</p>
       {action && <Btn onClick={action}>{actionLabel}</Btn>}
     </div>
   );
@@ -316,12 +278,15 @@ function SkeletonRow({ className = "" }) {
 function ToggleSwitch({ checked, onChange }) {
   return (
     <button
+      type="button"
       onClick={onChange}
       role="switch"
       aria-checked={checked}
       className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${checked ? "bg-[#B8955A]" : "bg-[#E5E1D8]"}`}
     >
-      <span className={`block h-4 w-4 rounded-full bg-white shadow-md transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`} />
+      <span
+        className={`block h-4 w-4 rounded-full bg-white shadow-md transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`}
+      />
     </button>
   );
 }
@@ -341,6 +306,7 @@ function ButtonGroup({ options, value, onChange }) {
       {options.map((o) => (
         <button
           key={o}
+          type="button"
           onClick={() => onChange(o)}
           className={`px-3 py-1 text-[10px] transition ${o === value ? "bg-[#F3EBDD] text-[#806236]" : "text-[#4A5568] hover:text-[#0F1B2D]"}`}
         >
@@ -355,14 +321,13 @@ function ButtonGroup({ options, value, onChange }) {
 /*  Insights-trust specific components                                */
 /* ------------------------------------------------------------------ */
 
-// KPI card: label, big serif number, change chip, sparkline
 function KpiCard({ label, value, delta, spark, definition }) {
   return (
     <Card title padded>
       <div className="px-6 pt-3 pb-4">
         <div className="flex items-baseline gap-2 mb-2">
           <b className="text-3xl font-serif font-semibold">{value}</b>
-          {delta && (
+          {delta !== undefined && delta !== null && (
             <span className={`text-[10px] font-medium ${delta > 0 ? "text-[#286749]" : delta < 0 ? "text-[#B42318]" : "text-[#4A5568]"}`}>
               {delta > 0 ? "▲ " : delta < 0 ? "▼ " : ""}{Math.abs(delta)}%
             </span>
@@ -379,15 +344,16 @@ function KpiCard({ label, value, delta, spark, definition }) {
   );
 }
 
-// Chart card: title, insight headline, chart area, footer with source chip
 function ChartCard({ title, insight, children, source, onViewTable }) {
   return (
     <Card title padded>
       <div className="px-6 pt-3 pb-4">
-        <p className="text-[12px] font-medium text-[#0F1B2D] mb-3">{insight}</p>
-        <div className="min-h-[200px] mb-4">{children}</div>
+        <p className="text-[10px] font-medium text-[#0F1B2D] mb-3">{insight}</p>
+        <div className="min-h-[200px] w-full overflow-x-auto mb-4">
+          {children}
+        </div>
         <div className="flex items-center justify-between text-[10px]">
-          <span className={`text-[#4A5568] flex items-center gap-1`}>
+          <span className="text-[#4A5568] flex items-center gap-1">
             <Clock size={10} /> {source}
           </span>
           <Btn size="small" secondary onClick={onViewTable}>
@@ -399,7 +365,6 @@ function ChartCard({ title, insight, children, source, onViewTable }) {
   );
 }
 
-// Insight card: gold-tint background, headline, reason, View details
 function InsightCard({ icon: Icon, headline, reason, onView, dismissible }) {
   return (
     <Card padded={false} className="bg-[#F3EBDD] border-transparent">
@@ -410,7 +375,7 @@ function InsightCard({ icon: Icon, headline, reason, onView, dismissible }) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-1.5 mb-1">
-              <span className="text-[9px] text-[#806236] font-medium uppercase tracking-wide">
+              <span className="text-[10px] text-[#806236] font-medium uppercase tracking-wide">
                 Auto insight
               </span>
               {dismissible && (
@@ -424,14 +389,18 @@ function InsightCard({ icon: Icon, headline, reason, onView, dismissible }) {
                 </Btn>
               )}
             </div>
-            <p className="text-sm font-semibold text-[#0F1B2D] leading-tight">
+            <p className="text-xs font-semibold text-[#0F1B2D] leading-tight">
               {headline}
             </p>
-            <p className="text-[12px] text-[#4A5568] mt-1">{reason}</p>
+            <p className="text-[10px] text-[#4A5568] mt-1">{reason}</p>
           </div>
         </div>
         {onView && (
-          <Btn size="small" onClick={onView} className="mt-3 text-[#806236] hover:bg-[#F3EBDD] border-transparent bg-transparent">
+          <Btn
+            size="small"
+            onClick={onView}
+            className="mt-3 text-[#806236] hover:bg-[#F3EBDD] border-transparent bg-transparent"
+          >
             View details <ArrowRight size={12} />
           </Btn>
         )}
@@ -440,7 +409,6 @@ function InsightCard({ icon: Icon, headline, reason, onView, dismissible }) {
   );
 }
 
-// Sample-size chip: n = X applicants / Based on Y hires
 function SampleSizeChip({ n, label }) {
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border border-[#E5E1D8] bg-white text-[10px] text-[#4A5568]">
@@ -450,7 +418,6 @@ function SampleSizeChip({ n, label }) {
   );
 }
 
-// Source / freshness chip
 function SourceChip({ text, updated }) {
   return (
     <span className="text-[10px] text-[#4A5568] flex items-center gap-1">
@@ -459,7 +426,6 @@ function SourceChip({ text, updated }) {
   );
 }
 
-// Segmented tabs
 function Tabs({ tabs, value, onChange, className = "" }) {
   return (
     <div
@@ -468,6 +434,7 @@ function Tabs({ tabs, value, onChange, className = "" }) {
       {tabs.map((t) => (
         <button
           key={t}
+          type="button"
           onClick={() => onChange(t)}
           className={`border-b-2 px-4 py-3 text-xs font-medium transition whitespace-nowrap ${
             value === t
@@ -482,7 +449,6 @@ function Tabs({ tabs, value, onChange, className = "" }) {
   );
 }
 
-// Filter bar: jobs, teams, locations chips
 function FilterBar({ filters, onChange }) {
   return (
     <div className="flex flex-wrap gap-2 items-end mb-6">
@@ -506,7 +472,6 @@ function FilterBar({ filters, onChange }) {
   );
 }
 
-// Detail drawer (slide-over panel)
 function DetailDrawer({ open, onClose, title, children }) {
   if (!open) return null;
   return (
@@ -514,7 +479,7 @@ function DetailDrawer({ open, onClose, title, children }) {
       <div className="fixed inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-[560px] h-full flex flex-col bg-white border-l border-[#E5E1D8] shadow-lg ml-auto">
         <div className="flex items-center justify-between border-b border-[#E5E1D8] px-6 py-4 bg-[#FAF8F4]">
-          <h3 className="text-sm font-semibold">{title}</h3>
+          <h3 className="text-xs font-semibold">{title}</h3>
           <Btn size="small" secondary onClick={onClose}>
             <X size={14} />
           </Btn>
@@ -547,21 +512,21 @@ const insights = [
     icon: Clock,
     headline: "Candidates wait 9 days for a first reply on Engineering jobs",
     reason: "The Engineering pipeline median first-response time is 9 days vs a 3-day company median. Two Engineering jobs have no reply in the last 7 days.",
-    onView: () => {},
+    onView: () => toast("Opening Engineering speed details..."),
   },
   {
     id: "ins-2",
     icon: TrendingDown,
     headline: "Drop-off spikes between Shortlisted and Interview",
     reason: "38% of shortlisted candidates don't reach Interview — the largest drop-off in the funnel. Most common reason: no response within 7 days.",
-    onView: () => {},
+    onView: () => toast("Viewing funnel drop-off analysis..."),
   },
   {
     id: "ins-3",
     icon: TrendingUp,
     headline: "Referral source converts 2.1× above average",
     reason: "Candidates from Referrals convert to interview at 34% vs a 16% average across sources (n = 41).",
-    onView: () => {},
+    onView: () => toast("Viewing source quality report..."),
   },
 ];
 
@@ -887,10 +852,11 @@ const securityAlerts = [
 /* ------------------------------------------------------------------ */
 /*  Employer shell                                                    */
 /* ------------------------------------------------------------------ */
+// Fixed sidebar: only existing routes, no 404 links
 const employerSidebar = [
   ["Dashboard", LayoutDashboard, "/employer/dashboard"],
-  ["Jobs", Briefcase, "/employer/jobs"],
-  ["Candidates", Users, "/employer/candidates"],
+  ["Hiring", Briefcase, "/employer/hiring"],
+  ["Talent", Users, "/employer/talent"],
   ["Interviews", CalendarDays, "/employer/interviews"],
   ["Offers", Mail, "/employer/offers"],
   ["Hires", AwardIcon, "/employer/hires"],
@@ -898,9 +864,6 @@ const employerSidebar = [
   ["Analytics", BarChart3, "/employer/analytics"],
   ["Trust", Shield, "/employer/trust"],
   ["Activity", Activity, "/employer/activity"],
-  ["Company page", BuildingIcon, "/employer/company"],
-  ["Team", Users, "/employer/team"],
-  ["Messages", MessageCircle, "/employer/messages"],
 ];
 
 function EmployerShell({ children, active = "Dashboard", className = "" }) {
@@ -940,7 +903,7 @@ function EmployerShell({ children, active = "Dashboard", className = "" }) {
               <Link
                 key={n}
                 href={u}
-                className={`relative flex h-11 items-center gap-3 rounded-lg px-3 text-xs ${isActive ? "bg-[#1C2B42] text-white" : "text-white/65 hover:bg-white/5"}`}
+                className={`relative flex h-11 items-center gap-3 rounded-lg px-3 text-xs ${isActive ? "bg-[#1C2B42] text-white" : "text-white/70 hover:bg-white/10"}`}
               >
                 {isActive && (
                   <span className="absolute bottom-2 left-0 top-2 w-[3px] rounded-r bg-[#B8955A]" />
@@ -953,19 +916,14 @@ function EmployerShell({ children, active = "Dashboard", className = "" }) {
         </nav>
         <div className="mt-auto space-y-1 px-3 pb-5">
           <Link
-            href="/employer/settings"
-            className="flex h-10 items-center gap-3 px-3 text-xs text-white/60"
-          >
-            <Settings size={17} /> Settings
-          </Link>
-          <Link
             href="/help"
-            className="flex h-10 items-center gap-3 px-3 text-xs text-white/60"
+            className="flex h-10 items-center gap-3 px-3 text-xs text-white/70"
           >
             <HelpCircle size={17} /> Help
           </Link>
           <button
-            onClick={() => {}}
+            type="button"
+            onClick={() => toast("Account menu coming soon")}
             className="flex w-full items-center gap-3 rounded-lg border border-white/10 p-3 text-left"
           >
             <span className="grid h-8 w-8 place-items-center rounded-full bg-[#F3EBDD] text-xs font-bold text-[#0F1B2D]">
@@ -984,7 +942,7 @@ function EmployerShell({ children, active = "Dashboard", className = "" }) {
       <header className="sticky top-0 z-10 flex h-[68px] items-center justify-between border-b border-[#E5E1D8] bg-[#FAF8F4]/95 px-4 backdrop-blur sm:px-7 lg:ml-[238px]">
         <div className="relative hidden sm:block">
           <Search
-            className="absolute left-3 top-2.5 text-[#A0A7B4]"
+            className="absolute left-3 top-2.5 text-[#4A5568]"
             size={16}
           />
           <input
@@ -992,16 +950,24 @@ function EmployerShell({ children, active = "Dashboard", className = "" }) {
             className="h-10 w-72 rounded-lg border border-[#E5E1D8] bg-white pl-9 text-xs"
           />
         </div>
-        <span className="text-sm font-semibold sm:hidden">Employer</span>
-        <button className="relative ml-auto grid h-10 w-10 place-items-center">
+        <span className="text-xs font-semibold sm:hidden">Employer</span>
+        <button
+          type="button"
+          className="relative ml-auto grid h-10 w-10 place-items-center"
+          onClick={() => toast("Notifications panel coming soon")}
+        >
           <Bell size={18} />
           {unreadCount > 0 && (
-            <span className="absolute right-1 top-1 h-3 w-3 rounded-full bg-[#B42318] text-[8px] text-white flex items-center justify-center">
+            <span className="absolute right-1 top-1 h-3 w-3 rounded-full bg-[#B42318] text-[10px] text-white flex items-center justify-center">
               {unreadCount}
             </span>
           )}
         </button>
-        <button className="ml-3 flex items-center gap-2">
+        <button
+          type="button"
+          className="ml-3 flex items-center gap-2"
+          onClick={() => toast("Profile menu coming soon")}
+        >
           <span className="grid h-8 w-8 place-items-center rounded-full bg-[#0F1B2D] text-xs text-white">
             PM
           </span>
@@ -1015,18 +981,19 @@ function EmployerShell({ children, active = "Dashboard", className = "" }) {
       >
         {children}
       </main>
+      {/* Bottom mobile nav: fixed links only */}
       <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-[#E5E1D8] bg-white px-2 py-2 lg:hidden">
         {[
           ["Home", "/employer/dashboard", LayoutDashboard],
-          ["Jobs", "/employer/jobs", Briefcase],
-          ["Candidates", "/employer/candidates", Users],
+          ["Hiring", "/employer/hiring", Briefcase],
+          ["Talent", "/employer/talent", Users],
           ["Interviews", "/employer/interviews", CalendarDays],
-          ["More", "/employer/settings", UserRound],
+          ["More", "/help", UserRound],
         ].map(([x, u, I]) => (
           <Link
             href={u}
             key={x}
-            className="flex flex-col items-center gap-1 py-1 text-[9px] text-[#4A5568]"
+            className="flex flex-col items-center gap-1 py-1 text-xs text-[#4A5568]"
           >
             <I size={17} />
             {x}
@@ -1072,7 +1039,7 @@ function AnalyticsPage() {
         title="Hiring analytics"
         subtitle="How your hiring process performs — response times, stage conversion, sources and offers."
       >
-        <Btn>Export</Btn>
+        <Btn onClick={() => toast("Exporting analytics report...")}>Export</Btn>
       </SectionHead>
 
       <div className="flex flex-wrap gap-3 items-center mb-2">
@@ -1081,7 +1048,7 @@ function AnalyticsPage() {
           value={range}
           onChange={setRange}
         />
-        <span className="text-[10px] text-[#4A5568] mx-2">Compare to</span>
+        <span className="text-xs text-[#4A5568] mx-2">Compare to</span>
         <ButtonGroup
           options={["Previous period", "Same period last year"]}
           value={compare}
@@ -1089,7 +1056,7 @@ function AnalyticsPage() {
         />
       </div>
 
-      <FilterBar filters={filters} onChange={() => {}} />
+      <FilterBar filters={filters} onChange={() => toast("Filters applied")} />
 
       {/* Insight strip */}
       <div className="grid gap-4 lg:grid-cols-3 mb-6">
@@ -1105,7 +1072,7 @@ function AnalyticsPage() {
         ))}
         {activeInsights.length === 0 && (
           <Card padded title="No new insights">
-            <p className="text-[12px] text-[#4A5568]">
+            <p className="text-[10px] text-[#4A5568]">
               All current insights have been dismissed. New insights appear here when the data changes.
             </p>
           </Card>
@@ -1131,22 +1098,26 @@ function AnalyticsPage() {
                 title="Applicants over time"
                 insight="Applications are up 14% vs the previous period, with a steady weekly rhythm."
                 source="From platform events · Updated 2 hours ago"
-                onViewTable={() => {}}
+                onViewTable={() => toast("Opening applicants table...")}
               >
-                <LineChart data={{}} />
+                <div className="h-48 w-full bg-[#E5E1D8]/30 rounded-lg flex items-end gap-2 px-4">
+                  {[4, 5, 3, 6, 5, 7, 6].map((v, i) => (
+                    <div key={i} className="w-1/7 bg-[#0F1B2D] rounded-t" style={{ height: `${(v / 7) * 100}%` }} />
+                  ))}
+                </div>
               </ChartCard>
               <ChartCard
                 title="Funnel summary"
                 insight="Applied → Shortlisted → Interview → Offer → Hired: 312 → 118 → 64 → 22 → 9."
                 source="From platform events · Updated 2 hours ago"
-                onViewTable={() => {}}
+                onViewTable={() => toast("Opening funnel table...")}
               >
-                <div className="flex items-end gap-2 h-48">
+                <div className="h-48 w-full flex items-end gap-2 px-4">
                   {funnelStages.map((s) => (
                     <div key={s.stage} className="flex flex-col items-center gap-1">
                       <div
-                        className="w-16 bg-[#0F1B2D] rounded-t"
-                        style={{ height: `${(s.count / 312) * 200}px` }}
+                        className="w-20 bg-[#B8955A] rounded-t"
+                        style={{ height: `${(s.count / 312) * 100}%` }}
                       />
                       <span className="text-[10px] text-[#4A5568]">{s.count}</span>
                     </div>
@@ -1157,32 +1128,27 @@ function AnalyticsPage() {
                 title="Time to first response trend"
                 insight="Median first response is 3 days — down from 5 days last quarter. 78% answered within 7 days."
                 source="From platform events · Updated 2 hours ago"
-                onViewTable={() => {}}
+                onViewTable={() => toast("Opening response time table...")}
               >
-                <LineChart data={{}} />
+                <div className="h-48 w-full bg-[#E5E1D8]/30 rounded-lg flex items-end gap-2 px-4">
+                  {[6, 5, 5, 4, 4, 3, 3].map((v, i) => (
+                    <div key={i} className="w-1/7 bg-[#0F1B2D] rounded-t" style={{ height: `${(v / 6) * 100}%` }} />
+                  ))}
+                </div>
               </ChartCard>
               <ChartCard
                 title="Offers sent vs accepted"
                 insight="14 offers sent, 9 accepted (64% acceptance). One offer expired, one withdrawn."
                 source="From platform events · Updated 2 hours ago"
-                onViewTable={() => {}}
+                onViewTable={() => toast("Opening offers table...")}
               >
-                <div className="flex items-end gap-2 h-48">
-                  {["Sent", "Accepted"].map((s, i) => (
-                    <div key={s} className="flex flex-col items-center gap-1">
-                      <div
-                        className={`w-20 rounded-t ${i === 1 ? "bg-[#B8955A]" : "bg-[#0F1B2D]"}`}
-                        style={{ height: `${(i === 0 ? 14 : 9) * 8}px` }}
-                      />
-                      <span className="text-[10px] text-[#4A5568]">
-                        {i === 0 ? "14 sent" : "9 accepted"}
-                      </span>
-                    </div>
-                  ))}
+                <div className="h-48 w-full flex items-end gap-2 px-4">
+                  <div className="w-1/2 bg-[#0F1B2D] rounded-t" style={{ height: "64%" }} />
+                  <div className="w-1/2 bg-[#B8955A] rounded-t" style={{ height: "36%" }} />
                 </div>
               </ChartCard>
               <Section title="What's working and what to look at">
-                <ul className="space-y-3 text-[12px] text-[#4A5568]">
+                <ul className="space-y-3 text-[10px] text-[#4A5568]">
                   <li className="flex items-start gap-2">
                     <CheckCircle2 size={14} className="text-[#286749] flex-shrink-0" />
                     Referral candidates convert to interview at 34% vs a 16% average.
@@ -1206,19 +1172,17 @@ function AnalyticsPage() {
                 title="Conversion funnel"
                 insight="Applied → Shortlisted → Interview → Offer → Hired. Conversion between stages: 38%, 54%, 34%, 41%."
                 source="From platform events · Updated 2 hours ago"
-                onViewTable={() => {}}
+                onViewTable={() => toast("Opening conversion table...")}
               >
-                <div className="flex items-end gap-2 h-64 w-full">
+                <div className="h-64 w-full flex items-end gap-2 px-4">
                   {funnelStages.map((s) => (
                     <div key={s.stage} className="flex flex-col items-center gap-1">
                       <div
                         className="w-24 bg-[#0F1B2D] rounded-t"
-                        style={{ height: `${(s.count / 312) * 300}px` }}
+                        style={{ height: `${(s.count / 312) * 100}%` }}
                       />
                       <span className="text-[10px] font-medium text-[#0F1B2D]">{s.count}</span>
-                      <span className="text-[10px] text-[#4A5568]">
-                        {s.conversion ? `${s.conversion}%` : "—"}
-                      </span>
+                      <span className="text-[10px] text-[#4A5568]">{s.conversion ? `${s.conversion}%` : "—"}</span>
                     </div>
                   ))}
                 </div>
@@ -1227,15 +1191,13 @@ function AnalyticsPage() {
                 title="Drop-off by stage"
                 insight="The largest drop is Shortlisted → Interview (38% don't advance). Most cite no response within 7 days."
                 source="From platform events · Updated 2 hours ago"
-                onViewTable={() => {}}
+                onViewTable={() => toast("Opening drop-off table...")}
               >
                 <div className="space-y-3">
                   {dropoffByStage.map((d) => (
-                    <div key={d.stage + d.reason} className="flex items-center justify-between text-[12px]">
+                    <div key={d.stage + d.reason} className="flex items-center justify-between text-[10px]">
                       <div className="flex items-center gap-3">
-                        <span className="text-[#4A5568]">
-                          {d.stage} · {d.reason}
-                        </span>
+                        <span className="text-[#4A5568]">{d.stage} · {d.reason}</span>
                         <SampleSizeChip n={d.count} label="" />
                       </div>
                       <span className="text-[#0F1B2D] font-semibold">{d.pct}%</span>
@@ -1245,11 +1207,11 @@ function AnalyticsPage() {
               </ChartCard>
               <Card title="By job">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-[12px]">
+                  <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="border-b border-[#E5E1D8]">
                         {["Job", "Applicants", "Shortlisted", "Interviewed", "Offers", "Hires", "Median time", "Status"].map((h) => (
-                          <th key={h} className="pb-2 text-[#4A5568] font-medium">
+                          <th key={h} className="pb-3 text-[10px] text-[#4A5568] font-medium">
                             {h}
                           </th>
                         ))}
@@ -1286,15 +1248,19 @@ function AnalyticsPage() {
                 title="Time to first response"
                 insight="Median 3 days. 68% answered within 3 days, 85% within 7 days, 94% within 14 days (target)."
                 source="From platform events · Updated 2 hours ago"
-                onViewTable={() => {}}
+                onViewTable={() => toast("Opening response time table...")}
               >
-                <LineChart data={{}} />
+                <div className="h-48 w-full bg-[#E5E1D8]/30 rounded-lg flex items-end gap-2 px-4">
+                  {[68, 85, 94].map((v, i) => (
+                    <div key={i} className="w-1/3 bg-[#B8955A] rounded-t" style={{ height: `${(v / 100) * 100}%` }} />
+                  ))}
+                </div>
               </ChartCard>
               <ChartCard
                 title="Time in stage"
                 insight="Screening stage averages 6 days — marked Slow. Offer stage averages 4 days."
                 source="From platform events · Updated 2 hours ago"
-                onViewTable={() => {}}
+                onViewTable={() => toast("Opening stage time table...")}
               >
                 <div className="space-y-3">
                   {[
@@ -1303,7 +1269,7 @@ function AnalyticsPage() {
                     { stage: "Interview → Offer", median: "4 days", flag: false },
                     { stage: "Offer → Hired", median: "3 days", flag: false },
                   ].map((s) => (
-                    <div key={s.stage} className="flex items-center justify-between text-[12px]">
+                    <div key={s.stage} className="flex items-center justify-between text-[10px]">
                       <div className="flex items-center gap-3">
                         <span className="text-[#4A5568]">{s.stage}</span>
                         {s.flag && (
@@ -1324,14 +1290,16 @@ function AnalyticsPage() {
                     { name: "Candidate #51", job: "Product Designer", waited: "16 days" },
                     { name: "Candidate #57", job: "UX Researcher", waited: "15 days" },
                   ].map((c) => (
-                    <div key={c.name} className="flex items-center justify-between text-[12px] py-2 border-b border-[#E5E1D8]/50 last:border-0">
+                    <div key={c.name} className="flex items-center justify-between text-[10px] py-2 border-b border-[#E5E1D8]/50 last:border-0">
                       <div>
                         <span className="text-[#0F1B2D] font-medium">{c.name}</span><br />
                         <span className="text-[10px] text-[#4A5568]">{c.job}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-[#B42318] font-medium">{c.waited}</span>
-                        <Btn size="small" secondary>Reply with template</Btn>
+                        <Btn size="small" secondary onClick={() => toast("Opening reply template...")}>
+                          Reply with template
+                        </Btn>
                       </div>
                     </div>
                   ))}
@@ -1346,11 +1314,11 @@ function AnalyticsPage() {
                 title="Applicants by source"
                 insight="Job search leads with 114 applicants, followed by Startups hiring (68) and Invitations accepted (52)."
                 source="From platform events · Updated 2 hours ago"
-                onViewTable={() => {}}
+                onViewTable={() => toast("Opening sources table...")}
               >
                 <div className="space-y-3">
                   {sources.map((s) => (
-                    <div key={s.source} className="flex items-center justify-between text-[12px]">
+                    <div key={s.source} className="flex items-center justify-between text-[10px]">
                       <div className="flex items-center gap-3">
                         <span className="text-[#4A5568]">{s.source}</span>
                         <SampleSizeChip n={s.applicants} label="applicants" />
@@ -1364,13 +1332,13 @@ function AnalyticsPage() {
                 title="Source quality"
                 insight="Referrals convert to hire at 5% (n=20) — highest quality but small sample. Job search at 2.6% (n=114)."
                 source="From platform events · Updated 2 hours ago"
-                onViewTable={() => {}}
+                onViewTable={() => toast("Opening source quality table...")}
               >
                 <div className="space-y-3">
                   {sources.map((s) => {
                     const pct = ((s.toHire / s.applicants) * 100).toFixed(1);
                     return (
-                      <div key={s.source} className="flex items-center justify-between text-[12px]">
+                      <div key={s.source} className="flex items-center justify-between text-[10px]">
                         <div className="flex items-center gap-3">
                           <span className="text-[#4A5568]">{s.source}</span>
                           <SampleSizeChip n={s.applicants} label="" />
@@ -1410,18 +1378,16 @@ function AnalyticsPage() {
                 title="Offers funnel"
                 insight="Created → Approved → Sent → Viewed → Accepted → Declined → Expired → Withdrawn."
                 source="From platform events · Updated 2 hours ago"
-                onViewTable={() => {}}
+                onViewTable={() => toast("Opening offers table...")}
               >
-                <div className="flex items-end gap-1 h-56 w-full">
+                <div className="h-56 w-full flex items-end gap-1 px-4">
                   {offersFunnel.map((s) => (
                     <div key={s.stage} className="flex flex-col items-center gap-1">
                       <div
                         className="w-12 rounded-t bg-[#0F1B2D]"
-                        style={{ height: `${(s.count / 18) * 260}px` }}
+                        style={{ height: `${(s.count / 18) * 100}%` }}
                       />
-                      <span className="text-[9px] text-[#4A5568] leading-none">
-                        {s.count}
-                      </span>
+                      <span className="text-[9px] text-[#4A5568] leading-none">{s.count}</span>
                     </div>
                   ))}
                 </div>
@@ -1429,7 +1395,7 @@ function AnalyticsPage() {
               <div className="grid gap-6 lg:grid-cols-2">
                 <Card title="Time from final interview to offer">
                   <div className="px-6 pt-3 pb-4">
-                    <b className="text-3xl font-serif font-semibold">4 days</b>
+                    <b className="text-2xl font-serif font-semibold">4 days</b>
                     <p className="text-[10px] text-[#4A5568]">
                       Median from final interview to offer sent.
                     </p>
@@ -1437,7 +1403,7 @@ function AnalyticsPage() {
                 </Card>
                 <Card title="Time to acceptance">
                   <div className="px-6 pt-3 pb-4">
-                    <b className="text-3xl font-serif font-semibold">2 days</b>
+                    <b className="text-2xl font-serif font-semibold">2 days</b>
                     <p className="text-[10px] text-[#4A5568]">
                       Median from offer sent to acceptance.
                     </p>
@@ -1447,7 +1413,7 @@ function AnalyticsPage() {
               <Card title="Decline reasons (aggregated)">
                 <div className="space-y-3">
                   {declineReasons.map((d) => (
-                    <div key={d.reason} className="flex items-center justify-between text-[12px]">
+                    <div key={d.reason} className="flex items-center justify-between text-[10px]">
                       <div className="flex items-center gap-3">
                         <span className="text-[#4A5568]">{d.reason}</span>
                         <SampleSizeChip n={d.count} label="" />
@@ -1471,13 +1437,11 @@ function AnalyticsPage() {
                     <Card key={c.name} title padded>
                       <div className="px-6 pt-3 pb-4">
                         <div className="flex items-baseline gap-2 mb-2">
-                          <b className="text-2xl font-serif font-semibold">
-                            {c.value}
-                          </b>
+                          <b className="text-xl font-serif font-semibold">{c.value}</b>
                           {c.n && <SampleSizeChip n={c.n} label="" />}
                         </div>
-                        <p className="text-[12px] text-[#4A5568] mb-3">{c.desc}</p>
-                        <div className="flex items-center gap-2 text-[12px] text-[#4A5568]">
+                        <p className="text-[10px] text-[#4A5568] mb-3">{c.desc}</p>
+                        <div className="flex items-center gap-2 text-[10px] text-[#4A5568]">
                           <span className="font-medium">Suggested improvement:</span>
                           <span>{c.improvement}</span>
                         </div>
@@ -1486,8 +1450,7 @@ function AnalyticsPage() {
                   ))}
                 </div>
                 <p className="text-[10px] text-[#4A5568] mt-4">
-                  These checks describe the process, not people. No check ranks
-                  candidates or individual interviewers.
+                  These checks describe the process, not people. No check ranks candidates or individual interviewers.
                 </p>
               </Section>
             </>
@@ -1498,14 +1461,11 @@ function AnalyticsPage() {
         <div className="lg:col-span-4 space-y-6">
           <Card title="Data notes">
             <div className="px-6 pt-3 pb-4 space-y-4">
-              <p className="text-[12px] text-[#4A5568]">
-                What's included: applicants, hires, offers and stage events from
-                your jobs in the period. Stages are mapped from your pipeline
-                templates. Time zone: Asia/Kolkata.
+              <p className="text-[10px] text-[#4A5568]">
+                What's included: applicants, hires, offers and stage events from your jobs in the period. Stages are mapped from your pipeline templates. Time zone: Asia/Kolkata.
               </p>
-              <p className="text-[12px] text-[#4A5568]">
-                Minimum group size: breakdowns under 10 records are hidden or
-                merged.
+              <p className="text-[10px] text-[#4A5568]">
+                Minimum group size: breakdowns under 10 records are hidden or merged.
               </p>
               <p className="text-[10px] text-[#B42318]">
                 Known limits: Hires recorded after 12 Oct 2026 only.
@@ -1525,7 +1485,7 @@ function AnalyticsPage() {
               ].map((d) => (
                 <div key={d.term} className="flex flex-col gap-1">
                   <span className="text-[10px] font-semibold text-[#0F1B2D]">{d.term}</span>
-                  <p className="text-[11px] text-[#4A5568]">{d.def}</p>
+                  <p className="text-[10px] text-[#4A5568]">{d.def}</p>
                 </div>
               ))}
             </div>
@@ -1540,9 +1500,11 @@ function AnalyticsPage() {
                   "Engineering funnel — Q4",
                   "Design hires — last 90 days",
                 ].map((name) => (
-                  <div key={name} className="flex items-center justify-between text-[12px]">
+                  <div key={name} className="flex items-center justify-between text-[10px]">
                     <span className="text-[#0F1B2D]">{name}</span>
-                    <Btn size="small" secondary>Share</Btn>
+                    <Btn size="small" secondary onClick={() => toast(`Sharing ${name}...`)}>
+                      Share
+                    </Btn>
                   </div>
                 ))}
               </div>
@@ -1551,7 +1513,7 @@ function AnalyticsPage() {
           <Card>
             <div className="px-6 pt-3 pb-4">
               <Btn
-                onClick={() => {}}
+                onClick={() => toast("Opening support ticket...")}
                 secondary
                 className="w-full text-left"
               >
@@ -1576,6 +1538,7 @@ function TrustPage() {
   const [tab, setTab] = useState("Overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerItem, setDrawerItem] = useState(null);
+  const [verificationStatus, setVerificationStatus] = useState("verified");
 
   const tabs = [
     "Overview",
@@ -1602,9 +1565,7 @@ function TrustPage() {
           <Card key={s.label} padded>
             <div className="px-6 pt-3 pb-4">
               <div className="flex items-baseline gap-2 mb-2">
-                <b className={`text-2xl font-serif font-semibold ${
-                  s.tint === "success" ? "text-[#286749]" : s.tint === "warning" ? "text-[#9A6210]" : "text-[#0F1B2D]"
-                }`}>
+                <b className={`text-2xl font-serif font-semibold ${s.tint === "success" ? "text-[#286749]" : s.tint === "warning" ? "text-[#9A6210]" : "text-[#0F1B2D]"}`}>
                   {s.value}
                 </b>
               </div>
@@ -1629,15 +1590,17 @@ function TrustPage() {
                       What this means: Your company is in good standing. All hiring features are available.
                     </span>
                   </div>
-                  <p className="text-[12px] text-[#4A5568]">
+                  <p className="text-[10px] text-[#4A5568]">
                     Standing affects: new jobs publish immediately, outreach limits at full, candidate messaging unrestricted.
                   </p>
                   {company.standing !== "Good standing" && (
                     <div className="bg-[#FBE9E7] border border-[#FBE9E7] rounded-lg p-3">
-                      <p className="text-[12px] text-[#B42318] mb-2">
+                      <p className="text-[10px] text-[#B42318] mb-2">
                         Reason: verification review pending. Steps to fix: submit business registration, confirm official email domain.
                       </p>
-                      <Btn size="small">Contact support</Btn>
+                      <Btn size="small" onClick={() => toast("Contacting support...")}>
+                        Contact support
+                      </Btn>
                     </div>
                   )}
                 </div>
@@ -1647,14 +1610,28 @@ function TrustPage() {
                 <div className="px-6 pt-3 pb-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <b className="text-sm font-semibold">{company.verified ? "Verified" : "Not verified"}</b>
+                      <b className="text-xs font-semibold">{company.verified ? "Verified" : "Not verified"}</b>
                       <p className="text-[10px] text-[#4A5568]">
                         Last reviewed {company.verifiedAt}
                       </p>
                     </div>
-                    <Btn size="small">Update verification details</Btn>
+                    <Btn
+                      size="small"
+                      onClick={() => {
+                        setVerificationStatus((prev) =>
+                          prev === "verified" ? "pending" : "verified"
+                        );
+                        toast(
+                          verificationStatus === "verified"
+                            ? "Verification update requested"
+                            : "Verification restored"
+                        );
+                      }}
+                    >
+                      Update verification details
+                    </Btn>
                   </div>
-                  <div className="space-y-2 text-[12px] text-[#4A5568]">
+                  <div className="space-y-2 text-[10px] text-[#4A5568]">
                     <p>What was checked: business registration, official email domain, website.</p>
                     <p>Re-check triggers: legal name change, new domain, ownership change.</p>
                   </div>
@@ -1675,10 +1652,14 @@ function TrustPage() {
                       </div>
                     ))}
                   </div>
-                  <p className="text-[12px] text-[#4A5568]">
+                  <p className="text-[10px] text-[#4A5568]">
                     These may appear in aggregate on your company page (for example, "Typically replies within 4 days").
                   </p>
-                  <Btn size="small" className="mt-3 text-[#B8955A] hover:bg-[#F3EBDD] border-transparent bg-transparent">
+                  <Btn
+                    size="small"
+                    className="mt-3 text-[#B8955A] hover:bg-[#F3EBDD] border-transparent bg-transparent"
+                    onClick={() => toast("Opening speed analytics...")}
+                  >
                     Improve this <ArrowRight size={12} />
                   </Btn>
                 </div>
@@ -1687,7 +1668,7 @@ function TrustPage() {
               <Card title="Recent trust events">
                 <div className="px-6 pt-3 pb-4 space-y-3">
                   {recentTrustEvents.map((e) => (
-                    <div key={e.event} className="flex items-center justify-between text-[12px] py-2 border-b border-[#E5E1D8]/50 last:border-0">
+                    <div key={e.event} className="flex items-center justify-between text-[10px] py-2 border-b border-[#E5E1D8]/50 last:border-0">
                       <span className="text-[#0F1B2D]">{e.event}</span>
                       <span className="text-[10px] text-[#4A5568]">{e.date}</span>
                     </div>
@@ -1698,12 +1679,16 @@ function TrustPage() {
               <Card title="Safety reminders">
                 <div className="px-6 pt-3 pb-4 space-y-3">
                   {safetyReminders.map((r, i) => (
-                    <div key={i} className="flex items-start gap-2 text-[12px] text-[#4A5568]">
+                    <div key={i} className="flex items-start gap-2 text-[10px] text-[#4A5568]">
                       <Star size={14} className="text-[#B8955A] flex-shrink-0 mt-0.5" />
                       <span>{r}</span>
                     </div>
                   ))}
-                  <Btn size="small" className="mt-3 text-[#B8955A] hover:bg-[#F3EBDD] border-transparent bg-transparent">
+                  <Btn
+                    size="small"
+                    className="mt-3 text-[#B8955A] hover:bg-[#F3EBDD] border-transparent bg-transparent"
+                    onClick={() => setTab("Posting rules")}
+                  >
                     Read the posting rules <ArrowRight size={12} />
                   </Btn>
                 </div>
@@ -1715,11 +1700,11 @@ function TrustPage() {
             <>
               <Card title="Reports about your jobs and flags raised by the platform">
                 <div className="px-6 pt-3 pb-4 overflow-x-auto">
-                  <table className="w-full text-left text-[12px]">
+                  <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-[#E5E1D8]">
                         {["Date", "Type", "Category", "Related item", "Status", "Action"].map((h) => (
-                          <th key={h} className="pb-2 text-[#4A5568] font-medium">
+                          <th key={h} className="pb-3 text-[10px] text-[#4A5568] font-medium">
                             {h}
                           </th>
                         ))}
@@ -1743,7 +1728,9 @@ function TrustPage() {
                             <StatusChip status={r.status} kind="report" />
                           </td>
                           <td className="py-3 text-right">
-                            <Btn size="small" secondary>View</Btn>
+                            <Btn size="small" secondary onClick={() => toast("Opening report detail...")}>
+                              View
+                            </Btn>
                           </td>
                         </tr>
                       ))}
@@ -1751,13 +1738,12 @@ function TrustPage() {
                   </table>
                 </div>
                 {reportsFlags.length === 0 && (
-                  <p className="text-[12px] text-[#4A5568] text-center py-6">
+                  <p className="text-[10px] text-[#4A5568] text-center py-6">
                     Nothing to review. Keep it up.
                   </p>
                 )}
                 <p className="text-[10px] text-[#4A5568] mt-3">
-                  The reporter's identity is never shown. You see the category,
-                  the job or message, the date and the status.
+                  The reporter's identity is never shown. You see the category, the job or message, the date and the status.
                 </p>
               </Card>
             </>
@@ -1767,12 +1753,14 @@ function TrustPage() {
             <>
               <Card title="How appeals work">
                 <div className="px-6 pt-3 pb-4 space-y-4">
-                  <p className="text-[12px] text-[#4A5568]">
+                  <p className="text-[10px] text-[#4A5568]">
                     Appeal a report outcome, job pause, restriction or verification decision. Expected timeline: 5 business days. The appeal is reviewed by someone other than the original moderator where possible.
                   </p>
                   {isOwnerOrAdmin() ? (
                     <>
-                      <Btn onClick={() => {}}>Start an appeal</Btn>
+                      <Btn onClick={() => toast("Opening appeal form...")}>
+                        Start an appeal
+                      </Btn>
                       <p className="text-[10px] text-[#4A5568] mt-2">
                         Only Owners and Admins can file or withdraw appeals.
                       </p>
@@ -1787,7 +1775,7 @@ function TrustPage() {
               <Card title="Appeals list">
                 <div className="px-6 pt-3 pb-4 space-y-3">
                   {appealsList.map((a) => (
-                    <div key={a.id} className="flex items-center justify-between text-[12px] py-2 border-b border-[#E5E1D8]/50 last:border-0">
+                    <div key={a.id} className="flex items-center justify-between text-[10px] py-2 border-b border-[#E5E1D8]/50 last:border-0">
                       <div>
                         <span className="text-[#0F1B2D] font-medium">{a.decision}</span><br />
                         <span className="text-[10px] text-[#4A5568]">{a.date}</span>
@@ -1812,15 +1800,15 @@ function TrustPage() {
                   </p>
                   {postingRules.map((section, i) => (
                     <div key={section.title} className="space-y-2">
-                      <h4 className="text-[11px] font-semibold text-[#0F1B2D] uppercase tracking-wide">
+                      <h4 className="text-[10px] font-semibold text-[#0F1B2D] uppercase tracking-wide">
                         {section.title}
                       </h4>
                       <div className="grid gap-2 lg:grid-cols-2">
-                        <div className="flex items-start gap-2 text-[12px] text-[#4A5568] pl-4 border-l-2 border-[#286749]">
-                          <Check size={12} className="text-[#286749] mt-0.5" />
+                        <div className="flex items-start gap-2 text-[10px] text-[#4A5568] pl-4 border-l-2 border-[#286749]">
+                          <Eye size={12} className="text-[#286749] mt-0.5" />
                           {section.items[0].do}
                         </div>
-                        <div className="flex items-start gap-2 text-[12px] text-[#4A5568] pl-4 border-l-2 border-[#B42318]">
+                        <div className="flex items-start gap-2 text-[10px] text-[#4A5568] pl-4 border-l-2 border-[#B42318]">
                           <X size={12} className="text-[#B42318] mt-0.5" />
                           {section.items[1].dont}
                         </div>
@@ -1846,7 +1834,7 @@ function TrustPage() {
                       { label: "Report a platform issue", desc: "Wrong data, access problems." },
                       { label: "Report a security concern", desc: "Suspected account compromise, suspicious logins." },
                     ].map((r) => (
-                      <div key={r.label} className="flex items-center justify-between text-[12px] py-2 border-b border-[#E5E1D8]/50 last:border-0 cursor-pointer hover:bg-[#F3EBDD]/50">
+                      <div key={r.label} className="flex items-center justify-between text-[10px] py-2 border-b border-[#E5E1D8]/50 last:border-0 cursor-pointer hover:bg-[#F3EBDD]/50" onClick={() => toast(`Opening ${r.label} form...`)}>
                         <span className="text-[#0F1B2D]">{r.label}</span>
                         <ChevronRight size={14} />
                       </div>
@@ -1859,7 +1847,7 @@ function TrustPage() {
               </Card>
               <Card title="My reports">
                 <div className="px-6 pt-3 pb-4 space-y-3">
-                  <p className="text-[12px] text-[#4A5568] text-center py-4">
+                  <p className="text-[10px] text-[#4A5568] text-center py-4">
                     No reports filed yet.
                   </p>
                 </div>
@@ -1872,7 +1860,7 @@ function TrustPage() {
               <Card title="Blocked candidates">
                 <div className="px-6 pt-3 pb-4 space-y-3">
                   {blockedCandidates.map((b) => (
-                    <div key={b.id} className="flex items-center justify-between text-[12px] py-2 border-b border-[#E5E1D8]/50 last:border-0">
+                    <div key={b.id} className="flex items-center justify-between text-[10px] py-2 border-b border-[#E5E1D8]/50 last:border-0">
                       <div>
                         <span className="text-[#0F1B2D] font-medium">{b.name}</span><br />
                         <span className="text-[10px] text-[#4A5568]">{b.category}</span>
@@ -1880,13 +1868,15 @@ function TrustPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-[#4A5568]">{b.date}</span>
                         {isOwnerOrAdmin() ? (
-                          <Btn size="small" secondary>Unblock</Btn>
+                          <Btn size="small" secondary onClick={() => toast(`Unblocking ${b.name}...`)}>
+                            Unblock
+                          </Btn>
                         ) : null}
                       </div>
                     </div>
                   ))}
                   {blockedCandidates.length === 0 && (
-                    <p className="text-[12px] text-[#4A5568] text-center py-4">
+                    <p className="text-[10px] text-[#4A5568] text-center py-4">
                       No blocked candidates.
                     </p>
                   )}
@@ -1903,28 +1893,28 @@ function TrustPage() {
         <div className="lg:col-span-4 space-y-6">
           <Card title="Quick actions">
             <div className="px-6 pt-3 pb-4 space-y-3">
-              <Btn onClick={() => {}} className="w-full text-left">
+              <Btn onClick={() => toast("Opening report form...")} className="w-full text-left">
                 <AlertTriangle size={16} className="mr-2" /> Report a problem
               </Btn>
-              <Btn size="small" secondary className="w-full text-left">
+              <Btn size="small" secondary onClick={() => setTab("Posting rules")} className="w-full text-left">
                 <FileText size={14} className="mr-2" /> View posting rules
               </Btn>
-              <Btn size="small" secondary className="w-full text-left">
+              <Btn size="small" secondary onClick={() => toast("Contacting support...")} className="w-full text-left">
                 <Headphones size={14} className="mr-2" /> Contact support
               </Btn>
             </div>
           </Card>
           <Card title="Security tips">
             <div className="px-6 pt-3 pb-4 space-y-3">
-              <div className="flex items-start gap-2 text-[12px] text-[#4A5568]">
+              <div className="flex items-start gap-2 text-[10px] text-[#4A5568]">
                 <ShieldCheck size={14} className="text-[#286749] mt-0.5" />
                 <span>Use two-factor authentication</span>
               </div>
-              <div className="flex items-start gap-2 text-[12px] text-[#4A5568]">
+              <div className="flex items-start gap-2 text-[10px] text-[#4A5568]">
                 <ShieldCheck size={14} className="text-[#286749] mt-0.5" />
                 <span>Review your team's access</span>
               </div>
-              <Btn size="small" secondary className="mt-2 w-full text-left">
+              <Btn size="small" secondary onClick={() => toast("Opening team settings...")} className="mt-2 w-full text-left">
                 <Users size={14} className="mr-2" /> Team and Settings
               </Btn>
             </div>
@@ -1933,9 +1923,9 @@ function TrustPage() {
             <div className="px-6 pt-3 pb-4 space-y-3">
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-[#286749]" />
-                <span className="text-[11px] text-[#4A5568]">All systems operational</span>
+                <span className="text-[10px] text-[#4A5568]">All systems operational</span>
               </div>
-              <Btn size="small" secondary className="w-full text-left">
+              <Btn size="small" secondary onClick={() => toast("Opening status page...")} className="w-full text-left">
                 <Globe size={14} className="mr-2" /> Platform status page
               </Btn>
             </div>
@@ -1954,7 +1944,7 @@ function TrustPage() {
               <h4 className="text-[10px] font-semibold text-[#4A5568] uppercase tracking-wide mb-2">
                 What was reported or flagged
               </h4>
-              <p className="text-[12px] text-[#4A5568] mb-2">
+              <p className="text-[10px] text-[#4A5568] mb-2">
                 {drawerItem.excerpt}
               </p>
               <span className="text-[10px] text-[#B8955A] font-medium">
@@ -1965,7 +1955,7 @@ function TrustPage() {
               <h4 className="text-[10px] font-semibold text-[#4A5568] uppercase tracking-wide mb-2">
                 What happened
               </h4>
-              <p className="text-[12px] text-[#4A5568]">
+              <p className="text-[10px] text-[#4A5568]">
                 {drawerItem.status === "Open"
                   ? "No action taken yet. Awaiting moderator review."
                   : drawerItem.status === "Resolved"
@@ -1978,17 +1968,27 @@ function TrustPage() {
                 What you can do
               </h4>
               <div className="space-y-2">
-                <Btn size="small" secondary className="w-full text-left">Fix and resubmit</Btn>
-                <Btn size="small" secondary className="w-full text-left">Respond</Btn>
-                {isOwnerOrAdmin() && <Btn size="small" secondary className="w-full text-left">Appeal</Btn>}
-                <Btn size="small" secondary className="w-full text-left">Dismiss</Btn>
+                <Btn size="small" secondary onClick={() => toast("Opening job editor...")} className="w-full text-left">
+                  Fix and resubmit
+                </Btn>
+                <Btn size="small" secondary onClick={() => toast("Opening response form...")} className="w-full text-left">
+                  Respond
+                </Btn>
+                {isOwnerOrAdmin() && (
+                  <Btn size="small" secondary onClick={() => toast("Opening appeal form...")} className="w-full text-left">
+                    Appeal
+                  </Btn>
+                )}
+                <Btn size="small" secondary onClick={() => toast("Dismissing flag...")} className="w-full text-left">
+                  Dismiss
+                </Btn>
               </div>
             </div>
             <div>
               <h4 className="text-[10px] font-semibold text-[#4A5568] uppercase tracking-wide mb-2">
                 History
               </h4>
-              <p className="text-[12px] text-[#4A5568]">No moderator notes yet.</p>
+              <p className="text-[10px] text-[#4A5568]">No moderator notes yet.</p>
             </div>
             <p className="text-[10px] text-[#4A5568] mt-4 italic">
               "We never share who reported."
@@ -2030,13 +2030,12 @@ function ActivityPage() {
     <EmployerShell active="Activity">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-sm font-serif font-semibold">Activity and audit log</h2>
+          <h2 className="text-xs font-serif font-semibold">Activity and audit log</h2>
           <p className="text-[10px] text-[#4A5568]">
-            This log can't be edited or deleted. Entries are append-only for
-            accountability and compliance.
+            This log can't be edited or deleted. Entries are append-only for accountability and compliance.
           </p>
         </div>
-        <Btn>Export</Btn>
+        <Btn onClick={() => toast("Exporting activity log...")}>Export</Btn>
       </div>
 
       {/* Summary strip */}
@@ -2075,19 +2074,18 @@ function ActivityPage() {
         </Card>
       </div>
 
-
       {/* Tabs */}
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
 
       {/* Toolbar */}
       <div className="flex flex-wrap gap-3 items-center mb-6">
         <div className="relative flex-1 max-w-[320px]">
-          <Search className="absolute left-3 top-2.5 text-[#A0A7B4]" size={16} />
+          <Search className="absolute left-3 top-2.5 text-[#4A5568]" size={16} />
           <input
             placeholder="Search action text or record ID"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-10 w-full rounded-lg border border-[#E5E1D8] bg-white pl-9 pr-4 text-[11px]"
+            className="h-10 w-full rounded-lg border border-[#E5E1D8] bg-white pl-9 pr-4 text-[10px]"
           />
         </div>
         <ButtonGroup
@@ -2096,7 +2094,7 @@ function ActivityPage() {
           onChange={setDateRange}
         />
         <select
-          className="h-10 rounded-lg border border-[#E5E1D8] bg-white pl-2 pr-8 text-[11px] appearance-none"
+          className="h-10 rounded-lg border border-[#E5E1D8] bg-white pl-2 pr-8 text-[10px] appearance-none"
         >
           <option>All members</option>
           <option>Priya Mehta · Recruiter</option>
@@ -2104,7 +2102,7 @@ function ActivityPage() {
           <option>Owner account · Owner</option>
         </select>
         <select
-          className="h-10 rounded-lg border border-[#E5E1D8] bg-white pl-2 pr-8 text-[11px] appearance-none"
+          className="h-10 rounded-lg border border-[#E5E1D8] bg-white pl-2 pr-8 text-[10px] appearance-none"
         >
           <option>All outcomes</option>
           <option>Success</option>
@@ -2116,7 +2114,7 @@ function ActivityPage() {
       {/* Log table */}
       <Card>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-[11px]">
+          <table className="w-full text-left text-[10px]">
             <thead>
               <tr className="border-b border-[#E5E1D8]">
                 {["Time", "Who", "Category", "Action", "Target", "Outcome", "Context"].map((h) => (
@@ -2161,8 +2159,7 @@ function ActivityPage() {
       </Card>
 
       <p className="text-[10px] text-[#4A5568] mt-4">
-        Logs are not used to rate or rank team members. Candidate names in old
-        entries are anonymized when a candidate's data is deleted.
+        Logs are not used to rate or rank team members. Candidate names in old entries are anonymized when a candidate's data is deleted.
       </p>
 
       {drawerOpen && entry && (
@@ -2177,27 +2174,27 @@ function ActivityPage() {
                 <h4 className="text-[10px] font-semibold text-[#4A5568] uppercase tracking-wide mb-2">
                   Record
                 </h4>
-                <p className="text-[12px] text-[#4A5568]"><b>ID:</b> {entry.id}</p>
-                <p className="text-[12px] text-[#4A5568]"><b>Time:</b> {entry.time}</p>
-                <p className="text-[12px] text-[#4A5568]"><b>Who:</b> {entry.who}</p>
-                <p className="text-[12px] text-[#4A5568]"><b>Category:</b> {entry.category}</p>
+                <p className="text-[10px] text-[#4A5568]"><b>ID:</b> {entry.id}</p>
+                <p className="text-[10px] text-[#4A5568]"><b>Time:</b> {entry.time}</p>
+                <p className="text-[10px] text-[#4A5568]"><b>Who:</b> {entry.who}</p>
+                <p className="text-[10px] text-[#4A5568]"><b>Category:</b> {entry.category}</p>
               </div>
               <div>
                 <h4 className="text-[10px] font-semibold text-[#4A5568] uppercase tracking-wide mb-2">
                   Context
                 </h4>
-                <p className="text-[12px] text-[#4A5568]"><b>Device:</b> {entry.details.device}</p>
-                <p className="text-[12px] text-[#4A5568]"><b>Region:</b> {entry.details.region}</p>
-                <p className="text-[12px] text-[#4A5568]"><b>Session:</b> {entry.details.session}</p>
+                <p className="text-[10px] text-[#4A5568]"><b>Device:</b> {entry.details.device}</p>
+                <p className="text-[10px] text-[#4A5568]"><b>Region:</b> {entry.details.region}</p>
+                <p className="text-[10px] text-[#4A5568]"><b>Session:</b> {entry.details.session}</p>
               </div>
             </div>
             <div>
               <h4 className="text-[10px] font-semibold text-[#4A5568] uppercase tracking-wide mb-2">
                 Action
               </h4>
-              <p className="text-[12px] text-[#4A5568]">{entry.action}</p>
-              <p className="text-[12px] text-[#4A5568]"><b>Target:</b> {entry.target}</p>
-              <p className="text-[12px] text-[#4A5568]"><b>Outcome:</b>
+              <p className="text-[10px] text-[#4A5568]">{entry.action}</p>
+              <p className="text-[10px] text-[#4A5568]"><b>Target:</b> {entry.target}</p>
+              <p className="text-[10px] text-[#4A5568]"><b>Outcome:</b>
                 <StatusChip status={entry.outcome} kind="audit" />
               </p>
             </div>
@@ -2205,7 +2202,7 @@ function ActivityPage() {
               <h4 className="text-[10px] font-semibold text-[#4A5568] uppercase tracking-wide mb-2">
                 Before → After
               </h4>
-              <div className="space-y-2 text-[12px] text-[#4A5568]">
+              <div className="space-y-2 text-[10px] text-[#4A5568]">
                 <p><b>Before:</b> {entry.details.before}</p>
                 <p><b>After:</b> {entry.details.after}</p>
               </div>
