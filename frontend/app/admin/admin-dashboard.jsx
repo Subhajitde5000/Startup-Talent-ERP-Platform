@@ -1,13 +1,10 @@
 "use client";
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
   Search,
   Bell,
   ChevronDown,
-  ChevronRight,
-  HelpCircle,
-  Settings,
   LayoutDashboard,
   Briefcase,
   FileText,
@@ -25,7 +22,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   Star,
-  ChevronLeft,
   ShieldCheck,
   Headphones,
   Globe,
@@ -54,6 +50,8 @@ import {
   Wallet,
   Gauge,
   Scale,
+  Settings,
+  HelpCircle,
   LayoutList,
   Inbox,
   Paperclip,
@@ -74,16 +72,11 @@ import {
   Calendar as CalendarIcon,
   User as User2Icon,
   Monitor as MonitorIcon,
-  Sun,
-  Moon,
   Layout,
   PanelLeft,
   PanelTop,
   Folder,
   MessageCircle,
-  HardHat,
-  Stethoscope,
-  Briefcase as Briefcase2Icon,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -111,18 +104,6 @@ const ERROR_DARK = "#8E1A12";
 const INFO = "#2F5D8A";
 const INFO_TINT = "#E8F0F8";
 
-// Dark theme tokens
-const DARK_BG = "#0B1422";
-const DARK_SURFACE = "#142033";
-const DARK_SURFACE_RAISED = "#1A2A42";
-const DARK_TEXT = "#F2EFE8";
-const DARK_TEXT_MUTED = "#A9B2C1";
-const DARK_BORDER = "#26364D";
-const DARK_GOLD = "#C9A66B";
-const DARK_SUCCESS = "#4FB08A";
-const DARK_WARNING = "#D9A441";
-const DARK_ERROR = "#E5675C";
-
 const RADIUS_CARD = "rounded-[12px]";
 const RADIUS_CONTROL = "rounded-[10px]";
 
@@ -135,11 +116,9 @@ const user = {
   internalRoles: ["Super admin", "Verification reviewer", "Trust and safety moderator"],
   sessionExpiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
   idleTimeoutAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-  theme: "system", // system | light | dark
-  density: "comfortable", // comfortable | compact
 };
 
-const environment = "production"; // production | staging
+const environment = "production";
 
 /* ------------------------------------------------------------------ */
 /*  Simple toast                                                      */
@@ -156,52 +135,13 @@ function toast(msg) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Theme detection                                                   */
-/* ------------------------------------------------------------------ */
-function useTheme() {
-  const [theme, setTheme] = useState(user.theme);
-  const [isDark, setIsDark] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-    const root = document.documentElement;
-    const resolve = (t) => {
-      if (t === "system") {
-        const m = window.matchMedia("(prefers-color-scheme: dark)");
-        const dark = m.matches;
-        root.classList.toggle("dark-theme", dark);
-        setIsDark(dark);
-        m.addEventListener("change", (e) => {
-          if (theme === "system") {
-            root.classList.toggle("dark-theme", e.matches);
-            setIsDark(e.matches);
-          }
-        });
-        return;
-      }
-      const dark = t === "dark";
-      root.classList.toggle("dark-theme", dark);
-      setIsDark(dark);
-    };
-    resolve(theme);
-    return () => {
-      const m = window.matchMedia("(prefers-color-scheme: dark)");
-      m.removeEventListener("change", () => {});
-    };
-  }, [theme]);
-  return { theme, setTheme, isDark: mounted ? isDark : false };
-}
-
-/* ------------------------------------------------------------------ */
 /*  Shared UI primitives (12px+, WCAG AA, overflow-x-auto tables)     */
 /* ------------------------------------------------------------------ */
 
 function Card({ title, titleIcon: TitleIcon, padded = true, className = "", children }) {
   const padding = padded ? "p-5" : "p-0";
   return (
-    <section
-      className={`border border-solid ${RADIUS_CARD} bg-white ${className} ${padding}`}
-    >
+    <section className={`border border-solid ${RADIUS_CARD} bg-white ${className} ${padding}`}>
       {title && (
         <div className="flex items-center justify-between mb-4 border-b border-solid border-[#E5E1D8] pb-3">
           <div className="flex items-center gap-2">
@@ -247,7 +187,7 @@ function Btn({
   );
 }
 
-function BtnIcon({ onClick, secondary, size, className = "", icon: Icon, title, destructive }) {
+function BtnIcon({ onClick, secondary, size, className = "", icon: IconComp, title, destructive }) {
   const handleClick = (e) => {
     e.preventDefault();
     if (onClick) onClick(e);
@@ -265,7 +205,7 @@ function BtnIcon({ onClick, secondary, size, className = "", icon: Icon, title, 
         : "h-10 w-10 p-0"} ${className}`}
       aria-label={title}
     >
-      <Icon size={size === "small" ? 13 : 16} />
+      <IconComp size={size === "small" ? 13 : 16} />
     </button>
   );
 }
@@ -353,7 +293,7 @@ function DetailDrawer({ open, onClose, title, children }) {
       <div className="relative w-full max-w-[640px] h-full flex flex-col bg-white border-l border-solid border-[#E5E1D8] shadow-lg ml-auto">
         <div className="flex items-center justify-between border-b border-solid border-[#E5E1D8] px-6 py-4 bg-[#FAF8F4]">
           <h3 className="text-[15px] font-semibold">{title}</h3>
-          <BtnIcon size="small" secondary onClick={onClose} icon={X} title="Close" />
+          <BtnIcon size="small" secondary icon={X} title="Close" onClick={onClose} />
         </div>
         <div className="flex-1 overflow-y-auto p-6">{children}</div>
       </div>
@@ -801,36 +741,32 @@ function oldestAge(q) {
 /*  Sidebar                                                           */
 /* ------------------------------------------------------------------ */
 const sidebarItems = [
-  ["Dashboard", LayoutDashboard, "/dashboard"],
-  ["Verifications", BuildingIcon, "/verifications"],
-  ["Moderation", ShieldAlert, "/moderation"],
-  ["Reports", AlertCircle, "/reports"],
-  ["Appeals", Scale, "/appeals"],
-  ["Disputes", AwardIcon, "/disputes"],
-  ["Fraud", ShieldAlert, "/fraud"],
-  ["Support", MessageCircle, "/support"],
-  ["Data requests", FileText, "/data-requests"],
-  ["Users", Users, "/users"],
-  ["Organizations", BuildingIcon, "/organizations"],
-  ["Content", FileIcon, "/content"],
-  ["Templates", FileText, "/templates"],
-  ["Rubrics", List, "/rubrics"],
-  ["Events", CalendarIcon, "/events"],
-  ["Billing", Banknote, "/billing"],
-  ["Analytics", BarChart3, "/analytics"],
-  ["Compliance", ShieldCheck, "/compliance"],
-  ["Audit", ActivityIcon, "/audit"],
-  ["System", MonitorIcon, "/system"],
-  ["Configuration", Wrench, "/configuration"],
+  ["Dashboard", LayoutDashboard, "/admin/dashboard"],
+  ["Verifications", BuildingIcon, "/admin/verifications"],
+  ["Moderation", ShieldAlert, "/admin/moderation"],
+  ["Reports", AlertCircle, "/admin/reports"],
+  ["Appeals", Scale, "/admin/appeals"],
+  ["Disputes", AwardIcon, "/admin/disputes"],
+  ["Fraud", ShieldAlert, "/admin/fraud"],
+  ["Support", MessageCircle, "/admin/support"],
+  ["Data requests", FileText, "/admin/data-requests"],
+  ["Users", Users, "/admin/users"],
+  ["Organizations", BuildingIcon, "/admin/organizations"],
+  ["Content", FileIcon, "/admin/content"],
+  ["Templates", FileText, "/admin/templates"],
+  ["Rubrics", List, "/admin/rubrics"],
+  ["Events", CalendarIcon, "/admin/events"],
+  ["Billing", Banknote, "/admin/billing"],
+  ["Analytics", BarChart3, "/admin/analytics"],
+  ["Compliance", ShieldCheck, "/admin/compliance"],
+  ["Audit", ActivityIcon, "/admin/audit"],
+  ["System", MonitorIcon, "/admin/system"],
+  ["Configuration", Wrench, "/admin/configuration"],
 ];
 
-function AdminSidebar({ active, onThemeToggle, onDensityToggle }) {
-  const [isDark, setIsDark] = useState(false);
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark-theme"));
-  }, []);
+function AdminSidebar({ active }) {
   return (
-    <aside className="fixed inset-y-0 left-0 z-20 w-[232px] flex-col border-r border-solid border-[#E5E1D8] bg-[#0F1B2D] text-white lg:block">
+    <aside className="fixed inset-y-0 left-0 z-20 hidden w-[232px] flex-col border-r border-solid border-[#E5E1D8] bg-[#0F1B2D] text-white lg:block">
       <div className="flex h-[64px] items-center justify-between border-b border-solid border-white/10 px-4">
         <div className="flex items-center gap-2">
           <span className="grid h-8 w-8 place-items-center rounded-full border border-white/30 font-serif">
@@ -838,13 +774,6 @@ function AdminSidebar({ active, onThemeToggle, onDensityToggle }) {
           </span>
           <b className="text-xs font-semibold tracking-wide uppercase">Admin</b>
         </div>
-        <BtnIcon
-          size="small"
-          secondary
-          icon={isDark ? Sun : Moon}
-          title={isDark ? "Light theme" : "Dark theme"}
-          onClick={onThemeToggle}
-        />
       </div>
       <nav className="mt-4 space-y-0.5 px-2">
         {sidebarItems.map(([n, I, u]) => {
@@ -863,25 +792,9 @@ function AdminSidebar({ active, onThemeToggle, onDensityToggle }) {
         })}
       </nav>
       <div className="mt-auto border-t border-solid border-white/10 px-2 pt-3 space-y-1 pb-4">
-        <BtnIcon
-          size="small"
-          secondary
-          icon={Settings}
-          title="Settings"
-          onClick={() => toast("Settings opening")}
-        />
-        <BtnIcon
-          size="small"
-          secondary
-          icon={HelpCircle}
-          title="Runbooks"
-          onClick={() => toast("Runbooks opening")}
-        />
-        <button
-          type="button"
-          onClick={() => toast("Signing out")}
-          className="flex w-full items-center gap-3 rounded-[10px] border border-white/10 px-3 py-2 text-left text-[12px] text-white/70 hover:bg-white/10 transition"
-        >
+        <BtnIcon size="small" secondary icon={Settings} title="Settings" onClick={() => toast("Settings opening")} />
+        <BtnIcon size="small" secondary icon={HelpCircle} title="Runbooks" onClick={() => toast("Runbooks opening")} />
+        <button type="button" onClick={() => toast("Signing out")} className="flex w-full items-center gap-3 rounded-[10px] border border-white/10 px-3 py-2 text-left text-[12px] text-white/70 hover:bg-white/10 transition">
           <span className="flex-shrink-0">Sign out</span>
         </button>
       </div>
@@ -916,25 +829,17 @@ function IncidentBanner() {
     <div className="border-b border-solid border-[#E5E1D8] bg-[#FBE9E7] text-[#B42318] px-4 py-2 flex items-center gap-2 text-[12px]">
       <AlertCircle size={14} />
       <span>
-        {open[0]?.title || "Scheduled maintenance"}{" "}
-        <span className="font-semibold">· Open incident</span>
+        {open[0]?.title || "Scheduled maintenance"} · Open incident
       </span>
     </div>
   );
 }
 
 function TopBar({ onRefresh }) {
-  const now = new Date();
-  const istTime = now.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour12: false });
   return (
     <header className="sticky top-0 z-10 flex h-[56px] items-center justify-between border-b border-solid border-[#E5E1D8] bg-[#FAF8F4]/95 px-4 backdrop-blur">
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => toast("Command palette opening")}
-          className={`flex h-10 w-10 items-center justify-center rounded-[10px] border border-solid border-[#E5E1D8] bg-white text-[#0F1B2D] hover:bg-[#F3EBDD] transition`}
-          title="Search and commands (⌘K)"
-        >
+        <button type="button" onClick={() => toast("Command palette opening")} className={`flex h-10 w-10 items-center justify-center rounded-[10px] border border-solid border-[#E5E1D8] bg-white text-[#0F1B2D] hover:bg-[#F3EBDD] transition`} title="Search and commands (⌘K)">
           <Search size={16} />
           <span className="sr-only">Search and commands</span>
         </button>
@@ -946,11 +851,7 @@ function TopBar({ onRefresh }) {
       </div>
       <div className="flex items-center gap-3">
         <Btn size="small" secondary icon={RefreshCcw} onClick={onRefresh} title="Refresh" />
-        <button
-          type="button"
-          className="flex items-center gap-2 rounded-[10px] border border-solid border-[#E5E1D8] bg-white px-3 py-2 text-left"
-          onClick={() => toast("Profile menu opening")}
-        >
+        <button type="button" className="flex items-center gap-2 rounded-[10px] border border-solid border-[#E5E1D8] bg-white px-3 py-2 text-left" onClick={() => toast("Profile menu opening")}>
           <span className="grid h-8 w-8 place-items-center rounded-full bg-[#0F1B2D] text-[11px] font-bold text-white">AK</span>
           <div className="flex flex-col">
             <span className="block text-[12px] font-medium text-[#0F1B2D]">{user.name}</span>
@@ -1140,9 +1041,7 @@ function PlatformHealth({ health, incidents, maintenance }) {
           <thead>
             <tr className="border-b border-solid border-[#E5E1D8]">
               {["Service", "Status", "Metric", "Value", "Trend"].map((h) => (
-                <th key={h} className="pb-3 text-[11px] text-[#4A5568] font-medium">
-                  {h}
-                </th>
+                <th key={h} className="pb-3 text-[11px] text-[#4A5568] font-medium">{h}</th>
               ))}
             </tr>
           </thead>
@@ -1200,20 +1099,12 @@ function PulseCharts({ pulse }) {
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="bg-[#E5E1D8]/30 rounded-[10px] p-3 h-40 flex items-end gap-1 w-full">
             {pulse.registrationsByRole.map((r) => (
-              <div
-                key={r.role}
-                className="flex-1 bg-[#0F1B2D] rounded-t"
-                style={{ height: `${(r.count / 180) * 100}%` }}
-              />
+              <div key={r.role} className="flex-1 bg-[#0F1B2D] rounded-t" style={{ height: `${(r.count / 180) * 100}%` }} />
             ))}
           </div>
           <div className="bg-[#E5E1D8]/30 rounded-[10px] p-3 h-40 flex items-end gap-1 w-full">
             {pulse.verificationFunnel.map((s) => (
-              <div
-                key={s.stage}
-                className="flex-1 bg-[#B8955A] rounded-t"
-                style={{ height: `${(s.count / 120) * 100}%` }}
-              />
+              <div key={s.stage} className="flex-1 bg-[#B8955A] rounded-t" style={{ height: `${(s.count / 120) * 100}%` }} />
             ))}
           </div>
         </div>
@@ -1240,7 +1131,7 @@ function DeadlinesCompliance({ deadlines }) {
   const visible = showSection("deadlines");
   if (!visible) return null;
   return (
-    <Card title="Deadlines &amp; compliance" titleIcon={CalendarIcon}>
+    <Card title="Deadlines & compliance" titleIcon={CalendarIcon}>
       <div className="px-5 pt-3 pb-4 space-y-4">
         <div className="grid gap-4 lg:grid-cols-4">
           {[
@@ -1279,9 +1170,7 @@ function TeamWorkload({ workload }) {
           <thead>
             <tr className="border-b border-solid border-[#E5E1D8]">
               {["Queue", "Unassigned", "Assigned", "In review", "Active staff"].map((h) => (
-                <th key={h} className="pb-3 text-[11px] text-[#4A5568] font-medium">
-                  {h}
-                </th>
+                <th key={h} className="pb-3 text-[11px] text-[#4A5568] font-medium">{h}</th>
               ))}
             </tr>
           </thead>
@@ -1321,10 +1210,7 @@ function MyWork({ myWork, onResume }) {
           ) : (
             <div className="space-y-2">
               {myWork.map((i) => (
-                <div
-                  key={i.itemId}
-                  className="flex items-center justify-between p-2 rounded-[10px] border border-solid border-[#E5E1D8] bg-white"
-                >
+                <div key={i.itemId} className="flex items-center justify-between p-2 rounded-[10px] border border-solid border-[#E5E1D8] bg-white">
                   <div className="flex-1 min-w-0">
                     <b className="text-[12px] text-[#0F1B2D]">{i.itemId}</b>
                     <p className="text-[11px] text-[#4A5568]">{i.queue}</p>
@@ -1349,8 +1235,6 @@ function MyWork({ myWork, onResume }) {
 /*  Page: Admin Dashboard                                             */
 /* ------------------------------------------------------------------ */
 function AdminDashboardPage() {
-  const { theme, setTheme, isDark } = useTheme();
-  const [density, setDensity] = useState(user.density);
   const [refreshing, setRefreshing] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerItem, setDrawerItem] = useState(null);
@@ -1409,8 +1293,7 @@ function AdminDashboardPage() {
   }, []);
 
   return (
-    <div className={`min-h-screen bg-[#FAF8F4] text-[#0F1B2D] ${isDark ? `bg-[#0B1422] text-[#F2EFE8]` : ""}`}>
-      {/* Skip to content */}
+    <div className="min-h-screen bg-[#FAF8F4] text-[#0F1B2D]">
       <a href="#admin-main" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 bg-[#0F1B2D] text-white px-4 py-2">
         Skip to content
       </a>
@@ -1420,38 +1303,23 @@ function AdminDashboardPage() {
       <TopBar onRefresh={handleRefresh} />
 
       <div className="flex flex-col lg:flex-row" id="admin-main">
-        <AdminSidebar
-          active="Dashboard"
-          onThemeToggle={() => setTheme(isDark ? "light" : "dark")}
-          onDensityToggle={() => setDensity(density === "comfortable" ? "compact" : "comfortable")}
-        />
+        <AdminSidebar active="Dashboard" />
 
         <main className="flex-1 min-w-0 pt-6 lg:pt-8 lg:pl-[232px] lg:px-8 pb-24">
-          <SectionHead
-            title="Dashboard"
-            subtitle={`Updated ${lastUpdated} IST`}
-          >
+          <SectionHead title="Dashboard" subtitle={`Updated ${lastUpdated} IST`}>
             <Btn size="small" secondary icon={RefreshCcw} onClick={handleRefresh} title="Refresh" />
           </SectionHead>
 
           {nextUpData() && (
-            <NextUpCard
-              nextUp={nextUpData()}
-              onStart={handleStart}
-              onSkip={handleSkip}
-              onViewQueue={handleViewQueue}
-            />
+            <NextUpCard nextUp={nextUpData()} onStart={handleStart} onSkip={handleSkip} onViewQueue={handleViewQueue} />
           )}
 
           <div className="grid gap-6 lg:grid-cols-12 mb-6">
-            {/* Queues: left 8 columns */}
             <div className="lg:col-span-8 space-y-6">
               <QueuesGrid queues={visible.queues} onOpen={handleOpenQueue} />
               {visible.showAttention && <NeedsAttention attention={attention} onOpen={() => {}} onAcknowledge={handleAcknowledge} />}
               {visible.showMyWork && <MyWork myWork={myWork} onResume={() => toast("Resuming item")} />}
             </div>
-
-            {/* Right: 4 columns */}
             <div className="lg:col-span-4 space-y-6">
               {visible.showHealth && <PlatformHealth health={health} incidents={incidents} maintenance={maintenance} />}
               {visible.showPulse && <PulseCharts pulse={pulse} />}
@@ -1460,7 +1328,6 @@ function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Footer note */}
           <div className="mt-8 px-5 lg:px-0 text-center lg:text-left">
             <p className="text-[11px] text-[#4A5568]">
               Don't copy personal data out of this console. All actions are logged.
@@ -1470,11 +1337,7 @@ function AdminDashboardPage() {
       </div>
 
       {drawerOpen && drawerItem && (
-        <DetailDrawer
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-          title={`Queue: ${drawerItem.label}`}
-        >
+        <DetailDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={`Queue: ${drawerItem.label}`}>
           <div className="space-y-5">
             <div>
               <h4 className="text-[11px] font-semibold text-[#4A5568] uppercase tracking-wide mb-2">
@@ -1485,13 +1348,7 @@ function AdminDashboardPage() {
               <p className="text-[12px] text-[#4A5568] mb-2">Oldest: {formatAge(drawerItem.oldestSeconds)}</p>
             </div>
             <div className="flex gap-2">
-              <Btn
-                onClick={() => {
-                  setDrawerOpen(false);
-                  toast(`Opening ${drawerItem.label} queue`);
-                }}
-                className="flex-1"
-              >
+              <Btn onClick={() => { setDrawerOpen(false); toast(`Opening ${drawerItem.label} queue`); }} className="flex-1">
                 Open queue
               </Btn>
               <Btn size="small" secondary onClick={() => setDrawerOpen(false)}>

@@ -1,8 +1,8 @@
-# Report: UI Problems & Fixes — Employer Role Pages + Admin Dashboard
+# Report: UI Problems & Fixes — Employer Role Pages + Admin Dashboard + Admin Verifications
 
 ## Scope
 
-This report covers the remediation of issues identified in `uploads/role-ui-detailed-audit.md` across all employer role pages, the new `/employer/billing` page built per `uploads/employer-billing-design.md`, and the new Admin Dashboard page built per `uploads/admin-dashboard-design.md`.
+This report covers the remediation of issues identified in `uploads/role-ui-detailed-audit.md` across all employer role pages, the new `/employer/billing` page built per `uploads/employer-billing-design.md`, and the new Admin Dashboard and Admin Verification pages built per `uploads/admin-dashboard-design.md`.
 
 ---
 
@@ -71,71 +71,85 @@ This report covers the remediation of issues identified in `uploads/role-ui-deta
 
 ---
 
-## Part 3: New Admin Verification and Approvals Page
+## Part 3: New Admin Verification and Approvals Page (`/admin/verifications`)
 
-**Note:** The `uploads/admin-verifications-design.md` file was not found in the uploads directory. This page was built using `uploads/admin-dashboard-design.md` (verification queue specifications in Part 4.3) as the design reference, following the same conventions as the Admin Dashboard.
+Built per `uploads/admin-verifications-design.md` Part A (Verification Queue).
 
 **Files:** `app/admin/admin-verifications.jsx`, `app/admin/verifications/page.js`
 
-**Route:** `/admin/verifications`
+**Route:** `/admin/verifications` (admin subdomain)
 
-**Features implemented:**
-- **Verification queue table** — 8 sample verifications across Startups, Mentors, Investors (KYC), Employers
-- **Stats strip** — Pending review, Claimed, At risk, Breached counts with large serif numbers
-- **Filters** — Type, Status, Priority, SLA dropdowns with client-side filtering
-- **Per-row actions** — Claim (locks item for 10 minutes), Open (opens review drawer)
-- **Review drawer** — Verification details, documents submitted with download, review decision (Approve/Reject/Needs changes), audit log note
-- **SLA status chips** — On track / At risk / Breached with color coding
-- **Risk indicator** — Low/Medium/High risk with score
-- **Table view toggle** — Grid/List view buttons
-- **Refresh** — Manual refresh with updated IST timestamp
+**Layout (per Part A.2):**
+- Title "Verifications" with Saved views dropdown
+- Type tabs: All · Startups · Mentors · Investors · Employers
+- Status chips: Submitted · In review · Waiting for applicant · Second review · On hold
+- Summary strip (4 cards): Waiting, At risk or breached, Mine, Median time to decision (30 days)
+- Toolbar: search · sort · density · [Next case]
+- Table of cases + Case preview drawer (row click opens preview; Open goes to full review page)
 
-**Role-based visibility:** Built for Verification reviewers and Super admins. Server-side role enforcement per Part 5 of the admin dashboard design.
+**Table columns (per Part A.3):** Case (ID in mono, type icon), Applicant (name + region), Submitted (relative age), Status (chip), Risk (tier chip with flags), Auto-checks (passed/attention/failed mini strip), SLA (chip + time remaining), Assigned (reviewer or "Unassigned" or lock), Level, Context, Last activity, Actions (Open, Claim)
 
-**Design tokens:** Match admin-dashboard-design.md Part 2 (INK #0F1B2D, IVORY #FAF8F4, GOLD #B8955A, etc.).
+**Default sort:** Severity and risk → time remaining to target → age (platform ordering rule)
 
-**Typography:** Page title 28px serif, stat numbers 32px serif, card titles 15px, body 14px, captions 12px. IST timestamps.
+**Summary strip:**
+- Waiting — cases awaiting review
+- At risk or breached — over or nearing SLA target (warning/error tint)
+- Mine — claimed by you
+- Median time to decision (30 days) — average across all types
 
-**Data minimization:** Counts, IDs, categories only. No personal data, message text, or document contents on the queue page.
+**Actions:** Claim (10-min lock), Open case, Release claim, Next case (claims first eligible case using ordering rule)
+
+**Data contract (Part A.7):** List responses contain no identity numbers, contact details or document names. Masked fields only.
+
+**Typography (per Part 2):** Page title 28px serif, stat numbers 32px serif, card titles 15px, body 14px, captions 12px, timestamps 10-11px. IST timezone.
+
+**Dark mode removed:** Light theme only — no `useTheme` hook, no `Sun`/`Moon` icons, no dark CSS classes.
+
+**SSR-safe:** No `window`/`document` access during render.
 
 ---
 
-## Part 4: New Admin Dashboard Page
+## Part 4: Admin Dashboard Page (`/admin`)
 
 **Files:** `app/admin/admin-dashboard.jsx`, `app/admin/page.js`
 
-**Route:** `/admin` (admin subdomain, per design spec Part 1)
-
-**Layout (per Part 3):**
-- Fixed sidebar (232px, ink background) with all admin navigation items
+**Layout:**
+- Fixed sidebar (232px, ink background, hidden on mobile via `hidden lg:block`)
 - Environment strip (PRODUCTION ink/ivory, STAGING gold/ink)
 - Sticky top bar: global search (⌘K), system status dot, alerts bell, profile menu
 - Title "Dashboard" + last updated IST + Refresh button
 - 12-column grid, max content width 1600px
 
-**Sections implemented (per Parts 4.x):**
+**Sections:**
 - **Next up** — gold-tint card with Start/Skip/View queue actions, claiming lock (10 min)
-- **Queue cards** — responsive grid (4 across), count, oldest age, SLA status chip (On track/At risk/Breached), mini age-band bar, trend arrow, Open queue action
-- **Needs attention** — prioritized feed with severity icons, acknowledge (severity 1 requires note)
-- **Platform health** — status table with chips (Operational/Degraded/Outage/Maintenance), metric, trend
+- **Queue cards** — responsive grid (4 across), count, oldest age, SLA status chip, mini age-band bar, trend arrow, Open queue action
+- **Needs attention** — prioritized feed with severity icons, acknowledge
+- **Platform health** — status table with chips (Operational/Degraded/Outage/Maintenance)
 - **Platform pulse** — charts (registrations by role, verification funnel), KPI cards
 - **Deadlines & compliance** — data request due buckets, nearest legal date
-- **Team workload** — neutral counts view (unassigned/assigned/in review/active staff), no personal rankings
-- **My work** — claimed items with Resume action, returned items
+- **Team workload** — neutral counts view (unassigned/assigned/in review/active staff)
+- **My work** — claimed items with Resume action
 
-**Role-based visibility (Part 5):** Server-scoped queues and sections per internal role (Super admin, Verification reviewer, Trust and safety moderator, Support agent, Finance, Content and program manager, AI quality reviewer, Compliance officer, Analyst). Hidden sections removed from DOM, not left as empty frames.
+**Role-based visibility (Part 5):** Server-scoped queues and sections per internal role. Hidden sections removed from DOM.
 
-**Theme:** Light (default) and dark theme support, follows system setting, user-overridable. WCAG AA contrast in both themes.
+**Typography:** Page title 28px serif, stat numbers 32px serif, card titles 15px, body 14px, captions 12px. IST timestamps.
 
-**Typography (per Part 2):** Page title 28px serif, KPI numbers 32px serif, card titles 15px, body 14px, captions 12px. All timestamps in Asia/Kolkata (IST).
-
-**Density:** Comfortable (default) and Compact toggle.
-
-**Accessibility (Part 9):** WCAG 2.1 AA, status uses text + icons + color, skip-to-content link, landmarks (header/nav/main/aside), focus ring, keyboard operable.
+**Dark mode removed:** Light theme only — same dark mode removal as the verifications page.
 
 ---
 
-## Part 4: 404 Page
+## Part 5: Admin Dashboard & Verification Layout & Dark Mode Fixes
+
+**Changes applied to both `/admin` and `/admin/verifications`:**
+
+- **Dark mode removed:** Removed `useTheme` hook, `Sun`/`Moon` icons, `isDark` state, theme toggle button from sidebar, all dark theme tokens, and all conditional dark CSS classes
+- **Layout fix:** Added `hidden` class to sidebar (`hidden lg:block`) so it's hidden on mobile and only shows on `lg+` breakpoint, preventing the fixed sidebar from covering content on small screens
+- **SSR safety:** Removed all `window`/`document` access during render — both pages are fully SSR-safe with no `useEffect` theme detection
+- **Cleaned up imports:** Removed unused icons (`Stethoscope`, `HardHat`, `Briefcase2Icon`, `ChevronLeft`, `ChevronRight`, `PanelLeft`, `PanelTop`, `Layout`)
+
+---
+
+## Part 6: 404 Page
 
 **File:** `app/not-found.js`
 
@@ -143,11 +157,11 @@ Created with links to Employer Dashboard and Home. All broken sidebar links now 
 
 ---
 
-## Part 5: Verification Results
+## Part 7: Verification Results
 
 | Check | Result |
 |-------|--------|
-| `npx next build` | ✅ Green, 110 static pages, no errors |
+| `npx next build` | ✅ Green, 111 static pages, no errors |
 | `/admin` | ✅ HTTP 200 |
 | `/admin/verifications` | ✅ HTTP 200 |
 | `/employer/billing` | ✅ HTTP 200 |
@@ -162,10 +176,12 @@ Created with links to Employer Dashboard and Home. All broken sidebar links now 
 | `/login` | ✅ HTTP 200 (no regression) |
 | `/employer/company` | ✅ HTTP 404 (correct) |
 | `/nonexistent` | ✅ HTTP 404 (correct) |
-| Admin page content | ✅ All sections, tokens, buttons render |
-| SSR safety | ✅ No `window`/`document` access during render (all in useEffect) |
+| Dark mode references | ✅ 0 in both admin files |
+| SSR safety | ✅ No `window`/`document` access during render |
 
-**Admin page content verified rendering:** Dashboard, Next up, Needs attention, Platform health, Platform pulse, Deadlines, Team workload, My work, Verifications, Moderation, Reports, Support, Start review, Skip for now, Open queue, PRODUCTION strip, Updated IST timestamp. **Admin Verifications:** Verifications & Approvals title, Verification queue table, stats strip (Pending/Claimed/At risk/Breached), filters, VER-4412/VER-4414/VER-4418 IDs, Claim/Approve/Reject/Needs changes buttons, Documents submitted, Review decision drawer.
+**Admin Dashboard content verified rendering:** Dashboard, Next up, Needs attention, Platform health, Platform pulse, Deadlines, Team workload, My work, Verifications, Moderation, Reports, Support, Start review, Skip for now, Open queue, PRODUCTION strip, Updated IST timestamp, Settings, Runbooks, Sign out.
+
+**Admin Verifications content verified rendering:** Verifications title, Type tabs (All/Startups/Mentors/Investors/Employers), Status chips (Submitted/In review/Waiting/Second review/On hold), Summary strip (Waiting/At risk or breached/Mine/Median time), Verification queue table, VER-2026-004812/VER-2026-004814/VER-2026-004818 IDs, Claim/Open case buttons, Saved views dropdown, Next case, Case preview drawer, Updated IST timestamp, PRODUCTION strip.
 
 ---
 
@@ -179,7 +195,7 @@ All demo data preserved for testing: companies, users, plans, packs, add-ons, cr
 
 ## Remaining Lower-Priority Items
 
-- Empty buttons in `employer-dashboard.jsx` / `employer-hiring.jsx` (identified but lower priority per user direction; billing page and admin page have none)
+- Empty buttons in `employer-dashboard.jsx` / `employer-hiring.jsx` (identified but lower priority per user direction; billing page and admin pages have none)
 - Server-side role enforcement, user-ID filtering, re-authentication, audit logging (per design specs — server scope)
 
 ---
