@@ -591,15 +591,12 @@ const notifications = [
 /* ------------------------------------------------------------------ */
 const employerSidebar = [
   ["Dashboard", LayoutDashboard, "/employer/dashboard"],
-  ["Jobs", Briefcase, "/employer/jobs"],
-  ["Candidates", Users, "/employer/candidates"],
+  ["Hiring", Briefcase, "/employer/hiring"],
+  ["Talent", Users, "/employer/talent"],
   ["Interviews", CalendarDays, "/employer/interviews"],
   ["Offers", Mail, "/employer/offers"],
   ["Hires", Award, "/employer/hires"],
   ["Analytics", BarChart3, "/employer/analytics"],
-  ["Company page", BuildingIcon, "/employer/company"],
-  ["Team", Users, "/employer/team"],
-  ["Messages", MessageCircle, "/employer/messages"],
 ];
 
 function EmployerShell({ children, active = "Dashboard", className = "" }) {
@@ -637,18 +634,13 @@ function EmployerShell({ children, active = "Dashboard", className = "" }) {
         </nav>
         <div className="mt-auto space-y-1 px-3 pb-5">
           <Link
-            href="/employer/settings"
-            className="flex h-10 items-center gap-3 px-3 text-xs text-white/60"
-          >
-            <Settings size={17} /> Settings
-          </Link>
-          <Link
             href="/help"
             className="flex h-10 items-center gap-3 px-3 text-xs text-white/60"
           >
             <HelpCircle size={17} /> Help
           </Link>
           <button
+            type="button"
             onClick={() => {}}
             className="flex w-full items-center gap-3 rounded-lg border border-white/10 p-3 text-left"
           >
@@ -702,15 +694,15 @@ function EmployerShell({ children, active = "Dashboard", className = "" }) {
       <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-[#E5E1D8] bg-white px-2 py-2 lg:hidden">
         {[
           ["Home", "/employer/dashboard", LayoutDashboard],
-          ["Jobs", "/employer/jobs", Briefcase],
-          ["Candidates", "/employer/candidates", Users],
+          ["Hiring", "/employer/hiring", Briefcase],
+          ["Talent", "/employer/talent", Users],
           ["Interviews", "/employer/interviews", CalendarDays],
-          ["More", "/employer/settings", UserRound],
+          ["More", "/help", UserRound],
         ].map(([x, u, I]) => (
           <Link
             href={u}
             key={x}
-            className="flex flex-col items-center gap-1 py-1 text-[9px] text-[#4A5568]"
+            className="flex flex-col items-center gap-1 py-1 text-xs text-[#4A5568]"
           >
             <I size={17} />
             {x}

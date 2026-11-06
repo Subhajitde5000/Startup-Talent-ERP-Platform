@@ -3,119 +3,50 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   Search,
-  Bookmark,
-  Briefcase,
-  CalendarDays,
-  FileText,
-  Mic,
-  MessageCircle,
-  Settings,
-  HelpCircle,
   Bell,
   ChevronDown,
-  MapPin,
-  ArrowRight,
-  CheckCircle2,
+  HelpCircle,
+  Settings,
+  LayoutDashboard,
+  Briefcase,
+  CalendarDays,
+  Mail,
+  Users,
+  Award as AwardIcon,
+  BarChart3,
+  FileText,
   Clock,
   AlertCircle,
   Info,
-  Sparkles,
-  MoreHorizontal,
   X,
-  Send,
-  Eye,
-  ShieldCheck,
-  SlidersHorizontal,
-  UserRound,
+  ArrowRight,
+  CheckCircle2,
+  AlertTriangle,
   Star,
-  ExternalLink,
-  Plus,
-  Target,
-  TrendingUp,
-  Building2,
-  Video,
-  ChevronLeft,
   ChevronRight,
-  Shield,
-  Share2,
-  RefreshCw,
-  Pin,
-  CreditCard,
-  HardHat,
-  LayoutGrid,
-  LayoutDashboard,
-  List,
-  Gauge,
-  Users,
-  Briefcase as Briefcase2,
-  FileText as FileText2,
-  ClipboardList,
-  BarChart3,
-  Rocket,
-  Award,
-  Zap,
-  Smartphone,
-  Mail,
-  Loader2,
-  RotateCcw,
-  Check,
-  CheckCheck,
-  PlusCircle,
-  ArrowUpRight,
-  Trash2,
-  Phone,
+  ShieldCheck,
   Headphones,
   Globe,
-  Link as LinkIcon,
-  Copy,
   Download,
+  LayoutGrid,
+  List,
+  ShieldAlert,
+  Eye,
+  User as UserIcon,
+  UserRound,
+  Eye as EyeIcon,
+  Copy,
   Printer,
   Wrench,
-  Menu,
-  LogOut,
-  File,
-  Image,
-  Pause,
-  Play,
-  StopCircle,
-  Mic as MicIcon,
-  Video as VideoIcon,
-  Link2,
-  Target as TargetIcon,
-  GitBranch,
-  User as UserIcon,
-  EyeOff,
-  LayoutList,
-  Maximize,
-  Minimize,
-  Inbox,
-  Paperclip,
   Lock,
-  ShieldAlert,
-  AlertTriangle,
-  TrendingDown,
-  Unlock,
-  UserPlus,
-  Building as BuildingIcon,
-  Briefcase as BriefcaseIcon,
-  Monitor,
-  Activity,
-  PieChart,
-  Timer,
-  Clock as ClockIcon,
-  Edit,
-  Eye as EyeIcon,
-  User as User2,
-  GraduationCap,
-  Award as AwardIcon,
-  Trophy,
-  Link as Link2Icon,
+  Link as LinkIcon,
+  Share2,
   RefreshCcw,
+  Sparkles,
+  MoreHorizontal,
+  Clock as ClockIcon,
   Download as DownloadIcon,
-  Cloud,
-  Folder,
-  Shield as ShieldIcon,
-  Clock as Clock2,
+  User as User2Icon,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -143,174 +74,21 @@ const RADIUS_CARD = "rounded-xl";
 const RADIUS_CONTROL = "rounded-lg";
 
 /* ------------------------------------------------------------------ */
-/*  Shared UI primitives                                              */
+/*  Simple toast for button feedback                                  */
 /* ------------------------------------------------------------------ */
-function Card({ title, padded = true, children, className = "" }) {
-  return (
-    <div
-      className={`${RADIUS_CARD} border border-[#E5E1D8] bg-white ${className}`}
-    >
-      {title && (
-        <div
-          className={`border-b border-[#E5E1D8] pb-3 ${padded ? "px-6 pt-4" : "px-6 pt-3"}`}
-        >
-          <h3 className="text-sm font-semibold">{title}</h3>
-        </div>
-      )}
-      <div
-        className={`${padded ? "px-6" : "px-0"} ${padded ? "pb-5" : "pb-0"}`}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Btn({ children, onClick, secondary, small, size, className = "" }) {
-  const isSmall = small || size === "small";
-  return (
-    <button
-      onClick={onClick}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg border border-transparent bg-white px-4 py-2 text-xs font-medium text-[#0F1B2D] transition ${secondary ? "border-[#E5E1D8] text-[#4A5568] bg-[#F4F1EA] hover:bg-[#F3EBDD]" : "bg-[#0F1B2D] text-white hover:bg-[#1C2B42]"} ${isSmall ? "px-2.5 py-1.5 text-[10px] min-w-[72px]" : "px-4 py-2 text-xs min-w-[80px]"} ${className}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function StatChip({ label, value, delta }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[10px] text-[#4A5568]">{label}</span>
-      <div className="flex items-baseline gap-1">
-        <b className="text-sm font-serif font-semibold">{value}</b>
-        {delta && <span className="text-[10px] text-[#286749]">{delta}</span>}
-      </div>
-    </div>
-  );
-}
-
-function StatusChip({ status }) {
-  const map = {
-    Draft: "border-[#E5E1D8] text-[#4A5568]",
-    "Pending approval": "border-[#F3EBDD] text-[#806236]",
-    "In use": "border-[#E7F3EC] text-[#286749]",
-    "Needs review": "border-[#FDF3E0] text-[#9A6210]",
-    Archived: "border-[#E5E1D8] text-[#4A5568]",
-    "Platform default": "border-[#F3EBDD] bg-[#F3EBDD] text-[#806236]",
-    Company: "border-[#0F1B2D] text-[#0F1B2D]",
-    Personal: "border-[#E5E1D8] text-[#4A5568]",
-    "Offer accepted": "border-[#FDF3E0] text-[#9A6210] bg-[#FDF3E0]",
-    "Documents pending": "border-[#FDF3E0] text-[#9A6210]",
-    "Checks in progress": "border-[#FDF3E0] text-[#9A6210]",
-    "Ready to start": "border-[#E7F3EC] text-[#286749] bg-[#E7F3EC]",
-    Started: "bg-[#0F1B2D] text-white",
-    Deferred: "border-[#E5E1D8] text-[#4A5568]",
-    "Did not join": "border-[#FBE9E7] text-[#B42318]",
-    Open: "border-[#E7F3EC] text-[#286749]",
-    Closed: "border-[#0F1B2D] text-[#0F1B2D]",
-    Filled: "bg-[#0F1B2D] text-white",
-    Sent: "border-[#E7F3EC] text-[#286749]",
-    Countered: "border-[#FDF3E0] text-[#9A6210]",
-    Accepted: "border-[#E7F3EC] text-[#286749]",
+let toastListeners  = [];
+export function onToast(listener) {
+  toastListeners.push(listener);
+  return () => {
+    toastListeners = toastListeners.filter((l) => l !== listener);
   };
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-medium ${map[status] || map.Draft}`}
-    >
-      {status}
-    </span>
-  );
 }
-
-function Section({ title, children, className = "" }) {
-  return (
-    <div className={`space-y-4 ${className}`}>
-      <h3 className="text-sm font-semibold">{title}</h3>
-      {children}
-    </div>
-  );
-}
-
-function SectionHead({ title, subtitle, children, className = "" }) {
-  return (
-    <div
-      className={`flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 ${className}`}
-    >
-      <div>
-        <h2 className="text-sm font-serif font-semibold">{title}</h2>
-        {subtitle && (
-          <p className="text-[10px] text-[#4A5568] mt-1">{subtitle}</p>
-        )}
-      </div>
-      <div className="flex items-center gap-2">{children}</div>
-    </div>
-  );
-}
-
-function EmptyState({ icon: Icon, title, subtitle, action, actionLabel }) {
-  return (
-    <div className="flex flex-col items-center gap-3 text-center py-10">
-      <div className="grid h-14 w-14 place-items-center rounded-full bg-[#F3EBDD]">
-        <Icon size={20} />
-      </div>
-      <h3 className="text-sm font-semibold">{title}</h3>
-      <p className="text-[12px] text-[#4A5568] max-w-[260px]">{subtitle}</p>
-      {action && <Btn onClick={action}>{actionLabel}</Btn>}
-    </div>
-  );
-}
-
-function SkeletonRow({ className = "" }) {
-  return (
-    <div
-      className={`h-10 rounded-lg bg-[#E5E1D8] animate-pulse ${className}`}
-    />
-  );
-}
-
-function ToggleSwitch({ checked, onChange }) {
-  return (
-    <button
-      onClick={onChange}
-      role="switch"
-      aria-checked={checked}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${checked ? "bg-[#B8955A]" : "bg-[#E5E1D8]"}`}
-    >
-      <span
-        className={`block h-4 w-4 rounded-full bg-white shadow-md transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`}
-      />
-    </button>
-  );
-}
-
-function Sparkline({ values, color = INK }) {
-  const pts = values.map((v, i) => `${i * 30},${40 - v * 20}`).join(" ");
-  return (
-    <svg width={values.length * 30} height={40} className="opacity-60">
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" />
-    </svg>
-  );
-}
-
-function ButtonGroup({ options, value, onChange }) {
-  return (
-    <div className="inline-flex rounded-lg border border-[#E5E1D8] bg-white">
-      {options.map((o) => (
-        <button
-          key={o}
-          onClick={() => onChange(o)}
-          className={`px-3 py-1 text-[10px] transition ${o === value ? "bg-[#F3EBDD] text-[#806236]" : "text-[#4A5568] hover:text-[#0F1B2D]"}`}
-        >
-          {o}
-        </button>
-      ))}
-    </div>
-  );
+function toast(msg) {
+  toastListeners.forEach((l) => l(msg));
 }
 
 /* ------------------------------------------------------------------ */
-/*  Sample data                                                       */
+/*  Company / user                                                    */
 /* ------------------------------------------------------------------ */
 const company = {
   name: "Northstar Labs",
@@ -434,37 +212,11 @@ const templates = [
 ];
 
 const scorecardCriteria = [
-  {
-    name: "Problem solving",
-    weight: 25,
-    anchors: [
-      "1 = No example given",
-      "4 = Specific example with measurable outcome",
-    ],
-  },
-  {
-    name: "Communication",
-    weight: 20,
-    anchors: [
-      "1 = Unclear responses",
-      "4 = Clear, structured, audience-appropriate",
-    ],
-  },
-  {
-    name: "Role skills",
-    weight: 30,
-    anchors: ["1 = Below required level", "4 = Exceeds requirements"],
-  },
-  {
-    name: "Ownership",
-    weight: 15,
-    anchors: ["1 = Needs constant direction", "4 = Drives work to completion"],
-  },
-  {
-    name: "Collaboration",
-    weight: 10,
-    anchors: ["1 = Works in isolation", "4 = Actively helps teammates"],
-  },
+  { name: "Problem solving", weight: 25, anchors: ["1 = No example given", "4 = Specific example with measurable outcome"] },
+  { name: "Communication", weight: 20, anchors: ["1 = Unclear responses", "4 = Clear, structured, audience-appropriate"] },
+  { name: "Role skills", weight: 30, anchors: ["1 = Below required level", "4 = Exceeds requirements"] },
+  { name: "Ownership", weight: 15, anchors: ["1 = Needs constant direction", "4 = Drives work to completion"] },
+  { name: "Collaboration", weight: 10, anchors: ["1 = Works in isolation", "4 = Actively helps teammates"] },
 ];
 
 const hires = [
@@ -522,185 +274,41 @@ const onboardingItems = [
   {
     section: "Before day one",
     items: [
-      {
-        id: "o-1",
-        title: "Welcome message sent",
-        owner: "Priya Mehta",
-        due: "−5 days",
-        status: "Done",
-        note: "Sent with welcome packet.",
-      },
-      {
-        id: "o-2",
-        title: "Laptop and accounts ordered",
-        owner: "IT team",
-        due: "−5 days",
-        status: "Done",
-        note: "",
-      },
-      {
-        id: "o-3",
-        title: "Workspace or desk arranged",
-        owner: "Office manager",
-        due: "−3 days",
-        status: "Done",
-        note: "",
-      },
-      {
-        id: "o-4",
-        title: "Manager assigned",
-        owner: "Priya Mehta",
-        due: "−3 days",
-        status: "Done",
-        note: "",
-      },
-      {
-        id: "o-5",
-        title: "Buddy assigned",
-        owner: "HR",
-        due: "−3 days",
-        status: "Done",
-        note: "",
-      },
-      {
-        id: "o-6",
-        title: "First-week plan prepared",
-        owner: "Priya Mehta",
-        due: "−2 days",
-        status: "In progress",
-        note: "Draft shared with hire.",
-      },
-      {
-        id: "o-7",
-        title: "Calendar invites created",
-        owner: "Priya Mehta",
-        due: "−1 day",
-        status: "To do",
-        note: "",
-      },
-      {
-        id: "o-8",
-        title: "Policies shared",
-        owner: "HR",
-        due: "−1 day",
-        status: "To do",
-        note: "Sent via document tool.",
-      },
+      { id: "o-1", title: "Welcome message sent", owner: "Priya Mehta", due: "−5 days", status: "Done", note: "Sent with welcome packet." },
+      { id: "o-2", title: "Laptop and accounts ordered", owner: "IT team", due: "−5 days", status: "Done", note: "" },
+      { id: "o-3", title: "Workspace or desk arranged", owner: "Office manager", due: "−3 days", status: "Done", note: "" },
+      { id: "o-4", title: "Manager assigned", owner: "Priya Mehta", due: "−3 days", status: "Done", note: "" },
+      { id: "o-5", title: "Buddy assigned", owner: "HR", due: "−3 days", status: "Done", note: "" },
+      { id: "o-6", title: "First-week plan prepared", owner: "Priya Mehta", due: "−2 days", status: "In progress", note: "Draft shared with hire." },
+      { id: "o-7", title: "Calendar invites created", owner: "Priya Mehta", due: "−1 day", status: "To do", note: "" },
+      { id: "o-8", title: "Policies shared", owner: "HR", due: "−1 day", status: "To do", note: "Sent via document tool." },
     ],
   },
   {
     section: "Day one",
     items: [
-      {
-        id: "o-9",
-        title: "Welcome meeting",
-        owner: "Priya Mehta",
-        due: "Start date",
-        status: "To do",
-        note: "30 min video call.",
-      },
-      {
-        id: "o-10",
-        title: "Team introductions",
-        owner: "Team",
-        due: "Start date",
-        status: "To do",
-        note: "",
-      },
-      {
-        id: "o-11",
-        title: "Tools access confirmed",
-        owner: "IT team",
-        due: "Start date",
-        status: "To do",
-        note: "",
-      },
-      {
-        id: "o-12",
-        title: "First tasks assigned",
-        owner: "Priya Mehta",
-        due: "Start date",
-        status: "To do",
-        note: "",
-      },
+      { id: "o-9", title: "Welcome meeting", owner: "Priya Mehta", due: "Start date", status: "To do", note: "30 min video call." },
+      { id: "o-10", title: "Team introductions", owner: "Team", due: "Start date", status: "To do", note: "" },
+      { id: "o-11", title: "Tools access confirmed", owner: "IT team", due: "Start date", status: "To do", note: "" },
+      { id: "o-12", title: "First tasks assigned", owner: "Priya Mehta", due: "Start date", status: "To do", note: "" },
     ],
   },
   {
     section: "First week and month",
     items: [
-      {
-        id: "o-13",
-        title: "Goals set",
-        owner: "Priya Mehta",
-        due: "+7 days",
-        status: "To do",
-        note: "",
-      },
-      {
-        id: "o-14",
-        title: "1-to-1 meetings scheduled",
-        owner: "Priya Mehta",
-        due: "+7 days",
-        status: "To do",
-        note: "",
-      },
-      {
-        id: "o-15",
-        title: "Training completed",
-        owner: "IT team",
-        due: "+14 days",
-        status: "To do",
-        note: "",
-      },
-      {
-        id: "o-16",
-        title: "30-day check-in",
-        owner: "HR",
-        due: "+30 days",
-        status: "To do",
-        note: "",
-      },
+      { id: "o-13", title: "Goals set", owner: "Priya Mehta", due: "+7 days", status: "To do", note: "" },
+      { id: "o-14", title: "1-to-1 meetings scheduled", owner: "Priya Mehta", due: "+7 days", status: "To do", note: "" },
+      { id: "o-15", title: "Training completed", owner: "IT team", due: "+14 days", status: "To do", note: "" },
+      { id: "o-16", title: "30-day check-in", owner: "HR", due: "+30 days", status: "To do", note: "" },
     ],
   },
 ];
 
 const documents = [
-  {
-    id: "d-1",
-    name: "Bank details",
-    purpose: "To set up payroll",
-    due: "Nov 20",
-    status: "Received",
-    who: "Payroll only",
-    retention: "12 months",
-  },
-  {
-    id: "d-2",
-    name: "ID proof",
-    purpose: "Employment eligibility",
-    due: "Nov 18",
-    status: "Requested",
-    who: "HR only",
-    retention: "12 months",
-  },
-  {
-    id: "d-3",
-    name: "Signed offer letter",
-    purpose: "Employment agreement",
-    due: "Nov 15",
-    status: "Received",
-    who: "Hiring team",
-    retention: "Duration of employment",
-  },
-  {
-    id: "d-4",
-    name: "Tax declaration",
-    purpose: "Tax withholding",
-    due: "Nov 22",
-    status: "Not requested",
-    who: "Payroll only",
-    retention: "12 months",
-  },
+  { id: "d-1", name: "Bank details", purpose: "To set up payroll", due: "Nov 20", status: "Received", who: "Payroll only", retention: "12 months" },
+  { id: "d-2", name: "ID proof", purpose: "Employment eligibility", due: "Nov 18", status: "Requested", who: "HR only", retention: "12 months" },
+  { id: "d-3", name: "Signed offer letter", purpose: "Employment agreement", due: "Nov 15", status: "Received", who: "Hiring team", retention: "Duration of employment" },
+  { id: "d-4", name: "Tax declaration", purpose: "Tax withholding", due: "Nov 22", status: "Not requested", who: "Payroll only", retention: "12 months" },
 ];
 
 const timelineEvents = [
@@ -719,19 +327,199 @@ const nextSteps = [
 ];
 
 /* ------------------------------------------------------------------ */
-/*  Employer shell                                                    */
+/*  Shared UI primitives (accessible sizes, WCAG AA)                  */
 /* ------------------------------------------------------------------ */
+
+function Card({ title, padded = true, children, className = "" }) {
+  return (
+    <div
+      className={`${RADIUS_CARD} border border-[#E5E1D8] bg-white ${className}`}
+    >
+      {title && (
+        <div className={`border-b border-[#E5E1D8] pb-3 ${padded ? "px-6 pt-4" : "px-6 pt-3"}`}>
+          <h3 className="text-xs font-semibold">{title}</h3>
+        </div>
+      )}
+      <div className={`${padded ? "px-6" : "px-0"} ${padded ? "pb-5" : "pb-0"}`}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Btn({
+  children,
+  onClick,
+  secondary,
+  small,
+  size,
+  destructive,
+  type = "button",
+  className = "",
+}) {
+  const isSmall = small || size === "small";
+  const handleClick = (e) => {
+    e.preventDefault();
+    if (onClick) onClick(e);
+  };
+  return (
+    <button
+      type={type}
+      onClick={handleClick}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg border border-transparent bg-white px-4 py-2 text-xs font-medium text-[#0F1B2D] transition ${secondary
+        ? `border-[#E5E1D8] text-[#4A5568] bg-[#F4F1EA] hover:bg-[#F3EBDD]`
+        : destructive
+          ? `border-[#FBE9E7] text-[#B42318] hover:bg-[#FBE9E7]`
+          : `bg-[#0F1B2D] text-white hover:bg-[#1C2B42]`} ${isSmall
+        ? "px-2.5 py-1.5 text-[10px] min-w-[72px]"
+        : "px-4 py-2 text-xs min-w-[80px]"} ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function StatChip({ label, value, delta }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[10px] text-[#4A5568]">{label}</span>
+      <div className="flex items-baseline gap-1">
+        <b className="text-xs font-serif font-semibold">{value}</b>
+        {delta && <span className="text-[10px] text-[#286749]">{delta}</span>}
+      </div>
+    </div>
+  );
+}
+
+function StatusChip({ status }) {
+  const map = {
+    Draft: "border-[#E5E1D8] text-[#4A5568]",
+    "Pending approval": "border-[#F3EBDD] text-[#806236]",
+    "In use": "border-[#E7F3EC] text-[#286749]",
+    "Needs review": "border-[#FDF3E0] text-[#9A6210]",
+    Archived: "border-[#E5E1D8] text-[#4A5568]",
+    "Offer accepted": "border-[#FDF3E0] text-[#9A6210] bg-[#FDF3E0]",
+    "Documents pending": "border-[#FDF3E0] text-[#9A6210]",
+    "Checks in progress": "border-[#FDF3E0] text-[#9A6210]",
+    "Ready to start": "border-[#E7F3EC] text-[#286749] bg-[#E7F3EC]",
+    Started: "bg-[#0F1B2D] text-white",
+    Deferred: "border-[#E5E1D8] text-[#4A5568]",
+    "Did not join": "border-[#FBE9E7] text-[#B42318]",
+    Open: "border-[#E7F3EC] text-[#286749]",
+    Closed: "border-[#0F1B2D] text-[#0F1B2D]",
+    Filled: "bg-[#0F1B2D] text-white",
+    Sent: "border-[#E7F3EC] text-[#286749]",
+    Countered: "border-[#FDF3E0] text-[#9A6210]",
+    Accepted: "border-[#E7F3EC] text-[#286749]",
+    Clear: "border-[#E7F3EC] text-[#286749]",
+    "In progress": "border-[#FDF3E0] text-[#9A6210]",
+  };
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${map[status] || map.Draft || ""}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function Section({ title, children, className = "" }) {
+  return (
+    <div className={`space-y-4 ${className}`}>
+      <h3 className="text-xs font-semibold">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function SectionHead({ title, subtitle, children, className = "" }) {
+  return (
+    <div className={`flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 ${className}`}>
+      <div>
+        <h2 className="text-xs font-serif font-semibold">{title}</h2>
+        {subtitle && (
+          <p className="text-[10px] text-[#4A5568] mt-1">{subtitle}</p>
+        )}
+      </div>
+      <div className="flex items-center gap-2">{children}</div>
+    </div>
+  );
+}
+
+function EmptyState({ icon: Icon, title, subtitle, action, actionLabel }) {
+  return (
+    <div className="flex flex-col items-center gap-3 text-center py-10">
+      <div className="grid h-14 w-14 place-items-center rounded-full bg-[#F3EBDD]">
+        <Icon size={20} />
+      </div>
+      <h3 className="text-xs font-semibold">{title}</h3>
+      <p className="text-[10px] text-[#4A5568] max-w-[260px]">{subtitle}</p>
+      {action && <Btn onClick={action}>{actionLabel}</Btn>}
+    </div>
+  );
+}
+
+function SkeletonRow({ className = "" }) {
+  return (
+    <div className={`h-10 rounded-lg bg-[#E5E1D8] animate-pulse ${className}`} />
+  );
+}
+
+function ToggleSwitch({ checked, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      role="switch"
+      aria-checked={checked}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${checked ? "bg-[#B8955A]" : "bg-[#E5E1D8]"}`}
+    >
+      <span
+        className={`block h-4 w-4 rounded-full bg-white shadow-md transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`}
+      />
+    </button>
+  );
+}
+
+function Sparkline({ values, color = INK }) {
+  const pts = values.map((v, i) => `${i * 30},${40 - v * 20}`).join(" ");
+  return (
+    <svg width={values.length * 30} height={40} className="opacity-60">
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" />
+    </svg>
+  );
+}
+
+function ButtonGroup({ options, value, onChange }) {
+  return (
+    <div className="inline-flex rounded-lg border border-[#E5E1D8] bg-white">
+      {options.map((o) => (
+        <button
+          key={o}
+          type="button"
+          onClick={() => onChange(o)}
+          className={`px-3 py-1 text-[10px] transition ${o === value ? "bg-[#F3EBDD] text-[#806236]" : "text-[#4A5568] hover:text-[#0F1B2D]"}`}
+        >
+          {o}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Employer shell (fixed navigation)                                 */
+/* ------------------------------------------------------------------ */
+// Fixed sidebar: only existing routes, no 404 links
 const employerSidebar = [
   ["Dashboard", LayoutDashboard, "/employer/dashboard"],
-  ["Jobs", Briefcase, "/employer/jobs"],
-  ["Candidates", Users, "/employer/candidates"],
+  ["Hiring", Briefcase, "/employer/hiring"],
+  ["Talent", Users, "/employer/talent"],
   ["Interviews", CalendarDays, "/employer/interviews"],
   ["Offers", Mail, "/employer/offers"],
   ["Hires", AwardIcon, "/employer/hires"],
+  ["Templates", FileText, "/employer/templates"],
   ["Analytics", BarChart3, "/employer/analytics"],
-  ["Company page", BuildingIcon, "/employer/company"],
-  ["Team", Users, "/employer/team"],
-  ["Messages", MessageCircle, "/employer/messages"],
 ];
 
 function EmployerShell({ children, active = "Dashboard", className = "" }) {
@@ -765,7 +553,7 @@ function EmployerShell({ children, active = "Dashboard", className = "" }) {
               <Link
                 key={n}
                 href={u}
-                className={`relative flex h-11 items-center gap-3 rounded-lg px-3 text-xs ${isActive ? "bg-[#1C2B42] text-white" : "text-white/65 hover:bg-white/5"}`}
+                className={`relative flex h-11 items-center gap-3 rounded-lg px-3 text-xs ${isActive ? "bg-[#1C2B42] text-white" : "text-white/70 hover:bg-white/10"}`}
               >
                 {isActive && (
                   <span className="absolute bottom-2 left-0 top-2 w-[3px] rounded-r bg-[#B8955A]" />
@@ -778,22 +566,17 @@ function EmployerShell({ children, active = "Dashboard", className = "" }) {
         </nav>
         <div className="mt-auto space-y-1 px-3 pb-5">
           <Link
-            href="/employer/settings"
-            className="flex h-10 items-center gap-3 px-3 text-xs text-white/60"
-          >
-            <Settings size={17} /> Settings
-          </Link>
-          <Link
             href="/help"
-            className="flex h-10 items-center gap-3 px-3 text-xs text-white/60"
+            className="flex h-10 items-center gap-3 px-3 text-xs text-white/70"
           >
             <HelpCircle size={17} /> Help
           </Link>
           <button
-            onClick={() => {}}
+            type="button"
+            onClick={() => toast("Account menu coming soon")}
             className="flex w-full items-center gap-3 rounded-lg border border-white/10 p-3 text-left"
           >
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-[#F3EBDD] text-xs font-bold text-ink">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[#F3EBDD] text-xs font-bold text-[#0F1B2D]">
               PM
             </span>
             <span>
@@ -809,7 +592,7 @@ function EmployerShell({ children, active = "Dashboard", className = "" }) {
       <header className="sticky top-0 z-10 flex h-[68px] items-center justify-between border-b border-[#E5E1D8] bg-[#FAF8F4]/95 px-4 backdrop-blur sm:px-7 lg:ml-[238px]">
         <div className="relative hidden sm:block">
           <Search
-            className="absolute left-3 top-2.5 text-[#A0A7B4]"
+            className="absolute left-3 top-2.5 text-[#4A5568]"
             size={16}
           />
           <input
@@ -817,16 +600,24 @@ function EmployerShell({ children, active = "Dashboard", className = "" }) {
             className="h-10 w-72 rounded-lg border border-[#E5E1D8] bg-white pl-9 text-xs"
           />
         </div>
-        <span className="text-sm font-semibold sm:hidden">Employer</span>
-        <button className="relative ml-auto grid h-10 w-10 place-items-center">
+        <span className="text-xs font-semibold sm:hidden">Employer</span>
+        <button
+          type="button"
+          className="relative ml-auto grid h-10 w-10 place-items-center"
+          onClick={() => toast("Notifications panel coming soon")}
+        >
           <Bell size={18} />
           {unreadCount > 0 && (
-            <span className="absolute right-1 top-1 h-3 w-3 rounded-full bg-[#B42318] text-[8px] text-white flex items-center justify-center">
+            <span className="absolute right-1 top-1 h-3 w-3 rounded-full bg-[#B42318] text-[10px] text-white flex items-center justify-center">
               {unreadCount}
             </span>
           )}
         </button>
-        <button className="ml-3 flex items-center gap-2">
+        <button
+          type="button"
+          className="ml-3 flex items-center gap-2"
+          onClick={() => toast("Profile menu coming soon")}
+        >
           <span className="grid h-8 w-8 place-items-center rounded-full bg-[#0F1B2D] text-xs text-white">
             PM
           </span>
@@ -840,18 +631,19 @@ function EmployerShell({ children, active = "Dashboard", className = "" }) {
       >
         {children}
       </main>
+      {/* Bottom mobile nav: fixed links only */}
       <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-[#E5E1D8] bg-white px-2 py-2 lg:hidden">
         {[
           ["Home", "/employer/dashboard", LayoutDashboard],
-          ["Jobs", "/employer/jobs", Briefcase],
-          ["Candidates", "/employer/candidates", Users],
+          ["Hiring", "/employer/hiring", Briefcase],
+          ["Talent", "/employer/talent", Users],
           ["Interviews", "/employer/interviews", CalendarDays],
-          ["More", "/employer/settings", UserRound],
+          ["More", "/help", Users],
         ].map(([x, u, I]) => (
           <Link
             href={u}
             key={x}
-            className="flex flex-col items-center gap-1 py-1 text-[9px] text-[#4A5568]"
+            className="flex flex-col items-center gap-1 py-1 text-xs text-[#4A5568]"
           >
             <I size={17} />
             {x}
@@ -886,7 +678,7 @@ function TemplatesPage({ page }) {
           title="Templates and Scorecards"
           subtitle="Set it up once. Use it for every hire."
         >
-          <Btn>New template</Btn>
+          <Btn onClick={() => toast("Opening template editor...")}>New template</Btn>
         </SectionHead>
         <div className="grid gap-4 lg:grid-cols-5 mt-4 mb-6">
           {templateKpis.map((k) => (
@@ -900,9 +692,7 @@ function TemplatesPage({ page }) {
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] text-[#4A5568]">
-                  {k.label === "Last updated" ? "" : ""}
-                </p>
+                <p className="text-[10px] text-[#4A5568]">{k.label}</p>
               </div>
             </Card>
           ))}
@@ -911,6 +701,7 @@ function TemplatesPage({ page }) {
           {tabs.map((t) => (
             <button
               key={t}
+              type="button"
               onClick={() => setTab(t)}
               className={`whitespace-nowrap rounded-full border px-3 py-1 text-[10px] transition ${tab === t ? "border-[#B8955A] bg-[#F3EBDD] text-[#806236]" : "border-[#E5E1D8] text-[#4A5568] hover:bg-white"}`}
             >
@@ -919,7 +710,7 @@ function TemplatesPage({ page }) {
           ))}
         </div>
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-[10px] text-[#4A5568]">View:</span>
+          <span className="text-xs text-[#4A5568]">View:</span>
           <ButtonGroup
             options={["Cards", "Table"]}
             value={view === "cards" ? "Cards" : "Table"}
@@ -952,10 +743,10 @@ function TemplatesPage({ page }) {
                     <StatusChip status={t.status} />
                   </div>
                   <div className="flex items-center gap-1 mb-2">
-                    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] text-[#4A5568] border-[#E5E1D8]">
+                    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] text-[#4A5568] border-[#E5E1D8]">
                       {t.type}
                     </span>
-                    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] text-[#4A5568] border-[#E5E1D8]">
+                    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] text-[#4A5568] border-[#E5E1D8]">
                       {t.scope}
                     </span>
                   </div>
@@ -968,13 +759,13 @@ function TemplatesPage({ page }) {
                       <span>·</span>
                       <span>{t.usedIn} jobs</span>
                     </div>
-                    <span className="text-[9px]">{t.version}</span>
+                    <span className="text-xs">{t.version}</span>
                   </div>
                   <div className="flex gap-1">
-                    <Btn onClick={() => {}} small>
+                    <Btn onClick={() => toast(`Using template: ${t.name}`)} small>
                       Use
                     </Btn>
-                    <Btn onClick={() => {}} secondary small>
+                    <Btn onClick={() => toast(`Previewing: ${t.name}`)} secondary small>
                       Preview
                     </Btn>
                   </div>
@@ -984,7 +775,7 @@ function TemplatesPage({ page }) {
                     <span>{t.updatedBy}</span>
                   </div>
                   {t.platform && (
-                    <div className="mt-2 inline-flex items-center rounded-full border border-[#F3EBDD] bg-[#F3EBDD] px-2 py-0.5 text-[9px] text-[#806236]">
+                    <div className="mt-2 inline-flex items-center rounded-full border border-[#F3EBDD] bg-[#F3EBDD] px-2 py-0.5 text-[10px] text-[#806236]">
                       <Sparkles size={9} className="mr-1" /> Platform default
                     </div>
                   )}
@@ -992,32 +783,19 @@ function TemplatesPage({ page }) {
               );
             })
           ) : (
-            <table className="w-full text-left text-sm border-collapse">
+            <table className="w-full text-left text-xs border-collapse min-w-full">
               <thead>
                 <tr className="border-b border-[#E5E1D8]">
-                  <th className="pb-3 text-[10px] text-[#4A5568] font-medium">
-                    Name
-                  </th>
-                  <th className="pb-3 text-[10px] text-[#4A5568] font-medium">
-                    Type
-                  </th>
-                  <th className="pb-3 text-[10px] text-[#4A5568] font-medium">
-                    Status
-                  </th>
-                  <th className="pb-3 text-[10px] text-[#4A5568] font-medium">
-                    Used in
-                  </th>
-                  <th className="pb-3 text-[10px] text-[#4A5568] font-medium">
-                    Updated
-                  </th>
-                  <th className="pb-3 text-[10px] text-[#4A5568] font-medium">
-                    Actions
-                  </th>
+                  {["Name", "Type", "Status", "Used in", "Updated", "Actions"].map((h) => (
+                    <th key={h} className="pb-3 text-[10px] text-[#4A5568] font-medium">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-[#E5E1D8]">
                 {templates.map((t) => (
-                  <tr key={t.id} className="border-b border-[#E5E1D8]">
+                  <tr key={t.id} className="hover:bg-[#F3EBDD]/50">
                     <td className="py-3">
                       <b className="text-xs">{t.name}</b>
                     </td>
@@ -1028,7 +806,7 @@ function TemplatesPage({ page }) {
                     <td className="py-3 text-xs text-[#4A5568]">{t.usedIn}</td>
                     <td className="py-3 text-xs text-[#4A5568]">{t.updated}</td>
                     <td className="py-3">
-                      <Btn onClick={() => {}} secondary small>
+                      <Btn onClick={() => toast(`Using template: ${t.name}`)} secondary small>
                         Use
                       </Btn>
                     </td>
@@ -1075,9 +853,7 @@ function HiresPage({ page }) {
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] text-[#4A5568]">
-                  {k.label === "Offer-to-start drop-off" ? "" : ""}
-                </p>
+                <p className="text-[10px] text-[#4A5568]">{k.label}</p>
               </div>
             </Card>
           ))}
@@ -1086,6 +862,7 @@ function HiresPage({ page }) {
           {tabs.map((t) => (
             <button
               key={t}
+              type="button"
               onClick={() => setTab(t)}
               className={`whitespace-nowrap rounded-full border px-3 py-1 text-[10px] transition ${tab === t ? "border-[#B8955A] bg-[#F3EBDD] text-[#806236]" : "border-[#E5E1D8] text-[#4A5568] hover:bg-white"}`}
             >
@@ -1093,7 +870,7 @@ function HiresPage({ page }) {
             </button>
           ))}
         </div>
-        <div className="space-y-3">
+        <div className="space-y-3 overflow-x-auto">
           {hires.map((h) => {
             const statusMap = {
               "Offer accepted": "border-[#FDF3E0] text-[#9A6210]",
@@ -1104,13 +881,11 @@ function HiresPage({ page }) {
               Deferred: "border-[#E5E1D8] text-[#4A5568]",
               "Did not join": "border-[#FBE9E7] text-[#B42318]",
             };
-            const pct = Math.round(
-              (h.checklist.done / h.checklist.total) * 100,
-            );
+            const pct = Math.round((h.checklist.done / h.checklist.total) * 100);
             return (
               <div
                 key={h.id}
-                className="p-4 rounded-lg border border-[#E5E1D8] bg-white cursor-pointer hover:border-[#B8955A] transition"
+                className="p-4 rounded-lg border border-[#E5E1D8] bg-white cursor-pointer hover:border-[#B8955A] transition min-w-[320px]"
               >
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center gap-2">
@@ -1119,7 +894,7 @@ function HiresPage({ page }) {
                     </b>
                     <StatusChip status={h.status} />
                   </div>
-                  <Btn onClick={() => {}} small>
+                  <Btn onClick={() => toast(`Opening hire: ${h.name}`)} small>
                     Open
                   </Btn>
                 </div>
@@ -1137,19 +912,16 @@ function HiresPage({ page }) {
                   </span>
                 </div>
                 <div className="h-1.5 rounded-full bg-[#E5E1D8] mb-2 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-[#B8955A]"
-                    style={{ width: `${pct}%` }}
-                  />
+                  <div className="h-full rounded-full bg-[#B8955A]" style={{ width: `${pct}%` }} />
                 </div>
                 <p className="text-[10px] text-[#4A5568]">
                   {h.checklist.done} of {h.checklist.total} checklist items done
                 </p>
                 <div className="flex gap-1">
-                  <Btn onClick={() => {}} small>
+                  <Btn onClick={() => toast(`Opening hire: ${h.name}`)} small>
                     Open
                   </Btn>
-                  <Btn onClick={() => {}} secondary small>
+                  <Btn onClick={() => toast(`Messaging: ${h.name}`)} secondary small>
                     Message
                   </Btn>
                 </div>
@@ -1186,7 +958,7 @@ function HireDetailPage({ page, hireId }) {
           subtitle={hire.role}
         >
           <div className="flex gap-2">
-            <Btn onClick={() => {}}>Message</Btn>
+            <Btn onClick={() => toast(`Messaging: ${hire.name}`)}>Message</Btn>
             <MoreHorizontal size={14} className="text-[#4A5568] ml-2" />
           </div>
         </SectionHead>
@@ -1194,6 +966,7 @@ function HireDetailPage({ page, hireId }) {
           {tabs.map((t) => (
             <button
               key={t}
+              type="button"
               onClick={() => setTab(t)}
               className={`whitespace-nowrap rounded-full border px-3 py-1 text-[10px] transition ${tab === t ? "border-[#B8955A] bg-[#F3EBDD] text-[#806236]" : "border-[#E5E1D8] text-[#4A5568] hover:bg-white"}`}
             >
@@ -1209,18 +982,12 @@ function HireDetailPage({ page, hireId }) {
                   {timelineEvents.map((e, i) => (
                     <div key={e.step} className="relative pl-4">
                       <span className="absolute -left-1 top-1 h-2 w-2 rounded-full border-2 border-white bg-white" />
-                      <div
-                        className={`h-px flex-1 ${e.status === "done" ? "bg-[#B8955A]" : "bg-[#E5E1D8]"}`}
-                      />
+                      <div className={`h-px flex-1 ${e.status === "done" ? "bg-[#B8955A]" : "bg-[#E5E1D8]"}`} />
                       <div className="flex items-center gap-2 mb-2">
-                        <span
-                          className={`text-xs font-medium ${e.status === "done" ? "text-[#286749]" : e.status === "current" ? "text-[#0F1B2D]" : "text-[#4A5568]"}`}
-                        >
+                        <span className={`text-xs font-medium ${e.status === "done" ? "text-[#286749]" : e.status === "current" ? "text-[#0F1B2D]" : "text-[#4A5568]"}`}>
                           {e.step}
                         </span>
-                        <span
-                          className={`ml-auto text-[10px] ${e.status === "done" ? "text-[#286749]" : "text-[#4A5568]"}`}
-                        >
+                        <span className={`ml-auto text-xs ${e.status === "done" ? "text-[#286749]" : "text-[#4A5568]"}`}>
                           {e.date}
                         </span>
                       </div>
@@ -1255,27 +1022,25 @@ function HireDetailPage({ page, hireId }) {
                 <div className="space-y-2 text-[10px] text-[#4A5568]">
                   <div className="flex justify-between">
                     <span>Compensation</span>
-                    <span className="text-[#0F1B2D] font-medium">
-                      ₹22L / year
-                    </span>
+                    <span className="text-[#0F1B2D] font-medium">₹22L / year</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Role</span>
-                    <span className="text-[#0F1B2D] font-medium">
-                      Product Designer
-                    </span>
+                    <span className="text-[#0F1B2D] font-medium">Product Designer</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Start date</span>
-                    <span className="text-[#0F1B2D] font-medium">
-                      Dec 2, 2025
-                    </span>
+                    <span className="text-[#0F1B2D] font-medium">Dec 2, 2025</span>
                   </div>
                 </div>
                 <p className="mt-2 text-[10px] text-[#4A5568]">
-                  <a href="#" className="text-[#B8955A] underline">
+                  <button
+                    type="button"
+                    onClick={() => toast("Opening offer detail...")}
+                    className="text-[#B8955A] underline text-xs font-medium"
+                  >
                     View offer detail
-                  </a>
+                  </button>
                 </p>
               </Card>
             )}
@@ -1283,17 +1048,12 @@ function HireDetailPage({ page, hireId }) {
               <Card title="Risks" padded>
                 <div className="space-y-3 text-[10px] text-[#4A5568]">
                   <div className="flex items-start gap-2 p-3 rounded-lg border border-[#FDF3E0] bg-[#FDF3E0]">
-                    <AlertTriangle
-                      size={13}
-                      className="text-[#9A6210] mt-0.5"
-                    />
+                    <AlertTriangle size={13} className="text-[#9A6210] mt-0.5" />
                     <div>
                       <b className="text-xs text-[#806236]">
                         Start date in 7 days and documents are missing
                       </b>
-                      <p className="mt-0.5">
-                        2 of 4 documents not yet received.
-                      </p>
+                      <p className="mt-0.5">2 of 4 documents not yet received.</p>
                     </div>
                   </div>
                 </div>
@@ -1304,14 +1064,14 @@ function HireDetailPage({ page, hireId }) {
                 <div className="space-y-4">
                   {onboardingItems.map((section) => (
                     <div key={section.section}>
-                      <h4 className="text-[10px] font-semibold text-[#4A5568] uppercase tracking-wide mb-2">
+                      <h4 className="text-xs font-semibold text-[#4A5568] uppercase tracking-wide mb-2">
                         {section.section}
                       </h4>
                       <div className="space-y-2">
                         {section.items.map((item) => (
                           <div
                             key={item.id}
-                            className="flex items-start gap-2 p-2 rounded-lg border border-[#E5E1D8] bg-white"
+                            className="flex items-start gap-2 p-2 rounded-lg border border-[#E5E1D8] bg-white min-w-[280px]"
                           >
                             <input
                               type="checkbox"
@@ -1321,9 +1081,7 @@ function HireDetailPage({ page, hireId }) {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1 mb-0.5">
                                 <b className="text-xs">{item.title}</b>
-                                <span
-                                  className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[8px] font-medium ${item.status === "Done" ? "border-[#E7F3EC] bg-[#E7F3EC] text-[#286749]" : item.status === "In progress" ? "border-[#FDF3E0] bg-[#FDF3E0] text-[#9A6210]" : "border-[#E5E1D8] text-[#4A5568]"}`}
-                                >
+                                <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${item.status === "Done" ? "border-[#E7F3EC] bg-[#E7F3EC] text-[#286749]" : item.status === "In progress" ? "border-[#FDF3E0] bg-[#FDF3E0] text-[#9A6210]" : "border-[#E5E1D8] text-[#4A5568]"}`}>
                                   {item.status}
                                 </span>
                               </div>
@@ -1340,10 +1098,10 @@ function HireDetailPage({ page, hireId }) {
                     </div>
                   ))}
                   <div className="mt-4 flex gap-2">
-                    <Btn onClick={() => {}} secondary small>
+                    <Btn onClick={() => toast("Adding checklist item...")} secondary small>
                       Add item
                     </Btn>
-                    <Btn onClick={() => {}} secondary small>
+                    <Btn onClick={() => toast("Saving company checklist...")} secondary small>
                       Save as company checklist
                     </Btn>
                   </div>
@@ -1354,53 +1112,33 @@ function HireDetailPage({ page, hireId }) {
               <Card title="Documents" padded>
                 <div className="space-y-3">
                   <div className="text-[10px] text-[#4A5568] mb-2">
-                    Requested only after acceptance, through the platform's
-                    document tool.
+                    Requested only after acceptance, through the platform's document tool.
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm border-collapse min-w-full">
+                    <table className="w-full text-left text-xs border-collapse min-w-full">
                       <thead>
                         <tr className="border-b border-[#E5E1D8]">
-                          <th className="pb-3 text-[10px] text-[#4A5568] font-medium">
-                            Document
-                          </th>
-                          <th className="pb-3 text-[10px] text-[#4A5568] font-medium">
-                            Purpose
-                          </th>
-                          <th className="pb-3 text-[10px] text-[#4A5568] font-medium">
-                            Due
-                          </th>
-                          <th className="pb-3 text-[10px] text-[#4A5568] font-medium">
-                            Status
-                          </th>
-                          <th className="pb-3 text-[10px] text-[#4A5568] font-medium">
-                            Visible to
-                          </th>
-                          <th className="pb-3 text-[10px] text-[#4A5568] font-medium">
-                            Actions
-                          </th>
+                          {["Document", "Purpose", "Due", "Status", "Visible to", "Actions"].map((h) => (
+                            <th key={h} className="pb-3 text-[10px] text-[#4A5568] font-medium">
+                              {h}
+                            </th>
+                          ))}
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-[#E5E1D8]">
                         {documents.map((d) => (
                           <tr key={d.id} className="border-b border-[#E5E1D8]">
                             <td className="py-3">
                               <b className="text-xs">{d.name}</b>
                             </td>
-                            <td className="py-3 text-xs text-[#4A5568]">
-                              {d.purpose}
-                            </td>
-                            <td className="py-3 text-xs text-[#4A5568]">
-                              {d.due}
-                            </td>
+                            <td className="py-3 text-xs text-[#4A5568]">{d.purpose}</td>
+                            <td className="py-3 text-xs text-[#4A5568]">{d.due}</td>
                             <td className="py-3 text-xs">
                               <StatusChip status={d.status} />
                             </td>
-                            <td className="py-3 text-xs text-[#4A5568]">
-                              {d.who}
-                            </td>
+                            <td className="py-3 text-xs text-[#4A5568]">{d.who}</td>
                             <td className="py-3">
-                              <Btn onClick={() => {}} secondary small>
+                              <Btn onClick={() => toast(`Viewing: ${d.name}`)} secondary small>
                                 View
                               </Btn>
                             </td>
@@ -1410,10 +1148,10 @@ function HireDetailPage({ page, hireId }) {
                     </table>
                   </div>
                   <div className="mt-2 flex gap-2">
-                    <Btn onClick={() => {}} small>
+                    <Btn onClick={() => toast("Requesting document...")} small>
                       Request document
                     </Btn>
-                    <Btn onClick={() => {}} secondary small>
+                    <Btn onClick={() => toast("Exporting to HR system...")} secondary small>
                       Export to HR system
                     </Btn>
                   </div>
@@ -1428,11 +1166,9 @@ function HireDetailPage({ page, hireId }) {
                       <b className="text-xs">Reference check</b>
                       <StatusChip status="Clear" />
                     </div>
-                    <p className="mb-1">
-                      Provider: Checkr · Consent recorded Oct 28
-                    </p>
+                    <p className="mb-1">Provider: Checkr · Consent recorded Oct 28</p>
                     <div className="flex gap-2">
-                      <Btn onClick={() => {}} secondary small>
+                      <Btn onClick={() => toast("Viewing check result...")} secondary small>
                         View result
                       </Btn>
                     </div>
@@ -1442,20 +1178,17 @@ function HireDetailPage({ page, hireId }) {
                       <b className="text-xs">Education check</b>
                       <StatusChip status="In progress" />
                     </div>
-                    <p className="mb-1">
-                      Provider: Verifile · Consent recorded Oct 29
-                    </p>
+                    <p className="mb-1">Provider: Verifile · Consent recorded Oct 29</p>
                   </div>
                 </div>
               </Card>
             )}
             {tab === "Messages" && (
               <Card title="Messages" padded>
-                <p className="text-[11px] text-[#4A5568] mb-3">
-                  Secure thread with the new hire. Messages stay on the
-                  platform.
+                <p className="text-[10px] text-[#4A5568] mb-3">
+                  Secure thread with the new hire. Messages stay on the platform.
                 </p>
-                <div className="h-[300px] border border-[#E5E1D8] rounded-lg p-3 space-y-3 text-[11px] text-[#4A5568] min-h-[300px] overflow-y-auto">
+                <div className="h-[300px] border border-[#E5E1D8] rounded-lg p-3 space-y-3 text-[10px] text-[#4A5568] min-h-[300px] overflow-y-auto">
                   <div className="flex justify-end">
                     <span className="bg-[#E5E1D8] rounded-lg p-2 max-w-[80%]">
                       Thanks for the welcome packet!
@@ -1469,10 +1202,10 @@ function HireDetailPage({ page, hireId }) {
                 </div>
                 <div className="flex gap-2 mt-3">
                   <input
-                    className="flex-1 field pl-3 text-[11px]"
+                    className="flex-1 h-10 rounded-lg border border-[#E5E1D8] bg-white pl-3 pr-4 text-[10px]"
                     placeholder="Write a message…"
                   />
-                  <Btn onClick={() => {}} small>
+                  <Btn onClick={() => toast("Sending message...")} small>
                     Send
                   </Btn>
                 </div>
@@ -1502,27 +1235,19 @@ function HireDetailPage({ page, hireId }) {
               <div className="space-y-3 text-[10px] text-[#4A5568]">
                 <div className="flex justify-between">
                   <span>Offer accepted</span>
-                  <span className="text-[#0F1B2D] font-medium">
-                    Oct 30, 2025
-                  </span>
+                  <span className="text-[#0F1B2D] font-medium">Oct 30, 2025</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Start date</span>
-                  <span className="text-[#0F1B2D] font-medium">
-                    Dec 2, 2025
-                  </span>
+                  <span className="text-[#0F1B2D] font-medium">Dec 2, 2025</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Probation end</span>
-                  <span className="text-[#0F1B2D] font-medium">
-                    Mar 2, 2026
-                  </span>
+                  <span className="text-[#0F1B2D] font-medium">Mar 2, 2026</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Next check-in</span>
-                  <span className="text-[#0F1B2D] font-medium">
-                    Jan 2, 2026
-                  </span>
+                  <span className="text-[#0F1B2D] font-medium">Jan 2, 2026</span>
                 </div>
               </div>
             </Card>
@@ -1553,21 +1278,18 @@ function HireDetailPage({ page, hireId }) {
             </Card>
             <Card title="Hand-off" padded>
               <div className="space-y-3">
-                <Btn onClick={() => {}} small className="w-full">
+                <Btn onClick={() => toast("Adding to team...")} small className="w-full">
                   Add to team
                 </Btn>
-                <Btn onClick={() => {}} secondary small className="w-full">
+                <Btn onClick={() => toast("Marking as handed off...")} secondary small className="w-full">
                   Mark as handed off to HR
                 </Btn>
-                <Btn onClick={() => {}} secondary small className="w-full">
+                <Btn onClick={() => toast("Closing onboarding...")} secondary small className="w-full">
                   Close onboarding
                 </Btn>
               </div>
               <div className="mt-3 p-3 rounded-lg border border-[#F3EBDD] bg-[#F3EBDD] text-[10px] text-[#806236]">
-                <p>
-                  Send a short feedback survey (optional, anonymous option)
-                  about the hiring process.
-                </p>
+                <p>Send a short feedback survey (optional, anonymous option) about the hiring process.</p>
               </div>
             </Card>
           </div>
@@ -1577,4 +1299,7 @@ function HireDetailPage({ page, hireId }) {
   );
 }
 
+/* ================================================================== */
+/*  Exports                                                           */
+/* ================================================================== */
 export { TemplatesPage, HiresPage, HireDetailPage };
