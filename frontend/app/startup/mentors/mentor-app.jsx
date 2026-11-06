@@ -1,17 +1,1033 @@
 'use client';
-import {useState} from 'react';import Link from 'next/link';import {LayoutDashboard,Compass,ListTodo,Users,FolderLock,Lightbulb,Briefcase,ChartNoAxesColumn,Settings,CircleHelp,Search,Bell,ChevronDown,ChevronRight,ArrowRight,ArrowUpRight,Plus,CalendarDays,Clock,CheckCircle2,AlertCircle,MessageCircle,FileText,ShieldCheck,Star,Video,LockKeyhole,Upload,Send,X,Bookmark,Globe,MapPin,Wallet,Download,RefreshCw,Check,MoreHorizontal,Mail,Building2,Target,ThumbsUp,ClipboardCheck,Paperclip,Play,Handshake} from 'lucide-react';
-const mentors=[{id:'rhea',name:'Rhea Mukherjee',headline:'Go-to-market advisor · 2 exits',expertise:['Go-to-market','Fundraising','SaaS'],industries:['Fintech','B2B SaaS'],rating:'4.9',reviews:28,price:'₹3,000 / hour',next:'Thu, Nov 12',sessions:140,location:'Kolkata, India',bio:'I work with early-stage founders to shape a clear go-to-market strategy, validate pricing and build an investor-ready story. My approach is structured, candid and focused on practical next steps.',why:'Strong match for your Prototype stage and fundraising readiness goals.'},{id:'arjun',name:'Arjun Mehta',headline:'Former CTO · 1 successful exit',expertise:['Technology','Product','Hiring'],industries:['SaaS','Marketplace'],rating:'4.8',reviews:41,price:'₹4,500 / hour',next:'Fri, Nov 13',sessions:215,location:'Bengaluru, India',bio:'I help technical founders move from prototype to resilient product with a clear engineering roadmap and a high-trust early team.',why:'Matches your MVP testing and early engineering team needs.'},{id:'naina',name:'Naina Roy',headline:'Finance operator · 12 startups advised',expertise:['Finance','Fundraising','Operations'],industries:['Fintech','Climate'],rating:'5.0',reviews:19,price:'Free / pro bono',next:'Mon, Nov 16',sessions:98,location:'Mumbai, India',bio:'I support founders with unit economics, runway planning and financial models that are clear to both teams and investors.',why:'Your finance and readiness priorities align with her expertise.'}];const criteria=['Pitch deck and one-page summary reviewed','Business model and unit economics validated','Financial projections and use of funds defined','Cap table and legal basics in order','Traction metrics documented','Data room complete'];const nav=[['Dashboard',LayoutDashboard,'/startup/dashboard'],['Stage toolkit',Compass,'/startup/stage'],['Tasks & milestones',ListTodo,'/startup/tasks'],['Team',Users,'/startup/team'],['Startup profile',Building2,'/startup/profile'],['Documents',FolderLock,'#'],['Mentor',Lightbulb,'/startup/mentors'],['Investors',Briefcase,'#'],['Hiring',Briefcase,'/startup/hiring'],['Analytics',ChartNoAxesColumn,'/startup/analytics']];function Btn({children,onClick,secondary=false}){return <button onClick={onClick} className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] px-3.5 text-sm font-semibold ${secondary?'border border-[#E5E1D8] bg-white text-ink hover:bg-[#F4F1EA]':'bg-ink text-white hover:bg-[#1C2B42]'}`}>{children}</button>}function Card({title,children,action}){return <section className="rounded-xl border border-[#E5E1D8] bg-white p-5 sm:p-6"><div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-[15px] font-semibold">{title}</h2>{action}</div>{children}</section>}
-export default function MentorApp({page='overview',id='rhea'}){const [toast,setToast]=useState(''),[modal,setModal]=useState(''),[tab,setTab]=useState('Overview'),[requestSent,setRequestSent]=useState(false),[requestTab,setRequestTab]=useState('Sent'),[sessionTab,setSessionTab]=useState('Upcoming'),[status,setStatus]=useState(['Signed off','Signed off','Submitted for sign-off','In progress','Not started','Not started']),[notes,setNotes]=useState(''),[visibility,setVisibility]=useState(false),[query,setQuery]=useState(''),[expertise,setExpertise]=useState('All expertise'),[saved,setSaved]=useState([]),[profileRating,setProfileRating]=useState(0);const notify=s=>{setToast(s);setTimeout(()=>setToast(''),2700)};const mentor=mentors.find(m=>m.id===id)||mentors[0];const approved=status.filter(s=>s==='Signed off').length;const head=(title,sub,action)=><div className="mb-6 flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm text-[#4A5568]">Acme Studio <span className="mx-2 text-[#B8955A]">·</span> Mentorship</p><h1 className="serif mt-1 text-[30px] font-semibold">{title}</h1><p className="mt-1 text-sm text-[#4A5568]">{sub}</p></div>{action}</div>;
-const mentorCard=m=><article key={m.id} className="rounded-xl border border-[#E5E1D8] bg-white p-5 transition hover:border-[#A0A7B4]"><div className="flex items-start gap-4"><span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[#F3EBDD] font-serif text-xl font-semibold text-[#806236]">{m.name.split(' ').map(x=>x[0]).join('')}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold">{m.name}</h2><span className="inline-flex items-center gap-1 rounded-full bg-[#F3EBDD] px-2 py-1 text-[10px] font-semibold text-[#806236]"><CheckCircle2 size={12}/> Verified mentor</span></div><p className="mt-1 text-xs text-[#4A5568]">{m.headline}</p><p className="mt-1 text-xs"><Star className="mr-1 inline fill-[#B8955A] text-[#B8955A]" size={13}/>{m.rating} <span className="text-[#4A5568]">({m.reviews} verified reviews)</span></p></div></div><p className="mt-3 text-xs leading-5 text-[#4A5568]">{m.why}</p><div className="mt-3 flex flex-wrap gap-1.5">{m.expertise.map(t=><span key={t} className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[10px]">{t}</span>)}</div><div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E1D8] pt-3"><span className="text-xs"><b>{m.price}</b><small className="ml-2 text-[#4A5568]">Next free: {m.next}</small></span><div className="flex gap-2"><Link href={`/startup/mentors/find/${m.id}`} className="inline-flex min-h-9 items-center rounded-lg border border-[#E5E1D8] px-3 text-xs font-semibold">View profile</Link><button onClick={()=>{setModal('request');setTab(m.id)}} className="min-h-9 rounded-lg bg-ink px-3 text-xs font-semibold text-white">Request mentorship</button></div></div></article>;
-const shell=<><a href="#mentor-main" className="sr-only focus:not-sr-only">Skip to content</a><aside className="fixed inset-y-0 left-0 z-20 hidden w-[240px] flex-col bg-[#0F1B2D] text-white lg:flex"><div className="flex h-[76px] items-center gap-3 border-b border-white/10 px-6"><span className="grid h-9 w-9 place-items-center rounded-full border border-white/30 font-serif">F</span><b>forma <small className="ml-1 font-normal text-white/50">WORKSPACE</small></b></div><p className="px-6 pb-2 pt-5 text-[10px] font-semibold uppercase tracking-[.16em] text-white/40">Startup</p><nav className="px-3">{nav.map(([n,I,url])=><Link href={url} key={n} className={`relative mb-1 flex h-11 items-center gap-3 rounded-lg px-3 text-[13px] ${n==='Mentor'?'bg-[#1C2B42] text-white':'text-white/65 hover:bg-white/5 hover:text-white'}`}>{n==='Mentor'&&<span className="absolute bottom-2 left-0 top-2 w-[3px] rounded-r bg-[#B8955A]"/>}<I size={18}/>{n}</Link>)}</nav><div className="mt-4 px-3">{[['Overview','/startup/mentors'],['Find mentors','/startup/mentors/find'],['Requests','/startup/mentors/requests'],['Sessions','/startup/sessions'],['Readiness','/startup/readiness']].map(([n,u])=><Link href={u} key={n} className={`mb-1 block rounded-lg py-2 pl-11 text-xs ${((n==='Overview'&&page==='overview')||(n==='Find mentors'&&(page==='find'||page==='mentor-profile'))||(n==='Requests'&&page==='requests')||(n==='Sessions'&&(page==='sessions'||page==='session'))||(n==='Readiness'&&page==='readiness'))?'bg-white/10 text-white':'text-white/55 hover:bg-white/5 hover:text-white'}`}>{n}</Link>)}</div><div className="mt-auto space-y-1 px-3 pb-5"><button onClick={()=>notify('Settings will be available soon.')} className="flex h-11 w-full items-center gap-3 px-3 text-sm text-white/60"><Settings size={18}/>Settings</button><button onClick={()=>notify('Help and support will be available soon.')} className="flex h-11 w-full items-center gap-3 px-3 text-sm text-white/60"><CircleHelp size={18}/>Help & support</button><div className="flex items-center gap-3 rounded-lg border border-white/10 p-3"><span className="grid h-8 w-8 place-items-center rounded-full bg-[#F3EBDD] text-xs font-bold text-ink">AK</span><span><b className="block text-xs">Aarav Kapoor</b><small className="text-white/50">Founder · switch role</small></span></div></div></aside><header className="sticky top-0 z-10 flex h-[68px] items-center justify-between border-b border-[#E5E1D8] bg-[#FAF8F4]/95 px-4 backdrop-blur sm:px-7 lg:ml-[240px]"><div className="relative hidden sm:block"><Search className="absolute left-3 top-2.5 text-[#A0A7B4]" size={17}/><input placeholder="Search workspace" className="h-10 w-64 rounded-lg border border-[#E5E1D8] bg-white pl-9 text-sm"/></div><Link href="/startup/dashboard" className="text-sm font-semibold sm:hidden">← Dashboard</Link><button onClick={()=>notify('You’re all caught up.')} aria-label="Notifications" className="relative ml-auto grid h-10 w-10 place-items-center"><Bell size={19}/><i className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#B8955A]"/></button><span className="ml-3 flex items-center gap-2 text-xs"><span className="grid h-8 w-8 place-items-center rounded-full bg-ink font-semibold text-white">AK</span><span className="hidden sm:block">Aarav Kapoor</span><ChevronDown size={14}/></span></header></>;
-return <div className="min-h-screen bg-[#FAF8F4] text-[#0F1B2D]">{shell}<main id="mentor-main" className="mx-auto max-w-[1440px] px-4 pb-24 pt-7 sm:px-7 lg:ml-[240px] lg:px-8">
-{page==='overview'&&<>{head('Mentors','Find the right guidance and make meaningful progress toward readiness.',<Link href="/startup/mentors/find" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white"><Search size={15}/> Find a mentor</Link>)}{requestSent&&<div className="mb-5 rounded-lg border border-[#E7D4B0] bg-[#F3EBDD] p-3 text-sm">Waiting for Rhea Mukherjee to respond. Usually within 3 days.</div>}<div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">{[['Active mentors','1'],['Sessions held','9'],['Deliverables due','3'],['Readiness',`${approved} / 6`]].map(([n,v])=><div key={n} className="rounded-xl border border-[#E5E1D8] bg-white p-4"><p className="text-xs text-[#4A5568]">{n}</p><b className="serif mt-1 block text-2xl">{v}</b></div>)}</div><div className="grid items-start gap-5 xl:grid-cols-3"><div className="space-y-5 xl:col-span-2"><Card title="My mentors" action={<Link href="/startup/mentors/find" className="text-xs font-semibold text-[#9A7A45]">Find another <ArrowRight className="inline" size={13}/></Link>}><div className="flex flex-wrap items-center gap-4"><span className="grid h-14 w-14 place-items-center rounded-full bg-[#F3EBDD] font-semibold">RM</span><div className="min-w-[160px] flex-1"><h3 className="font-semibold">Rhea Mukherjee <span className="ml-1 rounded-full bg-[#F3EBDD] px-2 py-1 text-[10px] text-[#806236]">Verified</span></h3><p className="mt-1 text-xs text-[#4A5568]">Go-to-market · SaaS · 6 sessions held</p><p className="mt-1 text-xs text-[#4A5568]">Next session: Thu, Nov 12 at 4:00 PM</p></div><Link href="/startup/mentors/mentorship-01" className="rounded-lg bg-ink px-3 py-2.5 text-xs font-semibold text-white">Open workspace</Link></div></Card><Card title="Readiness sign-off progress" action={<Link href="/startup/readiness" className="text-xs font-semibold text-[#9A7A45]">Open readiness <ArrowRight className="inline" size={13}/></Link>}><div className="mb-4 flex items-center justify-between text-xs"><span>{approved} of 6 items signed off</span><b>{Math.round(approved/6*100)}%</b></div><div className="mb-4 h-2 rounded-full bg-[#E5E1D8]"><div className="h-full rounded-full bg-[#B8955A]" style={{width:`${approved/6*100}%`}}/></div><div className="grid gap-2 sm:grid-cols-2">{criteria.map((c,i)=><div key={c} className="flex items-center gap-2 rounded-lg bg-[#FAF8F4] p-2.5 text-xs"><span className={status[i]==='Signed off'?'text-[#2E7D5B]':'text-[#B7791F]'}>{status[i]==='Signed off'?<CheckCircle2 size={15}/>:<Clock size={15}/>}</span><span className="flex-1">{c}</span><small className="text-[#4A5568]">{status[i]}</small></div>)}</div>{approved===6&&<div className="mt-4 rounded-lg bg-[#F3EBDD] p-4 text-sm font-semibold text-[#806236]"><ShieldCheck className="mr-2 inline" size={17}/>Investment Ready · Make your profile visible to investors</div>}</Card><Card title="Deliverables due" action={<Link href="/startup/tasks" className="text-xs font-semibold text-[#9A7A45]">Open tasks</Link>}><div className="divide-y divide-[#E5E1D8]">{[['Review customer interview themes','Nov 08','In progress'],['Update unit economics assumptions','Nov 12','To do'],['Prepare pitch story outline','Nov 15','To do']].map(([a,d,s])=><div key={a} className="flex flex-wrap items-center gap-3 py-3"><ClipboardCheck size={16} className="text-[#9A7A45]"/><span className="flex-1 text-xs font-medium">{a}<small className="ml-2 text-[#4A5568]">Mentor</small></span><span className="text-[10px] text-[#4A5568]">Due {d}</span><span className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px]">{s}</span><button onClick={()=>notify('Deliverable submitted for mentor review.')} className="text-xs font-semibold text-[#9A7A45]">Submit</button></div>)}</div></Card></div><aside className="space-y-5"><Card title="Next session"><p className="text-xs text-[#4A5568]">Thursday, November 12 · 4:00 PM</p><h3 className="mt-2 font-semibold">Go-to-market and pricing</h3><p className="mt-1 text-xs text-[#4A5568]">Rhea Mukherjee · 45 minutes · Asia/Kolkata</p><div className="mt-4 flex gap-2"><button onClick={()=>notify('Join button becomes available 10 minutes before start.')} className="flex-1 rounded-lg bg-ink py-2.5 text-xs font-semibold text-white">Join session</button><button onClick={()=>notify('Reschedule request sent.')} className="rounded-lg border border-[#E5E1D8] px-3 text-xs">Reschedule</button></div></Card><Card title="Open requests"><p className="text-xs text-[#4A5568]">Your request to Arjun Mehta is awaiting a response.</p><span className="mt-2 inline-block rounded-full bg-[#FFF3D6] px-2 py-1 text-[10px] text-[#8A5700]">Requested · 2 days ago</span><Link href="/startup/mentors/requests" className="mt-3 block text-xs font-semibold text-[#9A7A45]">View requests <ArrowRight className="inline" size={13}/></Link></Card><Card title="A tip for Prototype"><p className="text-xs leading-5 text-[#4A5568]">Mentors at this stage often focus on user feedback, defining the first repeatable use case and preparing a revenue plan.</p><Link href="/startup/stage/prototype" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">Review stage goals <ArrowRight className="inline" size={13}/></Link></Card></aside></div></>}
-{page==='find'&&<>{head('Find mentors','Browse verified advisors matched to your startup stage and goals.',<><button onClick={()=>setModal('match')} className="min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm font-semibold">Auto-match me</button><Link href="/startup/mentors/requests" className="inline-flex min-h-10 items-center rounded-lg bg-ink px-3 text-sm font-semibold text-white">My requests</Link></>)}<div className="mb-5 rounded-xl border border-[#E7D4B0] bg-[#F3EBDD] p-4 text-sm"><b>Recommended for Acme Studio</b><p className="mt-1 text-xs text-[#4A5568]">Matched by stage, industry and your fundraising readiness goals. You choose whether to contact anyone.</p></div><div className="grid items-start gap-5 lg:grid-cols-4"><aside className="rounded-xl border border-[#E5E1D8] bg-white p-5"><h2 className="font-semibold">Filters</h2><label className="mt-4 block text-xs font-medium">Expertise<select value={expertise} onChange={e=>setExpertise(e.target.value)} className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3"><option>All expertise</option>{['Fundraising','Product','Go-to-market','Finance','Hiring','Technology'].map(x=><option key={x}>{x}</option>)}</select></label><label className="mt-4 block text-xs font-medium">Industry<input placeholder="Fintech, SaaS…" className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3"/></label><label className="mt-4 block text-xs font-medium">Stage fit<select className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3"><option>Prototype</option><option>Idea</option><option>Early revenue</option></select></label><label className="mt-4 block text-xs font-medium">Availability<select className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3"><option>This month</option><option>This week</option><option>Any time</option></select></label><label className="mt-4 block text-xs font-medium">Price<select className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3"><option>Any price</option><option>Free / pro bono</option><option>Under ₹3,000 / hour</option></select></label><label className="mt-4 flex gap-2 text-xs"><input type="checkbox" defaultChecked className="accent-ink"/>Verified mentors only</label><p className="mt-4 text-[10px] leading-4 text-[#4A5568]">We do not filter by age, gender, religion, caste or nationality.</p></aside><div className="space-y-3 lg:col-span-3"><div className="flex justify-between text-xs text-[#4A5568]"><span>{mentors.filter(m=>expertise==='All expertise'||m.expertise.includes(expertise)).length} verified mentors match</span><select className="rounded border border-[#E5E1D8] bg-white px-2 py-1"><option>Best match</option><option>Rating</option><option>Price</option><option>Soonest available</option></select></div>{mentors.filter(m=>expertise==='All expertise'||m.expertise.includes(expertise)).map(mentorCard)}</div></div></>}
-{page==='mentor-profile'&&<>{head(mentor.name,mentor.headline,<Link href="/startup/mentors/find" className="text-sm text-[#9A7A45]">← Back to mentors</Link>)}<div className="grid items-start gap-5 xl:grid-cols-3"><div className="space-y-5 xl:col-span-2"><Card title="About"><div className="flex items-start gap-4"><span className="grid h-16 w-16 place-items-center rounded-full bg-[#F3EBDD] font-serif text-xl font-semibold">{mentor.name.split(' ').map(x=>x[0]).join('')}</span><div><div className="flex flex-wrap items-center gap-2"><b>{mentor.name}</b><span className="rounded-full bg-[#F3EBDD] px-2 py-1 text-[10px] text-[#806236]"><ShieldCheck className="mr-1 inline" size={12}/>Verified mentor</span></div><p className="mt-1 text-xs text-[#4A5568]">{mentor.headline}</p><p className="mt-2 text-xs"><MapPin className="mr-1 inline" size={12}/>{mentor.location} · English, Bengali, Hindi</p><p className="mt-2 text-xs"><Star className="mr-1 inline fill-[#B8955A] text-[#B8955A]" size={13}/>{mentor.rating} ({mentor.reviews} reviews) · {mentor.sessions} sessions delivered</p></div></div><p className="mt-5 text-sm leading-7 text-[#4A5568]">{mentor.bio}</p></Card><Card title="How I can help"><div className="grid gap-3 sm:grid-cols-2">{mentor.expertise.map(x=><div key={x} className="rounded-lg bg-[#FAF8F4] p-3"><b className="text-sm">{x}</b><p className="mt-1 text-xs text-[#4A5568]">Practical working sessions and clear next steps tailored to your stage.</p></div>)}</div></Card><Card title="Experience"><p className="text-sm font-medium">Operator and advisor · Verified experience</p><p className="mt-1 text-xs text-[#4A5568]">Built and advised early-stage teams across fintech and B2B software.</p><p className="mt-3 text-xs text-[#4A5568]">Previous roles and company details verified by Forma.</p></Card><Card title="Reviews"><p className="text-sm"><Star className="mr-1 inline fill-[#B8955A] text-[#B8955A]" size={14}/>{mentor.rating} average · verified sessions only</p>{[['Thoughtful and direct. We left every session with a clear plan.','Founder, fintech startup'],['Helped us focus our customer discovery on the right questions.','CEO, B2B SaaS']].map(([x,y])=><blockquote key={x} className="mt-4 border-t border-[#E5E1D8] pt-3 text-sm">“{x}”<small className="mt-1 block text-xs text-[#4A5568]">{y}</small></blockquote>)}</Card></div><aside className="space-y-5 xl:sticky xl:top-24"><Card title="Pricing & terms"><b className="serif text-2xl">{mentor.price}</b><p className="mt-2 text-xs text-[#4A5568]">45-minute session · package options available</p><p className="mt-3 rounded-lg bg-[#FAF8F4] p-3 text-xs">Platform fee and applicable taxes are shown before you confirm.</p><p className="mt-3 text-xs text-[#4A5568]">Advisory equity: none requested</p><button onClick={()=>setModal('request')} className="mt-4 w-full rounded-lg bg-ink py-3 text-sm font-semibold text-white">Request mentorship</button><button onClick={()=>setModal('intro')} className="mt-2 w-full rounded-lg border border-[#E5E1D8] py-3 text-sm font-semibold">Book intro call</button><button onClick={()=>setSaved(saved.includes(mentor.id)?saved.filter(x=>x!==mentor.id):[...saved,mentor.id])} className="mt-3 w-full text-xs font-semibold text-[#9A7A45]"><Bookmark className="mr-1 inline" size={13}/>{saved.includes(mentor.id)?'Saved':'Save mentor'}</button><button onClick={()=>notify('Report submitted to support for review.')} className="mt-2 w-full text-xs text-[#4A5568]">Report mentor</button></Card><Card title="Availability"><p className="text-xs text-[#4A5568]">Next available: <b>{mentor.next}</b></p><div className="mt-3 grid grid-cols-3 gap-2">{['Thu 4:00','Fri 11:00','Mon 2:00'].map(x=><button key={x} onClick={()=>setModal('intro')} className="rounded-lg border border-[#E5E1D8] p-2 text-[10px]">{x}</button>)}</div><p className="mt-3 text-[10px] text-[#4A5568]">Times shown in Asia/Kolkata.</p></Card></aside></div></>}
-{page==='requests'&&<>{head('Mentorship requests','Track requests and invitations in one place.',null)}<div className="mb-4 flex gap-2">{['Sent','Received','Past'].map(x=><button key={x} onClick={()=>setRequestTab(x)} className={`min-h-10 rounded-lg px-4 text-xs ${requestTab===x?'bg-ink text-white':'border border-[#E5E1D8] bg-white'}`}>{x}</button>)}</div><Card title={`${requestTab} requests`}>{requestTab==='Sent'?<div className="space-y-3">{[['Rhea Mukherjee','Help validate our go-to-market and fundraising plan.','Active mentorship','Oct 21'],['Arjun Mehta','Support us with product architecture and hiring.','Waiting · 2 days','Nov 03']].map(([n,g,s,d],i)=><div key={n} className="flex flex-wrap items-center gap-3 rounded-lg border border-[#E5E1D8] p-4"><span className="grid h-11 w-11 place-items-center rounded-full bg-[#F3EBDD] font-semibold">{n.split(' ').map(x=>x[0]).join('')}</span><span className="min-w-[180px] flex-1"><b className="block text-sm">{n}</b><small className="text-xs text-[#4A5568]">{g}</small></span><span className={`rounded-full px-2 py-1 text-[10px] ${i?'bg-[#FFF3D6] text-[#8A5700]':'bg-[#E7F3EC] text-[#286749]'}`}>{s}</span><small className="text-xs text-[#4A5568]">{d}</small><Link href={`/startup/mentors/${i?'request-02':'mentorship-01'}`} className="text-xs font-semibold text-[#9A7A45]">View <ArrowRight className="inline" size={12}/></Link><button onClick={()=>notify('Request withdrawn.')} className="text-xs text-[#B42318]">Withdraw</button></div>)}</div>:<div className="py-8 text-center"><p className="text-sm font-semibold">{requestTab==='Received'?'No invitations received yet.':'No past requests.'}</p><p className="mt-1 text-xs text-[#4A5568]">Your requests will be listed here.</p><Link href="/startup/mentors/find" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">Find a mentor</Link></div>}</Card></>}
-{page==='workspace'&&<>{head(`Mentorship with ${mentor.name}`,'Active · Started October 21, 2026 · Fortnightly',<div className="flex gap-2"><Btn secondary onClick={()=>location.href='/startup/sessions'}><CalendarDays size={15}/> Book session</Btn><Btn onClick={()=>notify('Message sent to mentor.') }><MessageCircle size={15}/> Message</Btn></div>)}<div className="mb-5 flex gap-2 overflow-x-auto">{['Overview','Plan','Sessions','Deliverables','Notes','Files','Messages'].map(x=><button key={x} onClick={()=>setTab(x)} className={`min-h-10 shrink-0 rounded-lg px-4 text-xs ${tab===x?'bg-ink text-white':'border border-[#E5E1D8] bg-white'}`}>{x}</button>)}</div><div className="grid items-start gap-5 xl:grid-cols-3"><div className="space-y-5 xl:col-span-2"><Card title={tab==='Overview'?'Mentorship overview':tab}>{tab==='Overview'?<><div className="grid gap-4 sm:grid-cols-2"><div className="rounded-lg bg-[#F3EBDD] p-4"><p className="text-xs text-[#806236]">Readiness sign-off</p><b className="serif mt-1 block text-2xl">{approved} of 6 items</b><Link href="/startup/readiness" className="mt-2 inline-block text-xs font-semibold text-[#9A7A45]">View checklist <ArrowRight className="inline" size={12}/></Link></div><div className="rounded-lg bg-[#FAF8F4] p-4"><p className="text-xs text-[#4A5568]">Next session</p><b className="mt-1 block text-sm">Thu, Nov 12 · 4:00 PM</b><small className="text-xs text-[#4A5568]">Go-to-market and pricing</small></div></div><h3 className="mt-5 text-sm font-semibold">Shared goals</h3>{[['Validate pricing with 10 customers','Nov 30',65],['Prepare fundraising narrative','Dec 15',30]].map(([g,d,v])=><div key={g} className="mt-3 rounded-lg border border-[#E5E1D8] p-3"><div className="flex justify-between text-xs"><b>{g}</b><span>{d}</span></div><div className="mt-2 h-1.5 rounded-full bg-[#E5E1D8]"><div className="h-full rounded-full bg-[#B8955A]" style={{width:`${v}%`}}/></div><small className="mt-1 block text-[#4A5568]">{v}% complete</small></div>)}</>:tab==='Plan'?<><p className="mb-4 text-xs text-[#4A5568]">Cadence: Fortnightly · 45 minutes · Plan changes require both sides to accept.</p><div className="space-y-3">{[['Validate pricing and unit economics','Nov 30','Aarav Kapoor','In progress'],['Prepare fundraising narrative','Dec 15','Rhea Mukherjee','Proposed']].map(([g,d,o,s])=><div key={g} className="rounded-lg border border-[#E5E1D8] p-4"><div className="flex justify-between text-sm"><b>{g}</b><span className="text-xs">{d}</span></div><p className="mt-1 text-xs text-[#4A5568]">Success measure: share a reviewed, documented plan · Owner {o}</p><span className="mt-2 inline-block rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px]">{s}</span></div>)}</div><button onClick={()=>notify('Goal proposed to mentor.')} className="mt-4 text-xs font-semibold text-[#9A7A45]">+ Add goal</button></>:tab==='Sessions'?<Link href="/startup/sessions" className="text-xs font-semibold text-[#9A7A45]">View all sessions <ArrowRight className="inline" size={13}/></Link>:tab==='Deliverables'?<div className="space-y-3">{[['Review interview themes','Nov 08','In progress'],['Pricing model feedback','Nov 12','To do'],['Fundraising narrative','Nov 15','To do']].map(([n,d,s])=><div key={n} className="flex items-center gap-3 border-b border-[#E5E1D8] py-3"><ClipboardCheck size={16} className="text-[#9A7A45]"/><span className="flex-1 text-xs">{n}<small className="ml-2 text-[#4A5568]">Due {d}</small></span><span className="text-[10px]">{s}</span><button onClick={()=>notify('Deliverable submitted for mentor review.')} className="text-xs font-semibold text-[#9A7A45]">Submit</button></div>)}</div>:tab==='Notes'?<><textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={8} placeholder="Add shared notes, decisions or action items…" className="w-full rounded-lg border border-[#E5E1D8] bg-white p-3 text-sm"/><div className="mt-3 flex justify-between text-xs"><label><input type="checkbox" className="mr-2 accent-ink"/>Private notes</label><button onClick={()=>notify('Notes saved · just now.')} className="font-semibold text-[#9A7A45]">Save notes</button></div></>:tab==='Files'?<div className="rounded-lg border border-dashed border-[#E5E1D8] p-7 text-center"><FileText className="mx-auto mb-2 text-[#9A7A45]"/><p className="text-sm font-semibold">Shared files</p><p className="mt-1 text-xs text-[#4A5568]">Pitch deck v3.pdf · Shared Oct 25 · Access logged</p><button onClick={()=>notify('Vault picker opened.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">Share from vault <Plus className="inline" size={12}/></button></div>:<><div className="max-h-64 space-y-3 overflow-y-auto rounded-lg bg-[#FAF8F4] p-4"><p className="text-xs"><b>Rhea</b> · Great progress on the interviews. Let’s look at pricing next.</p><p className="text-right text-xs"><b>You</b> · I’ll bring the revised model to our session.</p></div><div className="mt-3 flex gap-2"><input placeholder="Write a secure message…" className="h-10 flex-1 rounded-lg border border-[#E5E1D8] px-3 text-xs"/><button onClick={()=>notify('Message sent.')} className="grid h-10 w-10 place-items-center rounded-lg bg-ink text-white"><Send size={14}/></button></div></>}</Card></div><aside className="space-y-5"><Card title="Mentor"><div className="flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-full bg-[#F3EBDD] font-semibold">RM</span><div><b className="text-sm">{mentor.name}</b><p className="text-xs text-[#4A5568]">Verified · Go-to-market</p></div></div><div className="mt-4 grid grid-cols-2 gap-2"><Link href={`/startup/mentors/${id}/billing`} className="rounded-lg border border-[#E5E1D8] py-2 text-center text-xs font-semibold">Agreement & billing</Link><button onClick={()=>notify('Mentorship paused.')} className="rounded-lg border border-[#E5E1D8] py-2 text-xs">Pause mentorship</button></div></Card><Card title="Recent activity"><p className="text-xs text-[#4A5568]">Rhea reviewed interview themes · 2 days ago</p><p className="mt-3 text-xs text-[#4A5568]">Session notes added · Oct 28</p></Card></aside></div></>}
-{page==='sessions'&&<>{head('Sessions','Book, join and review your mentor conversations.',<Btn onClick={()=>setModal('book')}><Plus size={15}/> Book session</Btn>)}<div className="mb-5 flex gap-2">{['Upcoming','Past','Calendar'].map(x=><button onClick={()=>setSessionTab(x)} key={x} className={`min-h-10 rounded-lg px-4 text-xs ${sessionTab===x?'bg-ink text-white':'border border-[#E5E1D8] bg-white'}`}>{x}</button>)}</div>{sessionTab==='Calendar'?<Card title="November 2026"><div className="grid grid-cols-7 gap-px bg-[#E5E1D8]">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun',...Array.from({length:35},(_,i)=>String(i+1))].map((x,i)=><div key={i} className="min-h-16 bg-white p-2 text-xs">{x}{i===18&&<small className="mt-1 block rounded bg-[#F3EBDD] p-1 text-[9px]">Mentor session</small>}</div>)}</div></Card>:sessionTab==='Upcoming'?<div className="space-y-3">{[['Nov 12 · 4:00 PM','Rhea Mukherjee','Go-to-market and pricing','45 minutes','Confirmed'],['Nov 19 · 4:00 PM','Rhea Mukherjee','Unit economics review','45 minutes','Scheduled']].map(([d,n,t,dur,s],i)=><article key={d} className="flex flex-wrap items-center gap-4 rounded-xl border border-[#E5E1D8] bg-white p-5"><div className="rounded-lg bg-[#F3EBDD] p-3 text-center"><CalendarDays className="mx-auto mb-1 text-[#806236]" size={18}/><b className="text-xs">{d}</b><small className="mt-1 block text-[10px] text-[#4A5568]">Asia/Kolkata</small></div><div className="min-w-[180px] flex-1"><b className="text-sm">{t}</b><p className="mt-1 text-xs text-[#4A5568]">{n} · {dur}</p><span className="mt-2 inline-block rounded-full bg-[#E7F3EC] px-2 py-1 text-[10px] text-[#286749]">{s}</span></div><Link href="/startup/sessions/session-01" className="text-xs font-semibold text-[#9A7A45]">Details</Link><button onClick={()=>notify(i===0?'Join opens 10 minutes before the session.':'Reschedule request sent.')} className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">{i===0?'Join session':'Reschedule'}</button></article>)}</div>:<Card title="Past sessions"><div className="overflow-x-auto"><table className="w-full min-w-[500px] text-left text-xs"><thead><tr className="border-b text-[#4A5568]"><th className="py-3">Date</th><th>Mentor</th><th>Topic</th><th>Duration</th><th>Notes</th><th>Rating</th></tr></thead><tbody>{[['Oct 28','Rhea Mukherjee','Customer interview synthesis','45 min','Available','5 stars'],['Oct 14','Rhea Mukherjee','Prototype test plan','45 min','Available','5 stars']].map(r=><tr key={r[0]} className="border-b"><td className="py-3">{r[0]}</td>{r.slice(1).map((x,i)=><td key={i}>{x}</td>)}</tr>)}</tbody></table></div></Card>}</>}
-{page==='session'&&<>{head('Go-to-market and pricing','Confirmed · Thursday, November 12 · 4:00 PM · 45 minutes',<><button onClick={()=>notify('Join opens 10 minutes before session.')} className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white"><Video className="mr-2 inline" size={15}/> Join session</button><button onClick={()=>notify('Reschedule request sent.')} className="min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm">Reschedule</button></>)}<div className="mb-5 flex gap-2">{['Agenda','Notes','Files','Recording','Feedback'].map(x=><button key={x} onClick={()=>setTab(x)} className={`min-h-10 rounded-lg px-4 text-xs ${tab===x?'bg-ink text-white':'border border-[#E5E1D8] bg-white'}`}>{x}</button>)}</div><div className="grid items-start gap-5 xl:grid-cols-3"><div className="xl:col-span-2"><Card title={tab}>{tab==='Agenda'?<><p className="text-sm text-[#4A5568]">Shared agenda · add topics before the meeting.</p><ul className="mt-4 space-y-3">{['Review interview insights','Discuss pricing options','Agree next experiments'].map((x,i)=><li key={x} className="flex items-center gap-3 rounded-lg bg-[#FAF8F4] p-3 text-sm"><span className="grid h-6 w-6 place-items-center rounded-full bg-[#F3EBDD] text-xs">{i+1}</span>{x}</li>)}</ul><button onClick={()=>notify('Agenda item added.')} className="mt-4 text-xs font-semibold text-[#9A7A45]">+ Add agenda item</button></>:tab==='Notes'?<><textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={10} placeholder="Capture decisions and action items…" className="w-full rounded-lg border border-[#E5E1D8] p-3 text-sm"/><button onClick={()=>notify('Session notes saved.')} className="mt-3 rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white">Save notes</button></>:tab==='Files'?<button onClick={()=>notify('Vault file picker opened.')} className="rounded-lg border border-dashed border-[#E5E1D8] p-6 text-xs">Share a document for the session <Upload className="ml-2 inline" size={15}/></button>:tab==='Recording'?<p className="rounded-lg bg-[#FAF8F4] p-4 text-sm">Recording was off. No recording is stored.</p>:<><p className="text-sm">How useful was this session?</p><div className="my-3 flex gap-2">{[1,2,3,4,5].map(n=><button key={n} aria-label={`${n} stars`} onClick={()=>setProfileRating(n)}><Star size={24} className={n<=profileRating?'fill-[#B8955A] text-[#B8955A]':'text-[#A0A7B4]'}/></button>)}</div><textarea rows={4} placeholder="Share optional feedback" className="w-full rounded-lg border border-[#E5E1D8] p-3 text-sm"/><button onClick={()=>notify('Feedback submitted. Thank you.')} className="mt-3 rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white">Submit feedback</button></>}</Card></div><aside className="space-y-5"><Card title="Session details"><p className="text-xs"><b>Mentor:</b> Rhea Mukherjee</p><p className="mt-2 text-xs"><b>Attendees:</b> Aarav Kapoor, Priya Menon</p><p className="mt-2 text-xs"><b>Time zone:</b> Asia/Kolkata</p><p className="mt-4 rounded-lg bg-[#F3EBDD] p-3 text-xs">Recording is off unless both sides consent before starting.</p></Card><Card title="Readiness items discussed"><p className="text-xs text-[#4A5568]">Business model and unit economics</p><button onClick={()=>notify('Sign-off request sent to mentor.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">Request sign-off <ArrowRight className="inline" size={12}/></button></Card></aside></div></>}
-{page==='readiness'&&<>{head('Investment readiness','Mentor-reviewed evidence for your startup’s readiness journey.',<Link href="/startup/mentors/find" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm font-semibold">Find a mentor</Link>)}<div className="mb-5 grid gap-5 lg:grid-cols-3"><Card title="Readiness score"><div className="flex items-center gap-5"><div className="grid h-28 w-28 place-items-center rounded-full" style={{background:'conic-gradient(#B8955A 0deg 259deg,#E5E1D8 259deg 360deg)'}}><div className="grid h-[88px] w-[88px] place-items-center rounded-full bg-white"><span className="serif text-3xl">72</span></div></div><div><p className="text-xs text-[#4A5568]">out of 100</p><p className="mt-2 text-xs font-semibold">{approved} of 6 signed off</p><p className="mt-1 text-xs text-[#4A5568]">The score is a guide. Sign-offs decide the badge.</p></div></div></Card><div className="lg:col-span-2">{approved===6?<Card title="Investment Ready"><div className="rounded-xl bg-[#F3EBDD] p-5"><ShieldCheck size={24} className="text-[#9A7A45]"/><h3 className="mt-2 serif text-xl font-semibold">Investment Ready</h3><p className="mt-1 text-xs text-[#4A5568]">Earned with mentor sign-off · Rhea Mukherjee</p><button onClick={()=>setVisibility(!visibility)} className="mt-4 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">{visibility?'Profile visible to investors':'Make profile visible to investors'}</button></div></Card>:<Card title="Badge status"><div className="rounded-xl bg-[#FAF8F4] p-5"><p className="font-semibold">Not yet earned</p><p className="mt-1 text-xs text-[#4A5568]">Complete all six reviewed items to receive the Investment Ready badge.</p><Link href="/startup/profile" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">Manage profile visibility <ArrowRight className="inline" size={12}/></Link></div></Card>}</div></div><div className="grid items-start gap-5 xl:grid-cols-3"><div className="space-y-4 xl:col-span-2">{criteria.map((c,i)=><Card key={c} title={`${i+1}. ${c}`} action={<span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${status[i]==='Signed off'?'bg-[#E7F3EC] text-[#286749]':status[i]==='Submitted for sign-off'?'bg-[#FFF3D6] text-[#8A5700]':'bg-[#F3F4F6] text-[#4A5568]'}`}>{status[i]}</span>}><p className="text-xs leading-5 text-[#4A5568]">Done means this item is documented, current and supported by evidence that your mentor can review.</p><p className="mt-3 text-xs"><FileText className="mr-1 inline text-[#9A7A45]" size={13}/> Evidence: {i<2?'Pitch deck v3.pdf · linked':'No evidence attached yet'}</p><p className="mt-2 text-[10px] text-[#4A5568]">Owner: Aarav Kapoor · Reviewer: Rhea Mukherjee</p>{status[i]==='In progress'||status[i]==='Not started'?<div className="mt-3 flex gap-2"><button onClick={()=>notify('Evidence picker opened.')} className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs">Add evidence</button><button onClick={()=>setStatus(status.map((s,n)=>n===i?'Submitted for sign-off':s))} className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">Submit for sign-off</button></div>:status[i]==='Submitted for sign-off'?<p className="mt-3 text-xs text-[#8A5700]">Waiting for mentor review · Rhea Mukherjee</p>:<p className="mt-3 text-xs text-[#286749]">Signed off by Rhea Mukherjee · Nov 01</p>}</Card>)}</div><aside className="space-y-5"><Card title="Score breakdown">{[['Checklist completion',80],['Traction data',65],['Mentor feedback',70]].map(([x,v])=><div key={x} className="mb-4"><div className="mb-1 flex justify-between text-xs"><span>{x}</span><b>{v}%</b></div><div className="h-2 rounded-full bg-[#E5E1D8]"><div className="h-full rounded-full bg-[#B8955A]" style={{width:`${v}%`}}/></div></div>)}</Card><Card title="Mentors responsible"><p className="text-sm font-semibold">Rhea Mukherjee</p><p className="mt-1 text-xs text-[#4A5568]">Go-to-market · 4 of 6 items</p><p className="mt-3 text-xs text-[#4A5568]">A mentor needs to review each submitted item before it can be signed off.</p><button onClick={()=>notify('Message sent to Rhea.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">Message mentor <ArrowRight className="inline" size={12}/></button></Card></aside></div></>}
-{page==='billing'&&<>{head('Agreement & payments','Review fees, terms and session invoices for this mentorship.',<Link href={`/startup/mentors/${id}`} className="text-sm text-[#9A7A45]">← Workspace</Link>)}<div className="grid items-start gap-5 lg:grid-cols-3"><div className="space-y-5 lg:col-span-2"><Card title="Mentorship agreement"><div className="grid gap-3 sm:grid-cols-2">{[['Mentor','Rhea Mukherjee'],['Fee model','₹3,000 per 45-minute session'],['Cadence','Fortnightly'],['Advisory / equity','None requested'],['Start date','Oct 21, 2026'],['Status','Accepted by both sides']].map(([a,b])=><div key={a} className="rounded-lg bg-[#FAF8F4] p-3"><small className="text-xs text-[#4A5568]">{a}</small><b className="mt-1 block text-sm">{b}</b></div>)}</div><p className="mt-4 rounded-lg bg-[#FFF8E8] p-3 text-xs leading-5 text-[#806236]">Review equity or advisory terms with a lawyer. The platform records terms but does not give legal advice.</p><button onClick={()=>notify('Agreement change proposed to mentor.')} className="mt-4 rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs font-semibold">Propose change</button></Card><Card title="Payments"><div className="overflow-x-auto"><table className="w-full min-w-[500px] text-left text-xs"><thead className="border-b text-[#4A5568]"><tr>{['Date','Session','Fee','Platform fee','Status','Receipt'].map(x=><th key={x} className="py-3">{x}</th>)}</tr></thead><tbody>{[['Oct 28','Customer interviews','₹3,000','₹300','Paid'],['Oct 14','Prototype test plan','₹3,000','₹300','Paid']].map(r=><tr key={r[0]} className="border-b"><td className="py-3">{r[0]}</td>{r.slice(1).map((x,i)=><td key={i}>{x}</td>)}<td><button onClick={()=>notify('Receipt downloaded.')}><Download size={14}/></button></td></tr>)}</tbody></table></div></Card></div><aside className="space-y-5"><Card title="Session credits"><p className="serif text-3xl">0 <small className="font-sans text-sm">credits</small></p><p className="mt-1 text-xs text-[#4A5568]">No package purchased</p><button onClick={()=>notify('Packages are not available yet.')} className="mt-3 w-full rounded-lg bg-ink py-2.5 text-xs font-semibold text-white">Buy a package</button></Card><Card title="Payment method"><p className="text-xs">UPI · ending in 42</p><button onClick={()=>notify('Billing settings opened.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">Manage payment method</button></Card></aside></div></>}
-</main>{modal&&<div className="fixed inset-0 z-40 grid place-items-center bg-[#0F1B2D]/45 p-4"><section role="dialog" aria-modal="true" className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"><div className="mb-5 flex items-center justify-between"><h2 className="serif text-2xl font-semibold">{modal==='match'?'Find your mentor match':modal==='request'?'Request mentorship':modal==='book'?'Book a mentor session':'Book intro call'}</h2><button aria-label="Close" onClick={()=>setModal('')}><X size={18}/></button></div>{modal==='match'?<div className="space-y-4"><p className="text-sm text-[#4A5568]">Tell us what you need. We’ll suggest mentors based on your stage and goals; you choose whether to contact them.</p><label className="block text-sm">Top needs<select className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3"><option>Go-to-market and fundraising</option><option>Product and technology</option><option>Finance and operations</option></select></label><label className="block text-sm">Budget<select className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3"><option>Up to ₹5,000 per session</option><option>Free / pro bono</option></select></label></div>:<div className="space-y-4"><label className="block text-sm font-medium">Your mentorship goal<textarea required minLength={20} maxLength={500} rows={4} placeholder="What outcome would you like to work toward? (20–500 characters)" className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm"/></label><label className="block text-sm">Top needs<input placeholder="e.g. pricing, customer research, fundraising" className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] px-3"/></label><div className="grid grid-cols-2 gap-3"><label className="text-sm">Preferred cadence<select className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3"><option>Fortnightly</option><option>Weekly</option><option>Monthly</option></select></label><label className="text-sm">Expected duration<select className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3"><option>3 months</option><option>6 months</option></select></label></div><label className="block text-sm">Message<textarea rows={2} placeholder="Introduce your startup and context" className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm"/></label><p className="rounded-lg bg-[#FAF8F4] p-3 text-xs text-[#4A5568]">Session fee and any proposed advisory terms will be confirmed before you accept. Shared documents are optional.</p></div>}<div className="mt-6 flex justify-end gap-2"><button onClick={()=>setModal('')} className="min-h-10 px-4 text-sm">Cancel</button><button onClick={()=>{if(modal==='match'){setModal('');notify('Three recommended mentors found.')}else{setRequestSent(true);setModal('');notify('Mentorship request sent.')}}} className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white">{modal==='match'?'See matches':modal==='book'?'Confirm booking':'Send request'}</button></div></section></div>}{page==='overview'&&<div className="fixed inset-x-0 bottom-0 z-20 border-t border-[#E5E1D8] bg-white p-3 lg:hidden"><Link href="/startup/mentors/find" className="block rounded-lg bg-ink py-3 text-center text-sm font-semibold text-white">Find a mentor</Link></div>}{toast&&<div role="status" aria-live="polite" className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-lg bg-ink px-4 py-3 text-sm text-white shadow-lg">{toast}</div>}</div>}
+import {useState, useEffect} from 'react';
+import Link from 'next/link';
+import {
+  LayoutDashboard,
+  Compass,
+  ListTodo,
+  Users,
+  FolderLock,
+  Lightbulb,
+  Briefcase,
+  ChartNoAxesColumn,
+  Settings,
+  CircleHelp,
+  Search,
+  Bell,
+  ChevronDown,
+  ChevronRight,
+  ArrowRight,
+  ArrowUpRight,
+  Plus,
+  CalendarDays,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  MessageCircle,
+  FileText,
+  ShieldCheck,
+  Star,
+  Video,
+  LockKeyhole,
+  Upload,
+  Send,
+  X,
+  Bookmark,
+  Globe,
+  MapPin,
+  Wallet,
+  Download,
+  RefreshCw,
+  Check,
+  MoreHorizontal,
+  Mail,
+  Building2,
+  Target,
+  ThumbsUp,
+  ClipboardCheck,
+  Paperclip,
+  Play,
+  Handshake
+} from 'lucide-react';
+
+const mentors = [
+  {
+    id: 'rhea',
+    name: 'Rhea Mukherjee',
+    headline: 'Go-to-market advisor · 2 exits',
+    expertise: ['Go-to-market', 'Fundraising', 'SaaS'],
+    industries: ['Fintech', 'B2B SaaS'],
+    rating: '4.9',
+    reviews: 28,
+    price: '₹3,000 / hour',
+    next: 'Thu, Nov 12',
+    sessions: 140,
+    location: 'Kolkata, India',
+    bio: 'I work with early-stage founders to shape a clear go-to-market strategy, validate pricing and build an investor-ready story. My approach is structured, candid and focused on practical next steps.',
+    why: 'Strong match for your Prototype stage and fundraising readiness goals.'
+  },
+  {
+    id: 'arjun',
+    name: 'Arjun Mehta',
+    headline: 'Former CTO · 1 successful exit',
+    expertise: ['Technology', 'Product', 'Hiring'],
+    industries: ['SaaS', 'Marketplace'],
+    rating: '4.8',
+    reviews: 41,
+    price: '₹4,500 / hour',
+    next: 'Fri, Nov 13',
+    sessions: 215,
+    location: 'Bengaluru, India',
+    bio: 'I help technical founders move from prototype to resilient product with a clear engineering roadmap and a high-trust early team.',
+    why: 'Matches your MVP testing and early engineering team needs.'
+  },
+  {
+    id: 'naina',
+    name: 'Naina Roy',
+    headline: 'Finance operator · 12 startups advised',
+    expertise: ['Finance', 'Fundraising', 'Operations'],
+    industries: ['Fintech', 'Climate'],
+    rating: '5.0',
+    reviews: 19,
+    price: 'Free / pro bono',
+    next: 'Mon, Nov 16',
+    sessions: 98,
+    location: 'Mumbai, India',
+    bio: 'I support founders with unit economics, runway planning and financial models that are clear to both teams and investors.',
+    why: 'Your finance and readiness priorities align with her expertise.'
+  }
+];
+
+const criteria = [
+  'Pitch deck and one-page summary reviewed',
+  'Business model and unit economics validated',
+  'Financial projections and use of funds defined',
+  'Cap table and legal basics in order',
+  'Traction metrics documented',
+  'Data room complete'
+];
+
+const nav = [
+  ['Dashboard', LayoutDashboard, '/startup/dashboard'],
+  ['Stage toolkit', Compass, '/startup/stage'],
+  ['Tasks & milestones', ListTodo, '/startup/tasks'],
+  ['Team', Users, '/startup/team'],
+  ['Startup profile', Building2, '/startup/profile'],
+  ['Data room', FolderLock, '/startup/data-room'],
+  ['Mentors', Lightbulb, '/startup/mentors'],
+  ['Investors', Briefcase, '/startup/investors'],
+  ['Hiring', Briefcase, '/startup/hiring'],
+  ['Analytics', ChartNoAxesColumn, '/startup/analytics']
+];
+
+function Btn({children, onClick, secondary = false, className = '', type = 'button', disabled = false}) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] px-3.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8955A] disabled:opacity-50 ${
+        secondary
+          ? 'border border-[#E5E1D8] bg-white text-ink hover:bg-[#F4F1EA]'
+          : 'bg-ink text-white hover:bg-[#1C2B42]'
+      } ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Card({title, children, action}) {
+  return (
+    <section className="rounded-xl border border-[#E5E1D8] bg-white p-5 shadow-[0_1px_2px_rgba(15,27,45,.04)] sm:p-6">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export default function MentorApp({page = 'overview', id = 'rhea'}) {
+  const [toast, setToast] = useState('');
+  const [modal, setModal] = useState('');
+  const [tab, setTab] = useState('Overview');
+  const [requestSent, setRequestSent] = useState(false);
+  const [requestTab, setRequestTab] = useState('Sent');
+  const [sessionTab, setSessionTab] = useState('Upcoming');
+  const [status, setStatus] = useState(['Signed off', 'Signed off', 'Submitted for sign-off', 'In progress', 'Not started', 'Not started']);
+  const [notes, setNotes] = useState('');
+  const [visibility, setVisibility] = useState(false);
+  const [query, setQuery] = useState('');
+  const [expertise, setExpertise] = useState('All expertise');
+  const [saved, setSaved] = useState([]);
+  const [profileRating, setProfileRating] = useState(0);
+
+  // Controlled form state for mentorship request
+  const [requestGoal, setRequestGoal] = useState('');
+  const [requestNeeds, setRequestNeeds] = useState('');
+  const [requestCadence, setRequestCadence] = useState('Fortnightly');
+  const [requestDuration, setRequestDuration] = useState('3 months');
+  const [requestMsg, setRequestMsg] = useState('');
+
+  // Close modals on Escape key
+  useEffect(() => {
+    const handleKeyDown = e => {
+      if (e.key === 'Escape') {
+        setModal('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const notify = s => {
+    setToast(s);
+    setTimeout(() => setToast(''), 2800);
+  };
+
+  const mentor = mentors.find(m => m.id === id) || mentors[0];
+  const approved = status.filter(s => s === 'Signed off').length;
+
+  const head = (title, sub, action) => (
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p className="text-sm text-[#4A5568]">
+          Acme Studio <span className="mx-2 text-[#B8955A]">·</span> Mentorship
+        </p>
+        <h1 className="serif mt-1 text-[30px] font-semibold text-ink">{title}</h1>
+        <p className="mt-1 text-sm text-[#4A5568]">{sub}</p>
+      </div>
+      {action}
+    </div>
+  );
+
+  const mentorCard = m => (
+    <article key={m.id} className="rounded-xl border border-[#E5E1D8] bg-white p-5 shadow-[0_1px_2px_rgba(15,27,45,.04)] transition hover:border-[#A0A7B4]">
+      <div className="flex items-start gap-4">
+        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[#F3EBDD] font-serif text-xl font-semibold text-[#806236]">
+          {m.name.split(' ').map(x => x[0]).join('')}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-semibold text-ink">{m.name}</h2>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#F3EBDD] px-2.5 py-0.5 text-xs font-semibold text-[#806236]">
+              <CheckCircle2 size={12} /> Verified mentor
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-[#4A5568]">{m.headline}</p>
+          <p className="mt-1 text-xs text-ink font-medium">
+            <Star className="mr-1 inline fill-[#B8955A] text-[#B8955A]" size={13} />
+            {m.rating} <span className="text-[#4A5568] font-normal">({m.reviews} verified reviews)</span>
+          </p>
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs leading-5 text-[#4A5568]">{m.why}</p>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {m.expertise.map(t => (
+          <span key={t} className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-xs text-[#4A5568]">
+            {t}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E1D8] pt-3">
+        <span className="text-xs text-ink">
+          <b>{m.price}</b>
+          <small className="ml-2 text-[#4A5568]">Next free: {m.next}</small>
+        </span>
+        <div className="flex gap-2">
+          <Link
+            href={`/startup/mentors/find/${m.id}`}
+            className="inline-flex min-h-9 items-center rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs font-semibold text-ink hover:bg-[#FAF8F4]"
+          >
+            View profile
+          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setModal('request');
+              setTab(m.id);
+            }}
+            className="min-h-9 rounded-lg bg-ink px-3 text-xs font-semibold text-white transition hover:bg-[#1C2B42]"
+          >
+            Request mentorship
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+
+  const shell = (
+    <>
+      <a href="#mentor-main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:p-3 focus:shadow-md">
+        Skip to content
+      </a>
+
+      {/* Desktop Sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-[240px] flex-col bg-[#0F1B2D] text-white lg:flex">
+        <div className="flex h-[76px] items-center gap-3 border-b border-white/10 px-6">
+          <span className="grid h-9 w-9 place-items-center rounded-full border border-white/30 font-serif text-lg">F</span>
+          <span className="font-semibold tracking-wide">
+            forma <small className="ml-1 font-normal text-white/70">WORKSPACE</small>
+          </span>
+        </div>
+
+        <p className="px-6 pb-2 pt-5 text-xs font-semibold uppercase tracking-[.16em] text-white/70">Startup</p>
+
+        <nav className="px-3">
+          {nav.map(([n, Icon, url]) => (
+            <Link
+              href={url}
+              key={n}
+              className={`relative mb-1 flex h-11 items-center gap-3 rounded-lg px-3 text-[13px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8955A] ${
+                n === 'Mentors' ? 'bg-[#1C2B42] text-white' : 'text-white/75 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              {n === 'Mentors' && <span className="absolute bottom-2 left-0 top-2 w-[3px] rounded-r bg-[#B8955A]" />}
+              <Icon size={18} strokeWidth={1.7} className="shrink-0" />
+              <span>{n}</span>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="mt-4 px-3 border-t border-white/10 pt-3">
+          {[
+            ['Overview', '/startup/mentors'],
+            ['Find mentors', '/startup/mentors/find'],
+            ['Requests', '/startup/mentors/requests'],
+            ['Sessions', '/startup/sessions'],
+            ['Readiness', '/startup/readiness']
+          ].map(([n, u]) => (
+            <Link
+              href={u}
+              key={n}
+              className={`mb-1 block rounded-lg py-2 pl-3 text-xs font-medium transition ${
+                (n === 'Overview' && page === 'overview') ||
+                (n === 'Find mentors' && (page === 'find' || page === 'mentor-profile')) ||
+                (n === 'Requests' && page === 'requests') ||
+                (n === 'Sessions' && (page === 'sessions' || page === 'session')) ||
+                (n === 'Readiness' && page === 'readiness')
+                  ? 'bg-white/15 text-white font-semibold'
+                  : 'text-white/60 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              {n}
+            </Link>
+          ))}
+        </div>
+
+        <div className="mt-auto space-y-1 px-3 pb-5">
+          <Link href="/startup/profile" className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-white/75 hover:bg-white/10 hover:text-white">
+            <Settings size={18} /> Settings
+          </Link>
+          <Link href="/help" className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-white/75 hover:bg-white/10 hover:text-white">
+            <CircleHelp size={18} /> Help & support
+          </Link>
+          <div className="flex items-center gap-3 rounded-lg border border-white/10 p-3">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[#F3EBDD] text-xs font-bold text-ink">AK</span>
+            <span>
+              <b className="block text-xs">Aarav Kapoor</b>
+              <small className="text-white/60">Founder · switch role</small>
+            </span>
+          </div>
+        </div>
+      </aside>
+
+      {/* Header */}
+      <header className="sticky top-0 z-10 flex h-[68px] items-center justify-between border-b border-[#E5E1D8] bg-[#FAF8F4]/95 px-4 backdrop-blur sm:px-7 lg:ml-[240px]">
+        <div className="relative hidden sm:block">
+          <Search className="absolute left-3 top-2.5 text-[#4A5568]" size={17} />
+          <input
+            placeholder="Search workspace"
+            className="h-10 w-64 rounded-lg border border-[#E5E1D8] bg-white pl-9 text-sm text-ink outline-none transition focus:border-[#B8955A] focus:ring-1 focus:ring-[#B8955A]"
+          />
+        </div>
+        <Link href="/startup/dashboard" className="text-sm font-semibold text-[#9A7A45] hover:underline sm:hidden">
+          ← Dashboard
+        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => notify('You’re all caught up.')}
+            aria-label="Notifications"
+            className="relative grid h-10 w-10 place-items-center rounded-full text-[#4A5568] hover:bg-white hover:text-ink focus-visible:ring-2 focus-visible:ring-[#B8955A]"
+          >
+            <Bell size={19} />
+            <i className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#B8955A]" />
+          </button>
+          <span className="ml-2 flex items-center gap-2 text-xs">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-ink font-semibold text-white">AK</span>
+            <span className="hidden text-ink font-medium sm:block">Aarav Kapoor</span>
+          </span>
+        </div>
+      </header>
+    </>
+  );
+
+  return (
+    <div className="min-h-screen bg-[#FAF8F4] text-[#0F1B2D]">
+      {shell}
+      <main id="mentor-main" className="mx-auto max-w-[1440px] px-4 pb-24 pt-7 sm:px-7 lg:ml-[240px] lg:px-8">
+        {page === 'overview' && (
+          <>
+            {head(
+              'Mentors',
+              'Find the right guidance and make meaningful progress toward readiness.',
+              <Link
+                href="/startup/mentors/find"
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white transition hover:bg-[#1C2B42]"
+              >
+                <Search size={15} /> Find a mentor
+              </Link>
+            )}
+
+            {requestSent && (
+              <div className="mb-5 rounded-lg border border-[#E7D4B0] bg-[#F3EBDD] p-3.5 text-sm text-[#6B4F26]">
+                Waiting for Rhea Mukherjee to respond. Mentors usually respond within 3 business days.
+              </div>
+            )}
+
+            <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                ['Active mentors', '1'],
+                ['Sessions held', '9'],
+                ['Deliverables due', '3'],
+                ['Readiness', `${approved} / 6`]
+              ].map(([n, v]) => (
+                <div key={n} className="rounded-xl border border-[#E5E1D8] bg-white p-4 shadow-[0_1px_2px_rgba(15,27,45,.04)]">
+                  <p className="text-xs text-[#4A5568]">{n}</p>
+                  <b className="serif mt-1 block text-2xl text-ink">{v}</b>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid items-start gap-5 xl:grid-cols-3">
+              <div className="space-y-5 xl:col-span-2">
+                <Card
+                  title="My mentors"
+                  action={
+                    <Link href="/startup/mentors/find" className="text-xs font-semibold text-[#9A7A45] hover:underline">
+                      Find another <ArrowRight className="inline" size={13} />
+                    </Link>
+                  }
+                >
+                  <div className="flex flex-wrap items-center gap-4">
+                    <span className="grid h-14 w-14 place-items-center rounded-full bg-[#F3EBDD] font-semibold text-ink">
+                      RM
+                    </span>
+                    <div className="min-w-[160px] flex-1">
+                      <h3 className="font-semibold text-ink">
+                        Rhea Mukherjee{' '}
+                        <span className="ml-1 rounded-full bg-[#F3EBDD] px-2 py-0.5 text-xs text-[#806236]">Verified</span>
+                      </h3>
+                      <p className="mt-1 text-xs text-[#4A5568]">Go-to-market · SaaS · 6 sessions held</p>
+                      <p className="mt-1 text-xs text-[#4A5568]">Next session: Thu, Nov 12 at 4:00 PM</p>
+                    </div>
+                    <Link
+                      href="/startup/mentors/mentorship-01"
+                      className="rounded-lg bg-ink px-3.5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#1C2B42]"
+                    >
+                      Open workspace
+                    </Link>
+                  </div>
+                </Card>
+
+                <Card
+                  title="Readiness sign-off progress"
+                  action={
+                    <Link href="/startup/readiness" className="text-xs font-semibold text-[#9A7A45] hover:underline">
+                      Open readiness <ArrowRight className="inline" size={13} />
+                    </Link>
+                  }
+                >
+                  <div className="mb-4 flex items-center justify-between text-xs text-[#4A5568]">
+                    <span>{approved} of 6 items signed off</span>
+                    <b className="text-ink">{Math.round((approved / 6) * 100)}%</b>
+                  </div>
+                  <div className="mb-4 h-2 rounded-full bg-[#E5E1D8]">
+                    <div className="h-full rounded-full bg-[#B8955A]" style={{width: `${(approved / 6) * 100}%`}} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {criteria.map((c, i) => (
+                      <div key={c} className="flex items-center gap-2 rounded-lg bg-[#FAF8F4] p-2.5 text-xs">
+                        <span className={status[i] === 'Signed off' ? 'text-[#2E7D5B]' : 'text-[#B7791F]'}>
+                          {status[i] === 'Signed off' ? <CheckCircle2 size={15} /> : <Clock size={15} />}
+                        </span>
+                        <span className="flex-1 text-ink">{c}</span>
+                        <small className="text-[#4A5568]">{status[i]}</small>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card
+                  title="Deliverables due"
+                  action={
+                    <Link href="/startup/tasks" className="text-xs font-semibold text-[#9A7A45] hover:underline">
+                      Open tasks
+                    </Link>
+                  }
+                >
+                  <div className="divide-y divide-[#E5E1D8]">
+                    {[
+                      ['Review customer interview themes', 'Nov 08', 'In progress'],
+                      ['Update unit economics assumptions', 'Nov 12', 'To do'],
+                      ['Prepare pitch story outline', 'Nov 15', 'To do']
+                    ].map(([a, d, s]) => (
+                      <div key={a} className="flex flex-wrap items-center gap-3 py-3">
+                        <ClipboardCheck size={16} className="text-[#9A7A45]" />
+                        <span className="flex-1 text-xs font-medium text-ink">
+                          {a}
+                          <small className="ml-2 text-[#4A5568]">Mentor</small>
+                        </span>
+                        <span className="text-xs text-[#4A5568]">Due {d}</span>
+                        <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-xs text-[#4A5568]">{s}</span>
+                        <button
+                          type="button"
+                          onClick={() => notify('Deliverable submitted for mentor review.')}
+                          className="text-xs font-semibold text-[#9A7A45] hover:underline"
+                        >
+                          Submit
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+
+              <aside className="space-y-5">
+                <Card title="Next session">
+                  <p className="text-xs text-[#4A5568]">Thursday, November 12 · 4:00 PM</p>
+                  <h3 className="mt-2 font-semibold text-ink">Go-to-market and pricing</h3>
+                  <p className="mt-1 text-xs text-[#4A5568]">Rhea Mukherjee · 45 minutes · Asia/Kolkata</p>
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => notify('Join button becomes available 10 minutes before start.')}
+                      className="flex-1 rounded-lg bg-ink py-2.5 text-xs font-semibold text-white hover:bg-[#1C2B42]"
+                    >
+                      Join session
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => notify('Reschedule request sent to mentor.')}
+                      className="rounded-lg border border-[#E5E1D8] px-3 text-xs font-semibold text-ink hover:bg-[#FAF8F4]"
+                    >
+                      Reschedule
+                    </button>
+                  </div>
+                </Card>
+
+                <Card title="Open requests">
+                  <p className="text-xs text-[#4A5568]">Your request to Arjun Mehta is awaiting a response.</p>
+                  <span className="mt-2 inline-block rounded-full bg-[#FFF3D6] px-2.5 py-1 text-xs font-medium text-[#8A5700]">
+                    Requested · 2 days ago
+                  </span>
+                  <Link href="/startup/mentors/requests" className="mt-3 block text-xs font-semibold text-[#9A7A45] hover:underline">
+                    View requests <ArrowRight className="inline" size={13} />
+                  </Link>
+                </Card>
+              </aside>
+            </div>
+          </>
+        )}
+
+        {page === 'find' && (
+          <>
+            {head(
+              'Find mentors',
+              'Browse verified advisors matched to your startup stage and goals.',
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModal('match')}
+                  className="min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3.5 text-sm font-semibold text-ink hover:bg-[#FAF8F4]"
+                >
+                  Auto-match me
+                </button>
+                <Link
+                  href="/startup/mentors/requests"
+                  className="inline-flex min-h-10 items-center rounded-lg bg-ink px-4 text-sm font-semibold text-white hover:bg-[#1C2B42]"
+                >
+                  My requests
+                </Link>
+              </div>
+            )}
+
+            <div className="mb-5 rounded-xl border border-[#E7D4B0] bg-[#F3EBDD] p-4 text-sm">
+              <b className="text-ink">Recommended for Acme Studio</b>
+              <p className="mt-1 text-xs text-[#4A5568]">
+                Matched by stage, industry and your fundraising readiness goals. You choose whether to contact anyone.
+              </p>
+            </div>
+
+            <div className="grid items-start gap-5 lg:grid-cols-4">
+              <aside className="rounded-xl border border-[#E5E1D8] bg-white p-5 shadow-[0_1px_2px_rgba(15,27,45,.04)]">
+                <h2 className="font-semibold text-ink">Filters</h2>
+                <label className="mt-4 block text-xs font-medium text-ink">
+                  Expertise
+                  <select
+                    value={expertise}
+                    onChange={e => setExpertise(e.target.value)}
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs text-ink"
+                  >
+                    <option>All expertise</option>
+                    {['Fundraising', 'Product', 'Go-to-market', 'Finance', 'Hiring', 'Technology'].map(x => (
+                      <option key={x}>{x}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="mt-4 block text-xs font-medium text-ink">
+                  Industry
+                  <input placeholder="Fintech, SaaS…" className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs text-ink" />
+                </label>
+                <label className="mt-4 block text-xs font-medium text-ink">
+                  Stage fit
+                  <select className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs text-ink">
+                    <option>Prototype</option>
+                    <option>Idea</option>
+                    <option>Early revenue</option>
+                  </select>
+                </label>
+                <label className="mt-4 block text-xs font-medium text-ink">
+                  Availability
+                  <select className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs text-ink">
+                    <option>This month</option>
+                    <option>This week</option>
+                    <option>Any time</option>
+                  </select>
+                </label>
+                <label className="mt-4 block text-xs font-medium text-ink">
+                  Price
+                  <select className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs text-ink">
+                    <option>Any price</option>
+                    <option>Free / pro bono</option>
+                    <option>Under ₹3,000 / hour</option>
+                  </select>
+                </label>
+              </aside>
+
+              <div className="space-y-4 lg:col-span-3">
+                <div className="flex justify-between text-xs text-[#4A5568]">
+                  <span>{mentors.filter(m => expertise === 'All expertise' || m.expertise.includes(expertise)).length} verified mentors match</span>
+                  <select className="rounded border border-[#E5E1D8] bg-white px-2 py-1 text-xs text-ink">
+                    <option>Best match</option>
+                    <option>Rating</option>
+                    <option>Price</option>
+                    <option>Soonest available</option>
+                  </select>
+                </div>
+                {mentors
+                  .filter(m => expertise === 'All expertise' || m.expertise.includes(expertise))
+                  .map(mentorCard)}
+              </div>
+            </div>
+          </>
+        )}
+
+        {page === 'requests' && (
+          <>
+            {head('Mentorship requests', 'Track requests and invitations in one place.', null)}
+            <div className="mb-4 flex gap-2">
+              {['Sent', 'Received', 'Past'].map(x => (
+                <button
+                  type="button"
+                  key={x}
+                  onClick={() => setRequestTab(x)}
+                  className={`min-h-10 rounded-lg px-4 text-xs font-medium transition ${
+                    requestTab === x ? 'bg-ink font-semibold text-white' : 'border border-[#E5E1D8] bg-white text-ink hover:bg-[#FAF8F4]'
+                  }`}
+                >
+                  {x}
+                </button>
+              ))}
+            </div>
+
+            <Card title={`${requestTab} requests`}>
+              {requestTab === 'Sent' ? (
+                <div className="space-y-3">
+                  {[
+                    ['Rhea Mukherjee', 'Help validate our go-to-market and fundraising plan.', 'Active mentorship', 'Oct 21'],
+                    ['Arjun Mehta', 'Support us with product architecture and hiring.', 'Waiting · 2 days', 'Nov 03']
+                  ].map(([n, g, s, d], i) => (
+                    <div key={n} className="flex flex-wrap items-center gap-3 rounded-lg border border-[#E5E1D8] p-4">
+                      <span className="grid h-11 w-11 place-items-center rounded-full bg-[#F3EBDD] font-semibold text-ink">
+                        {n.split(' ').map(x => x[0]).join('')}
+                      </span>
+                      <span className="min-w-[180px] flex-1">
+                        <b className="block text-sm text-ink">{n}</b>
+                        <small className="text-xs text-[#4A5568]">{g}</small>
+                      </span>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${i ? 'bg-[#FFF3D6] text-[#8A5700]' : 'bg-[#E7F3EC] text-[#286749]'}`}>
+                        {s}
+                      </span>
+                      <small className="text-xs text-[#4A5568]">{d}</small>
+                      <button
+                        type="button"
+                        onClick={() => notify('Request withdrawn.')}
+                        className="text-xs font-medium text-[#B42318] hover:underline"
+                      >
+                        Withdraw
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center">
+                  <p className="text-sm font-semibold text-ink">
+                    {requestTab === 'Received' ? 'No invitations received yet.' : 'No past requests.'}
+                  </p>
+                  <p className="mt-1 text-xs text-[#4A5568]">Your requests will be listed here.</p>
+                  <Link href="/startup/mentors/find" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45] hover:underline">
+                    Find a mentor
+                  </Link>
+                </div>
+              )}
+            </Card>
+          </>
+        )}
+
+        {page === 'readiness' && (
+          <>
+            {head(
+              'Investment readiness',
+              'Mentor-reviewed evidence for your startup’s readiness journey.',
+              <Link href="/startup/mentors/find" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#E5E1D8] bg-white px-3.5 text-sm font-semibold text-ink hover:bg-[#FAF8F4]">
+                Find a mentor
+              </Link>
+            )}
+
+            <div className="mb-5 grid gap-5 lg:grid-cols-3">
+              <Card title="Readiness score">
+                <div className="flex items-center gap-5">
+                  <div className="grid h-28 w-28 place-items-center rounded-full" style={{background: 'conic-gradient(#B8955A 0deg 259deg,#E5E1D8 259deg 360deg)'}}>
+                    <div className="grid h-[88px] w-[88px] place-items-center rounded-full bg-white">
+                      <span className="serif text-3xl font-semibold text-ink">72</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#4A5568]">out of 100</p>
+                    <p className="mt-2 text-xs font-semibold text-ink">{approved} of 6 signed off</p>
+                    <p className="mt-1 text-xs text-[#4A5568]">The score is a guide. Sign-offs decide the badge.</p>
+                  </div>
+                </div>
+              </Card>
+
+              <div className="lg:col-span-2">
+                <Card title="Badge status">
+                  <div className="rounded-xl bg-[#FAF8F4] p-5 border border-[#E5E1D8]">
+                    <p className="font-semibold text-ink">Investment Ready in progress</p>
+                    <p className="mt-1 text-xs text-[#4A5568]">Complete all six reviewed items to receive the Investment Ready badge.</p>
+                    <Link href="/startup/profile" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45] hover:underline">
+                      Manage profile visibility <ArrowRight className="inline" size={12} />
+                    </Link>
+                  </div>
+                </Card>
+              </div>
+            </div>
+
+            <div className="grid items-start gap-5 xl:grid-cols-3">
+              <div className="space-y-4 xl:col-span-2">
+                {criteria.map((c, i) => (
+                  <Card
+                    key={c}
+                    title={`${i + 1}. ${c}`}
+                    action={
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          status[i] === 'Signed off'
+                            ? 'bg-[#E7F3EC] text-[#286749]'
+                            : status[i] === 'Submitted for sign-off'
+                            ? 'bg-[#FFF3D6] text-[#8A5700]'
+                            : 'bg-[#F3F4F6] text-[#4A5568]'
+                        }`}
+                      >
+                        {status[i]}
+                      </span>
+                    }
+                  >
+                    <p className="text-xs leading-5 text-[#4A5568]">
+                      Done means this item is documented, current and supported by evidence that your mentor can review.
+                    </p>
+                    <p className="mt-3 text-xs text-ink font-medium">
+                      <FileText className="mr-1 inline text-[#9A7A45]" size={13} />
+                      Evidence: {i < 2 ? 'Pitch deck v3.pdf · linked' : 'No evidence attached yet'}
+                    </p>
+                    <p className="mt-2 text-xs text-[#4A5568]">Owner: Aarav Kapoor · Reviewer: Rhea Mukherjee</p>
+                    {status[i] === 'In progress' || status[i] === 'Not started' ? (
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => notify('Evidence picker opened.')}
+                          className="rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-[#FAF8F4]"
+                        >
+                          Add evidence
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStatus(status.map((s, n) => (n === i ? 'Submitted for sign-off' : s)))}
+                          className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white hover:bg-[#1C2B42]"
+                        >
+                          Submit for sign-off
+                        </button>
+                      </div>
+                    ) : status[i] === 'Submitted for sign-off' ? (
+                      <p className="mt-3 text-xs text-[#8A5700] font-medium">Waiting for mentor review · Rhea Mukherjee</p>
+                    ) : (
+                      <p className="mt-3 text-xs text-[#286749] font-medium">Signed off by Rhea Mukherjee · Nov 01</p>
+                    )}
+                  </Card>
+                ))}
+              </div>
+
+              <aside className="space-y-5">
+                <Card title="Score breakdown">
+                  {[
+                    ['Checklist completion', 80],
+                    ['Traction data', 65],
+                    ['Mentor feedback', 70]
+                  ].map(([x, v]) => (
+                    <div key={x} className="mb-4">
+                      <div className="mb-1 flex justify-between text-xs">
+                        <span className="text-[#4A5568]">{x}</span>
+                        <b className="text-ink">{v}%</b>
+                      </div>
+                      <div className="h-2 rounded-full bg-[#E5E1D8]">
+                        <div className="h-full rounded-full bg-[#B8955A]" style={{width: `${v}%`}} />
+                      </div>
+                    </div>
+                  ))}
+                </Card>
+              </aside>
+            </div>
+          </>
+        )}
+
+        {page === 'billing' && (
+          <>
+            {head(
+              'Agreement & payments',
+              'Review fees, terms and session invoices for this mentorship.',
+              <Link href={`/startup/mentors/${id}`} className="text-sm font-semibold text-[#9A7A45] hover:underline">
+                ← Workspace
+              </Link>
+            )}
+            <div className="grid items-start gap-5 lg:grid-cols-3">
+              <div className="space-y-5 lg:col-span-2">
+                <Card title="Mentorship agreement">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      ['Mentor', 'Rhea Mukherjee'],
+                      ['Fee model', '₹3,000 per 45-minute session'],
+                      ['Cadence', 'Fortnightly'],
+                      ['Advisory / equity', 'None requested'],
+                      ['Start date', 'Oct 21, 2026'],
+                      ['Status', 'Accepted by both sides']
+                    ].map(([a, b]) => (
+                      <div key={a} className="rounded-lg bg-[#FAF8F4] p-3 border border-[#E5E1D8]">
+                        <small className="text-xs text-[#4A5568]">{a}</small>
+                        <b className="mt-1 block text-sm text-ink">{b}</b>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-4 rounded-lg bg-[#FFF8E8] p-3 text-xs leading-5 text-[#806236]">
+                    Review equity or advisory terms with a lawyer. The platform records terms but does not give legal advice.
+                  </p>
+                </Card>
+
+                <Card title="Payments">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[500px] text-left text-xs">
+                      <thead className="border-b border-[#E5E1D8] text-[#4A5568]">
+                        <tr>
+                          {['Date', 'Session', 'Fee', 'Platform fee', 'Status', 'Receipt'].map(x => (
+                            <th key={x} className="py-3">
+                              {x}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          ['Oct 28', 'Customer interviews', '₹3,000', '₹300', 'Paid'],
+                          ['Oct 14', 'Prototype test plan', '₹3,000', '₹300', 'Paid']
+                        ].map(r => (
+                          <tr key={r[0]} className="border-b border-[#E5E1D8]">
+                            <td className="py-3 text-ink">{r[0]}</td>
+                            {r.slice(1, 5).map((x, i) => (
+                              <td key={i} className="py-3 text-[#4A5568]">
+                                {x}
+                              </td>
+                            ))}
+                            <td>
+                              <button type="button" onClick={() => notify('Receipt downloaded.')} className="text-[#9A7A45] hover:text-ink">
+                                <Download size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </div>
+
+              <aside className="space-y-5">
+                <Card title="Session credits">
+                  <p className="serif text-3xl font-semibold text-ink">
+                    0 <small className="font-sans text-sm text-[#4A5568]">credits</small>
+                  </p>
+                  <p className="mt-1 text-xs text-[#4A5568]">No package purchased</p>
+                </Card>
+              </aside>
+            </div>
+          </>
+        )}
+      </main>
+
+      {/* Modals with client-side character count and validation */}
+      {modal && (
+        <div
+          className="fixed inset-0 z-40 grid place-items-center bg-[#0F1B2D]/45 p-4"
+          onMouseDown={e => {
+            if (e.target === e.currentTarget) setModal('');
+          }}
+        >
+          <section role="dialog" aria-modal="true" className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="serif text-2xl font-semibold text-ink">
+                {modal === 'match'
+                  ? 'Find your mentor match'
+                  : modal === 'request'
+                  ? 'Request mentorship'
+                  : modal === 'book'
+                  ? 'Book a mentor session'
+                  : 'Book intro call'}
+              </h2>
+              <button type="button" aria-label="Close" onClick={() => setModal('')} className="text-[#4A5568] hover:text-ink">
+                <X size={18} />
+              </button>
+            </div>
+
+            {modal === 'match' ? (
+              <div className="space-y-4">
+                <p className="text-sm text-[#4A5568]">
+                  Tell us what you need. We’ll suggest mentors based on your stage and goals; you choose whether to contact them.
+                </p>
+                <label className="block text-sm font-medium text-ink">
+                  Top needs
+                  <select className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm text-ink">
+                    <option>Go-to-market and fundraising</option>
+                    <option>Product and technology</option>
+                    <option>Finance and operations</option>
+                  </select>
+                </label>
+                <label className="block text-sm font-medium text-ink">
+                  Budget
+                  <select className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm text-ink">
+                    <option>Up to ₹5,000 per session</option>
+                    <option>Free / pro bono</option>
+                  </select>
+                </label>
+              </div>
+            ) : (
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  if (requestGoal.length < 20) {
+                    notify('Mentorship goal must be at least 20 characters.');
+                    return;
+                  }
+                  setRequestSent(true);
+                  setModal('');
+                  notify('Mentorship request sent successfully.');
+                }}
+                className="space-y-4"
+              >
+                <label className="block text-sm font-medium text-ink">
+                  Your mentorship goal
+                  <textarea
+                    required
+                    minLength={20}
+                    maxLength={500}
+                    value={requestGoal}
+                    onChange={e => setRequestGoal(e.target.value)}
+                    rows={4}
+                    placeholder="What outcome would you like to work toward? (20–500 characters)"
+                    className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm text-ink outline-none focus:border-[#B8955A] focus:ring-1 focus:ring-[#B8955A]"
+                  />
+                  <div className="mt-1 flex justify-between text-xs text-[#4A5568]">
+                    <span>Minimum 20 characters</span>
+                    <span className={requestGoal.length < 20 ? 'text-[#B42318]' : 'text-[#2E7D5B]'}>
+                      {requestGoal.length}/500
+                    </span>
+                  </div>
+                </label>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-ink">
+                    Preferred cadence
+                    <select
+                      value={requestCadence}
+                      onChange={e => setRequestCadence(e.target.value)}
+                      className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm text-ink"
+                    >
+                      <option>Fortnightly</option>
+                      <option>Weekly</option>
+                      <option>Monthly</option>
+                    </select>
+                  </label>
+                  <label className="text-sm font-medium text-ink">
+                    Expected duration
+                    <select
+                      value={requestDuration}
+                      onChange={e => setRequestDuration(e.target.value)}
+                      className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm text-ink"
+                    >
+                      <option>3 months</option>
+                      <option>6 months</option>
+                    </select>
+                  </label>
+                </div>
+
+                <label className="block text-sm font-medium text-ink">
+                  Message (optional)
+                  <textarea
+                    rows={2}
+                    value={requestMsg}
+                    onChange={e => setRequestMsg(e.target.value)}
+                    placeholder="Introduce your startup and context"
+                    className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm text-ink outline-none focus:border-[#B8955A]"
+                  />
+                </label>
+
+                <div className="mt-6 flex justify-end gap-2">
+                  <button type="button" onClick={() => setModal('')} className="min-h-10 px-4 text-sm font-medium text-[#4A5568]">
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white transition hover:bg-[#1C2B42]"
+                  >
+                    Send request
+                  </button>
+                </div>
+              </form>
+            )}
+          </section>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div role="status" aria-live="polite" className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-lg bg-ink px-4 py-3 text-sm text-white shadow-lg">
+          {toast}
+        </div>
+      )}
+    </div>
+  );
+}
