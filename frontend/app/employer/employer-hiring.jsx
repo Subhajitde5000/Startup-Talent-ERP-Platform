@@ -57,6 +57,7 @@ import {
   Smartphone,
   Mail,
   Loader2,
+  Banknote,
   RotateCcw,
   Check,
   CheckCheck,
@@ -604,6 +605,7 @@ const employerSidebar = [
   ["Offers", Mail, "/employer/offers"],
   ["Hires", AwardIcon, "/employer/hires"],
   ["Analytics", BarChart3, "/employer/analytics"],
+  ["Billing", Banknote, "/employer/billing"],
 ];
 
 function EmployerShell({ children, active = "Dashboard", className = "" }) {
@@ -712,12 +714,13 @@ function EmployerShell({ children, active = "Dashboard", className = "" }) {
       >
         {children}
       </main>
-      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-[#E5E1D8] bg-white px-2 py-2 lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-6 border-t border-[#E5E1D8] bg-white px-2 py-2 lg:hidden">
         {[
           ["Home", "/employer/dashboard", LayoutDashboard],
           ["Hiring", "/employer/hiring", Briefcase],
           ["Talent", "/employer/talent", Users],
           ["Interviews", "/employer/interviews", CalendarDays],
+          ["Billing", "/employer/billing", Banknote],
           ["More", "/help", UserRound],
         ].map(([x, u, I]) => (
           <Link

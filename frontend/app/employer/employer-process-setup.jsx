@@ -11,6 +11,7 @@ import {
   Briefcase,
   CalendarDays,
   Mail,
+  Banknote,
   Users,
   Award as AwardIcon,
   BarChart3,

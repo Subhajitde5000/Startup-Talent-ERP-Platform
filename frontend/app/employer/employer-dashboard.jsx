@@ -57,6 +57,7 @@ import {
   Smartphone,
   Mail,
   Loader2,
+  Banknote,
   RotateCcw,
   Check,
   CheckCheck,
@@ -543,12 +544,12 @@ const teamActivity = [
   {
     text: "Priya moved Arjun to Interview",
     time: "10:14 AM",
-    link: "/employer/jobs/job-1/applicants",
+    link: "/employer/hiring",
   },
   {
     text: "Rahul submitted feedback for Sana",
     time: "9:42 AM",
-    link: "/employer/jobs/job-2/applicants",
+    link: "/employer/hiring",
   },
   {
     text: "Offer v2 approved by Meera",
@@ -558,7 +559,7 @@ const teamActivity = [
   {
     text: "Sana shortlisted 2 candidates",
     time: "Yesterday",
-    link: "/employer/candidates",
+    link: "/employer/talent",
   },
 ];
 
@@ -597,6 +598,7 @@ const employerSidebar = [
   ["Offers", Mail, "/employer/offers"],
   ["Hires", Award, "/employer/hires"],
   ["Analytics", BarChart3, "/employer/analytics"],
+  ["Billing", Banknote, "/employer/billing"],
 ];
 
 function EmployerShell({ children, active = "Dashboard", className = "" }) {
@@ -691,12 +693,13 @@ function EmployerShell({ children, active = "Dashboard", className = "" }) {
       >
         {children}
       </main>
-      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-[#E5E1D8] bg-white px-2 py-2 lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-6 border-t border-[#E5E1D8] bg-white px-2 py-2 lg:hidden">
         {[
           ["Home", "/employer/dashboard", LayoutDashboard],
           ["Hiring", "/employer/hiring", Briefcase],
           ["Talent", "/employer/talent", Users],
           ["Interviews", "/employer/interviews", CalendarDays],
+          ["Billing", "/employer/billing", Banknote],
           ["More", "/help", UserRound],
         ].map(([x, u, I]) => (
           <Link
