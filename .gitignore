@@ -40,3 +40,4 @@ yarn-error.log*
 */.tsbuildinfo
 frontend/next-env.d.ts
 .playwright-cli
+keep_for_later
