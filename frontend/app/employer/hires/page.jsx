@@ -39,7 +39,7 @@ export default function EmployerHiresPage() {
     setHiresList((prev) =>
       prev.map((h) => (h.id === hireId ? { ...h, blind: false, name: 'Siddharth Rao' } : h))
     );
-    showToast('Candidate identity revealed for onboarding clearance.');
+    showToast('Candidate identity revealed.');
   };
 
   const tabs = ['Upcoming starts', 'Needs action', 'Started', 'Templates'];
@@ -62,16 +62,16 @@ export default function EmployerHiresPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#0F1B2D]">
-              Hires & Pre-boarding Directory
+              Hires Directory
             </h1>
             <p className="text-xs sm:text-sm text-[#4A5568]">
-              Seamless transition from signed offer to first day productivity and team integration.
+              Directory of accepted hires and upcoming team members.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Link href="/employer/templates">
               <EmployerBtn variant="secondary" size="sm">
-                Manage Onboarding Templates
+                Manage Templates
               </EmployerBtn>
             </Link>
           </div>
@@ -156,7 +156,7 @@ export default function EmployerHiresPage() {
                     )}
                     <Link href={`/employer/hires/${hire.id}`}>
                       <EmployerBtn variant="primary" size="sm">
-                        View Onboarding <ArrowRight size={14} className="ml-1" />
+                        View Details <ArrowRight size={14} className="ml-1" />
                       </EmployerBtn>
                     </Link>
                   </div>
@@ -166,7 +166,7 @@ export default function EmployerHiresPage() {
                 <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-4 space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-medium text-[#0F1B2D]">
-                      Pre-boarding Checklist Progress: {hire.checklist.done} of {hire.checklist.total} items complete
+                      Checklist Progress: {hire.checklist.done} of {hire.checklist.total} items complete
                     </span>
                     <span className="font-bold text-[#806236]">{pct}%</span>
                   </div>

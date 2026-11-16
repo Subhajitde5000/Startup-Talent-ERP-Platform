@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -39,7 +39,6 @@ const titles = {
   verify: ['Verify your email', 'We sent a six-digit code to your inbox.'],
   forgot: ['Forgot your password?', 'Enter your email and we’ll send you a reset link.'],
   reset: ['Set a new password', 'Choose a strong password you haven’t used before.'],
-  onboarding: ['Let’s make this yours', 'A few details to set up your workspace.'],
 };
 
 export default function AuthScreen({ page }) {
@@ -158,7 +157,7 @@ export default function AuthScreen({ page }) {
         await api.auth.verifyEmail({ email: pending, code });
         clearPendingEmail();
         clearSignupDraft();
-        router.push('/onboarding');
+        router.push('/login');
         return;
       }
 
@@ -191,13 +190,6 @@ export default function AuthScreen({ page }) {
         setNotice(res.message);
         return;
       }
-
-      // onboarding — stays on demo data until Step 3 wires the profile API.
-      setBusy(true);
-      setTimeout(() => {
-        setBusy(false);
-        setNotice('Your profile has been saved. Welcome to Forma.');
-      }, 650);
     } catch (e) {
       fail(e);
     }
@@ -297,7 +289,7 @@ export default function AuthScreen({ page }) {
               )}
               {page !== 'role' && (
                 <>
-                  {page !== 'verify' && page !== 'onboarding' && (
+                  {page !== 'verify' && (
                     <label className="block text-sm font-medium">
                       Email address
                       <input
@@ -384,31 +376,6 @@ export default function AuthScreen({ page }) {
                   )}
                 </>
               )}
-              {page === 'onboarding' && (
-                <>
-                  <label className="block text-sm font-medium">
-                    Your name
-                    <input className="field mt-2" placeholder="Full name" required />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    Role
-                    <select className="field mt-2" required value={role} onChange={(e) => setRole(e.target.value)}>
-                      <option value="">Select a role</option>
-                      {roles.map(([r]) => (
-                        <option key={r}>{r}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block text-sm font-medium">
-                    What should we call your workspace?
-                    <input className="field mt-2" placeholder="Company or personal workspace" required />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    A little about you
-                    <textarea className="mt-2 min-h-24 w-full rounded-[10px] border border-stone-200 bg-white p-3" placeholder="Share a short introduction (optional)" />
-                  </label>
-                </>
-              )}
               {page === 'login' && (
                 <label className="flex items-center gap-2 text-sm text-stone-700">
                   <input type="checkbox" className="h-4 w-4 accent-ink" />
@@ -424,7 +391,7 @@ export default function AuthScreen({ page }) {
               >
                 {busy ? (
                   <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                ) : page === 'login' ? 'Sign in' : page === 'register' ? 'Create account' : page === 'role' ? 'Continue' : page === 'verify' ? 'Verify email' : page === 'forgot' ? 'Send reset link' : page === 'reset' ? 'Update password' : 'Save and continue'}
+                ) : page === 'login' ? 'Sign in' : page === 'register' ? 'Create account' : page === 'role' ? 'Continue' : page === 'verify' ? 'Verify email' : page === 'forgot' ? 'Send reset link' : page === 'reset' ? 'Update password' : 'Continue'}
               </button>
               {page === 'login' && (
                 <p className="text-center text-sm text-stone-700">New here? <Link href="/register" className="font-semibold">Create an account</Link></p>

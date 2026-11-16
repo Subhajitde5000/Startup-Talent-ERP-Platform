@@ -745,62 +745,6 @@ export const hires = [
   },
 ];
 
-export const onboardingItems = [
-  {
-    section: "Before day one",
-    items: [
-      { id: "o-1", title: "Welcome message sent", owner: "Priya Mehta", due: "−5 days", status: "Done", note: "Sent with welcome packet." },
-      { id: "o-2", title: "Laptop and accounts ordered", owner: "IT team", due: "−5 days", status: "Done", note: "" },
-      { id: "o-3", title: "Workspace or desk arranged", owner: "Office manager", due: "−3 days", status: "Done", note: "" },
-      { id: "o-4", title: "Manager assigned", owner: "Priya Mehta", due: "−3 days", status: "Done", note: "" },
-      { id: "o-5", title: "Buddy assigned", owner: "HR", due: "−3 days", status: "Done", note: "" },
-      { id: "o-6", title: "First-week plan prepared", owner: "Priya Mehta", due: "−2 days", status: "In progress", note: "Draft shared with hire." },
-      { id: "o-7", title: "Calendar invites created", owner: "Priya Mehta", due: "−1 day", status: "To do", note: "" },
-      { id: "o-8", title: "Policies shared", owner: "HR", due: "−1 day", status: "To do", note: "Sent via document tool." },
-    ],
-  },
-  {
-    section: "Day one",
-    items: [
-      { id: "o-9", title: "Welcome meeting", owner: "Priya Mehta", due: "Start date", status: "To do", note: "30 min video call." },
-      { id: "o-10", title: "Team introductions", owner: "Team", due: "Start date", status: "To do", note: "" },
-      { id: "o-11", title: "Tools access confirmed", owner: "IT team", due: "Start date", status: "To do", note: "" },
-      { id: "o-12", title: "First tasks assigned", owner: "Priya Mehta", due: "Start date", status: "To do", note: "" },
-    ],
-  },
-  {
-    section: "First week and month",
-    items: [
-      { id: "o-13", title: "Goals set", owner: "Priya Mehta", due: "+7 days", status: "To do", note: "" },
-      { id: "o-14", title: "1-to-1 meetings scheduled", owner: "Priya Mehta", due: "+7 days", status: "To do", note: "" },
-      { id: "o-15", title: "Training completed", owner: "IT team", due: "+14 days", status: "To do", note: "" },
-      { id: "o-16", title: "30-day check-in", owner: "HR", due: "+30 days", status: "To do", note: "" },
-    ],
-  },
-];
-
-export const documents = [
-  { id: "d-1", name: "Bank details", purpose: "To set up payroll", due: "Nov 20", status: "Received", who: "Payroll only", retention: "12 months" },
-  { id: "d-2", name: "ID proof", purpose: "Employment eligibility", due: "Nov 18", status: "Requested", who: "HR only", retention: "12 months" },
-  { id: "d-3", name: "Signed offer letter", purpose: "Employment agreement", due: "Nov 15", status: "Received", who: "Hiring team", retention: "Duration of employment" },
-  { id: "d-4", name: "Tax declaration", purpose: "Tax withholding", due: "Nov 22", status: "Not requested", who: "Payroll only", retention: "12 months" },
-];
-
-export const timelineEvents = [
-  { step: "Offer accepted", date: "12 Nov", status: "done" },
-  { step: "Documents", date: "In progress", status: "current" },
-  { step: "Checks", date: "Pending", status: "upcoming" },
-  { step: "Pre-boarding", date: "Nov 25", status: "upcoming" },
-  { step: "First day", date: "Dec 2", status: "upcoming" },
-  { step: "30-day check-in", date: "Jan 2", status: "upcoming" },
-];
-
-export const nextSteps = [
-  { title: "Collect bank details and ID", owner: "HR", due: "Nov 18" },
-  { title: "Schedule welcome meeting", owner: "Priya Mehta", due: "Dec 2" },
-  { title: "Prepare first-week plan", owner: "Priya Mehta", due: "Nov 28" },
-];
-
 /* ------------------------------------------------------------------ */
 /*  Shared UI primitives (accessible sizes, WCAG AA)                  */
 /* ------------------------------------------------------------------ */
@@ -1528,4 +1472,4 @@ export const spendingControls = {
 
 /* ------------------------------------------------------------------ */
 /*  Employer shell                                                    */
-/* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
