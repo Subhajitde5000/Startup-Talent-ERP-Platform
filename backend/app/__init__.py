@@ -1,1 +1,0 @@
-"""Forma Backend Application Package."""
