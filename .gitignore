@@ -43,3 +43,12 @@ frontend/next-env.d.ts
 keep_for_later
 
 .venv
+
+# python / backend
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+backend/*.db
+backend/*.sqlite3
