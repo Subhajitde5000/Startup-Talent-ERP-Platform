@@ -8,6 +8,7 @@ import PageHeader from './page-header';
 import SubNavTabs from './sub-nav-tabs';
 import { Toast } from './ui';
 import { LayoutDashboard, GitBranch, Handshake, MessageCircle, Menu } from 'lucide-react';
+import RoleGuard from './role-guard';
 
 export default function InvestorShell({
   active,
@@ -40,6 +41,7 @@ export default function InvestorShell({
   ];
 
   return (
+    <RoleGuard role="investor">
     <div className="min-h-screen bg-[#FAF8F4] text-[#0F1B2D]">
       <a href={`#${mainId}`} className="sr-only focus:not-sr-only">
         Skip to content
@@ -120,5 +122,6 @@ export default function InvestorShell({
       {/* Shared Toast */}
       {toast && <Toast message={toast} />}
     </div>
+    </RoleGuard>
   );
 }

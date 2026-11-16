@@ -5,6 +5,7 @@ import StartupHeader from './startup-header';
 import PageHeader from './page-header';
 import SubNavTabs from './sub-nav-tabs';
 import { Toast } from './ui';
+import RoleGuard from './role-guard';
 
 export default function StartupShell({
   active,
@@ -29,6 +30,7 @@ export default function StartupShell({
   };
 
   return (
+    <RoleGuard role="startup">
     <div className="min-h-screen bg-[#FAF8F4] text-[#0F1B2D]">
       <a href={`#${mainId}`} className="sr-only focus:not-sr-only">
         Skip to content
@@ -73,5 +75,6 @@ export default function StartupShell({
 
       <Toast message={toast} />
     </div>
+    </RoleGuard>
   );
 }
