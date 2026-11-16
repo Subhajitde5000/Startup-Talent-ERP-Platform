@@ -1,4 +1,4 @@
-# Forma Backend: Detailed Build Plan
+# Forma Backend: Detailed Build Plan (v2)
 
 Stack: Python, FastAPI, async SQLAlchemy 2.0, Alembic, PostgreSQL.
 Roles: startup member/founder, mentor, investor, job seeker, employer, admin.
@@ -13,6 +13,10 @@ Roles: startup member/founder, mentor, investor, job seeker, employer, admin.
 - Every step ends with "Done when". Tick it in PROGRESS.md.
 
 Standard for every step (from AGENTS.md): thin routers, logic in services, separate Create/Update/Read schemas, object-level permission checks, paginated lists, consistent error format, tests for happy path, validation, authentication failure and authorization failure.
+
+## Frontend wiring happens per step
+
+The frontend currently uses only demo data. For every step that has pages, do the work in two phases: (A) backend, tested and approved, then (B) wire that step's pages to the API, remove their demo data, and move the old demo records into a dev-only seed script. Step 16 is then only the final sweep for anything left over. Rules are in AGENTS.md section 0B.
 
 ## Decisions already made
 
@@ -321,7 +325,9 @@ Done when: every admin action is permission-checked and audited, and nothing adm
 
 ---
 
-## STEP 16: Connect the frontend
+## STEP 16: Connect the frontend (final sweep)
+
+By now most pages are already wired step by step. This step catches what is left: remaining mock imports, unused demo files, mismatched fields, and a full end-to-end check.
 
 Parts:
 1. Export OpenAPI and generate a typed client for Next.js.

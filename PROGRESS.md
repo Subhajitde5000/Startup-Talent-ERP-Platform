@@ -1,6 +1,6 @@
 # Backend Progress Map: Forma
 
-Matches BUILD_PLAN.md v2 (step numbers are the same). Finish and test each step before the next. The agent ticks boxes after each finished step.
+Matches BUILD_PLAN.md v2 (step numbers are the same). For every step that has pages, two phases: (A) backend done and tested, (B) frontend wired, demo data removed, dev seed script updated. Tick both. Finish and test each step before the next. The agent ticks boxes after each finished step.
 
 ## Setup
 - [ ] AGENTS.md, BUILD_PLAN.md, PROGRESS.md in the project root

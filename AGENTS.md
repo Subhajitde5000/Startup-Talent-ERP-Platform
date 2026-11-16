@@ -33,6 +33,19 @@ Decisions already made (do not re-ask):
 
 Still open (ask me when the step needs it): payment provider (Razorpay proposed), background job approach (FastAPI BackgroundTasks first, then a worker or the `background_jobs` table).
 
+## 0B. Frontend demo data and API wiring
+
+The Next.js frontend currently runs only on demo data (the `*-data.js` mock stores and inline page data). It has no API connection yet. The goal is to replace all of it with the real API, one step at a time.
+
+- Backend and frontend wiring are two separate phases of each step. Finish and test the backend part first. Wire the frontend only after I say OK.
+- Wire only the pages that belong to the step I named. Pages from later steps keep their demo data until their turn.
+- Use a typed client generated from the backend OpenAPI schema. Base URL from `NEXT_PUBLIC_API_URL`. One shared API module handles auth headers, automatic token refresh, and error mapping. Do not scatter raw `fetch` calls across pages.
+- Remove the demo data for the pages you wired. Delete a mock file only when no remaining page imports it; otherwise remove just the parts that are no longer used.
+- Keep the UI looking the same. To avoid empty screens, move the old demo records into a dev-only seed script under `backend/` (never part of migrations or production).
+- Every wired page needs loading, empty, and error states, and must respect the user's role and permissions.
+- Do not redesign the UI. If a page needs a field the API does not have, tell me and fix the API instead of faking it in the frontend.
+- Auth (Step 2) is wired first, because every other page needs a logged-in user.
+
 ## 1. Product context
 
 - Forma is a Startup & Talent ERP platform. The Next.js frontend is complete; we are now building the backend (database + API).
