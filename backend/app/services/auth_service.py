@@ -77,6 +77,12 @@ def _normalise_email(email: str) -> str:
     return email.strip().lower()
 
 
+def _placeholder_display_name(email: str) -> str:
+    """Human-ish placeholder used until the user edits their profile (Step 3)."""
+    local = email.split("@", 1)[0].replace(".", " ").replace("_", " ").strip()
+    return (local or "New member").title()[:160]
+
+
 async def _get_user_by_email(db: AsyncSession, email: str) -> User | None:
     result = await db.execute(select(User).where(User.primary_email == _normalise_email(email)))
     return result.scalar_one_or_none()
@@ -183,7 +189,7 @@ async def register(
     user = User(
         primary_email=email,
         password_hash=hash_password(payload.password),
-        display_name=payload.display_name,
+        display_name=payload.display_name or _placeholder_display_name(email),
         locale=payload.locale,
         timezone=payload.timezone,
         status=AccountStatus.pending,
@@ -376,20 +382,38 @@ async def logout_all(db: AsyncSession, *, user_id: UUID) -> None:
     await db.commit()
 
 
-async def verify_email(db: AsyncSession, payload: VerifyEmailRequest) -> None:
+async def verify_email(
+    db: AsyncSession, payload: VerifyEmailRequest, *, ip: str | None = None
+) -> None:
+    settings = get_settings()
+    email = _normalise_email(payload.email)
+    # Rate limit: a 6-digit code must not be brute-forceable.
+    if not await rate_limiter.check(
+        f"verify:ip:{ip}", settings.VERIFY_IP_LIMIT, settings.VERIFY_IP_WINDOW_SECONDS
+    ):
+        raise rate_limited("Too many attempts. Please try again later.")
+    if not await rate_limiter.check(
+        f"verify:acct:{email}",
+        settings.VERIFY_ACCOUNT_LIMIT,
+        settings.VERIFY_ACCOUNT_WINDOW_SECONDS,
+    ):
+        raise rate_limited("Too many attempts. Please try again later.")
+
+    user = await _get_user_by_email(db, email)
+    if user is None or user.deleted_at is not None:
+        raise invalid_token("Invalid verification code.")
     token_hash = hash_token(payload.code)
     result = await db.execute(
-        select(EmailVerificationToken).where(EmailVerificationToken.token_hash == token_hash)
+        select(EmailVerificationToken).where(
+            EmailVerificationToken.token_hash == token_hash,
+            EmailVerificationToken.user_id == user.id,
+        )
     )
     token = result.scalar_one_or_none()
     if token is None or token.consumed_at is not None:
         raise invalid_token("Invalid verification code.")
     if _aware(token.expires_at) < _now():  # type: ignore[operator]
         raise token_expired()
-    user_result = await db.execute(select(User).where(User.id == token.user_id))
-    user = user_result.scalar_one_or_none()
-    if user is None or user.deleted_at is not None:
-        raise invalid_token("Invalid verification code.")
     token.consumed_at = _now()
     user.email_verified_at = _now()
     if user.status == AccountStatus.pending:
@@ -450,12 +474,12 @@ async def forgot_password(
         )
     )
     await db.flush()
+    reset_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/reset-password?token={raw_token}"
     await email_service.send_email(
         email,
         "Reset your Forma password",
         f"Use this link to reset your password (expires in "
-        f"{settings.PASSWORD_RESET_EXPIRE_MINUTES} minutes): "
-        f"/reset-password?token={raw_token}\n"
+        f"{settings.PASSWORD_RESET_EXPIRE_MINUTES} minutes): {reset_url}\n"
         "If you did not request this, ignore this email.",
     )
     await db.commit()
