@@ -18,6 +18,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import NotificationDropdown from './notification-dropdown';
+import { useAuth } from '@/lib/auth-context';
 
 export default function EmployerHeader({
   compact = false,
@@ -33,6 +34,7 @@ export default function EmployerHeader({
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const { logout } = useAuth();
 
   const notify = (msg) => {
     if (onAction) onAction(msg);
@@ -171,14 +173,17 @@ export default function EmployerHeader({
                   <span>Community Exchange</span>
                 </Link>
                 <div className="border-t border-[#F0EBE0] my-1 pt-1">
-                  <Link
-                    href="/login"
-                    onClick={() => setProfileOpen(false)}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileOpen(false);
+                      logout();
+                    }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition"
-                  >
-                    <LogOut size={14} />
+                >
+                  <LogOut size={14} />
                     <span>Sign out</span>
-                  </Link>
+                </button>
                 </div>
               </div>
             </div>

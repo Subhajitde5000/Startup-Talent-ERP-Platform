@@ -113,9 +113,10 @@ async def logout_all(
 )
 async def verify_email(
     payload: VerifyEmailRequest,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> MessageResponse:
-    await auth_service.verify_email(db, payload)
+    await auth_service.verify_email(db, payload, ip=_client_ip(request))
     return MessageResponse(message="Email verified.")
 
 

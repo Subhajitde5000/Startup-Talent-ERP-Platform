@@ -52,7 +52,10 @@ def _validate_role(value: UserRole) -> UserRole:
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=12, max_length=128)
-    display_name: str = Field(min_length=1, max_length=160)
+    # Optional: the signup screen collects only email + password. When omitted the
+    # service derives a placeholder from the email local part; the real name is set
+    # in the Step 3 profile screens.
+    display_name: str | None = Field(default=None, max_length=160)
     role: UserRole
     locale: str = Field(default="en-IN", max_length=16)
     timezone: str = Field(default="Asia/Kolkata", max_length=64)
@@ -62,11 +65,11 @@ class RegisterRequest(BaseModel):
 
     @field_validator("display_name")
     @classmethod
-    def _strip_name(cls, value: str) -> str:
+    def _strip_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         value = value.strip()
-        if not value:
-            raise ValueError("Display name is required.")
-        return value
+        return value or None
 
 
 class RegisterResponse(BaseModel):
@@ -92,6 +95,9 @@ class RefreshRequest(BaseModel):
 
 
 class VerifyEmailRequest(BaseModel):
+    # The verification screen is reached right after signup, before any token
+    # exists, so the code is bound to the email it was issued for.
+    email: EmailStr
     code: str = Field(pattern=r"^\d{6}$")
 
 

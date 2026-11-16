@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     PASSWORD_RESET_EXPIRE_MINUTES: int = 30
     RESEND_COOLDOWN_SECONDS: int = 60
 
+    # Frontend origin, used to build absolute links in emails (password reset).
+    FRONTEND_BASE_URL: str = "http://localhost:3000"
+
     # Email
     EMAIL_PROVIDER: Literal["smtp", "resend", "console", "memory"] = "console"
     EMAIL_FROM: str = "Forma <no-reply@forma.example>"
@@ -63,6 +66,10 @@ class Settings(BaseSettings):
     REGISTER_IP_WINDOW_SECONDS: int = 3600
     FORGOT_IP_LIMIT: int = 5
     FORGOT_IP_WINDOW_SECONDS: int = 3600
+    VERIFY_IP_LIMIT: int = 20
+    VERIFY_IP_WINDOW_SECONDS: int = 300
+    VERIFY_ACCOUNT_LIMIT: int = 10
+    VERIFY_ACCOUNT_WINDOW_SECONDS: int = 300
 
     # CORS: explicit allow-list only, never "*" with credentials.
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import EmployerSidebar from './employer-sidebar';
 import EmployerHeader from './employer-header';
+import RoleGuard from './role-guard';
 
 export default function EmployerShell({
   children,
@@ -37,6 +38,7 @@ export default function EmployerShell({
   ];
 
   return (
+    <RoleGuard role="employer">
     <div className="min-h-screen bg-[#FAF8F4] text-[#0F1B2D] overflow-x-hidden relative">
       {/* Skip to Main Content Link for Accessibility (WCAG 2.1) */}
       <a
@@ -111,5 +113,6 @@ export default function EmployerShell({
         </button>
       </nav>
     </div>
+    </RoleGuard>
   );
 }

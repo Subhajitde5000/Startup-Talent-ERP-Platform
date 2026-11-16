@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Search, ChevronDown, Menu, User, CalendarDays, Wallet, MessageSquare, Settings, LogOut, CheckCircle2 } from 'lucide-react';
 import NotificationDropdown from './notification-dropdown';
+import { useAuth } from '@/lib/auth-context';
 
 export default function MentorHeader({
   compact = false,
@@ -12,6 +13,7 @@ export default function MentorHeader({
   backLabel = '← Dashboard',
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
+  const { logout } = useAuth();
 
   const notify = (msg) => {
     if (onAction) onAction(msg);
@@ -130,14 +132,17 @@ export default function MentorHeader({
               </Link>
 
               <div className="border-t border-[#F2EFE9] my-1 pt-1">
-                <Link
-                  href="/login"
-                  onClick={() => setProfileOpen(false)}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileOpen(false);
+                    logout();
+                  }}
                   className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 transition"
                 >
                   <LogOut size={15} />
                   <span>Sign out</span>
-                </Link>
+                </button>
               </div>
             </div>
           )}

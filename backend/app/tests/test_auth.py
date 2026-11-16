@@ -51,7 +51,9 @@ async def _register_and_verify(
     resp = await _register(client, email=email, role=role)
     assert resp.status_code == 201, resp.text
     code = _extract_code()
-    verify = await client.post("/api/v1/auth/verify-email", json={"code": code})
+    verify = await client.post(
+        "/api/v1/auth/verify-email", json={"email": email, "code": code}
+    )
     assert verify.status_code == 200, verify.text
     return resp
 
@@ -139,14 +141,31 @@ async def test_register_does_not_leak_existing_email(client: AsyncClient) -> Non
 async def test_verify_email_happy_path(client: AsyncClient) -> None:
     await _register(client)
     code = _extract_code()
-    resp = await client.post("/api/v1/auth/verify-email", json={"code": code})
+    resp = await client.post(
+        "/api/v1/auth/verify-email", json={"email": "founder@example.com", "code": code}
+    )
     assert resp.status_code == 200
 
 
 @pytest.mark.asyncio
 async def test_verify_email_wrong_code(client: AsyncClient) -> None:
     await _register(client)
-    resp = await client.post("/api/v1/auth/verify-email", json={"code": "000000"})
+    resp = await client.post(
+        "/api/v1/auth/verify-email", json={"email": "founder@example.com", "code": "000000"}
+    )
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "INVALID_TOKEN"
+
+
+@pytest.mark.asyncio
+async def test_verify_email_rejects_wrong_email(client: AsyncClient) -> None:
+    """A code issued to one account must not verify a different account."""
+    await _register(client, email="founder@example.com")
+    code = _extract_code()
+    await _register(client, email="second@example.com")
+    resp = await client.post(
+        "/api/v1/auth/verify-email", json={"email": "second@example.com", "code": code}
+    )
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "INVALID_TOKEN"
 
@@ -155,9 +174,13 @@ async def test_verify_email_wrong_code(client: AsyncClient) -> None:
 async def test_verify_email_single_use(client: AsyncClient) -> None:
     await _register(client)
     code = _extract_code()
-    first = await client.post("/api/v1/auth/verify-email", json={"code": code})
+    first = await client.post(
+        "/api/v1/auth/verify-email", json={"email": "founder@example.com", "code": code}
+    )
     assert first.status_code == 200
-    second = await client.post("/api/v1/auth/verify-email", json={"code": code})
+    second = await client.post(
+        "/api/v1/auth/verify-email", json={"email": "founder@example.com", "code": code}
+    )
     assert second.status_code == 401
 
 
@@ -170,7 +193,9 @@ async def test_verify_email_expired(client: AsyncClient, db_session) -> None:
     token = result.scalar_one()
     token.expires_at = datetime.now(UTC) - timedelta(minutes=1)
     await db_session.commit()
-    resp = await client.post("/api/v1/auth/verify-email", json={"code": code})
+    resp = await client.post(
+        "/api/v1/auth/verify-email", json={"email": "founder@example.com", "code": code}
+    )
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "TOKEN_EXPIRED"
 
