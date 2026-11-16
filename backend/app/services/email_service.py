@@ -1,9 +1,9 @@
 """Email service: single send_email() behind EMAIL_PROVIDER.
 
 Providers: smtp, resend, console, memory.
-- smtp: Gmail SMTP / Mailpit locally (Step 1).
+- smtp: Gmail SMTP (STARTTLS on 587) / Mailpit locally (port 1025, no TLS).
 - resend: production via Resend HTTP API (httpx, no extra SDK).
-- console: log the email (dev default, no external service).
+- console: log the email to stdout (dev, no external service needed).
 - memory: record in-memory for tests (never used in prod).
 """
 
@@ -28,12 +28,20 @@ def _send_smtp(to: str, subject: str, body: str) -> None:
     msg["To"] = to
     msg["Subject"] = subject
     msg.set_content(body)
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as smtp:
-        if settings.SMTP_TLS:
-            smtp.starttls()
-        if settings.SMTP_USER:
-            smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-        smtp.send_message(msg)
+
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as smtp:
+            smtp.ehlo()
+            if settings.SMTP_TLS:
+                smtp.starttls()
+                smtp.ehlo()
+            if settings.SMTP_USER:
+                smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            smtp.send_message(msg)
+            logger.info("smtp: sent email to=%s subject=%s", to, subject)
+    except smtplib.SMTPException as exc:
+        logger.error("smtp: failed to send email to=%s: %s", to, exc)
+        raise
 
 
 def _send_resend(to: str, subject: str, body: str) -> None:
