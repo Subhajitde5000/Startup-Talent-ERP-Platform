@@ -11,6 +11,41 @@ Read this fully before doing anything. These are standing rules for the whole pr
 - Never invent requirements. Derive entities, fields and flows from the existing frontend (Next.js pages and design .md files in this repo). If the frontend and the backend design conflict, tell me and propose a fix.
 - Work like a senior backend engineer building a real production system, not a demo.
 
+## 0A. Reference files and decisions already made
+
+Reference files (read them, but never apply them blindly):
+- `BUILD_PLAN.md`: the order of work and what each step contains. Only do the step I name.
+- `PROGRESS.md`: tick boxes here after each finished step.
+- `database/schema.sql`: baseline database design derived from the frontend. It is a REFERENCE, not code to run or paste.
+  - Never run it against a database and never copy it wholesale into a migration.
+  - For each step, read only the tables that step needs, then write Alembic revisions for those tables only.
+  - Check every table against the frontend and these rules. If something is missing, wrong or over-engineered, tell me and propose a fix. Do not silently follow it and do not silently change it.
+  - Keep its names unless you tell me why you changed them.
+  - `database/auth_schema.sql` is the auth-only extract for Step 2.
+
+Decisions already made (do not re-ask):
+- Primary keys are UUIDs (bigint identity only for high-volume log tables, as in schema.sql).
+- One user can hold several roles (`user_roles`). Startups, employers and investor firms are all `organizations`.
+- Files: Cloudflare R2 (S3-compatible). Messaging: polling first, WebSockets later.
+- Email: Resend in production, Gmail SMTP or Mailpit locally, selected by `EMAIL_PROVIDER` behind one `send_email()` function.
+- Auth: our own JWT system (no Auth0 or Clerk). Rate limiting and caching: Redis (Upstash in production).
+- Search: PostgreSQL full-text search first.
+
+Still open (ask me when the step needs it): payment provider (Razorpay proposed), background job approach (FastAPI BackgroundTasks first, then a worker or the `background_jobs` table).
+
+## 0B. Frontend demo data and API wiring
+
+The Next.js frontend currently runs only on demo data (the `*-data.js` mock stores and inline page data). It has no API connection yet. The goal is to replace all of it with the real API, one step at a time.
+
+- Backend and frontend wiring are two separate phases of each step. Finish and test the backend part first. Wire the frontend only after I say OK.
+- Wire only the pages that belong to the step I named. Pages from later steps keep their demo data until their turn.
+- Use a typed client generated from the backend OpenAPI schema. Base URL from `NEXT_PUBLIC_API_URL`. One shared API module handles auth headers, automatic token refresh, and error mapping. Do not scatter raw `fetch` calls across pages.
+- Remove the demo data for the pages you wired. Delete a mock file only when no remaining page imports it; otherwise remove just the parts that are no longer used.
+- Keep the UI looking the same. To avoid empty screens, move the old demo records into a dev-only seed script under `backend/` (never part of migrations or production).
+- Every wired page needs loading, empty, and error states, and must respect the user's role and permissions.
+- Do not redesign the UI. If a page needs a field the API does not have, tell me and fix the API instead of faking it in the frontend.
+- Auth (Step 2) is wired first, because every other page needs a logged-in user.
+
 ## 1. Product context
 
 - Forma is a Startup & Talent ERP platform. The Next.js frontend is complete; we are now building the backend (database + API).
@@ -24,7 +59,8 @@ Read this fully before doing anything. These are standing rules for the whole pr
 - Async driver: asyncpg. Config via pydantic-settings and `.env` (never hard-code secrets)
 - Tests: pytest, pytest-asyncio, httpx
 - Lint/format/type-check: ruff, mypy (or pyright)
-- Local dev: Docker Compose (Postgres, and later Redis if needed)
+- Local dev: Docker Compose (Postgres, Redis, and Mailpit for catching test emails)
+- Money: NUMERIC with an ISO currency code, never float. Default currency INR.
 
 ## 3. Project structure and code style
 
@@ -66,6 +102,11 @@ backend/
 - Add security headers, request size limits, and safe error messages (no stack traces or internals to clients).
 - Email verification and secure password reset (single-use, expiring tokens).
 - Keep dependencies pinned and minimal. Flag any known-vulnerable package.
+- Webhooks (payments, email, KYC): verify the provider signature before processing, make handlers idempotent, store the raw event, and never trust the payload alone.
+- Payments: never store card numbers or CVV; store only provider tokens and last four digits. Amounts and statuses come from the provider's verified webhook, never from the client.
+- Admin money actions (payouts, refunds) need maker/checker: the person who creates cannot approve.
+- Tokens, reset links and invites are stored hashed and are single-use with an expiry.
+- Privacy: design for India's DPDP Act and similar rules (consent records, data access and erasure requests, retention). Flag anything that needs legal review.
 
 ## 5. API design standards
 
@@ -82,10 +123,10 @@ backend/
 ## 6. Database design standards
 
 - PostgreSQL, normalized to a sensible level (3NF); denormalize only with a stated reason.
-- Every table: primary key (UUID, or bigint if I approve), `created_at`, `updated_at`; soft delete (`deleted_at`) where data must be recoverable or auditable.
+- Every table: primary key (UUID; bigint identity only for append-only log tables), `created_at`, `updated_at`; soft delete (`deleted_at`) where data must be recoverable or auditable.
 - Constraints belong in the DB, not only in code: NOT NULL, UNIQUE, CHECK, foreign keys with deliberate ON DELETE behavior.
 - Use enums or lookup tables for roles, statuses, and types. Do not use free-text for fixed sets.
-- Roles: ask me whether one user can hold several roles before designing the user/role tables. Default assumption: a user has a base account plus separate role-profile tables.
+- Roles: a user can hold several roles (`user_roles`) and may belong to several organizations. Role-specific data lives in role-profile tables or in organization tables.
 - Add indexes for foreign keys, frequent filters, and sort columns. Use partial or composite indexes where justified. Explain each non-obvious index.
 - Every schema change is an Alembic migration: reversible, reviewed, never edited after being applied. Never use `create_all` in production paths.
 - Plan for growth: avoid designs that need rewrites at 100k+ users (for example, messages and community posts should be paginated and indexed by time).
@@ -107,20 +148,13 @@ A task is done only when ALL of these are true:
 - 12-factor config, Dockerfile (multi-stage, non-root user), and a clear separation of dev, staging and production settings.
 - Plan for: backups, connection pooling, graceful shutdown, monitoring, and error tracking. Mention them when relevant; do not build them until asked.
 
-## 9. Planned order of work (for reference only, wait for my instruction on each)
+## 9. Order of work
 
-1. Project scaffold, config, Docker Compose, database connection
-2. Database schema and first migrations (derived from the frontend)
-3. Authentication, refresh tokens, role dependencies
-4. One role's endpoints end to end (I will choose which)
-5. Remaining roles
-6. Community discussions and messaging
-7. Admin console APIs and audit logging
-8. Hardening, load testing, and deployment
+Follow BUILD_PLAN.md. Do only the step I name, in the order I give. Never start the next step on your own.
 
 ## 10. Your first reply to this file
 
 Reply with only:
 - A 5 to 8 line summary of what you understood.
-- The questions and assumptions you need me to confirm (especially: single vs multiple roles per user, UUID vs integer IDs, file storage provider, email provider, and whether realtime features are needed for messaging).
+- Questions or conflicts you found between the frontend, BUILD_PLAN.md and database/schema.sql. The decisions in section 0A are already made, so do not re-ask them.
 - Do not write code, create files, or run commands in that reply.
