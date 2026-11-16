@@ -8,6 +8,7 @@ import PageHeader from './page-header';
 import SubNavTabs from './sub-nav-tabs';
 import { Toast } from './ui';
 import { LayoutDashboard, Inbox, CalendarDays, MessageCircle, Menu } from 'lucide-react';
+import RoleGuard from './role-guard';
 
 export default function MentorShell({
   active,
@@ -40,6 +41,7 @@ export default function MentorShell({
   ];
 
   return (
+    <RoleGuard role="mentor">
     <div className="min-h-screen bg-[#FAF8F4] text-[#0F1B2D]">
       <a href={`#${mainId}`} className="sr-only focus:not-sr-only">
         Skip to content
@@ -119,5 +121,6 @@ export default function MentorShell({
       {/* Standardized Toast Alert */}
       <Toast message={toast} />
     </div>
+    </RoleGuard>
   );
 }
