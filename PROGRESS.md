@@ -29,7 +29,7 @@ Matches BUILD_PLAN.md v2 (step numbers are the same). For every step that has pa
 - [ ] Multi-role support and role dependencies
 - [ ] Account states (suspended and so on)
 - [ ] Rate limiting and login attempts
-- [ ] Admin auth (MFA, IP allow-list, short TTL)
+- [ ] Self-registration cannot grant the admin role (admin auth is Step 15a)
 - [ ] Auth tests pass (wrong role, expired, reused token, rate limit)
 
 ## Step 3: Profiles, organizations, onboarding

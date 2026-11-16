@@ -61,7 +61,7 @@ Done when: app starts with one command, health works, tests run, migration appli
 
 ## STEP 2: Authentication and account security
 
-Tables (schema.sql section 2, extract in `database/auth_schema.sql`): `users`, `user_roles`, `auth_sessions`, `email_verification_tokens`, `password_reset_tokens`, `user_mfa_factors`, `login_attempts`, `admin_members`.
+Tables (schema.sql section 2, extract in `database/auth_schema.sql`): `users`, `user_roles`, `auth_sessions`, `email_verification_tokens`, `password_reset_tokens`, `login_attempts`. (`user_mfa_factors` and `admin_members` are deferred to Step 15a; do not create them now.)
 
 Parts:
 1. Register: email, password, chosen role (creates `users` and `user_roles`). Strength rules. No leaking whether an email exists.
@@ -75,12 +75,12 @@ Parts:
 9. Roles: add a role later (`/register/role` says users can), primary role, role dependencies `require_role(...)`, `get_current_user`.
 10. Account states: pending, active, suspended, deactivated, deleted. Suspended users are rejected everywhere.
 11. Brute-force protection: Redis rate limits per IP and per account, record attempts in `login_attempts`, generic error messages.
-12. Admin auth is separate: `admin_members` permission level, MFA required, IP allow-list, shorter session TTL, own subdomain origin.
+12. Admin auth is NOT part of this step (it is Step 15a). Self-registration must never grant the `admin` role: `POST /auth/register` accepts only startup, mentor, investor, jobseeker or employer, and assigns it immediately as the primary role.
 13. Later: OAuth login (Google, LinkedIn), TOTP MFA for all users.
 
 Endpoints (examples): `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/logout-all`, `/auth/verify-email`, `/auth/resend-verification`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/change-password`, `/users/me/roles`, `GET /users/me`.
 
-Tests: wrong password, expired token, reused refresh token, unverified user, suspended user, wrong role, rate limit hit, admin without MFA.
+Tests: wrong password, expired token, reused refresh token, unverified user, suspended user, wrong role, rate limit hit, attempt to self-register as admin.
 
 Done when: register, verify, login, refresh, logout and reset all work, and protected routes reject wrong roles.
 
