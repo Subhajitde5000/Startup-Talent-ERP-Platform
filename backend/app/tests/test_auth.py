@@ -51,9 +51,7 @@ async def _register_and_verify(
     resp = await _register(client, email=email, role=role)
     assert resp.status_code == 201, resp.text
     code = _extract_code()
-    verify = await client.post(
-        "/api/v1/auth/verify-email", json={"email": email, "code": code}
-    )
+    verify = await client.post("/api/v1/auth/verify-email", json={"email": email, "code": code})
     assert verify.status_code == 200, verify.text
     return resp
 

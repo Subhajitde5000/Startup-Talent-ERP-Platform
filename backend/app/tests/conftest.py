@@ -1,13 +1,16 @@
 """Test fixtures: in-memory SQLite DB, memory email, in-memory rate limiter."""
 
+# ruff: noqa: E402, I001
+
 import os
+from collections.abc import AsyncGenerator
 
-os.environ.setdefault("ENVIRONMENT", "test")
-os.environ.setdefault("EMAIL_PROVIDER", "memory")
-os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
-os.environ.setdefault("JWT_SECRET", "test-secret-at-least-32-characters-long")
-
-from collections.abc import AsyncGenerator  # noqa: E402
+os.environ["ENVIRONMENT"] = "test"
+os.environ["DEBUG"] = "false"
+os.environ["EMAIL_PROVIDER"] = "memory"
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+os.environ["REDIS_URL"] = ""
+os.environ["JWT_SECRET"] = "test-secret-at-least-32-characters-long"
 
 import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402

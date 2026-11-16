@@ -2,12 +2,18 @@
 
 When REDIS_URL is empty (dev/test without Redis), an in-memory
 fixed-window limiter is used. Production must set REDIS_URL.
+
+If REDIS_URL is set but Redis is unreachable, the limiter logs a
+warning and falls back to in-memory so the app stays functional.
 """
 
+import logging
 import time
 from collections import defaultdict
 
 from app.core.config import get_settings
+
+logger = logging.getLogger("forma")
 
 
 class InMemoryRateLimiter:
@@ -45,24 +51,42 @@ class RedisRateLimiter:
 
 
 class RateLimiter:
-    """Unified interface: async check() that works with either backend."""
+    """Unified interface: async check() that works with either backend.
+
+    Falls back to in-memory if Redis is configured but unreachable,
+    so a missing Redis instance never takes down the application.
+    """
 
     def __init__(self) -> None:
         settings = get_settings()
         self._redis_url = settings.REDIS_URL
         self._redis: RedisRateLimiter | None = None
+        self._redis_unavailable: bool = False
         self._memory = InMemoryRateLimiter()
 
     async def check(self, key: str, limit: int, window_seconds: int) -> bool:
-        if self._redis_url:
+        if self._redis_url and not self._redis_unavailable:
             if self._redis is None:
                 self._redis = RedisRateLimiter(self._redis_url)
-            return await self._redis.check(key, limit, window_seconds)
+            try:
+                return await self._redis.check(key, limit, window_seconds)
+            except Exception as exc:
+                logger.warning(
+                    "Redis rate-limiter unreachable (%s: %s); "
+                    "falling back to in-memory limiter.",
+                    type(exc).__name__,
+                    exc,
+                )
+                self._redis_unavailable = True
+                self._redis = None
         return self._memory.check(key, limit, window_seconds)
 
     def reset(self) -> None:
         self._memory.reset()
+        self._redis_unavailable = False
+        self._redis = None
 
 
 # Single shared instance (tests reset it via fixture).
 rate_limiter = RateLimiter()
+
