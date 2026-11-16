@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    container_name: forma_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: startup_database
+      POSTGRES_USER: forma
+      POSTGRES_PASSWORD: formadev
+    ports:
+      - "5434:5432"
+    volumes:
+      - forma_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forma -d startup_database"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: forma_redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - forma_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit:v1.20
+    container_name: forma_mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  forma_postgres_data:
+  forma_redis_data:
