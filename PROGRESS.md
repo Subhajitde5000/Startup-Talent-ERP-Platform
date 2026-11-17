@@ -54,21 +54,52 @@ _Backend phase (A) complete: 32 tests pass, ruff + mypy clean, migrations up/dow
 - [x] Public vs private views (separate Read schemas: public org GET /public/organizations/{slug}, public talent requires is_searchable AND users.profile_public else 404, public mentor respects profile_public — verified live)
 - [x] Notification preferences stub (GET/PATCH /users/me/notification-preferences, PK user+category+channel — wired in investor/mentor notification tables + jobseeker email-alerts toggle)
 
-## Step 4: Files
+## Step 4: Files (deferred, not needed for Step 5)
 - [ ] R2 integration and signed upload URLs
 - [ ] Validation and scan status
 - [ ] Private signed downloads
 - [ ] Avatar, logo, resume, deck uploads working
+- [ ] Wire uploads into the places waiting for Step 4 (startup logo, pitch deck and documents list, onboarding deck upload)
 
-## Step 5: Startups
-- [ ] Startup profile and visibility toggles
-- [ ] Team directory
-- [ ] Metrics
-- [ ] Readiness and sign-off
-- [ ] Milestones
-- [ ] Tasks (board, labels, comments)
-- [ ] Startup discovery list
-- [ ] Frontend test pass
+## Step 5: Startup workspace (one sub-step at a time; A = backend, B = frontend wired)
+Already done in Step 3: team directory, members and invites, startup organization create/edit, founder profile, account settings.
+
+### 5a Startup profile and visibility
+- [ ] A: `startup_profiles`, read/update, public read, visibility settings, stage mapping confirmed
+- [ ] A: gaps decided (contacts toggle, onboarding revenue/funding/DPIIT fields)
+- [ ] B: `/startup/profile`, startup onboarding flow, `/startup/stage` selector wired; demo data removed
+
+### 5b Milestones
+- [ ] A: `milestones` CRUD, cross-organization checks
+- [ ] B: milestone panel wired
+
+### 5c Tasks (core)
+- [ ] A: `tasks` CRUD, move and reorder, filters, assignee and milestone validation, per-member task counts
+- [ ] A: decision on the task "criterion" link
+- [ ] B: `/startup/tasks` board wired
+
+### 5d Task labels and comments
+- [ ] A: labels, attach/detach, comments
+- [ ] B: labels and comments wired on the board
+
+### 5e Metrics
+- [ ] A: `startup_metrics` upsert, latest, history, server-only verified sources
+- [ ] B: `/startup/analytics` Overview and Journey tabs and dashboard metric cards wired
+
+### 5f Readiness
+- [ ] A: criteria bootstrap, evidence, submit, score, admin sign-off only, `tasks.readiness_id` foreign key
+- [ ] B: `/startup/readiness` wired (mentor sign-off waits for Step 8)
+
+### 5g Dashboard summary
+- [ ] A: one read-only summary endpoint
+- [ ] B: `/startup/dashboard` wired, unavailable cards empty or hidden
+
+### 5h Discovery and public startup page
+- [ ] A: startup list with filters, public read, visibility tests for each value
+
+### 5i Step 5 test pass
+- [ ] Click-through as founder, member, viewer, mentor, investor
+- [ ] No leftover demo data on wired pages
 
 ## Step 6: Connections (only if the frontend needs it)
 - [ ] Decision: needed or skipped
