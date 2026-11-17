@@ -1,7 +1,9 @@
 'use client';
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import Link from 'next/link';
 import { StartupSidebar, Card } from '../../../components';
+import {useAuth} from '@/lib/auth-context';
+import {api, ApiError} from '@/lib/api/client';
 import {
   Users,Search,Bell,ChevronDown,Check,ArrowUpRight,ArrowRight,Plus,Eye,
   LockKeyhole,CheckCircle2,Globe,MapPin,CalendarDays,FileText,Presentation,FileSpreadsheet,
@@ -41,9 +43,72 @@ export default function StartupProfile() {
     {name: 'Product brief.pdf', size: '2.1 MB', access: 'Public', updated: 'Oct 30'}
   ]);
 
+  // Step 3b: the startup ORGANIZATION is the source of truth for the
+  // mapped fields (name, summary, website, location, founded year).
+  // Tagline/problem/solution/market/sector/business stay local until the
+  // startup_profiles table lands in Step 5.
+  const {user} = useAuth();
+  const [orgId, setOrgId] = useState(null);
+  const [orgStatus, setOrgStatus] = useState('loading'); // loading | ready | none | error
+  const [newOrgName, setNewOrgName] = useState('');
+  const [busy, setBusy] = useState(false);
+
   const notify = t => {
     setToast(t);
     setTimeout(() => setToast(''), 2500);
+  };
+
+  const hydrate = org => {
+    setOrgId(org.id);
+    setData(prev => ({
+      ...prev,
+      name: org.name || prev.name,
+      summary: org.summary || prev.summary,
+      website: org.website || prev.website,
+      location: org.city || prev.location,
+      year: org.founded_year ? String(org.founded_year) : prev.year,
+    }));
+    setSaved(prev => ({
+      ...prev,
+      name: org.name || prev.name,
+      summary: org.summary || prev.summary,
+      website: org.website || prev.website,
+      location: org.city || prev.location,
+      year: org.founded_year ? String(org.founded_year) : prev.year,
+    }));
+    setOrgStatus('ready');
+  };
+
+  const loadOrg = async () => {
+    setOrgStatus('loading');
+    try {
+      const orgs = await api.organizations.mine();
+      const startup = orgs.find(o => o.type === 'startup');
+      if (startup) hydrate(startup);
+      else setOrgStatus('none');
+    } catch (err) {
+      setOrgStatus('error');
+      notify(err instanceof ApiError ? err.message : 'Could not load your organization.');
+    }
+  };
+
+  useEffect(() => {
+    loadOrg();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const createOrg = async () => {
+    if (busy || !newOrgName.trim()) return;
+    setBusy(true);
+    try {
+      const org = await api.organizations.create({name: newOrgName.trim(), type: 'startup'});
+      hydrate(org);
+      notify('Organization created.');
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not create the organization.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const edit = (key, value) => {
@@ -51,10 +116,26 @@ export default function StartupProfile() {
     setDirty(true);
   };
 
-  const save = () => {
-    setSaved(data);
-    setDirty(false);
-    notify('Profile updated.');
+  const save = async () => {
+    if (busy || !orgId) return;
+    setBusy(true);
+    const payload = {
+      name: data.name,
+      summary: data.summary,
+      website: data.website || null,
+      city: data.location || null,
+    };
+    if (/^\d{4}$/.test(String(data.year))) payload.founded_year = Number(data.year);
+    try {
+      const org = await api.organizations.update(orgId, payload);
+      hydrate(org);
+      setDirty(false);
+      notify('Profile updated.');
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not save the profile.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const discard = () => {
@@ -134,6 +215,47 @@ export default function StartupProfile() {
 
       {/* Main Content */}
       <main id="profile-main" className={`mx-auto max-w-[1440px] px-4 pb-24 pt-7 transition-[margin] duration-200 sm:px-7 lg:px-8 ${compact ? 'lg:ml-[76px]' : 'lg:ml-[240px]'}`}>
+        {orgStatus === 'loading' && (
+          <div className="flex items-center gap-3 rounded-[10px] border border-[#E5E1D8] bg-white p-6 text-sm text-[#4A5568]">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
+            Loading your organization…
+          </div>
+        )}
+        {orgStatus === 'error' && (
+          <div className="rounded-[10px] border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+            Could not load your organization.{' '}
+            <button type="button" onClick={loadOrg} className="font-semibold underline">
+              Retry
+            </button>
+          </div>
+        )}
+        {orgStatus === 'none' && (
+          <div className="max-w-xl rounded-[10px] border border-[#E5E1D8] bg-white p-6">
+            <h2 className="serif text-xl font-semibold">Create your startup organization</h2>
+            <p className="mt-1 text-sm text-[#4A5568]">
+              Your profile, team and jobs live under one organization. You can rename and
+              complete it any time.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <input
+                value={newOrgName}
+                onChange={e => setNewOrgName(e.target.value)}
+                placeholder="Organization name"
+                className="h-11 flex-1 rounded-[10px] border border-[#E5E1D8] px-3 text-sm outline-none focus:border-[#B8955A]"
+              />
+              <button
+                type="button"
+                onClick={createOrg}
+                disabled={busy || !newOrgName.trim()}
+                className="h-11 rounded-[10px] bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {busy ? 'Creating…' : 'Create organization'}
+              </button>
+            </div>
+          </div>
+        )}
+        {orgStatus === 'ready' && (
+        <>
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm text-[#4A5568]">
@@ -599,6 +721,8 @@ export default function StartupProfile() {
         </div>
 
         {!isEdit && <p className="mt-6 text-center text-xs text-[#4A5568]">Forma introduces parties and is not a broker or adviser.</p>}
+        </>
+        )}
       </main>
 
       {dirty && isEdit && (

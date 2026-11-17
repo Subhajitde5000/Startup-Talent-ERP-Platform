@@ -3,6 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import StepProgress from '../components/StepProgress';
 import CelebrationModal from '../components/CelebrationModal';
+import { useAuth } from '@/lib/auth-context';
+import { api } from '@/lib/api/client';
+import {
+  initialStepFor,
+  saveOnboardingCompleted,
+  saveOnboardingStep,
+} from '@/lib/onboarding-progress';
 import {
   User,
   Code,
@@ -44,8 +51,10 @@ const SKILL_SUGGESTIONS = [
 ];
 
 export default function JobseekerOnboarding() {
-  const [step, setStep] = useState(1);
+  const { user } = useAuth();
+  const [step, setStep] = useState(() => initialStepFor(user, STEPS));
   const [showCelebration, setShowCelebration] = useState(false);
+  const [skillSuggestions, setSkillSuggestions] = useState(SKILL_SUGGESTIONS);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -77,6 +86,22 @@ export default function JobseekerOnboarding() {
       const saved = localStorage.getItem('forma_onboarding_jobseeker');
       if (saved) setFormData((prev) => ({ ...prev, ...JSON.parse(saved) }));
     } catch {}
+  }, []);
+
+  // Live skill catalog from GET /skills; static list stays as fallback.
+  useEffect(() => {
+    let cancelled = false;
+    api.skills
+      .search({ limit: 50 })
+      .then((skills) => {
+        if (!cancelled && skills.length > 0) {
+          setSkillSuggestions(skills.map((skill) => skill.name));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -115,8 +140,10 @@ export default function JobseekerOnboarding() {
     e.preventDefault();
     if (step < STEPS.length) {
       setStep((prev) => prev + 1);
+      saveOnboardingStep(STEPS[step].id);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
+      saveOnboardingCompleted();
       setShowCelebration(true);
     }
   };
@@ -124,6 +151,7 @@ export default function JobseekerOnboarding() {
   const handleBack = () => {
     if (step > 1) {
       setStep((prev) => prev - 1);
+      saveOnboardingStep(STEPS[step - 2].id);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -267,7 +295,7 @@ export default function JobseekerOnboarding() {
                   Top Skills (Click to toggle)
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {SKILL_SUGGESTIONS.map((skill) => {
+                  {skillSuggestions.map((skill) => {
                     const active = formData.skills.includes(skill);
                     return (
                       <button

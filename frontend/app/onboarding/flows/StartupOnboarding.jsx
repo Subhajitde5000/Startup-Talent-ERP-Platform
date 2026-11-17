@@ -3,6 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import StepProgress from '../components/StepProgress';
 import CelebrationModal from '../components/CelebrationModal';
+import { useAuth } from '@/lib/auth-context';
+import { api, ApiError } from '@/lib/api/client';
+import {
+  initialStepFor,
+  saveOnboardingStep,
+} from '@/lib/onboarding-progress';
 import {
   Building2,
   TrendingUp,
@@ -21,6 +27,7 @@ const STEPS = [
   { id: 'traction', title: 'Product & Traction', subtitle: 'Problem, revenue & metrics' },
   { id: 'funding', title: 'Capital & Raise', subtitle: 'Funding status & pitch deck' },
   { id: 'goals', title: 'Platform Goals', subtitle: 'DPIIT & ecosystem targets' },
+  { id: 'founder-profile', title: 'Founder Profile', subtitle: 'Your personal details' },
 ];
 
 const SECTORS = [
@@ -51,8 +58,11 @@ const REVENUE_RANGES = [
 ];
 
 export default function StartupOnboarding() {
-  const [step, setStep] = useState(1);
+  const { user, refreshUser } = useAuth();
+  const [step, setStep] = useState(() => initialStepFor(user, STEPS));
   const [showCelebration, setShowCelebration] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -77,6 +87,16 @@ export default function StartupOnboarding() {
     // Step 4
     goals: ['Raise Seed Funding', 'Find Specialized Mentors'],
     dpiitStatus: 'Applied / In Review',
+    // Founder profile — this belongs to the user, not the startup profile.
+    displayName: user?.display_name || '',
+    handle: user?.handle || '',
+    phone: user?.phone || '',
+    headline: user?.headline || '',
+    region: user?.region || '',
+    bio: user?.bio || '',
+    education: user?.education || '',
+    priorRole: user?.prior_role || '',
+    founderVision: user?.founder_vision || '',
   });
 
   // Load draft from localStorage on mount
@@ -110,19 +130,46 @@ export default function StartupOnboarding() {
     });
   };
 
-  const handleNext = (e) => {
+  const handleNext = async (e) => {
     e.preventDefault();
+    setSaveError('');
     if (step < STEPS.length) {
       setStep((prev) => prev + 1);
+      saveOnboardingStep(STEPS[step].id);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      setShowCelebration(true);
+      setSaving(true);
+      try {
+        await api.users.updateMe({
+          display_name: formData.displayName,
+          handle: formData.handle,
+          phone: formData.phone,
+          headline: formData.headline,
+          region: formData.region,
+          bio: formData.bio,
+          education: formData.education || null,
+          prior_role: formData.priorRole || null,
+          founder_vision: formData.founderVision || null,
+          onboarding_step: 'completed',
+        });
+        await refreshUser();
+        setShowCelebration(true);
+      } catch (error) {
+        setSaveError(
+          error instanceof ApiError
+            ? error.message
+            : 'We could not save your founder profile. Please try again.',
+        );
+      } finally {
+        setSaving(false);
+      }
     }
   };
 
   const handleBack = () => {
     if (step > 1) {
       setStep((prev) => prev - 1);
+      saveOnboardingStep(STEPS[step - 2].id);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -140,7 +187,7 @@ export default function StartupOnboarding() {
             <div className="space-y-5 animate-enter">
               <div className="border-b border-[#E5E1D8] pb-4">
                 <span className="text-xs font-semibold uppercase tracking-wider text-[#9A7A45]">
-                  Step 1 of 4 · Identity
+                  Step 1 of 5 · Startup identity
                 </span>
                 <h2 className="font-serif text-xl sm:text-2xl font-bold text-[#0F1B2D] mt-1">
                   Tell us about your startup
@@ -294,7 +341,7 @@ export default function StartupOnboarding() {
             <div className="space-y-5 animate-enter">
               <div className="border-b border-[#E5E1D8] pb-4">
                 <span className="text-xs font-semibold uppercase tracking-wider text-[#9A7A45]">
-                  Step 2 of 4 · Traction
+                  Step 2 of 5 · Traction
                 </span>
                 <h2 className="font-serif text-xl sm:text-2xl font-bold text-[#0F1B2D] mt-1">
                   Product, Problem & Commercials
@@ -394,7 +441,7 @@ export default function StartupOnboarding() {
             <div className="space-y-5 animate-enter">
               <div className="border-b border-[#E5E1D8] pb-4">
                 <span className="text-xs font-semibold uppercase tracking-wider text-[#9A7A45]">
-                  Step 3 of 4 · Financing
+                  Step 3 of 5 · Financing
                 </span>
                 <h2 className="font-serif text-xl sm:text-2xl font-bold text-[#0F1B2D] mt-1">
                   Fundraising & Capital Strategy
@@ -483,7 +530,7 @@ export default function StartupOnboarding() {
             <div className="space-y-5 animate-enter">
               <div className="border-b border-[#E5E1D8] pb-4">
                 <span className="text-xs font-semibold uppercase tracking-wider text-[#9A7A45]">
-                  Step 4 of 4 · Launch
+                  Step 4 of 5 · Launch
                 </span>
                 <h2 className="font-serif text-xl sm:text-2xl font-bold text-[#0F1B2D] mt-1">
                   Ecosystem Priorities & DPIIT Setup
@@ -560,6 +607,62 @@ export default function StartupOnboarding() {
             </div>
           )}
 
+          {/* STEP 5: FOUNDER PROFILE */}
+          {step === 5 && (
+            <div className="space-y-5 animate-enter">
+              <div className="border-b border-[#E5E1D8] pb-4">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#9A7A45]">Step 5 of 5 · Founder profile</span>
+                <h2 className="mt-1 font-serif text-xl font-bold text-[#0F1B2D] sm:text-2xl">Tell people who is building this startup</h2>
+                <p className="text-xs text-[#4A5568] sm:text-sm">These are your personal founder details, separate from the startup profile.</p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-[#0F1B2D]">Full name <span className="text-red-500">*</span></label>
+                  <input type="text" required maxLength={160} value={formData.displayName} onChange={(e) => handleChange('displayName', e.target.value)} placeholder="e.g. Aisha Khan" className="field text-sm" />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-[#0F1B2D]">Profile handle <span className="text-red-500">*</span></label>
+                  <input type="text" required minLength={3} maxLength={30} pattern="[a-z0-9_]{3,30}" value={formData.handle} onChange={(e) => handleChange('handle', e.target.value.toLowerCase())} placeholder="e.g. aisha_khan" className="field text-sm" />
+                  <span className="mt-1 block text-[11px] text-[#4A5568]">Lowercase letters, numbers and underscores only.</span>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-[#0F1B2D]">Phone number <span className="text-red-500">*</span></label>
+                  <input type="tel" required maxLength={32} value={formData.phone} onChange={(e) => handleChange('phone', e.target.value)} placeholder="e.g. +91 98765 43210" className="field text-sm" />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-[#0F1B2D]">Founder title <span className="text-red-500">*</span></label>
+                  <input type="text" required maxLength={160} value={formData.headline} onChange={(e) => handleChange('headline', e.target.value)} placeholder="e.g. Co-founder & CEO" className="field text-sm" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 block text-xs font-semibold text-[#0F1B2D]">Based in <span className="text-red-500">*</span></label>
+                  <input type="text" required maxLength={64} value={formData.region} onChange={(e) => handleChange('region', e.target.value)} placeholder="e.g. Bengaluru, Karnataka, India" className="field text-sm" />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-[#0F1B2D]">Founder bio <span className="text-red-500">*</span></label>
+                <textarea rows={4} required maxLength={5000} value={formData.bio} onChange={(e) => handleChange('bio', e.target.value)} placeholder="Briefly introduce your background, expertise, and role in the company." className="w-full rounded-xl border border-[#E5E1D8] bg-white p-3.5 text-sm text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none" />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-[#0F1B2D]">Education</label>
+                  <input type="text" maxLength={500} value={formData.education} onChange={(e) => handleChange('education', e.target.value)} placeholder="e.g. B.Tech, IIT Bombay" className="field text-sm" />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-[#0F1B2D]">Prior experience</label>
+                  <input type="text" maxLength={500} value={formData.priorRole} onChange={(e) => handleChange('priorRole', e.target.value)} placeholder="e.g. Ex-product lead at Acme" className="field text-sm" />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-[#0F1B2D]">Why are you building this company?</label>
+                <textarea rows={3} maxLength={5000} value={formData.founderVision} onChange={(e) => handleChange('founderVision', e.target.value)} placeholder="Share the founder story and your long-term vision." className="w-full rounded-xl border border-[#E5E1D8] bg-white p-3.5 text-sm text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none" />
+              </div>
+            </div>
+          )}
+
           {/* Form Actions */}
           <div className="flex items-center justify-between border-t border-[#E5E1D8] pt-5">
             {step > 1 ? (
@@ -574,13 +677,17 @@ export default function StartupOnboarding() {
               <div />
             )}
 
-            <button
-              type="submit"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#0F1B2D] px-6 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#1A2E4C] transition"
-            >
-              {step === STEPS.length ? 'Complete Setup & Launch' : 'Continue'}
-              <ArrowRight size={14} />
-            </button>
+            <div className="text-right">
+              {saveError && <p role="alert" className="mb-2 text-xs text-red-600">{saveError}</p>}
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0F1B2D] px-6 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1A2E4C] disabled:opacity-60"
+              >
+                {saving ? 'Saving founder profile…' : step === STEPS.length ? 'Complete Setup & Launch' : 'Continue'}
+                <ArrowRight size={14} />
+              </button>
+            </div>
           </div>
         </form>
       </div>

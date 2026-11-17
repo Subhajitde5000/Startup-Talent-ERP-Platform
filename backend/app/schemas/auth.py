@@ -73,9 +73,9 @@ class RegisterRequest(BaseModel):
 
 
 class RegisterResponse(BaseModel):
-    # Generic: identical whether the email is new or already registered.
+    # Generic: byte-identical whether the email is new or already registered.
+    # Deliberately carries no user_id or any other distinguishing field.
     message: str = "If an account exists for this email, a verification code is on its way."
-    user_id: UUID | None = None
 
 
 class LoginRequest(BaseModel):
@@ -99,6 +99,12 @@ class VerifyEmailRequest(BaseModel):
     # exists, so the code is bound to the email it was issued for.
     email: EmailStr
     code: str = Field(pattern=r"^\d{6}$")
+
+
+class VerifyEmailResponse(TokenResponse):
+    """Session tokens issued immediately after successful OTP verification."""
+
+    message: str = "Email verified."
 
 
 class ResendVerificationRequest(BaseModel):

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   User,
@@ -30,11 +30,14 @@ import {
   Cpu,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
+import { useAuth } from '@/lib/auth-context';
+import { api, ApiError } from '@/lib/api/client';
 
 export default function JobSeekerProfilePage() {
   const [toast, setToast] = useState('');
   const [activeTab, setActiveTab] = useState('experience'); // 'experience' | 'skills' | 'portfolio' | 'resume'
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const { user } = useAuth();
+  const [loadStatus, setLoadStatus] = useState('loading'); // loading | ready | error
 
   const notify = (msg) => {
     setToast(msg);
@@ -126,17 +129,73 @@ export default function JobSeekerProfilePage() {
     },
   });
 
-  const [formData, setFormData] = useState({ ...profile });
-
-  const handleSaveProfile = (e) => {
-    e.preventDefault();
-    setProfile({ ...formData });
-    setIsEditModalOpen(false);
-    notify('Talent profile updated successfully.');
+  // Step 3c: hydrate from the talent profile + session user + readiness.
+  // Experience history, portfolio and resume tabs stay demo until Step 7d;
+  // notice period / desired CTC have no backend column yet (flagged).
+  const hydrate = async (me) => {
+    try {
+      const [talent, readiness] = await Promise.all([
+        api.talentProfile.me(),
+        api.users.readiness()
+      ]);
+      setProfile((prev) => ({
+        ...prev,
+        name: me?.display_name || prev.name,
+        handle: me?.handle || prev.handle,
+        headline: talent?.headline || prev.headline,
+        currentRole: talent?.headline || prev.currentRole,
+        location: talent?.current_location || prev.location,
+        email: me?.email || prev.email,
+        avatar: me?.avatar_initials || prev.avatar,
+        experienceYears:
+          talent?.total_experience_yrs != null
+            ? `${talent.total_experience_yrs} Years`
+            : prev.experienceYears,
+        openToWork: talent ? talent.is_searchable : prev.openToWork,
+        bio: talent?.summary || prev.bio,
+        jobReadyScore: readiness?.overall_score ?? prev.jobReadyScore,
+        skills:
+          talent && talent.skills.length
+            ? talent.skills.map((sk) => ({
+                name: sk.name,
+                category: sk.category || 'Skills',
+                level: '—'
+              }))
+            : prev.skills
+      }));
+      setLoadStatus('ready');
+    } catch (err) {
+      setLoadStatus('error');
+      notify(err instanceof ApiError ? err.message : 'Could not load your profile.');
+    }
   };
+
+  const reload = () => {
+    setLoadStatus('loading');
+    hydrate(user);
+  };
+
+  useEffect(() => {
+    hydrate(user);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   return (
     <JobSeekerShell active="Profile" notify={notify} toast={toast}>
+      {loadStatus === 'loading' && (
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-[#E5E1D8] bg-white p-6 text-xs text-[#6B7280]">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
+          Loading your profile…
+        </div>
+      )}
+      {loadStatus === 'error' && (
+        <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-6 text-xs text-red-700">
+          Could not load your profile.{' '}
+          <button type="button" onClick={reload} className="font-semibold underline">Retry</button>
+        </div>
+      )}
+      {loadStatus === 'ready' && (
+      <>
       <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6">
         {/* Top Header Bar */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E1D8] pb-4">
@@ -387,100 +446,8 @@ export default function JobSeekerProfilePage() {
       </div>
 
       {/* EDIT MODAL */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1B2D]/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#E5E1D8] bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#F2EFE9] pb-3">
-              <h3 className="font-serif text-lg font-bold text-[#0F1B2D]">
-                Edit Talent Profile & Job Preferences
-              </h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="text-[#7B8CA3] hover:text-[#0F1B2D]">
-                <X size={18} />
-              </button>
-            </div>
 
-            <form onSubmit={handleSaveProfile} className="mt-4 space-y-4 text-xs">
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                  Headline / Target Role
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.headline}
-                  onChange={(e) => setFormData({ ...formData, headline: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                    Notice Period
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.noticePeriod}
-                    onChange={(e) => setFormData({ ...formData, noticePeriod: e.target.value })}
-                    className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                    Desired CTC
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.desiredCtc}
-                    onChange={(e) => setFormData({ ...formData, desiredCtc: e.target.value })}
-                    className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                  Professional Bio & Philosophy
-                </label>
-                <textarea
-                  rows={4}
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2.5 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 border-t border-[#F2EFE9] pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="rounded-lg border border-[#E5E1D8] px-4 py-2 text-xs font-semibold text-[#5A6E85] hover:bg-[#FAF8F4]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[#0F1B2D] px-5 py-2 text-xs font-bold text-white hover:bg-[#1C2B42]"
-                >
-                  Save Profile
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      </>
       )}
     </JobSeekerShell>
   );

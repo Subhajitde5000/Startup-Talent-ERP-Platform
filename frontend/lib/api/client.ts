@@ -15,7 +15,11 @@
 import type { components } from "./schema";
 
 export type TokenResponse = components["schemas"]["TokenResponse"];
-export type UserRead = components["schemas"]["UserRead"];
+export type UserMeRead = components["schemas"]["UserMeRead"];
+export type UserUpdate = components["schemas"]["UserUpdate"];
+export type ReadinessRead = components["schemas"]["ReadinessRead"];
+export type DeleteRequestRead = components["schemas"]["DeleteRequestRead"];
+export type SkillRead = components["schemas"]["SkillRead"];
 export type RegisterRequest = components["schemas"]["RegisterRequest"];
 export type RegisterResponse = components["schemas"]["RegisterResponse"];
 export type LoginRequest = components["schemas"]["LoginRequest"];
@@ -24,7 +28,22 @@ export type ResendVerificationRequest = components["schemas"]["ResendVerificatio
 export type ForgotPasswordRequest = components["schemas"]["ForgotPasswordRequest"];
 export type ResetPasswordRequest = components["schemas"]["ResetPasswordRequest"];
 export type MessageResponse = components["schemas"]["MessageResponse"];
+export type VerifyEmailResponse = components["schemas"]["VerifyEmailResponse"];
 export type UserRole = components["schemas"]["UserRole"];
+export type OrganizationCreate = components["schemas"]["OrganizationCreate"];
+export type OrganizationUpdate = components["schemas"]["OrganizationUpdate"];
+export type OrganizationRead = components["schemas"]["OrganizationRead"];
+export type OrganizationPublicRead = components["schemas"]["OrganizationPublicRead"];
+export type MemberRead = components["schemas"]["MemberRead"];
+export type MemberUpdate = components["schemas"]["MemberUpdate"];
+export type InviteCreate = components["schemas"]["InviteCreate"];
+export type InviteRead = components["schemas"]["InviteRead"];
+export type TalentProfileRead = components["schemas"]["TalentProfileRead"];
+export type TalentProfileUpdate = components["schemas"]["TalentProfileUpdate"];
+export type MentorProfileRead = components["schemas"]["MentorProfileRead"];
+export type MentorProfileUpdate = components["schemas"]["MentorProfileUpdate"];
+export type NotificationPreferenceRead = components["schemas"]["NotificationPreferenceRead"];
+export type NotificationPreferenceUpdate = components["schemas"]["NotificationPreferenceUpdate"];
 
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "/api/v1").replace(/\/+$/, "");
 
@@ -43,7 +62,7 @@ export function getRefreshToken(): string | null {
   return window.localStorage.getItem(REFRESH_KEY);
 }
 
-export function setTokens(tokens: TokenResponse): void {
+export function setTokens(tokens: { access_token: string; refresh_token: string }): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(ACCESS_KEY, tokens.access_token);
   window.localStorage.setItem(REFRESH_KEY, tokens.refresh_token);
@@ -153,7 +172,10 @@ async function rawFetch<T>(
   }
   const headers: Record<string, string> = {};
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
-  if (opts.auth && accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+  // apiRequest passes a token for every request unless auth is explicitly
+  // disabled. Use that resolved token here rather than opts.auth, whose
+  // undefined default means "authenticated".
+  if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
 
   const res = await fetch(url, {
     method: opts.method ?? (opts.body !== undefined ? "POST" : "GET"),
@@ -281,7 +303,7 @@ export const api = {
     refresh: () => refreshTokens(),
 
     verifyEmail: (body: VerifyEmailRequest) =>
-      apiRequest<MessageResponse>("/auth/verify-email", { body, auth: false }),
+      apiRequest<VerifyEmailResponse>("/auth/verify-email", { body, auth: false }),
 
     resendVerification: (body: ResendVerificationRequest) =>
       apiRequest<MessageResponse>("/auth/resend-verification", { body, auth: false }),
@@ -303,6 +325,137 @@ export const api = {
   },
 
   users: {
-    me: (signal?: AbortSignal) => apiRequest<UserRead>("/users/me", { method: "GET", signal }),
+    /** Full self view (Step 3: profile fields included). */
+    me: (signal?: AbortSignal) => apiRequest<UserMeRead>("/users/me", { method: "GET", signal }),
+
+    /** PATCH own profile; only fields present in `body` are changed. */
+    updateMe: (body: UserUpdate) =>
+      apiRequest<UserMeRead>("/users/me", { method: "PATCH", body }),
+
+    readiness: (signal?: AbortSignal) =>
+      apiRequest<ReadinessRead>("/users/me/readiness", { method: "GET", signal }),
+
+    /** Latest data (erasure) request, or null when none exists. */
+    deleteRequest: (signal?: AbortSignal) =>
+      apiRequest<DeleteRequestRead | null>("/users/me/delete-request", {
+        method: "GET",
+        signal,
+      }),
+
+    /** Open a new erasure request; 409 CONFLICT when one is already open. */
+    createDeleteRequest: () =>
+      apiRequest<DeleteRequestRead>("/users/me/delete-request", { method: "POST" }),
+  },
+
+  skills: {
+    search: (opts: { q?: string; limit?: number; signal?: AbortSignal } = {}) =>
+      apiRequest<SkillRead[]>("/skills", {
+        method: "GET",
+        query: { q: opts.q, limit: opts.limit },
+        signal: opts.signal,
+      }),
+  },
+
+  organizations: {
+    /** Orgs where I am an active member (with my_role). */
+    mine: (signal?: AbortSignal) =>
+      apiRequest<OrganizationRead[]>("/organizations/mine", { method: "GET", signal }),
+
+    /** Create; caller must hold the matching role (startup/employer/investor). */
+    create: (body: OrganizationCreate) =>
+      apiRequest<OrganizationRead>("/organizations", { method: "POST", body }),
+
+    get: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<OrganizationRead>(`/organizations/${orgId}`, { method: "GET", signal }),
+
+    /** Owner/admin patch. */
+    update: (orgId: string, body: OrganizationUpdate) =>
+      apiRequest<OrganizationRead>(`/organizations/${orgId}`, { method: "PATCH", body }),
+
+    members: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<MemberRead[]>(`/organizations/${orgId}/members`, { method: "GET", signal }),
+
+    updateMember: (orgId: string, userId: string, body: MemberUpdate) =>
+      apiRequest<MemberRead>(`/organizations/${orgId}/members/${userId}`, {
+        method: "PATCH",
+        body,
+      }),
+
+    removeMember: (orgId: string, userId: string) =>
+      apiRequest<void>(`/organizations/${orgId}/members/${userId}`, { method: "DELETE" }),
+
+    transferOwnership: (orgId: string, userId: string) =>
+      apiRequest<MemberRead[]>(`/organizations/${orgId}/transfer-ownership`, {
+        method: "POST",
+        body: { user_id: userId },
+      }),
+
+    /** Owner/admin invite; `token` is returned once (no email send yet). */
+    createInvite: (orgId: string, body: InviteCreate) =>
+      apiRequest<InviteRead>(`/organizations/${orgId}/invites`, { method: "POST", body }),
+
+    invites: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<InviteRead[]>(`/organizations/${orgId}/invites`, { method: "GET", signal }),
+
+    revokeInvite: (orgId: string, inviteId: string) =>
+      apiRequest<void>(`/organizations/${orgId}/invites/${inviteId}`, { method: "DELETE" }),
+  },
+
+  invites: {
+    /** Accept as the invited user (email must match). */
+    accept: (token: string) =>
+      apiRequest<OrganizationRead>(`/invites/${token}/accept`, { method: "POST" }),
+  },
+
+  talentProfile: {
+    /** Null until the candidate saves once. */
+    me: (signal?: AbortSignal) =>
+      apiRequest<TalentProfileRead | null>("/talent-profile/me", { method: "GET", signal }),
+
+    /** Upsert; `skills` is a replace-set of names. */
+    updateMe: (body: TalentProfileUpdate) =>
+      apiRequest<TalentProfileRead>("/talent-profile/me", { method: "PATCH", body }),
+  },
+
+  mentorProfile: {
+    me: (signal?: AbortSignal) =>
+      apiRequest<MentorProfileRead | null>("/mentor-profile/me", { method: "GET", signal }),
+
+    updateMe: (body: MentorProfileUpdate) =>
+      apiRequest<MentorProfileRead>("/mentor-profile/me", { method: "PATCH", body }),
+  },
+
+  notificationPreferences: {
+    get: (signal?: AbortSignal) =>
+      apiRequest<NotificationPreferenceRead>("/users/me/notification-preferences", {
+        method: "GET",
+        signal,
+      }),
+    update: (items: NotificationPreferenceUpdate["items"]) =>
+      apiRequest<NotificationPreferenceRead>("/users/me/notification-preferences", {
+        method: "PATCH",
+        body: { items },
+      }),
+  },
+
+  publicApi: {
+    organization: (slug: string, signal?: AbortSignal) =>
+      apiRequest<OrganizationPublicRead>(`/public/organizations/${slug}`, {
+        method: "GET",
+        auth: false,
+        signal,
+      }),
+    talent: (handle: string, signal?: AbortSignal) =>
+      apiRequest<Record<string, unknown>>(`/public/talent/${handle}`, {
+        method: "GET",
+        auth: false,
+        signal,
+      }),
+    mentor: (handle: string, signal?: AbortSignal) =>
+      apiRequest<Record<string, unknown>>(`/public/mentors/${handle}`, {
+        method: "GET",
+        auth: false,
+        signal,
+      }),
   },
 };

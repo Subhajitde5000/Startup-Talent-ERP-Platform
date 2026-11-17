@@ -20,18 +20,19 @@ export const initialThreads = [{id:'acme',name:'Acme Studio',logo:'A',sub:'Proto
 
 export const initialNotices = [{id:1,cat:'Sessions',title:'Your session with Acme Studio starts in 1 hour',detail:'Go-to-market and pricing · Thu, Nov 12 at 4:00 PM',time:'Today · 3:00 PM',urgent:true,href:'/mentor/sessions/sess-001',action:'Open session',unread:true},{id:2,cat:'Requests',title:'OrbitPay request is waiting for your response',detail:'Waiting 4 days · Pricing and sales process',time:'Today · 9:12 AM',urgent:true,href:'/mentor/requests',action:'Review request',unread:true},{id:3,cat:'Sign-offs',title:'Readiness item submitted for sign-off',detail:'GreenLedger · Market validation',time:'Today · 8:40 AM',href:'/mentor/startups/mentorship-02/readiness',action:'Review item',unread:true},{id:4,cat:'Money',title:'A payment was released',detail:'A session payment was released to your payout method.',time:'Yesterday · 4:20 PM',href:'/mentor/earnings',action:'View earnings',unread:true},{id:5,cat:'Events',title:'Priority registration is open',detail:'Fintech Founder Demo Day · Dec 03',time:'Yesterday · 11:00 AM',href:'/mentor/events/demo-day-2026',action:'View event',unread:false},{id:6,cat:'Messages',title:'2 new messages from Acme Studio',detail:'Latest: Thanks, I’ve uploaded the latest customer interviews.',time:'Yesterday · 10:42 AM',href:'/mentor/messages',action:'Open conversation',unread:false},{id:7,cat:'System',title:'Profile verification in progress',detail:'We’ll notify you when your review is complete.',time:'Nov 03 · 2:30 PM',href:'/mentor/settings',action:'Account settings',unread:false},{id:8,cat:'Sessions',title:'Session summary is due',detail:'Cohortly · Operations advisory · Due in 24 hours',time:'Nov 02 · 10:00 AM',href:'/mentor/sessions',action:'Add summary',urgent:true,unread:false}];
 
-export function Btn({ children, onClick, secondary = false, danger = false, type = "button", className = "" }) {
+export function Btn({ children, onClick, secondary = false, danger = false, type = "button", className = "", disabled = false }) {
   return (
     <button
       type={type}
       onClick={onClick}
+      disabled={disabled}
       className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] px-3.5 text-sm font-semibold transition-colors ${
         danger
           ? 'border border-[#F1C6C1] text-[#B42318] hover:bg-[#FEE4E2]'
           : secondary
           ? 'border border-[#E5E1D8] bg-white text-[#0F1B2D] hover:bg-[#F4F1EA]'
           : 'bg-[#0F1B2D] text-white hover:bg-[#1C2B42]'
-      } ${className}`}
+      } ${disabled ? 'cursor-not-allowed opacity-60' : ''} ${className}`}
     >
       {children}
     </button>

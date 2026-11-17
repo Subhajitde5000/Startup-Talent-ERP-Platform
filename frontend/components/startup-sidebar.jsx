@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -43,6 +44,7 @@ export default function StartupSidebar({
   setMobileOpen,
   onAction,
 }) {
+  const router = useRouter();
   const pathname = usePathname();
   const [localCompact, setLocalCompact] = useState(false);
 
@@ -172,7 +174,7 @@ export default function StartupSidebar({
         <div className="mt-auto space-y-1 px-3 pb-5">
           <button
             type="button"
-            onClick={() => handleAction('Settings will be available soon.')}
+            onClick={() => router.push('/startup/settings')}
             className={`flex h-11 w-full items-center gap-3 rounded-lg text-sm text-white/60 hover:bg-white/5 hover:text-white ${
               isCompact ? 'justify-center px-0' : 'px-3'
             }`}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   User,
@@ -34,11 +34,14 @@ import {
   Sliders,
 } from 'lucide-react';
 import MentorPageShell from '../mentor-page-shell';
+import { useAuth } from '@/lib/auth-context';
+import { api, ApiError } from '@/lib/api/client';
 
 export default function MentorProfilePage() {
   const [toast, setToast] = useState('');
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'expertise' | 'startups' | 'availability' | 'credentials'
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const { user } = useAuth();
+  const [loadStatus, setLoadStatus] = useState('loading'); // loading | ready | error
 
   const notify = (msg) => {
     setToast(msg);
@@ -122,17 +125,67 @@ export default function MentorProfilePage() {
   });
 
   // Edit Form State
-  const [formData, setFormData] = useState({ ...profile });
-
-  const handleSaveProfile = (e) => {
-    e.preventDefault();
-    setProfile({ ...formData });
-    setIsEditModalOpen(false);
-    notify('Mentor profile updated successfully.');
+  // Step 3c: hydrate from the mentor profile + session user.
+  // Sessions, startups, credentials tabs stay demo until Steps 8/10.
+  const hydrate = async (me) => {
+    try {
+      const mentor = await api.mentorProfile.me();
+      setProfile((prev) => ({
+        ...prev,
+        name: me?.display_name || prev.name,
+        handle: me?.handle || prev.handle,
+        title: mentor?.headline || prev.title,
+        email: me?.email || prev.email,
+        avatar: me?.avatar_initials || prev.avatar,
+        bio: mentor?.bio || prev.bio,
+        isAvailable: mentor ? mentor.accepting_requests : prev.isAvailable,
+        availabilityStatus: mentor?.cadence || prev.availabilityStatus,
+        hourlyRate:
+          mentor?.hourly_fee != null
+            ? `₹${Number(mentor.hourly_fee).toLocaleString('en-IN')}`
+            : prev.hourlyRate,
+        expertiseDomains:
+          mentor && mentor.expertise.length ? mentor.expertise : prev.expertiseDomains,
+        social: {
+          linkedin: me?.linkedin_url || prev.social?.linkedin || '',
+          github: me?.github_url || prev.social?.github || '',
+          twitter: me?.twitter_url || prev.social?.twitter || '',
+          website: me?.website_url || prev.social?.website || ''
+        }
+      }));
+      setLoadStatus('ready');
+    } catch (err) {
+      setLoadStatus('error');
+      notify(err instanceof ApiError ? err.message : 'Could not load your profile.');
+    }
   };
+
+  const reload = () => {
+    setLoadStatus('loading');
+    hydrate(user);
+  };
+
+  useEffect(() => {
+    hydrate(user);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   return (
     <MentorPageShell active="Profile" notify={notify} toast={toast}>
+      {loadStatus === 'loading' && (
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-[#E5E1D8] bg-white p-6 text-sm text-[#4A5568]">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
+          Loading your profile…
+        </div>
+      )}
+      {loadStatus === 'error' && (
+        <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+          Could not load your profile.{' '}
+          <button type="button" onClick={reload} className="font-semibold underline">Retry</button>
+        </div>
+      )}
+      {loadStatus === 'ready' && (
+      <>
       <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6">
         {/* Top Breadcrumb & Actions Bar */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E1D8] pb-4">
@@ -446,7 +499,7 @@ export default function MentorProfilePage() {
                 </div>
 
                 <blockquote className="italic text-xs text-[#5A6E85] border-l-2 border-[#B8955A] pl-3">
-                  "{item.testimonial}"
+                  &ldquo;{item.testimonial}&rdquo;
                 </blockquote>
               </div>
             ))}
@@ -478,113 +531,9 @@ export default function MentorProfilePage() {
       </div>
 
       {/* EDIT PROFILE MODAL */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1B2D]/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#E5E1D8] bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#F2EFE9] pb-3">
-              <h3 className="font-serif text-lg font-bold text-[#0F1B2D]">
-                Edit Mentor Profile
-              </h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="text-[#7B8CA3] hover:text-[#0F1B2D]">
-                <X size={18} />
-              </button>
-            </div>
 
-            <form onSubmit={handleSaveProfile} className="mt-4 space-y-4 text-xs">
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                  Professional Title & Specialization
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                    Advisory Fee (per hour)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.hourlyRate}
-                    onChange={(e) => setFormData({ ...formData, hourlyRate: e.target.value })}
-                    className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                    Availability Status
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.availabilityStatus}
-                    onChange={(e) => setFormData({ ...formData, availabilityStatus: e.target.value })}
-                    className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                  Executive Bio
-                </label>
-                <textarea
-                  rows={4}
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2.5 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                  Advisory Philosophy
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.advisoryPhilosophy}
-                  onChange={(e) => setFormData({ ...formData, advisoryPhilosophy: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2.5 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 border-t border-[#F2EFE9] pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="rounded-lg border border-[#E5E1D8] px-4 py-2 text-xs font-semibold text-[#5A6E85] hover:bg-[#FAF8F4]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[#0F1B2D] px-5 py-2 text-xs font-bold text-white hover:bg-[#1C2B42]"
-                >
-                  Save Profile Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+          </>
       )}
-    </MentorPageShell>
+</MentorPageShell>
   );
 }

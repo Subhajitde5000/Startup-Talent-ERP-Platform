@@ -7,6 +7,7 @@ from typing import Annotated
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_token
 from app.models.auth import EmailVerificationToken
@@ -47,13 +48,21 @@ async def _register(client: AsyncClient, email: str = "founder@example.com", rol
 
 async def _register_and_verify(
     client: AsyncClient, email: str = "founder@example.com", role: str = "startup"
-):
+) -> tuple:
+    """Register, extract OTP, and verify email.
+
+    Returns (register_response, verify_body) where verify_body contains
+    access_token / refresh_token from the auto-login that happens on verify.
+    """
     resp = await _register(client, email=email, role=role)
     assert resp.status_code == 201, resp.text
     code = _extract_code()
     verify = await client.post("/api/v1/auth/verify-email", json={"email": email, "code": code})
     assert verify.status_code == 200, verify.text
-    return resp
+    body = verify.json()
+    assert "access_token" in body, f"verify-email must return tokens for auto-login; got: {body}"
+    assert "refresh_token" in body, f"verify-email must return refresh_token; got: {body}"
+    return resp, body
 
 
 async def _login(client: AsyncClient, email: str = "founder@example.com", password: str = PASSWORD):
@@ -76,7 +85,9 @@ async def test_register_happy_path(client: AsyncClient) -> None:
     resp = await _register(client)
     assert resp.status_code == 201
     body = resp.json()
-    assert body["user_id"] is not None
+    # Same body for new and existing emails: message only, no user_id.
+    assert set(body.keys()) == {"message"}
+    assert body["message"]
     assert len(email_service.SENT_EMAILS) == 1
 
 
@@ -126,10 +137,13 @@ async def test_register_rejects_common_password(client: AsyncClient) -> None:
 async def test_register_does_not_leak_existing_email(client: AsyncClient) -> None:
     first = await _register(client)
     assert first.status_code == 201
+    emails_after_first = len(email_service.SENT_EMAILS)
     second = await _register(client)
-    # Same generic shape/status whether the email is new or existing.
+    # Byte-identical body whether the email is new or existing — no user_id.
     assert second.status_code == 201
-    assert second.json()["message"] == first.json()["message"]
+    assert second.json() == first.json()
+    # The existing-email path sends no extra email (side channel).
+    assert len(email_service.SENT_EMAILS) == emails_after_first
 
 
 # --- Email verification ---
@@ -143,6 +157,13 @@ async def test_verify_email_happy_path(client: AsyncClient) -> None:
         "/api/v1/auth/verify-email", json={"email": "founder@example.com", "code": code}
     )
     assert resp.status_code == 200
+    body = resp.json()
+    # verify-email auto-logs the user in and returns session tokens.
+    assert "access_token" in body, f"expected access_token in body; got {body}"
+    assert "refresh_token" in body, f"expected refresh_token in body; got {body}"
+    assert body.get("token_type") == "bearer"
+    assert isinstance(body.get("expires_in"), int)
+    assert body.get("message")
 
 
 @pytest.mark.asyncio
@@ -544,3 +565,33 @@ async def test_openapi_lists_auth_endpoints(client: AsyncClient) -> None:
         "/api/v1/users/me",
     ):
         assert path in paths, f"missing {path}"
+
+
+@pytest.mark.asyncio
+async def test_register_succeeds_even_when_email_service_times_out(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch, db_session: AsyncSession
+) -> None:
+    """Production resilience: if mail provider fails or times out, account creation persists."""
+    async def mock_fail_email(*args: object, **kwargs: object) -> None:
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(email_service, "send_email", mock_fail_email)
+
+    resp = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "timeout_test@example.com",
+            "password": PASSWORD,
+            "display_name": "Timeout User",
+            "role": "startup",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+
+    # Account was safely created despite the mail timeout
+    result = await db_session.execute(
+        select(User).where(User.primary_email == "timeout_test@example.com")
+    )
+    user = result.scalar_one_or_none()
+    assert user is not None
+    assert user.display_name == "Timeout User"

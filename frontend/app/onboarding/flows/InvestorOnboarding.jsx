@@ -3,6 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import StepProgress from '../components/StepProgress';
 import CelebrationModal from '../components/CelebrationModal';
+import { useAuth } from '@/lib/auth-context';
+import {
+  initialStepFor,
+  saveOnboardingCompleted,
+  saveOnboardingStep,
+} from '@/lib/onboarding-progress';
 import {
   Briefcase,
   DollarSign,
@@ -45,7 +51,8 @@ const VALUE_ADDS = [
 ];
 
 export default function InvestorOnboarding() {
-  const [step, setStep] = useState(1);
+  const { user } = useAuth();
+  const [step, setStep] = useState(() => initialStepFor(user, STEPS));
   const [showCelebration, setShowCelebration] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -101,8 +108,10 @@ export default function InvestorOnboarding() {
     e.preventDefault();
     if (step < STEPS.length) {
       setStep((prev) => prev + 1);
+      saveOnboardingStep(STEPS[step].id);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
+      saveOnboardingCompleted();
       setShowCelebration(true);
     }
   };
@@ -110,6 +119,7 @@ export default function InvestorOnboarding() {
   const handleBack = () => {
     if (step > 1) {
       setStep((prev) => prev - 1);
+      saveOnboardingStep(STEPS[step - 2].id);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
