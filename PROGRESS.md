@@ -46,12 +46,13 @@ _Backend phase (A) complete: 32 tests pass, ruff + mypy clean, migrations up/dow
 - Still demo/deferred: `/onboarding` stays on demo data until Step 3 (no profile API yet); SSO buttons remain inert (no backend SSO); `app/admin/login` untouched (Step 15a)
 
 ## Step 3: Profiles, organizations, onboarding
-- [ ] User profile and settings
-- [ ] Organizations and members, invites
-- [ ] Job seeker profile and skills
-- [ ] Mentor profile
-- [ ] Onboarding flow per role
-- [ ] Public vs private views
+- [x] User profile and settings (backend 3a+gaps: PATCH /users/me incl. headline/bio/education/prior_role/din_number/founder_vision + profile_public/allow_outreach, readiness, delete request, skills GET — frontend Group A wired: founder user-profile view+edit, jobseeker readiness, mentor/investor settings, new startup+employer settings, jobseeker settings, onboarding progress persistence, dev seed script)
+- [x] Organizations and members, invites (backend 3b: POST/PATCH/GET /organizations + /mine, members CRUD with roles owner/admin/member/viewer, invites create/list/revoke + POST /invites/{token}/accept, transfer-ownership, last-owner protection, outsider 403 — frontend: startup/employer/investor profile view+edit hydrate org via /organizations/mine, team directory live (members, invites, role change, remove, public toggle), new /invites/[token] accept page — verified live: create→accept→members list)
+- [x] Job seeker profile and skills (3c: GET/PATCH /talent-profile/me incl. headline, summary, experience, location, preferred_mode, salary_expectation, is_searchable, hide_current_employer, skills replace-set — jobseeker profile view+edit and settings talent fields wired; skills search read-only from 3a)
+- [x] Mentor profile (3c: GET/PATCH /mentor-profile/me incl. expertise/sectors/languages JSON, hourly_fee, cadence, accepting_requests — mentor profile view+edit wired)
+- [x] Onboarding flow per role (all 5 flows PATCH users/me onboarding_step on step change and 'completed' on finish — verified live GET round-trip; org/talent/mentor finish data persists through the profile APIs above)
+- [x] Public vs private views (separate Read schemas: public org GET /public/organizations/{slug}, public talent requires is_searchable AND users.profile_public else 404, public mentor respects profile_public — verified live)
+- [x] Notification preferences stub (GET/PATCH /users/me/notification-preferences, PK user+category+channel — wired in investor/mentor notification tables + jobseeker email-alerts toggle)
 
 ## Step 4: Files
 - [ ] R2 integration and signed upload URLs

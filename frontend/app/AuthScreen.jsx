@@ -1,10 +1,10 @@
-﻿'use client';
+'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LockKeyhole, ArrowRight, Eye, EyeOff, CheckCircle2, Mail, Building2, Users, Briefcase, Lightbulb } from 'lucide-react';
 import { api, ApiError } from '@/lib/api/client';
-import { ROLE_HOME, primaryRole, useAuth } from '@/lib/auth-context';
+import { landingPath, useAuth } from '@/lib/auth-context';
 import {
   clearPendingEmail,
   clearSignupDraft,
@@ -43,7 +43,7 @@ const titles = {
 
 export default function AuthScreen({ page }) {
   const router = useRouter();
-  const { user, loading: authLoading, login } = useAuth();
+  const { user, loading: authLoading, login, verifyEmail } = useAuth();
 
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -72,7 +72,7 @@ export default function AuthScreen({ page }) {
   // Already signed in → don't show the login form again.
   useEffect(() => {
     if (page !== 'login' || authLoading || !user) return;
-    router.replace(ROLE_HOME[primaryRole(user)] || (primaryRole(user) === 'admin' ? '/admin' : '/login'));
+    router.replace(landingPath(user));
   }, [page, authLoading, user, router]);
 
   // Deep links into the multi-step signup need the earlier steps first.
@@ -99,8 +99,7 @@ export default function AuthScreen({ page }) {
         }
         setBusy(true);
         const me = await login(email, password);
-        const home = ROLE_HOME[primaryRole(me)] || (primaryRole(me) === 'admin' ? '/admin' : '/login');
-        router.replace(home);
+        router.replace(landingPath(me));
         return;
       }
 
@@ -154,10 +153,10 @@ export default function AuthScreen({ page }) {
           return;
         }
         setBusy(true);
-        await api.auth.verifyEmail({ email: pending, code });
+        const me = await verifyEmail(pending, code);
         clearPendingEmail();
         clearSignupDraft();
-        router.push('/login');
+        router.replace(landingPath(me));
         return;
       }
 

@@ -3,14 +3,14 @@
 import asyncio
 from logging.config import fileConfig
 
-from sqlalchemy import pool
+from sqlalchemy import event, pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 from app.core.config import get_settings
 from app.db.base import Base
-from app.models import auth, user  # noqa: F401  (register models for autogenerate)
+from app.models import auth, profile, user  # noqa: F401  (register models for autogenerate)
 
 config = context.config
 
@@ -43,6 +43,19 @@ async def run_async_migrations() -> None:
     connectable = async_engine_from_config(
         configuration, prefix="sqlalchemy.", poolclass=pool.NullPool
     )
+    # SQLite: 0003 rewrites the `users` table (unnamed legacy UNIQUE
+    # constraints cannot be dropped by name). Dropping a referenced table
+    # with foreign_keys=ON would cascade-delete child rows, and PRAGMA is a
+    # no-op inside a transaction — so disable FK checks at connect time,
+    # for this migration connection only (alembic's recommended recipe).
+    if connectable.url.get_backend_name() == "sqlite":
+
+        @event.listens_for(connectable.sync_engine, "connect")
+        def _disable_sqlite_fk(dbapi_connection, _connection_record) -> None:  # type: ignore[no-untyped-def]
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=OFF")
+            cursor.close()
+
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()

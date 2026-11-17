@@ -7,6 +7,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from fastapi import BackgroundTasks
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -84,7 +85,13 @@ def _placeholder_display_name(email: str) -> str:
 
 
 async def _get_user_by_email(db: AsyncSession, email: str) -> User | None:
-    result = await db.execute(select(User).where(User.primary_email == _normalise_email(email)))
+    """Look up an account by email. Soft-deleted accounts never match."""
+    result = await db.execute(
+        select(User).where(
+            User.primary_email == _normalise_email(email),
+            User.deleted_at.is_(None),
+        )
+    )
     return result.scalar_one_or_none()
 
 
@@ -148,7 +155,13 @@ def _token_response(access_token: str, raw_refresh: str) -> TokenResponse:
     )
 
 
-async def _send_verification_code(db: AsyncSession, user: User, email: str) -> None:
+async def _send_verification_code(
+    db: AsyncSession,
+    user: User,
+    email: str,
+    *,
+    background_tasks: BackgroundTasks | None = None,
+) -> None:
     settings = get_settings()
     code = generate_verification_code()
     db.add(
@@ -160,17 +173,24 @@ async def _send_verification_code(db: AsyncSession, user: User, email: str) -> N
         )
     )
     await db.flush()
-    await email_service.send_email(
-        email,
-        "Your Forma verification code",
+    subject = "Your Forma verification code"
+    body = (
         f"Your verification code is {code}. "
         f"It expires in {settings.VERIFICATION_CODE_EXPIRE_MINUTES} minutes. "
-        "If you did not request this, ignore this email.",
+        "If you did not request this, ignore this email."
     )
+    if background_tasks is not None:
+        background_tasks.add_task(email_service.safe_send_email, email, subject, body)
+    else:
+        await email_service.safe_send_email(email, subject, body)
 
 
 async def register(
-    db: AsyncSession, payload: RegisterRequest, *, ip: str | None
+    db: AsyncSession,
+    payload: RegisterRequest,
+    *,
+    ip: str | None,
+    background_tasks: BackgroundTasks | None = None,
 ) -> RegisterResponse:
     settings = get_settings()
     if not await rate_limiter.check(
@@ -181,10 +201,8 @@ async def register(
     email = _normalise_email(payload.email)
     existing = await _get_user_by_email(db, email)
     # No leaking whether an email exists: identical generic response.
-    if existing is not None and existing.deleted_at is None:
-        return RegisterResponse(
-            message="If an account exists for this email, a verification code is on its way."
-        )
+    if existing is not None:
+        return RegisterResponse()
 
     user = User(
         primary_email=email,
@@ -199,12 +217,9 @@ async def register(
     await db.flush()
     db.add(UserRoleRow(user_id=user.id, role=payload.role, is_primary=True))
     await db.flush()
-    await _send_verification_code(db, user, email)
+    await _send_verification_code(db, user, email, background_tasks=background_tasks)
     await db.commit()
-    return RegisterResponse(
-        message="If an account exists for this email, a verification code is on its way.",
-        user_id=user.id,
-    )
+    return RegisterResponse()
 
 
 async def login(
@@ -214,6 +229,7 @@ async def login(
     ip: str | None,
     user_agent: str | None,
 ) -> TokenResponse:
+    """Verify email and start an authenticated session for onboarding."""
     settings = get_settings()
     email = _normalise_email(payload.email)
     if not await rate_limiter.check(
@@ -246,11 +262,7 @@ async def login(
         raise rate_limited("Too many login attempts. Please try again later.")
 
     user = await _get_user_by_email(db, email)
-    if (
-        user is None
-        or user.deleted_at is not None
-        or not verify_password(payload.password, user.password_hash)
-    ):
+    if user is None or not verify_password(payload.password, user.password_hash):
         await _record_attempt(
             db,
             email=email,
@@ -383,8 +395,12 @@ async def logout_all(db: AsyncSession, *, user_id: UUID) -> None:
 
 
 async def verify_email(
-    db: AsyncSession, payload: VerifyEmailRequest, *, ip: str | None = None
-) -> None:
+    db: AsyncSession,
+    payload: VerifyEmailRequest,
+    *,
+    ip: str | None = None,
+    user_agent: str | None = None,
+) -> TokenResponse:
     settings = get_settings()
     email = _normalise_email(payload.email)
     # Rate limit: a 6-digit code must not be brute-forceable.
@@ -400,7 +416,7 @@ async def verify_email(
         raise rate_limited("Too many attempts. Please try again later.")
 
     user = await _get_user_by_email(db, email)
-    if user is None or user.deleted_at is not None:
+    if user is None:
         raise invalid_token("Invalid verification code.")
     token_hash = hash_token(payload.code)
     result = await db.execute(
@@ -420,11 +436,20 @@ async def verify_email(
         user.status = AccountStatus.active
     if user.verification == ReviewState.unverified:
         user.verification = ReviewState.pending
+    # Auto-login: create a session so the frontend gets tokens immediately
+    # and can skip the separate login step, going straight to onboarding.
+    _, raw_refresh = await _create_session(db, user=user, user_agent=user_agent, ip=ip)
     await db.commit()
+    access = create_access_token(user.id)
+    return _token_response(access, raw_refresh)
 
 
 async def resend_verification(
-    db: AsyncSession, payload: ResendVerificationRequest, *, ip: str | None
+    db: AsyncSession,
+    payload: ResendVerificationRequest,
+    *,
+    ip: str | None,
+    background_tasks: BackgroundTasks | None = None,
 ) -> None:
     settings = get_settings()
     email = _normalise_email(payload.email)
@@ -433,7 +458,7 @@ async def resend_verification(
     ):
         raise rate_limited("Too many requests. Please try again later.")
     user = await _get_user_by_email(db, email)
-    if user is None or user.deleted_at is not None or user.email_verified_at is not None:
+    if user is None or user.email_verified_at is not None:
         # Generic success: do not reveal account state.
         return
     # Cooldown: no new code if one was issued in the last N seconds.
@@ -448,12 +473,16 @@ async def resend_verification(
         age = (_now() - _aware(last.created_at)).total_seconds()  # type: ignore[operator]
         if age < settings.RESEND_COOLDOWN_SECONDS:
             raise rate_limited("Please wait before requesting another code.")
-    await _send_verification_code(db, user, email)
+    await _send_verification_code(db, user, email, background_tasks=background_tasks)
     await db.commit()
 
 
 async def forgot_password(
-    db: AsyncSession, payload: ForgotPasswordRequest, *, ip: str | None
+    db: AsyncSession,
+    payload: ForgotPasswordRequest,
+    *,
+    ip: str | None,
+    background_tasks: BackgroundTasks | None = None,
 ) -> None:
     settings = get_settings()
     email = _normalise_email(payload.email)
@@ -462,7 +491,7 @@ async def forgot_password(
     ):
         raise rate_limited("Too many requests. Please try again later.")
     user = await _get_user_by_email(db, email)
-    if user is None or user.deleted_at is not None:
+    if user is None:
         return  # Generic: do not reveal whether the email exists.
     raw_token = generate_opaque_token()
     db.add(
@@ -475,13 +504,16 @@ async def forgot_password(
     )
     await db.flush()
     reset_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/reset-password?token={raw_token}"
-    await email_service.send_email(
-        email,
-        "Reset your Forma password",
+    subject = "Reset your Forma password"
+    body = (
         f"Use this link to reset your password (expires in "
         f"{settings.PASSWORD_RESET_EXPIRE_MINUTES} minutes): {reset_url}\n"
-        "If you did not request this, ignore this email.",
+        "If you did not request this, ignore this email."
     )
+    if background_tasks is not None:
+        background_tasks.add_task(email_service.safe_send_email, email, subject, body)
+    else:
+        await email_service.safe_send_email(email, subject, body)
     await db.commit()
 
 
@@ -524,14 +556,20 @@ async def change_password(db: AsyncSession, *, user: User, payload: ChangePasswo
     await db.commit()
 
 
-async def change_email(db: AsyncSession, *, user: User, payload: ChangeEmailRequest) -> None:
+async def change_email(
+    db: AsyncSession,
+    *,
+    user: User,
+    payload: ChangeEmailRequest,
+    background_tasks: BackgroundTasks | None = None,
+) -> None:
     if not verify_password(payload.current_password, user.password_hash):
         raise invalid_credentials()
     new_email = _normalise_email(payload.new_email)
     if new_email == _normalise_email(user.primary_email):
         raise validation_error("New email must be different from the current email.")
     existing = await _get_user_by_email(db, new_email)
-    if existing is not None and existing.id != user.id and existing.deleted_at is None:
+    if existing is not None and existing.id != user.id:
         raise conflict("An account with this email already exists.")
     # Issue a verification token for the new email; the address changes
     # only after the code is verified (handled by verify_email flow in a
@@ -543,7 +581,7 @@ async def change_email(db: AsyncSession, *, user: User, payload: ChangeEmailRequ
     user.email_verified_at = None
     if user.status == AccountStatus.active:
         user.status = AccountStatus.pending
-    await _send_verification_code(db, user, new_email)
+    await _send_verification_code(db, user, new_email, background_tasks=background_tasks)
     await db.commit()
 
 

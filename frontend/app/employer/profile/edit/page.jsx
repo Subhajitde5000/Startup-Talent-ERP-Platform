@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -24,9 +24,15 @@ import {
   HeartHandshake,
 } from 'lucide-react';
 import { EmployerShell } from '@/components';
+import { useAuth } from '@/lib/auth-context';
+import { api, ApiError } from '@/lib/api/client';
 
 export default function EmployerProfileEditPage() {
   const router = useRouter();
+  const { user, refreshUser } = useAuth();
+  const [orgId, setOrgId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
   const [toast, setToast] = useState('');
 
@@ -54,6 +60,43 @@ export default function EmployerProfileEditPage() {
     website: 'https://northstarlabs.in',
   });
 
+  // Step 3b: hydrate editable fields from the employer org + session user.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const orgs = await api.organizations.mine();
+        const employer = orgs.find((o) => o.type === 'employer');
+        if (cancelled) return;
+        if (employer) {
+          setOrgId(employer.id);
+          setFormData((prev) => ({
+            ...prev,
+            companyName: employer.name || prev.companyName,
+            companyBio: employer.summary || prev.companyBio,
+            headquarters: employer.city || prev.headquarters,
+            website: employer.website || prev.website,
+            foundedYear: employer.founded_year ? String(employer.founded_year) : prev.foundedYear,
+            linkedin: user?.linkedin_url || prev.linkedin,
+            recruiterName: user?.display_name || prev.recruiterName,
+            recruiterTitle: user?.headline || prev.recruiterTitle,
+            email: user?.email || prev.email,
+          }));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          notify(err instanceof ApiError ? err.message : 'Could not load your organization.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -75,12 +118,46 @@ export default function EmployerProfileEditPage() {
 
   const presetColors = ['#0F1B2D', '#1E3A8A', '#065F46', '#7C2D12', '#4C1D95', '#831843'];
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    notify('Company and recruiter profile saved successfully.');
-    setTimeout(() => {
-      router.push('/employer/profile');
-    }, 1200);
+    if (saving) return;
+    setSaving(true);
+    try {
+      // recruiter identity -> user profile fields
+      await api.users.updateMe({
+        display_name: formData.recruiterName,
+        headline: formData.recruiterTitle || null,
+        linkedin_url: formData.linkedin || null,
+      });
+      await refreshUser();
+      // company -> organization
+      const payload = {
+        name: formData.companyName,
+        summary: formData.companyBio || null,
+        website: formData.website || null,
+        city: formData.headquarters || null,
+      };
+      if (/^\d{4}$/.test(String(formData.foundedYear))) {
+        payload.founded_year = Number(formData.foundedYear);
+      }
+      if (orgId) {
+        await api.organizations.update(orgId, payload);
+      } else {
+        const created = await api.organizations.create({
+          name: formData.companyName,
+          type: 'employer',
+        });
+        setOrgId(created.id);
+        await api.organizations.update(created.id, payload);
+      }
+      notify('Company and recruiter profile saved successfully.');
+      setTimeout(() => {
+        router.push('/employer/profile');
+      }, 900);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not save the profile.');
+      setSaving(false);
+    }
   };
 
   return (

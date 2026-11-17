@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   User,
@@ -14,26 +14,66 @@ import {
   Check,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
-import {
-  JobBtn,
-  defaultUser,
-} from '@/components/jobseeker-ui';
+import { JobBtn } from '@/components/jobseeker-ui';
+import { useAuth } from '@/lib/auth-context';
+import { api, ApiError } from '@/lib/api/client';
 
 export default function SettingsPage() {
+  const { user, refreshUser } = useAuth();
   const [activeSection, setActiveSection] = useState('Profile');
-  const [formData, setFormData] = useState({
-    fullName: defaultUser.name,
-    headline: defaultUser.headline,
-    email: 'aanya.sen@example.com',
-    phone: '+91 98765 43210',
-    portfolioUrl: 'https://aanya.design',
-    minCtc: '₹24,00,000 / yr',
-    workMode: 'Remote & Hybrid',
-    publicVisibility: true,
-    hideCurrentEmployer: true,
-    emailAlerts: true,
-  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [formData, setFormData] = useState(() => ({
+    fullName: user?.display_name || '',
+    headline: '', // talent headline (Step 3c)
+    email: user?.email || '',
+    phone: user?.phone || '',
+    portfolioUrl: '', // portfolio -> users.website_url (Step 3c)
+    minCtc: '', // salary expectation (Step 3c)
+    workMode: 'Remote & Hybrid', // -> talent.preferred_mode (Step 3c)
+    publicVisibility: true, // -> talent.is_searchable (Step 3c)
+    hideCurrentEmployer: true, // -> talent.hide_current_employer (Step 3c)
+    emailAlerts: true, // -> notification preferences (Step 12)
+  }));
   const [savedToast, setSavedToast] = useState(false);
+
+  // Step 3c: hydrate talent fields from the API.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const talent = await api.talentProfile.me();
+        if (cancelled || !talent) return;
+        const modeLabel = { remote: 'Strictly Remote', hybrid: 'Remote & Hybrid', onsite: 'On-site / Office' };
+        setFormData((prev) => ({
+          ...prev,
+          headline: talent.headline || prev.headline,
+          portfolioUrl: user?.website_url || prev.portfolioUrl,
+          minCtc:
+            talent.salary_expectation != null
+              ? `₹${Number(talent.salary_expectation).toLocaleString('en-IN')} / yr`
+              : prev.minCtc,
+          workMode: talent.preferred_mode ? modeLabel[talent.preferred_mode] : prev.workMode,
+          publicVisibility: talent.is_searchable,
+          hideCurrentEmployer: talent.hide_current_employer
+        }));
+      } catch {
+        // talent profile simply may not exist yet
+      }
+      try {
+        const prefs = await api.notificationPreferences.get();
+        if (cancelled) return;
+        const row = prefs.items.find((x) => x.category === 'email_alerts' && x.channel === 'email');
+        if (row) setFormData((prev) => ({...prev, emailAlerts: row.is_enabled}));
+      } catch {
+        // no saved preferences yet — default stays
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -43,10 +83,59 @@ export default function SettingsPage() {
     }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    setSavedToast(true);
-    setTimeout(() => setSavedToast(false), 2500);
+    if (saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      await api.users.updateMe({
+        display_name: formData.fullName,
+        phone: formData.phone || null,
+        website_url: formData.portfolioUrl || null,
+      });
+      await refreshUser();
+      const modeMap = {
+        'Strictly Remote': 'remote',
+        'On-site / Office': 'onsite',
+        'Remote & Hybrid': 'hybrid'
+      };
+      const salary = String(formData.minCtc || '').replace(/[^\d.]/g, '');
+      const talentPayload = {
+        headline: formData.headline || null,
+        preferred_mode: modeMap[formData.workMode] || null,
+        is_searchable: formData.publicVisibility,
+        hide_current_employer: formData.hideCurrentEmployer
+      };
+      if (salary) talentPayload.salary_expectation = Number(salary);
+      await api.talentProfile.updateMe(talentPayload);
+      await api.notificationPreferences.update([
+        {category: 'email_alerts', channel: 'email', is_enabled: formData.emailAlerts}
+      ]);
+      setSavedToast(true);
+      setTimeout(() => setSavedToast(false), 2500);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not save your settings.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitDeleteRequest = async () => {
+    try {
+      await api.users.createDeleteRequest();
+      setError('');
+      setSavedToast(true);
+      setTimeout(() => setSavedToast(false), 2500);
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.code === 'CONFLICT'
+          ? 'You already have an open data request.'
+          : err instanceof ApiError
+            ? err.message
+            : 'Could not submit the request.',
+      );
+    }
   };
 
   return (
@@ -72,6 +161,12 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700" role="alert">
+            {error}
+          </div>
+        )}
+
         {/* 2-Column Settings Layout */}
         <div className="grid gap-6 lg:grid-cols-12">
           {/* Navigation Sidebar */}
@@ -81,6 +176,7 @@ export default function SettingsPage() {
               { id: 'Preferences', label: 'Job Preferences', icon: Sliders },
               { id: 'Privacy', label: 'Privacy & Visibility', icon: Eye },
               { id: 'Notifications', label: 'Notifications', icon: Bell },
+              { id: 'Danger', label: 'Delete account', icon: Lock },
             ].map((item) => {
               const Comp = item.icon;
               const isSelected = activeSection === item.id;
@@ -150,8 +246,8 @@ export default function SettingsPage() {
                           name="email"
                           type="email"
                           value={formData.email}
-                          onChange={handleInputChange}
-                          className="w-full h-10 px-3 rounded-lg border border-[#E5E1D8] text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+                          disabled
+                          className="w-full h-10 px-3 rounded-lg border border-[#E5E1D8] bg-[#FAF8F4] text-xs text-[#7B8CA3] focus:outline-none"
                         />
                       </div>
 
@@ -192,6 +288,9 @@ export default function SettingsPage() {
                   <h2 className="text-base font-serif font-bold text-[#0F1B2D]">
                     Target Compensation & Work Style
                   </h2>
+                  <p className="text-xs text-[#6B7280]">
+                    Salary and work mode save to your talent profile.
+                  </p>
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
@@ -233,6 +332,9 @@ export default function SettingsPage() {
                   <h2 className="text-base font-serif font-bold text-[#0F1B2D]">
                     Founder Visibility Controls
                   </h2>
+                  <p className="text-xs text-[#6B7280]">
+                    Visibility flags save to your talent profile.
+                  </p>
 
                   <div className="space-y-4 text-xs">
                     <div className="flex items-center justify-between pb-3 border-b border-[#F0EBE0]">
@@ -298,11 +400,32 @@ export default function SettingsPage() {
                 </section>
               )}
 
-              <div className="pt-2 flex justify-end">
-                <JobBtn type="submit" primary className="px-6 min-h-[42px]">
-                  Save Settings
-                </JobBtn>
-              </div>
+              {activeSection === 'Danger' && (
+                <section className="rounded-2xl border border-red-200 bg-white p-6 shadow-sm space-y-4">
+                  <h2 className="text-base font-serif font-bold text-[#B42318]">
+                    Delete account
+                  </h2>
+                  <p className="text-xs text-[#6B7280]">
+                    Opens a data erasure request for your account. You can track its status from
+                    this page; a team member completes verification before anything is removed.
+                  </p>
+                  <JobBtn
+                    type="button"
+                    onClick={submitDeleteRequest}
+                    className="px-5 min-h-[42px] !bg-[#B42318] hover:!bg-red-800"
+                  >
+                    Request account deletion
+                  </JobBtn>
+                </section>
+              )}
+
+              {activeSection !== 'Danger' && (
+                <div className="pt-2 flex justify-end">
+                  <JobBtn type="submit" primary className="px-6 min-h-[42px]" disabled={saving}>
+                    {saving ? 'Saving…' : 'Save Settings'}
+                  </JobBtn>
+                </div>
+              )}
             </form>
           </main>
         </div>

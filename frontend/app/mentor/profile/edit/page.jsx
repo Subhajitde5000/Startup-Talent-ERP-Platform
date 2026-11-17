@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -27,9 +27,13 @@ import {
   Plus,
 } from 'lucide-react';
 import MentorPageShell from '../../mentor-page-shell';
+import { useAuth } from '@/lib/auth-context';
+import { api, ApiError } from '@/lib/api/client';
 
 export default function MentorProfileEditPage() {
   const router = useRouter();
+  const { user, refreshUser } = useAuth();
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
   const [toast, setToast] = useState('');
 
@@ -69,6 +73,45 @@ export default function MentorProfileEditPage() {
     website: 'https://sneharoy.tech',
   });
 
+  // Step 3c: hydrate from mentor profile + session user.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const mentor = await api.mentorProfile.me();
+        if (cancelled) return;
+        setFormData((prev) => ({
+          ...prev,
+          name: user?.display_name || prev.name,
+          handle: user?.handle || prev.handle,
+          email: user?.email || prev.email,
+          linkedin: user?.linkedin_url || prev.linkedin,
+          github: user?.github_url || prev.github,
+          twitter: user?.twitter_url || prev.twitter,
+          website: user?.website_url || prev.website,
+          title: mentor?.headline || prev.title,
+          bio: mentor?.bio || prev.bio,
+          isAvailable: mentor ? mentor.accepting_requests : prev.isAvailable,
+          availabilityStatus: mentor?.cadence || prev.availabilityStatus,
+          hourlyRate:
+            mentor?.hourly_fee != null
+              ? `₹${Number(mentor.hourly_fee).toLocaleString('en-IN')}`
+              : prev.hourlyRate,
+          expertiseDomains:
+            mentor && mentor.expertise.length ? mentor.expertise : prev.expertiseDomains
+        }));
+      } catch (err) {
+        if (!cancelled) {
+          notify(err instanceof ApiError ? err.message : 'Could not load your profile.');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -107,12 +150,41 @@ export default function MentorProfileEditPage() {
     }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    notify('Mentor advisory profile updated successfully.');
-    setTimeout(() => {
-      router.push('/mentor/profile');
-    }, 1200);
+    if (saving) return;
+    setSaving(true);
+    try {
+      // identity/socials -> users
+      await api.users.updateMe({
+        display_name: formData.name,
+        handle: formData.handle || undefined,
+        linkedin_url: formData.linkedin || null,
+        github_url: formData.github || null,
+        twitter_url: formData.twitter || null,
+        website_url: formData.website || null,
+      });
+      await refreshUser();
+      // mentor profile (organization / pro-bono / advisory philosophy have
+      // no backend column yet — kept local until the schema grows, flagged).
+      const feeMatch = String(formData.hourlyRate || '').replace(/[^\d.]/g, '');
+      const mentorPayload = {
+        headline: formData.title || null,
+        bio: formData.bio || null,
+        expertise: formData.expertiseDomains,
+        cadence: formData.availabilityStatus || null,
+        accepting_requests: formData.isAvailable
+      };
+      if (feeMatch) mentorPayload.hourly_fee = Number(feeMatch);
+      await api.mentorProfile.updateMe(mentorPayload);
+      notify('Mentor advisory profile updated successfully.');
+      setTimeout(() => {
+        router.push('/mentor/profile');
+      }, 900);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not save the profile.');
+      setSaving(false);
+    }
   };
 
   return (

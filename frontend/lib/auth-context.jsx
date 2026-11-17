@@ -6,7 +6,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, clearTokens, getAccessToken, UNAUTHENTICATED_EVENT } from '@/lib/api/client';
+import { api, clearTokens, getAccessToken, setTokens, UNAUTHENTICATED_EVENT } from '@/lib/api/client';
 
 const AuthContext = createContext(null);
 
@@ -23,6 +23,17 @@ export const ROLE_HOME = {
 export function primaryRole(user) {
   if (!user) return null;
   return user.primary_role || (user.roles && user.roles[0]) || null;
+}
+
+/** A user stays in onboarding until its final step is persisted. */
+export function needsOnboarding(user) {
+  return Boolean(user) && user.onboarding_step !== 'completed';
+}
+
+export function landingPath(user) {
+  const role = primaryRole(user);
+  if (needsOnboarding(user)) return `/onboarding${role ? `?role=${role}` : ''}`;
+  return ROLE_HOME[role] || (role === 'admin' ? '/admin' : '/login');
 }
 
 export function AuthProvider({ children }) {
@@ -79,6 +90,14 @@ export function AuthProvider({ children }) {
     return me;
   }, []);
 
+  const verifyEmail = useCallback(async (email, code) => {
+    const tokens = await api.auth.verifyEmail({ email, code });
+    setTokens(tokens);
+    const me = await api.users.me();
+    setUser(me);
+    return me;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api.auth.logout();
@@ -104,6 +123,7 @@ export function AuthProvider({ children }) {
     role: primaryRole(user),
     hasRole: (role) => Boolean(user && user.roles && user.roles.includes(role)),
     login,
+    verifyEmail,
     logout,
     refreshUser,
     setUser,

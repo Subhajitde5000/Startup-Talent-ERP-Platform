@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -25,9 +25,14 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
+import { useAuth } from '@/lib/auth-context';
+import { api, ApiError } from '@/lib/api/client';
 
 export default function JobSeekerProfileEditPage() {
   const router = useRouter();
+  const { user, refreshUser } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
   const [toast, setToast] = useState('');
 
@@ -64,6 +69,45 @@ export default function JobSeekerProfileEditPage() {
     github: 'https://github.com/ananya-ui',
     portfolio: 'https://ananyadas.design',
   });
+
+  // Step 3c: hydrate from talent profile + session user.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const talent = await api.talentProfile.me();
+        if (cancelled) return;
+        setFormData((prev) => ({
+          ...prev,
+          name: user?.display_name || prev.name,
+          handle: user?.handle || prev.handle,
+          email: user?.email || prev.email,
+          linkedin: user?.linkedin_url || prev.linkedin,
+          github: user?.github_url || prev.github,
+          portfolio: user?.website_url || prev.portfolio,
+          headline: talent?.headline || prev.headline,
+          bio: talent?.summary || prev.bio,
+          location: talent?.current_location || prev.location,
+          experienceYears:
+            talent?.total_experience_yrs != null
+              ? `${talent.total_experience_yrs} Years`
+              : prev.experienceYears,
+          openToWork: talent ? talent.is_searchable : prev.openToWork,
+          skills: talent && talent.skills.length ? talent.skills.map((sk) => sk.name) : prev.skills
+        }));
+      } catch (err) {
+        if (!cancelled) {
+          notify(err instanceof ApiError ? err.message : 'Could not load your profile.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
@@ -103,12 +147,40 @@ export default function JobSeekerProfileEditPage() {
     }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    notify('Talent profile changes saved successfully.');
-    setTimeout(() => {
-      router.push('/jobseeker/profile');
-    }, 1200);
+    if (saving) return;
+    setSaving(true);
+    try {
+      // identity/socials -> users
+      await api.users.updateMe({
+        display_name: formData.name,
+        handle: formData.handle || undefined,
+        linkedin_url: formData.linkedin || null,
+        github_url: formData.github || null,
+        website_url: formData.portfolio || null,
+      });
+      await refreshUser();
+      // talent profile (notice period / desired CTC / current role have no
+      // backend column yet — kept local until the schema grows, flagged).
+      const expMatch = String(formData.experienceYears || '').match(/[\d.]+/);
+      const talentPayload = {
+        headline: formData.headline || null,
+        summary: formData.bio || null,
+        current_location: formData.location || null,
+        is_searchable: formData.openToWork,
+        skills: formData.skills
+      };
+      if (expMatch) talentPayload.total_experience_yrs = Number(expMatch[0]);
+      await api.talentProfile.updateMe(talentPayload);
+      notify('Talent profile changes saved successfully.');
+      setTimeout(() => {
+        router.push('/jobseeker/profile');
+      }, 900);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not save the profile.');
+      setSaving(false);
+    }
   };
 
   return (

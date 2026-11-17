@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Info,
@@ -8,15 +8,132 @@ import {
 } from 'lucide-react';
 import MentorPageShell from '../mentor-page-shell';
 import { Btn, Card } from '../mentor-data';
+import { useAuth } from '@/lib/auth-context';
+import { api, ApiError } from '@/lib/api/client';
 
 export default function MentorSettingsPage() {
+  const { user, refreshUser } = useAuth();
+
+  const NOTIF_CATEGORIES = [
+    'Requests and invitations',
+    'Sessions',
+    'Summary reminders',
+    'Sign-offs and deliverables',
+    'Messages',
+    'Payments and tax',
+    'Agreements',
+    'Reviews and impact',
+    'Investor events',
+    'Platform updates',
+    'Security alerts'
+  ];
+  const notifSlug = (label) => label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const defaultNotif = () =>
+    Object.fromEntries(NOTIF_CATEGORIES.map((label, i) => [label, [true, i === 10 || i < 8, false]]));
+  const [notif, setNotif] = useState(defaultNotif);
+  const [notifLoading, setNotifLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api.notificationPreferences.get();
+        if (cancelled) return;
+        if (data.items.length) {
+          setNotif((prev) => {
+            const next = {...prev};
+            for (const item of data.items) {
+              const label = NOTIF_CATEGORIES.find((l) => notifSlug(l) === item.category);
+              if (!label) continue;
+              const ch = {in_app: 0, email: 1, push: 2}[item.channel];
+              if (ch != null) next[label][ch] = item.is_enabled;
+            }
+            return next;
+          });
+        }
+      } catch {
+        // no saved rows yet — defaults apply
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveNotif = async () => {
+    if (notifLoading) return;
+    setNotifLoading(true);
+    try {
+      const items = [];
+      for (const label of NOTIF_CATEGORIES) {
+        if (label === 'Security alerts') continue;
+        const [inApp, email, push] = notif[label];
+        items.push(
+          {category: notifSlug(label), channel: 'in_app', is_enabled: inApp},
+          {category: notifSlug(label), channel: 'email', is_enabled: email},
+          {category: notifSlug(label), channel: 'push', is_enabled: push}
+        );
+      }
+      await api.notificationPreferences.update(items);
+      notify('Preferences saved.');
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not save preferences.');
+    } finally {
+      setNotifLoading(false);
+    }
+  };
   const [toast, setToast] = useState('');
   const [section, setSection] = useState('Account');
   const [modal, setModal] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [account, setAccount] = useState(() => ({
+    fullName: user?.display_name || '',
+    email: user?.email || '',
+    timezone: user?.timezone || 'Asia/Kolkata',
+    phone: user?.phone || '',
+  }));
+  const [profilePublic, setProfilePublic] = useState(() => user?.profile_public ?? true);
 
   const notify = (x) => {
     setToast(x);
     setTimeout(() => setToast(''), 2600);
+  };
+
+  const saveChanges = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (section === 'Account') {
+        await api.users.updateMe({
+          display_name: account.fullName,
+          timezone: account.timezone,
+          phone: account.phone || null,
+        });
+      } else if (section === 'Privacy and visibility') {
+        await api.users.updateMe({ profile_public: profilePublic });
+      }
+      await refreshUser();
+      notify('Changes saved.');
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not save changes.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitDeleteRequest = async () => {
+    try {
+      await api.users.createDeleteRequest();
+      notify('Deletion request submitted.');
+    } catch (err) {
+      notify(
+        err instanceof ApiError && err.code === 'CONFLICT'
+          ? 'You already have an open data request.'
+          : err instanceof ApiError
+            ? err.message
+            : 'Could not submit the request.',
+      );
+    }
+    setModal('');
   };
 
   const banner = (
@@ -111,29 +228,41 @@ export default function MentorSettingsPage() {
                   <label className="text-xs font-medium text-[#0F1B2D]">
                     Full name
                     <input
-                      defaultValue="Rhea Mukherjee"
+                      value={account.fullName}
+                      onChange={(e) => setAccount({ ...account, fullName: e.target.value })}
                       className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 focus:outline-none"
                     />
                   </label>
                   <label className="text-xs font-medium text-[#0F1B2D]">
                     Email address
                     <input
-                      defaultValue="rhea@example.com"
-                      className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 focus:outline-none"
+                      value={account.email}
+                      disabled
+                      className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-[#FAF8F4] px-3 text-[#7B8CA3] focus:outline-none"
                     />
                   </label>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="text-xs font-medium text-[#0F1B2D]">
                     Time zone
-                    <select className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 focus:outline-none">
-                      <option>Asia/Kolkata (IST · UTC+5:30)</option>
+                    <select
+                      value={account.timezone}
+                      onChange={(e) => setAccount({ ...account, timezone: e.target.value })}
+                      className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 focus:outline-none"
+                    >
+                      <option value={account.timezone || 'Asia/Kolkata'}>
+                        {account.timezone || 'Asia/Kolkata'}
+                      </option>
+                      <option value="Asia/Kolkata">Asia/Kolkata (IST · UTC+5:30)</option>
+                      <option value="Europe/Berlin">Europe/Berlin (CET · UTC+1)</option>
+                      <option value="America/New_York">America/New_York (ET · UTC−5)</option>
                     </select>
                   </label>
                   <label className="text-xs font-medium text-[#0F1B2D]">
                     Phone number
                     <input
-                      defaultValue="+91 98765 43210"
+                      value={account.phone}
+                      onChange={(e) => setAccount({ ...account, phone: e.target.value })}
                       className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 focus:outline-none"
                     />
                   </label>
@@ -153,28 +282,21 @@ export default function MentorSettingsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      'Requests and invitations',
-                      'Sessions',
-                      'Summary reminders',
-                      'Sign-offs and deliverables',
-                      'Messages',
-                      'Payments and tax',
-                      'Agreements',
-                      'Reviews and impact',
-                      'Investor events',
-                      'Platform updates',
-                      'Security alerts',
-                    ].map((x, i) => (
+                    {NOTIF_CATEGORIES.map((x, i) => (
                       <tr key={x} className="border-t border-[#E5E1D8]">
                         <td className="py-2 text-[#0F1B2D]">{x}</td>
                         {[0, 1, 2].map((c) => (
                           <td key={c} className="text-center">
                             <input
-                              aria-label="Toggle option"
+                              aria-label={`${x} ${['in-app', 'email', 'push'][c]}`}
                               type="checkbox"
-                              defaultChecked={i === 10 || c === 0 || (c === 1 && i < 8)}
+                              checked={notif[x][c]}
                               disabled={i === 10}
+                              onChange={(e) => {
+                                const next = {...notif, [x]: [...notif[x]]};
+                                next[x][c] = e.target.checked;
+                                setNotif(next);
+                              }}
                               className="accent-[#0F1B2D]"
                             />
                           </td>
@@ -193,7 +315,9 @@ export default function MentorSettingsPage() {
                   · Quiet hours 9 PM–8 AM
                 </label>
                 <div className="mt-4">
-                  <Btn onClick={() => notify('Preferences saved.')}>Save preferences</Btn>
+                  <Btn onClick={saveNotif} disabled={notifLoading}>
+                    {notifLoading ? 'Saving…' : 'Save preferences'}
+                  </Btn>
                 </div>
               </div>
             )}
@@ -202,9 +326,10 @@ export default function MentorSettingsPage() {
               <div className="mt-3 space-y-2 text-xs text-[#0F1B2D]">
                 <label className="flex items-center gap-2">
                   <input
-                    aria-label="Toggle option"
+                    aria-label="Profile visible to opted-in startups"
                     type="checkbox"
-                    defaultChecked
+                    checked={profilePublic}
+                    onChange={(e) => setProfilePublic(e.target.checked)}
                     className="accent-[#0F1B2D]"
                   />{' '}
                   Profile visible to opted-in startups
@@ -287,13 +412,14 @@ export default function MentorSettingsPage() {
               </div>
             )}
 
-            {section !== 'Notifications' && (
+            {(section === 'Account' || section === 'Privacy and visibility') && (
               <button
                 type="button"
-                onClick={() => notify('Changes saved.')}
-                className="mt-5 rounded-lg bg-[#0F1B2D] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1C2B42]"
+                onClick={saveChanges}
+                disabled={saving}
+                className="mt-5 rounded-lg bg-[#0F1B2D] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1C2B42] disabled:opacity-60"
               >
-                Save changes
+                {saving ? 'Saving…' : 'Save changes'}
               </button>
             )}
           </Card>
@@ -359,8 +485,12 @@ export default function MentorSettingsPage() {
               <button
                 type="button"
                 onClick={() => {
-                  notify(modal === 'delete-account' ? 'Deletion request submitted.' : 'Confirmed.');
-                  setModal('');
+                  if (modal === 'delete-account') {
+                    submitDeleteRequest();
+                  } else {
+                    notify('Confirmed.');
+                    setModal('');
+                  }
                 }}
                 className={`min-h-10 rounded-lg px-4 text-sm font-semibold text-white ${
                   modal === 'delete-account' ? 'bg-[#B42318] hover:bg-red-800' : 'bg-[#0F1B2D] hover:bg-[#1C2B42]'

@@ -1,7 +1,6 @@
 'use client';
 
-import React, { Suspense, useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { Suspense } from 'react';
 import { useAuth, primaryRole } from '@/lib/auth-context';
 import OnboardingShell from './components/OnboardingShell';
 import StartupOnboarding from './flows/StartupOnboarding';
@@ -13,32 +12,14 @@ import EmployerOnboarding from './flows/EmployerOnboarding';
 const VALID_ROLES = ['startup', 'mentor', 'investor', 'jobseeker', 'employer'];
 
 function OnboardingContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { user } = useAuth();
-
-  const queryRole = searchParams.get('role');
   const userRole = primaryRole(user);
-
-  // Initial role detection: query param > user's active role > default 'startup'
-  const initialRole =
-    VALID_ROLES.includes(queryRole) ? queryRole : userRole && VALID_ROLES.includes(userRole) ? userRole : 'startup';
-
-  const [activeRole, setActiveRole] = useState(initialRole);
-
-  useEffect(() => {
-    if (queryRole && VALID_ROLES.includes(queryRole) && queryRole !== activeRole) {
-      setActiveRole(queryRole);
-    }
-  }, [queryRole, activeRole]);
-
-  const handleSelectRole = (newRole) => {
-    setActiveRole(newRole);
-    router.replace(`/onboarding?role=${newRole}`, { scroll: false });
-  };
+  // Registration sets the primary role. Onboarding must not let a new user
+  // select a different role than the one their account was created with.
+  const activeRole = VALID_ROLES.includes(userRole) ? userRole : 'startup';
 
   return (
-    <OnboardingShell activeRole={activeRole} onSelectRole={handleSelectRole}>
+    <OnboardingShell>
       {activeRole === 'startup' && <StartupOnboarding />}
       {activeRole === 'mentor' && <MentorOnboarding />}
       {activeRole === 'investor' && <InvestorOnboarding />}

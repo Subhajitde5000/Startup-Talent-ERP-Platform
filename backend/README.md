@@ -1,7 +1,8 @@
 # Forma backend
 
-FastAPI + SQLAlchemy 2.0 (async) + Alembic. Step 2 (Authentication) is implemented;
-see `../BUILD_PLAN.md` and `../PROGRESS.md`.
+FastAPI + SQLAlchemy 2.0 (async) + Alembic. Steps 1–3 are implemented
+(auth, profiles, organizations/invites, talent & mentor profiles — 91 tests);
+see `../BUILD_PLAN.md` and `../PROGRESS.md`. Full setup guide: `../README.md`.
 
 ## Layout
 
@@ -47,7 +48,7 @@ dev/tests, **not** for multi-instance production. Without SMTP/Resend credential
 ## Tests, lint, types
 
 ```bash
-pytest                 # 32 auth tests, SQLite in-memory, no external services
+pytest                 # 91 tests, SQLite in-memory, no external services
 ruff check app alembic
 ruff format --check app alembic
 mypy app

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   User,
@@ -28,11 +28,15 @@ import {
   Lock,
 } from 'lucide-react';
 import { InvestorShell } from '@/components';
+import { useAuth } from '@/lib/auth-context';
+import { api, ApiError } from '@/lib/api/client';
 
 export default function InvestorProfilePage() {
   const [toast, setToast] = useState('');
   const [activeTab, setActiveTab] = useState('thesis'); // 'thesis' | 'portfolio' | 'criteria' | 'legal'
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const { user } = useAuth();
+  const [orgId, setOrgId] = useState(null);
+  const [orgStatus, setOrgStatus] = useState('loading'); // loading | ready | none | error
 
   const notify = (msg) => {
     setToast(msg);
@@ -122,17 +126,74 @@ export default function InvestorProfilePage() {
     },
   });
 
-  const [formData, setFormData] = useState({ ...profile });
-
-  const handleSaveProfile = (e) => {
-    e.preventDefault();
-    setProfile({ ...formData });
-    setIsEditModalOpen(false);
-    notify('Investor profile updated successfully.');
+  // Step 3b: hydrate from the investor_firm ORGANIZATION + session user.
+  // Ticket size / stage / sectors / SEBI stay demo until Step 9 (documented
+  // investor-preferences GAP in BUILD_PLAN).
+  const hydrate = (org, me) => {
+    setProfile((prev) => ({
+      ...prev,
+      firm: org?.name || prev.firm,
+      thesis: org?.summary || prev.thesis,
+      location: org?.city || prev.location,
+      email: me?.email || prev.email,
+      name: me?.display_name || prev.name,
+      handle: me?.handle || prev.handle,
+      avatar: me?.avatar_initials || prev.avatar,
+      memberSince: me?.created_at
+        ? new Date(me.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+        : prev.memberSince,
+    }));
   };
+
+  const loadOrg = async () => {
+    setOrgStatus('loading');
+    try {
+      const orgs = await api.organizations.mine();
+      const firm = orgs.find((o) => o.type === 'investor_firm');
+      if (firm) {
+        setOrgId(firm.id);
+        hydrate(firm, user);
+        setOrgStatus('ready');
+      } else {
+        setOrgStatus('none');
+      }
+    } catch (err) {
+      setOrgStatus('error');
+      notify(err instanceof ApiError ? err.message : 'Could not load your organization.');
+    }
+  };
+
+  useEffect(() => {
+    if (orgStatus === 'loading') loadOrg();
+    else if (orgId) hydrate(null, user);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   return (
     <InvestorShell active="Profile" notify={notify} toast={toast}>
+      {orgStatus === 'loading' && (
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-[#E5E1D8] bg-white p-6 text-sm text-[#4A5568]">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
+          Loading your organization…
+        </div>
+      )}
+      {orgStatus === 'error' && (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+          Could not load your organization.{' '}
+          <button type="button" onClick={loadOrg} className="font-semibold underline">Retry</button>
+        </div>
+      )}
+      {orgStatus === 'none' && (
+        <div className="mb-6 max-w-xl rounded-xl border border-[#E5E1D8] bg-white p-6">
+          <h2 className="serif text-xl font-bold">Create your investor organization</h2>
+          <p className="mt-1 text-sm text-[#4A5568]">
+            Your firm profile and deal flow live under one organization.
+          </p>
+          <CreateOrgInline onDone={() => loadOrg()} notify={notify} type_="investor_firm" />
+        </div>
+      )}
+      {orgStatus === 'ready' && (
+      <>
       <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6">
         {/* Top Header */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E1D8] pb-4">
@@ -316,7 +377,7 @@ export default function InvestorProfilePage() {
               <div className="rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-sm space-y-3 text-xs">
                 <h4 className="font-serif font-bold text-[#0F1B2D]">Contact & Deal Submissions</h4>
                 <p className="text-[#5A6E85]">
-                  Founders should submit complete pitch materials through the platform's encrypted Deals pipeline.
+                  Founders should submit complete pitch materials through the platform&apos;s encrypted Deals pipeline.
                 </p>
                 <div className="pt-2 space-y-2">
                   <a
@@ -424,101 +485,45 @@ export default function InvestorProfilePage() {
       </div>
 
       {/* EDIT MODAL */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1B2D]/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#E5E1D8] bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#F2EFE9] pb-3">
-              <h3 className="font-serif text-lg font-bold text-[#0F1B2D]">
-                Edit Investor Profile & Thesis
-              </h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="text-[#7B8CA3] hover:text-[#0F1B2D]">
-                <X size={18} />
-              </button>
-            </div>
 
-            <form onSubmit={handleSaveProfile} className="mt-4 space-y-4 text-xs">
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                  Investor Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                  Syndicate Firm / Fund Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.firm}
-                  onChange={(e) => setFormData({ ...formData, firm: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                    Check Size Range
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.ticketSizeRange}
-                    onChange={(e) => setFormData({ ...formData, ticketSizeRange: e.target.value })}
-                    className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                    Stage Focus
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.stageFocus}
-                    onChange={(e) => setFormData({ ...formData, stageFocus: e.target.value })}
-                    className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                  Investment Thesis Summary
-                </label>
-                <textarea
-                  rows={4}
-                  value={formData.thesis}
-                  onChange={(e) => setFormData({ ...formData, thesis: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2.5 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 border-t border-[#F2EFE9] pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="rounded-lg border border-[#E5E1D8] px-4 py-2 text-xs font-semibold text-[#5A6E85] hover:bg-[#FAF8F4]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[#0F1B2D] px-5 py-2 text-xs font-bold text-white hover:bg-[#1C2B42]"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      </>
       )}
     </InvestorShell>
+  );
+}
+
+function CreateOrgInline({ onDone, notify, type_ }) {
+  const [name, setName] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const create = async () => {
+    if (busy || !name.trim()) return;
+    setBusy(true);
+    try {
+      await api.organizations.create({ name: name.trim(), type: type_ });
+      notify('Organization created.');
+      onDone();
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not create the organization.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mt-4 flex gap-2">
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Organization name"
+        className="h-11 flex-1 rounded-lg border border-[#E5E1D8] px-3 text-sm outline-none focus:border-ink"
+      />
+      <button
+        type="button"
+        onClick={create}
+        disabled={busy || !name.trim()}
+        className="h-11 rounded-lg bg-[#0F1B2D] px-4 text-sm font-semibold text-white disabled:opacity-60"
+      >
+        {busy ? 'Creating…' : 'Create organization'}
+      </button>
+    </div>
   );
 }

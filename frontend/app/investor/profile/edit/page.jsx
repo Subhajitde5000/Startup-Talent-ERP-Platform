@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -24,9 +24,14 @@ import {
   PieChart,
 } from 'lucide-react';
 import { InvestorShell } from '@/components';
+import { useAuth } from '@/lib/auth-context';
+import { api, ApiError } from '@/lib/api/client';
 
 export default function InvestorProfileEditPage() {
   const router = useRouter();
+  const { user, refreshUser } = useAuth();
+  const [orgId, setOrgId] = useState(null);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
   const [toast, setToast] = useState('');
 
@@ -56,6 +61,42 @@ export default function InvestorProfileEditPage() {
     twitter: 'https://x.com/arjun_vc',
     website: 'https://zenithcap.in',
   });
+
+  // Step 3b: firm -> investor_firm organization; identity/socials -> user.
+  // Ticket/stage/sectors/SEBI/custody stay demo until Step 9.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const orgs = await api.organizations.mine();
+        const firm = orgs.find((o) => o.type === 'investor_firm');
+        if (cancelled) return;
+        if (firm) {
+          setOrgId(firm.id);
+          setFormData((prev) => ({
+            ...prev,
+            firm: firm.name || prev.firm,
+            thesis: firm.summary || prev.thesis,
+            location: firm.city || prev.location,
+            website: firm.website || prev.website,
+            name: user?.display_name || prev.name,
+            handle: user?.handle || prev.handle,
+            email: user?.email || prev.email,
+            linkedin: user?.linkedin_url || prev.linkedin,
+            twitter: user?.twitter_url || prev.twitter,
+          }));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          notify(err instanceof ApiError ? err.message : 'Could not load your organization.');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
@@ -95,12 +136,43 @@ export default function InvestorProfileEditPage() {
     }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    notify('Investor thesis and profile saved successfully.');
-    setTimeout(() => {
-      router.push('/investor/profile');
-    }, 1200);
+    if (saving) return;
+    setSaving(true);
+    try {
+      await api.users.updateMe({
+        display_name: formData.name,
+        handle: formData.handle || undefined,
+        linkedin_url: formData.linkedin || null,
+        twitter_url: formData.twitter || null,
+        website_url: formData.website || null,
+      });
+      await refreshUser();
+      const payload = {
+        name: formData.firm,
+        summary: formData.thesis || null,
+        website: formData.website || null,
+        city: formData.location || null,
+      };
+      if (orgId) {
+        await api.organizations.update(orgId, payload);
+      } else {
+        const created = await api.organizations.create({
+          name: formData.firm,
+          type: 'investor_firm',
+        });
+        setOrgId(created.id);
+        await api.organizations.update(created.id, payload);
+      }
+      notify('Investor thesis and profile saved successfully.');
+      setTimeout(() => {
+        router.push('/investor/profile');
+      }, 900);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not save the profile.');
+      setSaving(false);
+    }
   };
 
   return (

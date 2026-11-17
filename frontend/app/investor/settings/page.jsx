@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Settings,
@@ -12,11 +12,134 @@ import {
 } from 'lucide-react';
 import { InvestorShell, Card, Button } from '@/components';
 import { InvestorDisclaimer } from '../investor-data';
+import { useAuth } from '@/lib/auth-context';
+import { api, ApiError } from '@/lib/api/client';
 
 export default function InvestorSettingsPage() {
+  const { user, refreshUser } = useAuth();
+
+  const NOTIF_CATEGORIES = [
+    'Suggested dealflow matches & saved searches',
+    'Intro requests and founder replies',
+    'Data room access & document uploads',
+    'Diligence question responses',
+    'Meeting invitations and schedule updates',
+    'Offer counters and term sheet revisions',
+    'Capital commitment & funds settlement',
+    'Portfolio updates and reports'
+  ];
+  const notifSlug = (label) => label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const defaultNotif = () =>
+    Object.fromEntries(NOTIF_CATEGORIES.map((label) => [label, [true, true, false]]));
+  const [notif, setNotif] = useState(defaultNotif);
+  const [notifLoading, setNotifLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api.notificationPreferences.get();
+        if (cancelled) return;
+        if (data.items.length) {
+          setNotif((prev) => {
+            const next = {...prev};
+            for (const item of data.items) {
+              const label = NOTIF_CATEGORIES.find((l) => notifSlug(l) === item.category);
+              if (!label) continue;
+              const ch = {in_app: 0, email: 1, push: 2}[item.channel];
+              if (ch != null) next[label][ch] = item.is_enabled;
+            }
+            return next;
+          });
+        }
+      } catch {
+        // no saved rows yet — defaults apply
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveNotif = async () => {
+    if (notifLoading) return;
+    setNotifLoading(true);
+    try {
+      const items = [];
+      for (const label of NOTIF_CATEGORIES) {
+        const [inApp, email, push] = notif[label];
+        items.push(
+          {category: notifSlug(label), channel: 'in_app', is_enabled: inApp},
+          {category: notifSlug(label), channel: 'email', is_enabled: email},
+          {category: notifSlug(label), channel: 'push', is_enabled: push}
+        );
+      }
+      await api.notificationPreferences.update(items);
+      notify('Notification preferences saved.');
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not save preferences.');
+    } finally {
+      setNotifLoading(false);
+    }
+  };
   const [section, setSection] = useState('Account');
   const [modal, setModal] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [account, setAccount] = useState(() => ({
+    fullName: user?.display_name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    timezone: user?.timezone || 'Asia/Kolkata',
+  }));
+  const [profilePublic, setProfilePublic] = useState(() => user?.profile_public ?? true);
+
+  const saveAccount = async (e) => {
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    try {
+      await api.users.updateMe({
+        display_name: account.fullName,
+        phone: account.phone || null,
+        timezone: account.timezone,
+      });
+      await refreshUser();
+      notify('Account profile details updated.');
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not save your profile.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveVisibility = async (value) => {
+    const next = value !== 'stealth';
+    setProfilePublic(next);
+    try {
+      await api.users.updateMe({ profile_public: next });
+      await refreshUser();
+      notify('Visibility updated.');
+    } catch (err) {
+      setProfilePublic(!next);
+      notify(err instanceof ApiError ? err.message : 'Could not save visibility.');
+    }
+  };
+
+  const submitDeleteRequest = async () => {
+    try {
+      await api.users.createDeleteRequest();
+      notify('Deletion request submitted.');
+    } catch (err) {
+      notify(
+        err instanceof ApiError && err.code === 'CONFLICT'
+          ? 'You already have an open data request.'
+          : err instanceof ApiError
+            ? err.message
+            : 'Could not submit the request.',
+      );
+    }
+    setModal('');
+  };
 
   return (
     <InvestorShell
@@ -65,20 +188,15 @@ export default function InvestorSettingsPage() {
             <div className="space-y-6">
               {section === 'Account' && (
                 <Card title="Personal & professional profile">
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      notify('Account profile details updated.');
-                    }}
-                    className="grid gap-4 sm:grid-cols-2"
-                  >
+                  <form onSubmit={saveAccount} className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label htmlFor="acc-name" className="block text-xs font-medium text-ink">
                         Full legal name
                       </label>
                       <input
                         id="acc-name"
-                        defaultValue="Arjun Mehta"
+                        value={account.fullName}
+                        onChange={(e) => setAccount({ ...account, fullName: e.target.value })}
                         className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs focus:border-ink focus:outline-none"
                       />
                     </div>
@@ -89,8 +207,9 @@ export default function InvestorSettingsPage() {
                       <input
                         id="acc-email"
                         type="email"
-                        defaultValue="arjun@formaventures.example"
-                        className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs focus:border-ink focus:outline-none"
+                        value={account.email}
+                        disabled
+                        className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-[#FAF8F4] px-3 text-xs text-[#7B8CA3] focus:outline-none"
                       />
                     </div>
                     <div>
@@ -99,7 +218,8 @@ export default function InvestorSettingsPage() {
                       </label>
                       <input
                         id="acc-phone"
-                        defaultValue="+91 98765 43210"
+                        value={account.phone}
+                        onChange={(e) => setAccount({ ...account, phone: e.target.value })}
                         className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs focus:border-ink focus:outline-none"
                       />
                     </div>
@@ -109,15 +229,20 @@ export default function InvestorSettingsPage() {
                       </label>
                       <select
                         id="acc-tz"
+                        value={account.timezone}
+                        onChange={(e) => setAccount({ ...account, timezone: e.target.value })}
                         className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs focus:border-ink focus:outline-none"
                       >
-                        <option>Asia/Kolkata (IST · UTC+5:30)</option>
-                        <option>Asia/Singapore (SGT · UTC+8:00)</option>
-                        <option>Europe/London (GMT · UTC+0:00)</option>
+                        <option value="Asia/Kolkata">Asia/Kolkata (IST · UTC+5:30)</option>
+                        <option value="Asia/Singapore">Asia/Singapore (SGT · UTC+8:00)</option>
+                        <option value="Europe/London">Europe/London (GMT · UTC+0:00)</option>
+                        <option value={account.timezone}>{account.timezone}</option>
                       </select>
                     </div>
                     <div className="sm:col-span-2 pt-2">
-                      <Button type="submit">Save account profile</Button>
+                      <Button type="submit" disabled={saving}>
+                        {saving ? 'Saving…' : 'Save account profile'}
+                      </Button>
                     </div>
                   </form>
                 </Card>
@@ -214,34 +339,31 @@ export default function InvestorSettingsPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#E5E1D8]">
-                        {[
-                          'Suggested dealflow matches & saved searches',
-                          'Intro requests and founder replies',
-                          'Data room access & document uploads',
-                          'Diligence question responses',
-                          'Meeting invitations and schedule updates',
-                          'Offer counters and term sheet revisions',
-                          'Capital commitment & funds settlement',
-                          'Portfolio updates and reports',
-                        ].map((cat) => (
+                        {NOTIF_CATEGORIES.map((cat, i) => (
                           <tr key={cat}>
                             <td className="py-2.5 font-medium text-ink">{cat}</td>
-                            <td className="py-2.5 text-center">
-                              <input type="checkbox" defaultChecked className="accent-ink" />
-                            </td>
-                            <td className="py-2.5 text-center">
-                              <input type="checkbox" defaultChecked className="accent-ink" />
-                            </td>
-                            <td className="py-2.5 text-center">
-                              <input type="checkbox" className="accent-ink" />
-                            </td>
+                            {[0, 1, 2].map((c) => (
+                              <td key={c} className="py-2.5 text-center">
+                                <input
+                                  type="checkbox"
+                                  aria-label={`${cat} ${['in-app', 'email', 'push'][c]}`}
+                                  checked={notif[cat][c]}
+                                  onChange={(e) => {
+                                    const next = {...notif, [cat]: [...notif[cat]]};
+                                    next[cat][c] = e.target.checked;
+                                    setNotif(next);
+                                  }}
+                                  className="accent-ink"
+                                />
+                              </td>
+                            ))}
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  <Button className="mt-4" onClick={() => notify('Notification preferences saved.')}>
-                    Save preferences
+                  <Button className="mt-4" disabled={notifLoading} onClick={saveNotif}>
+                    {notifLoading ? 'Saving…' : 'Save preferences'}
                   </Button>
                 </Card>
               )}
@@ -255,11 +377,13 @@ export default function InvestorSettingsPage() {
                       </label>
                       <select
                         id="vis-select"
+                        value={profilePublic ? 'visible' : 'stealth'}
+                        onChange={(e) => saveVisibility(e.target.value)}
                         className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs focus:border-ink focus:outline-none"
                       >
-                        <option>Visible to startups I contact or who match my thesis</option>
-                        <option>Publicly discoverable by all verified startups</option>
-                        <option>Stealth mode (Hidden from discover directory)</option>
+                        <option value="visible">Visible to startups I contact or who match my thesis</option>
+                        <option value="public">Publicly discoverable by all verified startups</option>
+                        <option value="stealth">Stealth mode (Hidden from discover directory)</option>
                       </select>
                     </div>
                   </div>
@@ -422,14 +546,7 @@ export default function InvestorSettingsPage() {
                   >
                     Close
                   </button>
-                  <Button
-                    onClick={() => {
-                      notify('Account deletion flow initiated with support review.');
-                      setModal('');
-                    }}
-                  >
-                    Request deletion
-                  </Button>
+                  <Button onClick={submitDeleteRequest}>Request deletion</Button>
                 </div>
               </section>
             </div>

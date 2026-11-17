@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     PASSWORD_RESET_EXPIRE_MINUTES: int = 30
     RESEND_COOLDOWN_SECONDS: int = 60
 
+    # DPDP data requests: due_at = received_at + this many days (Step 3a).
+    DATA_REQUEST_DUE_DAYS: int = 30
+
     # Frontend origin, used to build absolute links in emails (password reset).
     FRONTEND_BASE_URL: str = "http://localhost:3000"
 

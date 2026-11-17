@@ -28,72 +28,99 @@ import {
   Scale,
 } from 'lucide-react';
 import { StartupShell } from '@/components';
+import { useAuth } from '@/lib/auth-context';
+import { api, ApiError } from '@/lib/api/client';
+
+function initialsFrom(name) {
+  return (name || '?')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
+}
 
 export default function StartupUserProfileEditPage() {
   const router = useRouter();
+  const { user, refreshUser } = useAuth();
   const fileInputRef = useRef(null);
   const [toast, setToast] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const notify = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(''), 3000);
   };
 
-  // Form State
-  const [formData, setFormData] = useState({
-    name: 'Aarav Kapoor',
-    title: 'Founder & Chief Executive Officer',
-    company: 'FinFlow Technologies Pvt Ltd',
-    dinNumber: 'DIN: 08942119',
-    location: 'Pune & Bengaluru, India',
-    email: 'aarav.kapoor@finflow.in',
-    phone: '+91 98230 44102',
-    education: 'B.Tech in Computer Science, IIT Bombay (2018)',
-    priorRole: 'Ex-Lead Product Manager @ Razorpay (Disbursements)',
-    bio: `Founder & CEO of FinFlow Technologies. Obsessed with solving cross-border GST invoicing, treasury friction, and automated supplier reconciliation for fast-growing Indian software startups.
+  // Form state seeded from the session user (RoleGuard guarantees it is loaded).
+  const [formData, setFormData] = useState(() => ({
+    name: user?.display_name || '',
+    title: user?.headline || '',
+    company: '', // derived from the user's organization (Step 3b)
+    dinNumber: user?.din_number || '',
+    location: user?.region || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    education: user?.education || '',
+    priorRole: user?.prior_role || '',
+    bio: user?.bio || '',
+    founderVision: user?.founder_vision || '',
+    avatarUrl: user?.avatar_url || '',
+    avatarInitials: user?.avatar_initials || initialsFrom(user?.display_name),
+    avatarBg:
+      (typeof window !== 'undefined' && window.localStorage.getItem('forma.avatar_bg')) ||
+      '#0F1B2D',
+    linkedin: user?.linkedin_url || '',
+    twitter: user?.twitter_url || '',
+    github: user?.github_url || '',
+    personalSite: user?.website_url || '',
+  }));
 
-Prior to FinFlow, I spent 4 years at Razorpay leading the Corporate Disbursements and Neo-Banking product pods, scaling payment volume from ₹50 Cr/mo to over ₹1,800 Cr/mo. Computer Science graduate from IIT Bombay.`,
-    founderVision: `Indian B2B SaaS startups are competing on global stages, yet our back-office banking infrastructure remains bogged down by manual reconciliation, slow export remittance clearances, and complex tax compliance. At FinFlow, we are automating this entire treasury workflow from code to bank account.`,
-    avatarUrl: '', // Uploaded image data URL or empty
-    avatarInitials: 'AK',
-    avatarBg: '#0F1B2D',
-    linkedin: 'https://linkedin.com/in/aaravkapoor-finflow',
-    twitter: 'https://x.com/aarav_kapoor',
-    github: 'https://github.com/aarav-finflow',
-    personalSite: 'https://aaravkapoor.me',
-    publicInDirectory: true,
-    allowInvestorOutreach: true,
-  });
-
-  // Handle DP Photo Upload
-  const handleImageUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        notify('Please select an image smaller than 5MB.');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData((prev) => ({
-          ...prev,
-          avatarUrl: reader.result,
-        }));
-        notify('Profile picture updated.');
-      };
-      reader.readAsDataURL(file);
-    }
+  // File uploads need signed URLs (Step 4) — kept inert rather than faked.
+  const handleImageUpload = () => {
+    notify('Photo upload arrives with file storage (Step 4). Add an image URL instead.');
   };
 
-  // Preset Avatars
+  // Preset Avatars (monogram color is display-only, kept in local storage)
   const presetColors = ['#0F1B2D', '#1E3A8A', '#065F46', '#7C2D12', '#4C1D95', '#831843'];
 
-  const handleSave = (e) => {
+  const pickAvatarBg = (col) => {
+    setFormData((prev) => ({ ...prev, avatarBg: col }));
+    if (typeof window !== 'undefined') window.localStorage.setItem('forma.avatar_bg', col);
+  };
+
+  const handleSave = async (e) => {
     e.preventDefault();
-    notify('Founder profile changes saved successfully.');
-    setTimeout(() => {
-      router.push('/startup/user-profile');
-    }, 1200);
+    if (saving) return;
+    setSaving(true);
+    try {
+      await api.users.updateMe({
+        display_name: formData.name,
+        headline: formData.title || null,
+        din_number: formData.dinNumber || null,
+        region: formData.location || null,
+        phone: formData.phone || null,
+        education: formData.education || null,
+        prior_role: formData.priorRole || null,
+        bio: formData.bio || null,
+        founder_vision: formData.founderVision || null,
+        avatar_url: formData.avatarUrl || null,
+        avatar_initials: formData.avatarInitials || null,
+        linkedin_url: formData.linkedin || null,
+        twitter_url: formData.twitter || null,
+        github_url: formData.github || null,
+        website_url: formData.personalSite || null,
+      });
+      await refreshUser();
+      notify('Founder profile changes saved successfully.');
+      setTimeout(() => {
+        router.push('/startup/user-profile');
+      }, 1200);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not save your profile. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -138,10 +165,11 @@ Prior to FinFlow, I spent 4 years at Razorpay leading the Corporate Disbursement
             <button
               type="submit"
               form="founder-edit-form"
-              className="flex items-center gap-1.5 rounded-lg bg-[#0F1B2D] px-5 py-2 text-xs font-bold text-white hover:bg-[#1C2B42] transition shadow-xs"
+              disabled={saving}
+              className="flex items-center gap-1.5 rounded-lg bg-[#0F1B2D] px-5 py-2 text-xs font-bold text-white hover:bg-[#1C2B42] transition shadow-xs disabled:opacity-60"
             >
               <Save size={14} className="text-[#B8955A]" />
-              Save Profile
+              {saving ? 'Saving…' : 'Save Profile'}
             </button>
           </div>
         </div>
@@ -193,15 +221,16 @@ Prior to FinFlow, I spent 4 years at Razorpay leading the Corporate Disbursement
                     ref={fileInputRef}
                     type="file"
                     accept="image/png, image/jpeg, image/webp"
-                    onChange={handleImageUpload}
+                    disabled
                     className="hidden"
                   />
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 rounded-lg border border-[#0F1B2D] bg-[#0F1B2D] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#1C2B42] transition shadow-xs"
+                    onClick={handleImageUpload}
+                    className="flex items-center gap-1.5 rounded-lg border border-[#E5E1D8] bg-[#FAF8F4] px-3.5 py-1.5 text-xs font-bold text-[#7B8CA3] cursor-not-allowed"
+                    title="File uploads arrive with Step 4"
                   >
-                    <Upload size={13} className="text-[#B8955A]" />
+                    <Upload size={13} />
                     Upload New Photo
                   </button>
 
@@ -230,7 +259,7 @@ Prior to FinFlow, I spent 4 years at Razorpay leading the Corporate Disbursement
                     <button
                       key={col}
                       type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, avatarBg: col }))}
+                      onClick={() => pickAvatarBg(col)}
                       className={`h-5 w-5 rounded-full border-2 transition ${
                         formData.avatarBg === col ? 'border-[#0F1B2D] scale-110' : 'border-white'
                       }`}
@@ -270,7 +299,6 @@ Prior to FinFlow, I spent 4 years at Razorpay leading the Corporate Disbursement
                 </label>
                 <input
                   type="text"
-                  required
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   className="w-full rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
@@ -325,10 +353,9 @@ Prior to FinFlow, I spent 4 years at Razorpay leading the Corporate Disbursement
                 </label>
                 <input
                   type="email"
-                  required
+                  disabled
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
+                  className="w-full rounded-lg border border-[#E5E1D8] bg-[#FAF8F4] px-3 py-2 text-xs font-semibold text-[#0F1B2D] cursor-not-allowed"
                 />
               </div>
             </div>
@@ -347,7 +374,6 @@ Prior to FinFlow, I spent 4 years at Razorpay leading the Corporate Disbursement
               </label>
               <textarea
                 rows={5}
-                required
                 value={formData.bio}
                 onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                 className="w-full rounded-lg border border-[#E5E1D8] px-3.5 py-2.5 text-xs text-[#0F1B2D] leading-relaxed focus:border-[#0F1B2D] focus:outline-none"
@@ -477,10 +503,11 @@ Prior to FinFlow, I spent 4 years at Razorpay leading the Corporate Disbursement
               </Link>
               <button
                 type="submit"
-                className="flex items-center gap-1.5 rounded-lg bg-[#0F1B2D] px-6 py-2 text-xs font-bold text-white hover:bg-[#1C2B42] transition shadow-xs"
+                disabled={saving}
+                className="flex items-center gap-1.5 rounded-lg bg-[#0F1B2D] px-6 py-2 text-xs font-bold text-white hover:bg-[#1C2B42] transition shadow-xs disabled:opacity-60"
               >
                 <Save size={14} className="text-[#B8955A]" />
-                Save Changes
+                {saving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user
@@ -22,6 +22,7 @@ from app.schemas.auth import (
     ResetPasswordRequest,
     TokenResponse,
     VerifyEmailRequest,
+    VerifyEmailResponse,
 )
 from app.services import auth_service
 
@@ -47,9 +48,12 @@ def _client_ip(request: Request) -> str | None:
 async def register(
     payload: RegisterRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> RegisterResponse:
-    return await auth_service.register(db, payload, ip=_client_ip(request))
+    return await auth_service.register(
+        db, payload, ip=_client_ip(request), background_tasks=background_tasks
+    )
 
 
 @router.post(
@@ -109,15 +113,30 @@ async def logout_all(
 
 
 @router.post(
-    "/verify-email", response_model=MessageResponse, summary="Verify email with 6-digit code"
+    "/verify-email",
+    response_model=VerifyEmailResponse,
+    summary="Verify email with 6-digit code",
+    description="Verifies the OTP and returns auth tokens so the user is immediately "
+    "logged in without a separate login step. The frontend should store the tokens "
+    "and redirect to /onboarding.",
 )
 async def verify_email(
     payload: VerifyEmailRequest,
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> MessageResponse:
-    await auth_service.verify_email(db, payload, ip=_client_ip(request))
-    return MessageResponse(message="Email verified.")
+) -> VerifyEmailResponse:
+    tokens = await auth_service.verify_email(
+        db,
+        payload,
+        ip=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
+    return VerifyEmailResponse(
+        message="Email verified.",
+        access_token=tokens.access_token,
+        refresh_token=tokens.refresh_token,
+        expires_in=tokens.expires_in,
+    )
 
 
 @router.post(
@@ -126,9 +145,12 @@ async def verify_email(
 async def resend_verification(
     payload: ResendVerificationRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> MessageResponse:
-    await auth_service.resend_verification(db, payload, ip=_client_ip(request))
+    await auth_service.resend_verification(
+        db, payload, ip=_client_ip(request), background_tasks=background_tasks
+    )
     return MessageResponse(
         message="If an account exists for this email, a verification code is on its way."
     )
@@ -138,9 +160,12 @@ async def resend_verification(
 async def forgot_password(
     payload: ForgotPasswordRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> MessageResponse:
-    await auth_service.forgot_password(db, payload, ip=_client_ip(request))
+    await auth_service.forgot_password(
+        db, payload, ip=_client_ip(request), background_tasks=background_tasks
+    )
     return MessageResponse(
         message="If an account exists for this email, a reset link is on its way."
     )
@@ -168,10 +193,13 @@ async def change_password(
 @router.post("/change-email", response_model=MessageResponse, summary="Change email address")
 async def change_email(
     payload: ChangeEmailRequest,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> MessageResponse:
-    await auth_service.change_email(db, user=user, payload=payload)
+    await auth_service.change_email(
+        db, user=user, payload=payload, background_tasks=background_tasks
+    )
     return MessageResponse(message="Email updated. Please verify the new address.")
 
 
