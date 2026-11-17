@@ -84,7 +84,13 @@ def _placeholder_display_name(email: str) -> str:
 
 
 async def _get_user_by_email(db: AsyncSession, email: str) -> User | None:
-    result = await db.execute(select(User).where(User.primary_email == _normalise_email(email)))
+    """Look up an account by email. Soft-deleted accounts never match."""
+    result = await db.execute(
+        select(User).where(
+            User.primary_email == _normalise_email(email),
+            User.deleted_at.is_(None),
+        )
+    )
     return result.scalar_one_or_none()
 
 
@@ -181,10 +187,8 @@ async def register(
     email = _normalise_email(payload.email)
     existing = await _get_user_by_email(db, email)
     # No leaking whether an email exists: identical generic response.
-    if existing is not None and existing.deleted_at is None:
-        return RegisterResponse(
-            message="If an account exists for this email, a verification code is on its way."
-        )
+    if existing is not None:
+        return RegisterResponse()
 
     user = User(
         primary_email=email,
@@ -201,10 +205,7 @@ async def register(
     await db.flush()
     await _send_verification_code(db, user, email)
     await db.commit()
-    return RegisterResponse(
-        message="If an account exists for this email, a verification code is on its way.",
-        user_id=user.id,
-    )
+    return RegisterResponse()
 
 
 async def login(
@@ -246,11 +247,7 @@ async def login(
         raise rate_limited("Too many login attempts. Please try again later.")
 
     user = await _get_user_by_email(db, email)
-    if (
-        user is None
-        or user.deleted_at is not None
-        or not verify_password(payload.password, user.password_hash)
-    ):
+    if user is None or not verify_password(payload.password, user.password_hash):
         await _record_attempt(
             db,
             email=email,
@@ -400,7 +397,7 @@ async def verify_email(
         raise rate_limited("Too many attempts. Please try again later.")
 
     user = await _get_user_by_email(db, email)
-    if user is None or user.deleted_at is not None:
+    if user is None:
         raise invalid_token("Invalid verification code.")
     token_hash = hash_token(payload.code)
     result = await db.execute(
@@ -433,7 +430,7 @@ async def resend_verification(
     ):
         raise rate_limited("Too many requests. Please try again later.")
     user = await _get_user_by_email(db, email)
-    if user is None or user.deleted_at is not None or user.email_verified_at is not None:
+    if user is None or user.email_verified_at is not None:
         # Generic success: do not reveal account state.
         return
     # Cooldown: no new code if one was issued in the last N seconds.
@@ -462,7 +459,7 @@ async def forgot_password(
     ):
         raise rate_limited("Too many requests. Please try again later.")
     user = await _get_user_by_email(db, email)
-    if user is None or user.deleted_at is not None:
+    if user is None:
         return  # Generic: do not reveal whether the email exists.
     raw_token = generate_opaque_token()
     db.add(
@@ -531,7 +528,7 @@ async def change_email(db: AsyncSession, *, user: User, payload: ChangeEmailRequ
     if new_email == _normalise_email(user.primary_email):
         raise validation_error("New email must be different from the current email.")
     existing = await _get_user_by_email(db, new_email)
-    if existing is not None and existing.id != user.id and existing.deleted_at is None:
+    if existing is not None and existing.id != user.id:
         raise conflict("An account with this email already exists.")
     # Issue a verification token for the new email; the address changes
     # only after the code is verified (handled by verify_email flow in a

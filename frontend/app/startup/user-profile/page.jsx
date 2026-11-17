@@ -31,35 +31,62 @@ import {
   Users,
 } from 'lucide-react';
 import { StartupShell } from '@/components';
+import { useAuth } from '@/lib/auth-context';
+
+function initialsFrom(name) {
+  return (name || '?')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
+}
+
+function formatMemberSince(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  } catch {
+    return '';
+  }
+}
 
 export default function StartupUserProfilePage() {
+  const { user } = useAuth();
   const [toast, setToast] = useState('');
   const [activeTab, setActiveTab] = useState('journey'); // 'journey' | 'equity' | 'governance' | 'credentials'
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const notify = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(''), 3000);
   };
 
-  // Personal Founder User Profile State
-  const [profile, setProfile] = useState({
-    name: 'Aarav Kapoor',
-    handle: 'aarav_finflow',
-    title: 'Founder & Chief Executive Officer',
-    company: 'FinFlow Technologies Pvt Ltd',
+  // Personal founder profile, derived from the session user (Step 3 data).
+  // Tabs below (equity, governance, credentials, community) keep their demo
+  // records until Steps 9/10 ship their backends.
+  const profile = {
+    name: user?.display_name || '',
+    handle: user?.handle || '',
+    title: user?.headline || '',
+    company: '', // organization name arrives with Step 3b
     companyProfileUrl: '/startup/profile',
     roleTag: 'Startup Founder',
-    dinNumber: 'DIN: 08942119 (MCA Verified)',
-    location: 'Pune & Bengaluru, India',
-    email: 'aarav.kapoor@finflow.in',
-    avatar: 'AK',
-    verified: true,
-    dpiitVerified: true,
-    verificationId: 'FND-2026-IND-1044',
-    memberSince: 'January 2024',
-    education: 'B.Tech in Computer Science, IIT Bombay (2018)',
-    priorRole: 'Ex-Lead Product Manager @ Razorpay (Disbursements)',
+    dinNumber: user?.din_number || '',
+    location: user?.region || '',
+    email: user?.email || '',
+    avatar: user?.avatar_initials || initialsFrom(user?.display_name),
+    avatarUrl: user?.avatar_url || '',
+    memberSince: formatMemberSince(user?.created_at),
+    education: user?.education || '',
+    priorRole: user?.prior_role || '',
+    bio: user?.bio || '',
+    founderVision: user?.founder_vision || '',
+    social: {
+      linkedin: user?.linkedin_url || '',
+      twitter: user?.twitter_url || '',
+      github: user?.github_url || '',
+      personalSite: user?.website_url || '',
+    },
     communityStats: {
       helpfulVotes: 14,
       acceptedAnswers: 6,
@@ -71,7 +98,7 @@ export default function StartupUserProfilePage() {
       vestingSchedule: '4-Year Vesting with 1-Year Cliff (36 of 48 Months Vested)',
       unvestedShares: '1,460,000',
       coFounders: [
-        { name: 'Rohan Verma', role: 'Co-Founder & CTO', equity: '29.6%', status: 'Active • 36/48 mo vested' },
+        { name: 'Rohan Verma', role: 'Co-Founder & CTO', equity: '29.6%', status: 'Active \u2022 36/48 mo vested' },
         { name: 'ESOP Pool Reserve', role: 'Unallocated Employee Pool', equity: '12.0%', status: 'Trustee Managed' },
       ],
     },
@@ -79,32 +106,20 @@ export default function StartupUserProfilePage() {
       { designation: 'Managing Director & CEO', entity: 'FinFlow Technologies Pvt Ltd', appointmentDate: '14 Oct 2023', status: 'Active' },
       { designation: 'Board Member', entity: 'Forma Founder Advisory Council', appointmentDate: '01 Feb 2026', status: 'Active' },
     ],
-    bio: `Founder & CEO of FinFlow Technologies. Obsessed with solving cross-border GST invoicing, treasury friction, and automated supplier reconciliation for fast-growing Indian software startups.
-    
-Prior to FinFlow, I spent 4 years at Razorpay leading the Corporate Disbursements and Neo-Banking product pods, scaling payment volume from ₹50 Cr/mo to over ₹1,800 Cr/mo. Computer Science graduate from IIT Bombay.`,
-    founderVision: `Indian B2B SaaS startups are competing on global stages, yet our back-office banking infrastructure remains bogged down by manual reconciliation, slow export remittance clearances, and complex tax compliance. At FinFlow, we are automating this entire treasury workflow from code to bank account.`,
     credentials: [
-      { title: 'Bachelor of Technology (Computer Science & Engineering)', institution: 'Indian Institute of Technology (IIT) Bombay', year: '2014 – 2018' },
+      { title: 'Bachelor of Technology (Computer Science & Engineering)', institution: 'Indian Institute of Technology (IIT) Bombay', year: '2014 \u2013 2018' },
       { title: 'Forbes 30 Under 30 Asia Nominee (Enterprise Technology)', institution: 'Forbes Asia', year: '2025' },
-      { title: 'Lead Product Manager (Corporate Disbursements)', institution: 'Razorpay Software Pvt Ltd', year: '2019 – 2023' },
-      { title: 'Software Engineering Fellow', institution: 'Flipkart Internet Pvt Ltd', year: '2018 – 2019' },
+      { title: 'Lead Product Manager (Corporate Disbursements)', institution: 'Razorpay Software Pvt Ltd', year: '2019 \u2013 2023' },
+      { title: 'Software Engineering Fellow', institution: 'Flipkart Internet Pvt Ltd', year: '2018 \u2013 2019' },
     ],
-    social: {
-      linkedin: 'https://linkedin.com/in/aaravkapoor-finflow',
-      twitter: 'https://x.com/aarav_kapoor',
-      github: 'https://github.com/aarav-finflow',
-      personalSite: 'https://aaravkapoor.me',
-    },
-  });
-
-  const [formData, setFormData] = useState({ ...profile });
-
-  const handleSaveProfile = (e) => {
-    e.preventDefault();
-    setProfile({ ...formData });
-    setIsEditModalOpen(false);
-    notify('Personal founder profile updated successfully.');
   };
+
+  const socialLinks = [
+    { href: profile.social.linkedin, label: 'LinkedIn Profile', Icon: Linkedin },
+    { href: profile.social.twitter, label: 'Twitter / X', Icon: Twitter },
+    { href: profile.social.github, label: 'GitHub Profile', Icon: Github },
+    { href: profile.social.personalSite, label: 'Website', Icon: Globe },
+  ].filter((link) => link.href);
 
   return (
     <StartupShell
@@ -174,36 +189,58 @@ Prior to FinFlow, I spent 4 years at Razorpay leading the Corporate Disbursement
         <div className="rounded-2xl border border-[#E5E1D8] bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-[#0F1B2D] font-serif text-2xl font-bold text-white shadow-md">
-                {profile.avatar}
-              </div>
+              {profile.avatarUrl ? (
+                <img
+                  src={profile.avatarUrl}
+                  alt={profile.name}
+                  className="h-20 w-20 shrink-0 rounded-2xl object-cover shadow-md"
+                />
+              ) : (
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-[#0F1B2D] font-serif text-2xl font-bold text-white shadow-md">
+                  {profile.avatar}
+                </div>
+              )}
 
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="font-serif text-xl font-bold text-[#0F1B2D] sm:text-2xl">
                     {profile.name}
                   </h2>
-                  <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800 border border-emerald-200">
-                    <CheckCircle2 size={13} /> Verified Founder
-                  </span>
-                  <span className="flex items-center gap-1 rounded-full bg-[#B8955A]/15 px-2.5 py-0.5 text-xs font-semibold text-[#8C6D37] border border-[#B8955A]/30">
-                    <ShieldCheck size={13} /> DPIIT Accredited
-                  </span>
+                  {/* Verified Founder / DPIIT badges return with Step 15 (verification). */}
                 </div>
 
-                <p className="text-sm font-medium text-[#4A5568]">
-                  {profile.title} @ <Link href="/startup/profile" className="font-semibold text-[#0F1B2D] hover:underline">{profile.company}</Link>
-                </p>
+                {profile.title && (
+                  <p className="text-sm font-medium text-[#4A5568]">
+                    {profile.title}
+                    {profile.company ? (
+                      <>
+                        {' @ '}
+                        <Link href="/startup/profile" className="font-semibold text-[#0F1B2D] hover:underline">
+                          {profile.company}
+                        </Link>
+                      </>
+                    ) : null}
+                  </p>
+                )}
 
                 <div className="flex flex-wrap items-center gap-3 text-xs text-[#5A6E85]">
-                  <span className="flex items-center gap-1">
-                    <MapPin size={13} className="text-[#7B8CA3]" />
-                    {profile.location}
-                  </span>
-                  <span>•</span>
-                  <span>{profile.education}</span>
-                  <span>•</span>
-                  <span className="font-mono text-[#7B8CA3]">{profile.dinNumber}</span>
+                  {profile.location ? (
+                    <span className="flex items-center gap-1">
+                      <MapPin size={13} className="text-[#7B8CA3]" />
+                      {profile.location}
+                    </span>
+                  ) : null}
+                  {profile.location && (profile.education || profile.dinNumber) ? <span>•</span> : null}
+                  {profile.education ? <span>{profile.education}</span> : null}
+                  {profile.education && profile.dinNumber ? <span>•</span> : null}
+                  {profile.dinNumber ? (
+                    <span className="font-mono text-[#7B8CA3]">{profile.dinNumber}</span>
+                  ) : null}
+                  {!profile.location && !profile.education && !profile.dinNumber ? (
+                    <Link href="/startup/user-profile/edit" className="font-medium text-[#B8955A] hover:underline">
+                      Add details in Edit Profile
+                    </Link>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -278,9 +315,15 @@ Prior to FinFlow, I spent 4 years at Razorpay leading the Corporate Disbursement
                   <User size={16} className="text-[#B8955A]" />
                   Founder Biography & Story
                 </h3>
-                <p className="text-xs leading-relaxed text-[#4A5568] whitespace-pre-line">
-                  {profile.bio}
-                </p>
+                {profile.bio ? (
+                  <p className="text-xs leading-relaxed text-[#4A5568] whitespace-pre-line">
+                    {profile.bio}
+                  </p>
+                ) : (
+                  <p className="text-xs italic text-[#7B8CA3]">
+                    No bio yet — add one in Edit Profile.
+                  </p>
+                )}
               </div>
 
               <div className="rounded-2xl border border-[#E5E1D8] bg-white p-6 shadow-sm">
@@ -288,9 +331,15 @@ Prior to FinFlow, I spent 4 years at Razorpay leading the Corporate Disbursement
                   <Sparkles size={16} className="text-[#B8955A]" />
                   Founder Vision & Company Mission
                 </h3>
-                <p className="text-xs leading-relaxed text-[#4A5568] whitespace-pre-line">
-                  {profile.founderVision}
-                </p>
+                {profile.founderVision ? (
+                  <p className="text-xs leading-relaxed text-[#4A5568] whitespace-pre-line">
+                    {profile.founderVision}
+                  </p>
+                ) : (
+                  <p className="text-xs italic text-[#7B8CA3]">
+                    No founder vision yet — add one in Edit Profile.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -298,46 +347,30 @@ Prior to FinFlow, I spent 4 years at Razorpay leading the Corporate Disbursement
               <div className="rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-sm space-y-3 text-xs">
                 <h4 className="font-serif font-bold text-[#0F1B2D]">Verified Founder Channels</h4>
                 <div className="space-y-2">
-                  <a
-                    href={profile.social.linkedin}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between rounded-lg border border-[#E5E1D8] p-2.5 hover:border-[#0F1B2D] transition"
-                  >
-                    <span className="flex items-center gap-2 text-[#0F1B2D]">
-                      <Linkedin size={15} className="text-[#0077b5]" /> LinkedIn Profile
-                    </span>
-                    <ExternalLink size={12} className="text-[#7B8CA3]" />
-                  </a>
-
-                  <a
-                    href={profile.social.twitter}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between rounded-lg border border-[#E5E1D8] p-2.5 hover:border-[#0F1B2D] transition"
-                  >
-                    <span className="flex items-center gap-2 text-[#0F1B2D]">
-                      <Twitter size={15} className="text-[#1da1f2]" /> Twitter / X
-                    </span>
-                    <ExternalLink size={12} className="text-[#7B8CA3]" />
-                  </a>
-
-                  <a
-                    href={profile.social.github}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between rounded-lg border border-[#E5E1D8] p-2.5 hover:border-[#0F1B2D] transition"
-                  >
-                    <span className="flex items-center gap-2 text-[#0F1B2D]">
-                      <Github size={15} /> GitHub Profile
-                    </span>
-                    <ExternalLink size={12} className="text-[#7B8CA3]" />
-                  </a>
+                  {socialLinks.map((link) => (
+                    <a
+                      key={link.label}
+                      href={link.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between rounded-lg border border-[#E5E1D8] p-2.5 hover:border-[#0F1B2D] transition"
+                    >
+                      <span className="flex items-center gap-2 text-[#0F1B2D]">
+                        <link.Icon size={15} className="text-[#7B8CA3]" /> {link.label}
+                      </span>
+                      <ExternalLink size={12} className="text-[#7B8CA3]" />
+                    </a>
+                  ))}
+                  {socialLinks.length === 0 ? (
+                    <p className="text-[11px] text-[#5A6E85]">No links yet — add them in Edit Profile.</p>
+                  ) : null}
                 </div>
 
-                <div className="border-t border-[#F2EFE9] pt-3 text-[11px] text-[#5A6E85]">
-                  <span>Member of DPIIT Startup Founder Network since {profile.memberSince}</span>
-                </div>
+                {profile.memberSince ? (
+                  <div className="border-t border-[#F2EFE9] pt-3 text-[11px] text-[#5A6E85]">
+                    <span>Member since {profile.memberSince}</span>
+                  </div>
+                ) : null}
               </div>
 
               {/* Founder Lounge Direct Access */}
@@ -458,114 +491,6 @@ Prior to FinFlow, I spent 4 years at Razorpay leading the Corporate Disbursement
         )}
       </div>
 
-      {/* EDIT MODAL */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1B2D]/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#E5E1D8] bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#F2EFE9] pb-3">
-              <h3 className="font-serif text-lg font-bold text-[#0F1B2D]">
-                Edit Founder Personal Profile
-              </h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="text-[#7B8CA3] hover:text-[#0F1B2D]">
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveProfile} className="mt-4 space-y-4 text-xs">
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                  Founder Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                  Executive Role / Title
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                    MCA DIN Number
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.dinNumber}
-                    onChange={(e) => setFormData({ ...formData, dinNumber: e.target.value })}
-                    className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                  Founder Biography & Story
-                </label>
-                <textarea
-                  rows={4}
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2.5 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7B8CA3] mb-1">
-                  Founder Vision & Company Mission
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.founderVision}
-                  onChange={(e) => setFormData({ ...formData, founderVision: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2.5 text-xs text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 border-t border-[#F2EFE9] pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="rounded-lg border border-[#E5E1D8] px-4 py-2 text-xs font-semibold text-[#5A6E85] hover:bg-[#FAF8F4]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[#0F1B2D] px-5 py-2 text-xs font-bold text-white hover:bg-[#1C2B42]"
-                >
-                  Save Profile Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </StartupShell>
   );
 }

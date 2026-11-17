@@ -76,7 +76,9 @@ async def test_register_happy_path(client: AsyncClient) -> None:
     resp = await _register(client)
     assert resp.status_code == 201
     body = resp.json()
-    assert body["user_id"] is not None
+    # Same body for new and existing emails: message only, no user_id.
+    assert set(body.keys()) == {"message"}
+    assert body["message"]
     assert len(email_service.SENT_EMAILS) == 1
 
 
@@ -126,10 +128,13 @@ async def test_register_rejects_common_password(client: AsyncClient) -> None:
 async def test_register_does_not_leak_existing_email(client: AsyncClient) -> None:
     first = await _register(client)
     assert first.status_code == 201
+    emails_after_first = len(email_service.SENT_EMAILS)
     second = await _register(client)
-    # Same generic shape/status whether the email is new or existing.
+    # Byte-identical body whether the email is new or existing — no user_id.
     assert second.status_code == 201
-    assert second.json()["message"] == first.json()["message"]
+    assert second.json() == first.json()
+    # The existing-email path sends no extra email (side channel).
+    assert len(email_service.SENT_EMAILS) == emails_after_first
 
 
 # --- Email verification ---

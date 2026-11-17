@@ -73,9 +73,9 @@ class RegisterRequest(BaseModel):
 
 
 class RegisterResponse(BaseModel):
-    # Generic: identical whether the email is new or already registered.
+    # Generic: byte-identical whether the email is new or already registered.
+    # Deliberately carries no user_id or any other distinguishing field.
     message: str = "If an account exists for this email, a verification code is on its way."
-    user_id: UUID | None = None
 
 
 class LoginRequest(BaseModel):

@@ -1,11 +1,13 @@
 'use client';
-import {useMemo, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import Link from 'next/link';
 import { StartupSidebar, Button, StatusBadge } from '../../../components';
+import {useAuth} from '@/lib/auth-context';
+import {api, ApiError} from '@/lib/api/client';
 import {
   Briefcase,Search,Bell,ChevronDown,Check,Plus,ArrowUpRight,ArrowRight,Mail,
   Building2,X,MoreHorizontal,RefreshCw,Trash2,Shield,Clock,Download,Grid2X2,List,
-  Linkedin,MapPin,CheckCircle2,Send,ExternalLink,Menu
+  Linkedin,MapPin,CheckCircle2,Send,ExternalLink,Menu,Users
 } from 'lucide-react';
 
 const initial = [
@@ -73,7 +75,107 @@ export default function TeamDirectory() {
   const active = people.filter(p => p.status === 'Active').length;
   const pending = people.filter(p => p.status === 'Pending').length;
 
-  const inviteSubmit = e => {
+  // Step 3b mapping: backend enums <-> the page's display strings.
+  const roleToDisplay = r => ({owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer'}[r] || r);
+  const roleToApi = r => ({Owner: 'owner', Admin: 'admin', Member: 'member', Viewer: 'viewer'}[r] || 'member');
+  const deptToDisplay = d => (d ? d.charAt(0).toUpperCase() + d.slice(1) : 'Other');
+  const deptToApi = d => (d || 'Other').toLowerCase();
+
+  const {user} = useAuth();
+  const [orgId, setOrgId] = useState(null);
+  const [teamStatus, setTeamStatus] = useState('loading'); // loading | ready | none | error
+  const [busy, setBusy] = useState(false);
+
+  const rowFromMember = m => ({
+    id: m.user_id,
+    name: m.display_name || m.email.split('@')[0],
+    email: m.email || '',
+    title: m.title || 'Team member',
+    role: roleToDisplay(m.role),
+    dept: m.department ? deptToDisplay(m.department) : 'Other',
+    status: 'Active',
+    joined: m.joined_at ? new Date(m.joined_at).toLocaleDateString('en-US', {month: 'short', day: '2-digit', year: 'numeric'}) : '—',
+    initial: m.avatar_initials || (m.display_name || '?').slice(0, 2).toUpperCase(),
+    founder: m.is_founder,
+    bio: '',
+    tasks: 0,
+    active: '—',
+    public: m.is_public,
+    isInvite: false
+  });
+
+  const rowFromInvite = inv => ({
+    id: inv.id,
+    name: inv.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    email: inv.email,
+    title: inv.title || 'Team member',
+    role: roleToDisplay(inv.role),
+    dept: inv.department ? deptToDisplay(inv.department) : 'Other',
+    status: 'Pending',
+    joined: 'Invite sent',
+    initial: inv.email.slice(0, 2).toUpperCase(),
+    founder: false,
+    bio: '',
+    tasks: 0,
+    active: 'Invite pending',
+    public: true,
+    isInvite: true
+  });
+
+  const loadTeam = async () => {
+    setTeamStatus('loading');
+    try {
+      const orgs = await api.organizations.mine();
+      const startup = orgs.find(o => o.type === 'startup');
+      if (!startup) {
+        setTeamStatus('none');
+        return;
+      }
+      setOrgId(startup.id);
+      const [members, invites] = await Promise.all([
+        api.organizations.members(startup.id),
+        api.organizations.invites(startup.id)
+      ]);
+      setPeople([...members.map(rowFromMember), ...invites.map(rowFromInvite)]);
+      setTeamStatus('ready');
+    } catch (err) {
+      setTeamStatus('error');
+      notify(err instanceof ApiError ? err.message : 'Could not load the team.');
+    }
+  };
+
+  useEffect(() => {
+    loadTeam();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const patchMember = async (userId, body) => {
+    if (!orgId) return;
+    try {
+      await api.organizations.updateMember(orgId, userId, body);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not update the member.');
+      await loadTeam();
+    }
+  };
+
+  const saveMemberDetails = async () => {
+    if (!member || member.isInvite || busy) return;
+    setBusy(true);
+    try {
+      await api.organizations.updateMember(orgId, member.id, {
+        title: member.title || null,
+        department: deptToApi(member.dept)
+      });
+      notify('Member details saved.');
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not save the member.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const inviteSubmit = async e => {
     e.preventDefault();
     const list = [...new Set(emails.split(/[;,\n]+/).map(x => x.trim()).filter(Boolean))];
     if (!list.length) {
@@ -89,28 +191,39 @@ export default function TeamDirectory() {
       notify(`${existing} is already on this team.`);
       return;
     }
-    const added = list.map((email, i) => ({
-      id: Date.now() + i,
-      name: email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-      email,
-      title: inviteTitle || 'Team member',
-      role: inviteRole,
-      dept: inviteDept,
-      status: 'Pending',
-      joined: 'Invite sent today',
-      initial: email.slice(0, 2).toUpperCase(),
-      bio: '',
-      tasks: 0,
-      active: 'Invite pending',
-      public: publicInvite
-    }));
-    setPeople([...added, ...people]);
-    setEmails('');
-    setInvite(false);
-    notify(`Invite sent to ${list.length === 1 ? list[0] : `${list.length} people`}.`);
+    if (!orgId) {
+      notify('Create your startup organization first.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const added = [];
+      for (const email of list) {
+        const created = await api.organizations.createInvite(orgId, {
+          email,
+          role: roleToApi(inviteRole),
+          title: inviteTitle || null,
+          department: deptToApi(inviteDept)
+        });
+        added.push({...rowFromInvite(created), token: created.token});
+        // one-time token: copy the accept link for the inviter to share
+        // (Step 12 wires the actual email delivery).
+        if (created.token && typeof navigator !== 'undefined' && navigator.clipboard) {
+          navigator.clipboard.writeText(`${window.location.origin}/invites/${created.token}`).catch(() => {});
+        }
+      }
+      setPeople([...added, ...people]);
+      setEmails('');
+      setInvite(false);
+      notify(`Invite created for ${list.length === 1 ? list[0] : `${list.length} people`} — accept link copied.`);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not create the invite.');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const changeRole = (id, newRole) => {
+  const changeRole = async (id, newRole) => {
     if (
       newRole !== 'Owner' &&
       people.find(p => p.id === id)?.role === 'Owner' &&
@@ -119,21 +232,37 @@ export default function TeamDirectory() {
       notify('A startup needs at least one Owner.');
       return;
     }
+    const prev = people;
     setPeople(people.map(p => (p.id === id ? {...p, role: newRole} : p)));
-    notify('Access role updated.');
+    try {
+      await api.organizations.updateMember(orgId, id, {role: roleToApi(newRole)});
+      notify('Access role updated.');
+    } catch (err) {
+      setPeople(prev);
+      notify(err instanceof ApiError ? err.message : 'Could not update the role.');
+    }
   };
 
-  const remove = id => {
+  const remove = async id => {
     const p = people.find(x => x.id === id);
     if (p?.role === 'Owner' && people.filter(x => x.role === 'Owner' && x.status === 'Active').length === 1) {
       notify('A startup needs at least one Owner.');
       return;
     }
-    setPeople(people.filter(x => x.id !== id));
-    setSelected(selected.filter(x => x !== id));
-    setConfirm(null);
-    setMember(null);
-    notify(`${p?.name} removed from the team.`);
+    setBusy(true);
+    try {
+      if (p?.isInvite) await api.organizations.revokeInvite(orgId, id);
+      else await api.organizations.removeMember(orgId, id);
+      setPeople(people.filter(x => x.id !== id));
+      setSelected(selected.filter(x => x !== id));
+      setConfirm(null);
+      setMember(null);
+      notify(`${p?.name} removed from the team.`);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not remove from the team.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const toggleSelected = id => setSelected(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
@@ -257,6 +386,31 @@ export default function TeamDirectory() {
 
       {/* Main Content */}
       <main id="team-main" className={`mx-auto max-w-[1440px] px-4 pb-24 pt-7 transition-[margin] duration-200 sm:px-7 lg:px-8 ${compact ? 'lg:ml-[76px]' : 'lg:ml-[240px]'}`}>
+        {teamStatus === 'loading' && (
+          <div className="flex items-center gap-3 rounded-xl border border-[#E5E1D8] bg-white p-6 text-sm text-[#4A5568]">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
+            Loading your team…
+          </div>
+        )}
+        {teamStatus === 'error' && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+            Could not load the team.{' '}
+            <button type="button" onClick={loadTeam} className="font-semibold underline">Retry</button>
+          </div>
+        )}
+        {teamStatus === 'none' && (
+          <div className="max-w-xl rounded-xl border border-[#E5E1D8] bg-white p-6">
+            <h2 className="serif text-xl font-semibold">No startup organization yet</h2>
+            <p className="mt-1 text-sm text-[#4A5568]">
+              Create your organization first — team members and invites live under it.
+            </p>
+            <Link href="/startup/profile" className="mt-4 inline-flex min-h-10 items-center rounded-lg bg-ink px-4 text-sm font-semibold text-white">
+              Go to startup profile
+            </Link>
+          </div>
+        )}
+        {teamStatus === 'ready' && (
+        <>
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm text-[#4A5568]">
@@ -579,6 +733,8 @@ export default function TeamDirectory() {
             </section>
           </aside>
         </div>
+        </>
+        )}
       </main>
 
       {/* Invite Modal */}
@@ -713,9 +869,12 @@ export default function TeamDirectory() {
                 <input
                   type="checkbox"
                   checked={member.public}
+                  disabled={member.isInvite}
                   onChange={() => {
-                    setPeople(people.map(p => (p.id === member.id ? {...p, public: !p.public} : p)));
-                    setMember({...member, public: !member.public});
+                    const next = !member.public;
+                    setPeople(people.map(p => (p.id === member.id ? {...p, public: next} : p)));
+                    setMember({...member, public: next});
+                    if (!member.isInvite) patchMember(member.id, {is_public: next});
                   }}
                   className="h-4 w-4 accent-ink"
                 />
@@ -771,6 +930,21 @@ export default function TeamDirectory() {
                   ))}
                 </select>
               </label>
+              {!member.isInvite && (
+                <button
+                  type="button"
+                  onClick={saveMemberDetails}
+                  disabled={busy}
+                  className="mt-4 min-h-10 w-full rounded-lg bg-ink px-4 text-xs font-semibold text-white disabled:opacity-60"
+                >
+                  {busy ? 'Saving…' : 'Save member details'}
+                </button>
+              )}
+              {member.isInvite && (
+                <p className="mt-3 text-xs text-[#7B8CA3]">
+                  Pending invite — title and department are set for the whole invite.
+                </p>
+              )}
             </section>
             <section className="mt-4 rounded-xl border border-[#F1C6C1] bg-white p-5">
               <h3 className="font-semibold text-[#B42318]">Danger zone</h3>

@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Search, ChevronDown, Menu, Settings, Users, LogOut, Moon, Sun, Building2, MessageSquare, User } from 'lucide-react';
 import NotificationDropdown from './notification-dropdown';
 import { useAuth } from '@/lib/auth-context';
@@ -19,6 +20,7 @@ export default function StartupHeader({
   onToggleTheme,
   showProfileMenu = false,
 }) {
+  const router = useRouter();
   const [profileOpen, setProfileOpen] = useState(false);
   const { logout } = useAuth();
 
@@ -121,7 +123,7 @@ export default function StartupHeader({
                 type="button"
                 onClick={() => {
                   setProfileOpen(false);
-                  notify('Account settings opened.');
+                  router.push('/startup/settings');
                 }}
                 className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-[#0F1B2D] hover:bg-[#FAF8F4] transition text-left"
               >

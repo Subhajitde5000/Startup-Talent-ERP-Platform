@@ -172,6 +172,14 @@ export default function EmployerHeader({
                   <MessageSquare size={14} className="text-[#5A6E85]" />
                   <span>Community Exchange</span>
                 </Link>
+                <Link
+                  href="/employer/settings"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[#4A5568] hover:bg-[#FAF8F4] hover:text-[#0F1B2D] transition"
+                >
+                  <Settings size={14} className="text-[#5A6E85]" />
+                  <span>Account Settings</span>
+                </Link>
                 <div className="border-t border-[#F0EBE0] my-1 pt-1">
                   <button
                     type="button"

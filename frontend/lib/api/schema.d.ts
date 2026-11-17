@@ -265,6 +265,359 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /**
+         * Update own profile
+         * @description Patch public profile fields. Server-owned fields are not accepted
+         *     (extra=forbid -> 422); unknown/undeclared fields can never be written.
+         */
+        patch: operations["update_me_api_v1_users_me_patch"];
+        trace?: never;
+    };
+    "/api/v1/users/me/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get readiness scores */
+        get: operations["get_readiness_api_v1_users_me_readiness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/delete-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get latest data request
+         * @description Latest data request of the caller, or null if none exists.
+         */
+        get: operations["get_delete_request_api_v1_users_me_delete_request_get"];
+        put?: never;
+        /**
+         * Request account data erasure
+         * @description Record a DPDP data (erasure) request for the caller. One open
+         *     request at a time; fulfilment is handled by Step 15.
+         */
+        post: operations["create_delete_request_api_v1_users_me_delete_request_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get notification preferences
+         * @description Step 3 part 8 stub: persisted toggles per (category, channel).
+         *     The delivery pipeline and full taxonomy arrive with Step 12.
+         */
+        get: operations["get_notification_preferences_api_v1_users_me_notification_preferences_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update notification preferences
+         * @description Upsert the given (category, channel, is_enabled) rows; other rows
+         *     are untouched.
+         */
+        patch: operations["update_notification_preferences_api_v1_users_me_notification_preferences_patch"];
+        trace?: never;
+    };
+    "/api/v1/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search skills */
+        get: operations["search_skills_api_v1_skills_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my organizations */
+        get: operations["list_mine_api_v1_organizations_mine_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an organization
+         * @description Create a startup/employer/investor_firm org. The caller must hold
+         *     the matching platform role; they become its owner.
+         */
+        post: operations["create_organization_api_v1_organizations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get organization */
+        get: operations["get_organization_api_v1_organizations__org_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update organization */
+        patch: operations["update_organization_api_v1_organizations__org_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List members */
+        get: operations["list_members_api_v1_organizations__org_id__members_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/members/{target_user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a member */
+        delete: operations["remove_member_api_v1_organizations__org_id__members__target_user_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update a member */
+        patch: operations["update_member_api_v1_organizations__org_id__members__target_user_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/transfer-ownership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transfer ownership */
+        post: operations["transfer_ownership_api_v1_organizations__org_id__transfer_ownership_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List pending invites */
+        get: operations["list_invites_api_v1_organizations__org_id__invites_get"];
+        put?: never;
+        /**
+         * Invite a member by email
+         * @description Owner/admin invites by email. No mail is sent yet (Step 12); the
+         *     one-time `token` is returned so the UI can show the accept link.
+         */
+        post: operations["create_invite_api_v1_organizations__org_id__invites_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/invites/{invite_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke an invite */
+        delete: operations["revoke_invite_api_v1_organizations__org_id__invites__invite_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invites/{token}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept an organization invite */
+        post: operations["accept_invite_api_v1_invites__token__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/talent-profile/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get my talent profile
+         * @description Null until the candidate saves their profile once (or finishes
+         *     onboarding).
+         */
+        get: operations["get_my_talent_profile_api_v1_talent_profile_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update my talent profile
+         * @description Upsert own profile. `skills` is a replace-set of names; server-owned
+         *     fields (resume_id, timestamps) are absent (extra=forbid -> 422).
+         */
+        patch: operations["update_my_talent_profile_api_v1_talent_profile_me_patch"];
+        trace?: never;
+    };
+    "/api/v1/mentor-profile/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get my mentor profile */
+        get: operations["get_my_mentor_profile_api_v1_mentor_profile_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update my mentor profile
+         * @description Upsert own profile. rating/sessions/is_verified are server-owned
+         *     and absent (extra=forbid -> 422).
+         */
+        patch: operations["update_my_mentor_profile_api_v1_mentor_profile_me_patch"];
+        trace?: never;
+    };
+    "/api/v1/public/organizations/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public organization profile */
+        get: operations["public_organization_api_v1_public_organizations__slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/talent/{handle}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public talent profile */
+        get: operations["public_talent_api_v1_public_talent__handle__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/mentors/{handle}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public mentor profile */
+        get: operations["public_mentor_api_v1_public_mentors__handle__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -276,6 +629,11 @@ export interface components {
         AddRoleRequest: {
             role: components["schemas"]["UserRole"];
         };
+        /**
+         * CasePriority
+         * @enum {string}
+         */
+        CasePriority: "low" | "normal" | "high" | "urgent" | "critical";
         /** ChangeEmailRequest */
         ChangeEmailRequest: {
             /** Current Password */
@@ -293,6 +651,47 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /**
+         * DataRequestStatus
+         * @enum {string}
+         */
+        DataRequestStatus: "received" | "verifying" | "in_progress" | "fulfilled" | "rejected" | "expired";
+        /**
+         * DataRequestType
+         * @enum {string}
+         */
+        DataRequestType: "access" | "erasure" | "rectification" | "portability" | "restriction" | "objection";
+        /**
+         * DeleteRequestRead
+         * @description A self-service data (erasure) request as seen by its owner.
+         */
+        DeleteRequestRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            request_type: components["schemas"]["DataRequestType"];
+            status: components["schemas"]["DataRequestStatus"];
+            priority: components["schemas"]["CasePriority"];
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Fulfilled At */
+            fulfilled_at?: string | null;
+        };
+        /**
+         * Department
+         * @enum {string}
+         */
+        Department: "engineering" | "product" | "design" | "sales" | "marketing" | "operations" | "finance" | "people" | "legal" | "support" | "other";
         /** ForgotPasswordRequest */
         ForgotPasswordRequest: {
             /**
@@ -306,6 +705,54 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** InviteCreate */
+        InviteCreate: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** @default member */
+            role?: components["schemas"]["OrgRole"];
+            /** Title */
+            title?: string | null;
+            department?: components["schemas"]["Department"] | null;
+        };
+        /** InviteRead */
+        InviteRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Email */
+            email: string;
+            role: components["schemas"]["OrgRole"];
+            /** Title */
+            title?: string | null;
+            department?: components["schemas"]["Department"] | null;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Accepted At */
+            accepted_at?: string | null;
+            /** Revoked At */
+            revoked_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Token */
+            token?: string | null;
+        };
         /** LoginRequest */
         LoginRequest: {
             /**
@@ -316,10 +763,404 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** MemberRead */
+        MemberRead: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Email */
+            email?: string | null;
+            /** Avatar Initials */
+            avatar_initials?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            role: components["schemas"]["OrgRole"];
+            /** Status */
+            status: string;
+            /** Title */
+            title?: string | null;
+            department?: components["schemas"]["Department"] | null;
+            /**
+             * Is Founder
+             * @default false
+             */
+            is_founder?: boolean;
+            /**
+             * Is Public
+             * @default true
+             */
+            is_public?: boolean;
+            /** Joined At */
+            joined_at?: string | null;
+        };
+        /**
+         * MemberUpdate
+         * @description Owner/admin patch of a member's role/title/department/visibility.
+         *
+         *     Ownership transfer has its own endpoint; assigning role=owner here is
+         *     rejected unless the actor is the owner (service check) and never for
+         *     the actor themselves (use transfer-ownership).
+         */
+        MemberUpdate: {
+            role?: components["schemas"]["OrgRole"] | null;
+            /** Title */
+            title?: string | null;
+            department?: components["schemas"]["Department"] | null;
+            /** Is Public */
+            is_public?: boolean | null;
+        };
+        /** MentorProfileRead */
+        MentorProfileRead: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Headline */
+            headline?: string | null;
+            /** Bio */
+            bio?: string | null;
+            /**
+             * Expertise
+             * @default []
+             */
+            expertise?: string[];
+            /**
+             * Sectors
+             * @default []
+             */
+            sectors?: string[];
+            /**
+             * Languages
+             * @default []
+             */
+            languages?: string[];
+            /** Years Experience */
+            years_experience?: number | null;
+            /** Hourly Fee */
+            hourly_fee?: number | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Cadence */
+            cadence?: string | null;
+            /**
+             * Max Startups
+             * @default 3
+             */
+            max_startups?: number;
+            /**
+             * Accepting Requests
+             * @default true
+             */
+            accepting_requests?: boolean;
+            /** Rating */
+            rating?: number | null;
+            /**
+             * Sessions Completed
+             * @default 0
+             */
+            sessions_completed?: number;
+            /**
+             * Is Verified
+             * @default false
+             */
+            is_verified?: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * MentorProfileUpdate
+         * @description PATCH /mentor-profile/me. rating/sessions_completed/is_verified are
+         *     server-owned (Steps 8/15) and absent.
+         */
+        MentorProfileUpdate: {
+            /** Headline */
+            headline?: string | null;
+            /** Bio */
+            bio?: string | null;
+            /** Expertise */
+            expertise?: string[] | null;
+            /** Sectors */
+            sectors?: string[] | null;
+            /** Languages */
+            languages?: string[] | null;
+            /** Years Experience */
+            years_experience?: number | null;
+            /** Hourly Fee */
+            hourly_fee?: number | null;
+            /** Currency */
+            currency?: string | null;
+            /** Cadence */
+            cadence?: string | null;
+            /** Max Startups */
+            max_startups?: number | null;
+            /** Accepting Requests */
+            accepting_requests?: boolean | null;
+        };
+        /**
+         * MentorPublicRead
+         * @description Public mentor directory shape (part 9); hidden unless the owner's
+         *     users.profile_public flag is on.
+         */
+        MentorPublicRead: {
+            /** Handle */
+            handle: string;
+            /** Display Name */
+            display_name: string;
+            /** Avatar Initials */
+            avatar_initials?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Headline */
+            headline?: string | null;
+            /** Bio */
+            bio?: string | null;
+            /**
+             * Expertise
+             * @default []
+             */
+            expertise?: string[];
+            /**
+             * Sectors
+             * @default []
+             */
+            sectors?: string[];
+            /**
+             * Languages
+             * @default []
+             */
+            languages?: string[];
+            /** Years Experience */
+            years_experience?: number | null;
+            /** Hourly Fee */
+            hourly_fee?: number | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Cadence */
+            cadence?: string | null;
+            /**
+             * Max Startups
+             * @default 3
+             */
+            max_startups?: number;
+            /**
+             * Accepting Requests
+             * @default true
+             */
+            accepting_requests?: boolean;
+            /** Rating */
+            rating?: number | null;
+            /**
+             * Sessions Completed
+             * @default 0
+             */
+            sessions_completed?: number;
+            /**
+             * Is Verified
+             * @default false
+             */
+            is_verified?: boolean;
+        };
         /** MessageResponse */
         MessageResponse: {
             /** Message */
             message: string;
+        };
+        /** NotificationPreferenceItem */
+        NotificationPreferenceItem: {
+            /** Category */
+            category: string;
+            /** Channel */
+            channel: string;
+            /** Is Enabled */
+            is_enabled: boolean;
+        };
+        /** NotificationPreferenceRead */
+        NotificationPreferenceRead: {
+            /**
+             * Items
+             * @default []
+             */
+            items?: components["schemas"]["NotificationPreferenceItem"][];
+        };
+        /** NotificationPreferenceUpdate */
+        NotificationPreferenceUpdate: {
+            /** Items */
+            items: components["schemas"]["NotificationPreferenceItem"][];
+        };
+        /**
+         * OrgRole
+         * @enum {string}
+         */
+        OrgRole: "owner" | "admin" | "member" | "viewer";
+        /**
+         * OrgType
+         * @enum {string}
+         */
+        OrgType: "startup" | "employer" | "investor_firm" | "agency" | "other";
+        /**
+         * OrganizationCreate
+         * @description Create an organization. `type` maps to the caller's role (checked
+         *     in the service): startup -> startup role, employer -> employer,
+         *     investor_firm -> investor.
+         */
+        OrganizationCreate: {
+            /** Name */
+            name: string;
+            type: components["schemas"]["OrgType"];
+            /** Slug */
+            slug?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Website */
+            website?: string | null;
+            /** City */
+            city?: string | null;
+            /** Region */
+            region?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Founded Year */
+            founded_year?: number | null;
+        };
+        /**
+         * OrganizationPublicRead
+         * @description Public vs private (Step 3 part 9): the unauthenticated view never
+         *     exposes membership, status internals or timestamps beyond created.
+         */
+        OrganizationPublicRead: {
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            type: components["schemas"]["OrgType"];
+            /** Summary */
+            summary?: string | null;
+            /** Logo Url */
+            logo_url?: string | null;
+            /** Logo Initials */
+            logo_initials?: string | null;
+            /** Website */
+            website?: string | null;
+            /** City */
+            city?: string | null;
+            /** Region */
+            region?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Founded Year */
+            founded_year?: number | null;
+            /**
+             * Verified
+             * @default false
+             */
+            verified?: boolean;
+        };
+        /**
+         * OrganizationRead
+         * @description Member-visible organization shape (private view): includes my_role
+         *     for the caller. The public shape lives in OrganizationPublicRead.
+         */
+        OrganizationRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            type: components["schemas"]["OrgType"];
+            /** Status */
+            status: string;
+            /** Summary */
+            summary?: string | null;
+            /** Logo Url */
+            logo_url?: string | null;
+            /** Logo Initials */
+            logo_initials?: string | null;
+            /** Website */
+            website?: string | null;
+            /** City */
+            city?: string | null;
+            /** Region */
+            region?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Founded Year */
+            founded_year?: number | null;
+            /** Verified At */
+            verified_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            my_role?: components["schemas"]["OrgRole"] | null;
+        };
+        /**
+         * OrganizationUpdate
+         * @description Owner/admin patch. `type` is intentionally absent: an organization
+         *     never changes kind (a startup does not become an employer).
+         */
+        OrganizationUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Slug */
+            slug?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Website */
+            website?: string | null;
+            /** City */
+            city?: string | null;
+            /** Region */
+            region?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Founded Year */
+            founded_year?: number | null;
+            /** Logo Url */
+            logo_url?: string | null;
+        };
+        /**
+         * ReadinessRead
+         * @description Computed readiness scores (0-100). resume/practice stay 0 until
+         *     Step 4 (resume scan) and Step 5 (practice) land.
+         */
+        ReadinessRead: {
+            /** Profile Complete */
+            profile_complete: number;
+            /** Resume Score */
+            resume_score: number;
+            /** Practice Score */
+            practice_score: number;
+            /** Overall Score */
+            overall_score: number;
         };
         /** RefreshRequest */
         RefreshRequest: {
@@ -356,8 +1197,6 @@ export interface components {
              * @default If an account exists for this email, a verification code is on its way.
              */
             message?: string;
-            /** User Id */
-            user_id?: string | null;
         };
         /** ResendVerificationRequest */
         ResendVerificationRequest: {
@@ -374,6 +1213,146 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /**
+         * SkillRead
+         * @description One searchable skill (read-only; creation is admin-only, Step 7).
+         */
+        SkillRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Category */
+            category?: string | null;
+        };
+        /** TalentProfileRead */
+        TalentProfileRead: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Headline */
+            headline?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Total Experience Yrs */
+            total_experience_yrs?: number | null;
+            /** Current Location */
+            current_location?: string | null;
+            /** Preferred Mode */
+            preferred_mode?: string | null;
+            /**
+             * Availability
+             * @default flexible
+             */
+            availability?: string;
+            /** Salary Expectation */
+            salary_expectation?: number | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /**
+             * Open To Relocate
+             * @default false
+             */
+            open_to_relocate?: boolean;
+            /**
+             * Is Searchable
+             * @default true
+             */
+            is_searchable?: boolean;
+            /**
+             * Hide Current Employer
+             * @default false
+             */
+            hide_current_employer?: boolean;
+            /**
+             * Skills
+             * @default []
+             */
+            skills?: components["schemas"]["SkillRead"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * TalentProfileUpdate
+         * @description PATCH /talent-profile/me. `skills` is a replace-set of skill NAMES
+         *     (unknown names are created in the lookup table). Server-owned fields
+         *     (resume_id, timestamps) are absent.
+         */
+        TalentProfileUpdate: {
+            /** Headline */
+            headline?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Total Experience Yrs */
+            total_experience_yrs?: number | null;
+            /** Current Location */
+            current_location?: string | null;
+            /** Preferred Mode */
+            preferred_mode?: string | null;
+            /** Availability */
+            availability?: string | null;
+            /** Salary Expectation */
+            salary_expectation?: number | null;
+            /** Currency */
+            currency?: string | null;
+            /** Open To Relocate */
+            open_to_relocate?: boolean | null;
+            /** Is Searchable */
+            is_searchable?: boolean | null;
+            /** Hide Current Employer */
+            hide_current_employer?: boolean | null;
+            /** Skills */
+            skills?: string[] | null;
+        };
+        /**
+         * TalentPublicRead
+         * @description Public vs private (part 9): served only when is_searchable AND the
+         *     owner's users.profile_public flag is on; otherwise 404.
+         */
+        TalentPublicRead: {
+            /** Handle */
+            handle: string;
+            /** Display Name */
+            display_name: string;
+            /** Avatar Initials */
+            avatar_initials?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Headline */
+            headline?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Current Location */
+            current_location?: string | null;
+            /** Preferred Mode */
+            preferred_mode?: string | null;
+            /**
+             * Availability
+             * @default flexible
+             */
+            availability?: string;
+            /**
+             * Skills
+             * @default []
+             */
+            skills?: string[];
+        };
         /** TokenResponse */
         TokenResponse: {
             /** Access Token */
@@ -388,8 +1367,20 @@ export interface components {
             /** Expires In */
             expires_in: number;
         };
-        /** UserRead */
-        UserRead: {
+        /** TransferOwnership */
+        TransferOwnership: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /**
+         * UserMeRead
+         * @description GET /users/me: the full self view (Step 2 auth fields + Step 3a
+         *     profile fields). Never contains password hashes or token material.
+         */
+        UserMeRead: {
             /**
              * Id
              * Format: uuid
@@ -419,12 +1410,115 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Handle */
+            handle?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Avatar Initials */
+            avatar_initials?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /**
+             * Locale
+             * @default en-IN
+             */
+            locale?: string;
+            /**
+             * Timezone
+             * @default Asia/Kolkata
+             */
+            timezone?: string;
+            /** Region */
+            region?: string | null;
+            /** Onboarding Step */
+            onboarding_step?: string | null;
+            /** Linkedin Url */
+            linkedin_url?: string | null;
+            /** Github Url */
+            github_url?: string | null;
+            /** Twitter Url */
+            twitter_url?: string | null;
+            /** Website Url */
+            website_url?: string | null;
+            /** Headline */
+            headline?: string | null;
+            /** Bio */
+            bio?: string | null;
+            /** Education */
+            education?: string | null;
+            /** Prior Role */
+            prior_role?: string | null;
+            /** Founder Vision */
+            founder_vision?: string | null;
+            /** Din Number */
+            din_number?: string | null;
+            /**
+             * Profile Public
+             * @default true
+             */
+            profile_public?: boolean;
+            /**
+             * Allow Outreach
+             * @default true
+             */
+            allow_outreach?: boolean;
         };
         /**
          * UserRole
          * @enum {string}
          */
         UserRole: "startup" | "mentor" | "investor" | "jobseeker" | "employer" | "admin";
+        /**
+         * UserUpdate
+         * @description Mutable public profile fields for the profile edit page (PATCH /users/me).
+         *
+         *     Email change, password, 2FA, roles and account status live elsewhere and
+         *     are deliberately not patchable here.
+         */
+        UserUpdate: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Handle */
+            handle?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Avatar Initials */
+            avatar_initials?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Locale */
+            locale?: string | null;
+            /** Timezone */
+            timezone?: string | null;
+            /** Region */
+            region?: string | null;
+            /** Onboarding Step */
+            onboarding_step?: string | null;
+            /** Linkedin Url */
+            linkedin_url?: string | null;
+            /** Github Url */
+            github_url?: string | null;
+            /** Twitter Url */
+            twitter_url?: string | null;
+            /** Website Url */
+            website_url?: string | null;
+            /** Headline */
+            headline?: string | null;
+            /** Bio */
+            bio?: string | null;
+            /** Education */
+            education?: string | null;
+            /** Prior Role */
+            prior_role?: string | null;
+            /** Founder Vision */
+            founder_vision?: string | null;
+            /** Din Number */
+            din_number?: string | null;
+            /** Profile Public */
+            profile_public?: boolean | null;
+            /** Allow Outreach */
+            allow_outreach?: boolean | null;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -916,7 +2010,871 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserRead"];
+                    "application/json": components["schemas"]["UserMeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_me_api_v1_users_me_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserMeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_readiness_api_v1_users_me_readiness_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_delete_request_api_v1_users_me_delete_request_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteRequestRead"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_delete_request_api_v1_users_me_delete_request_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_notification_preferences_api_v1_users_me_notification_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferenceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_notification_preferences_api_v1_users_me_notification_preferences_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreferenceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferenceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_skills_api_v1_skills_get: {
+        parameters: {
+            query?: {
+                /** @description Substring to match */
+                q?: string | null;
+                /** @description Max results (1-50) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_mine_api_v1_organizations_mine_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_organization_api_v1_organizations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganizationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_organization_api_v1_organizations__org_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_organization_api_v1_organizations__org_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganizationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_members_api_v1_organizations__org_id__members_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_member_api_v1_organizations__org_id__members__target_user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                target_user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_member_api_v1_organizations__org_id__members__target_user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                target_user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transfer_ownership_api_v1_organizations__org_id__transfer_ownership_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferOwnership"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_invites_api_v1_organizations__org_id__invites_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_invite_api_v1_organizations__org_id__invites_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_invite_api_v1_organizations__org_id__invites__invite_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                invite_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_invite_api_v1_invites__token__accept_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_talent_profile_api_v1_talent_profile_me_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TalentProfileRead"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_my_talent_profile_api_v1_talent_profile_me_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TalentProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TalentProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_mentor_profile_api_v1_mentor_profile_me_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorProfileRead"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_my_mentor_profile_api_v1_mentor_profile_me_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MentorProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_organization_api_v1_public_organizations__slug__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationPublicRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_talent_api_v1_public_talent__handle__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                handle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TalentPublicRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_mentor_api_v1_public_mentors__handle__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                handle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorPublicRead"];
                 };
             };
             /** @description Validation Error */

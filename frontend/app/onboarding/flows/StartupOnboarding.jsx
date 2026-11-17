@@ -3,6 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import StepProgress from '../components/StepProgress';
 import CelebrationModal from '../components/CelebrationModal';
+import { useAuth } from '@/lib/auth-context';
+import {
+  initialStepFor,
+  saveOnboardingCompleted,
+  saveOnboardingStep,
+} from '@/lib/onboarding-progress';
 import {
   Building2,
   TrendingUp,
@@ -51,7 +57,8 @@ const REVENUE_RANGES = [
 ];
 
 export default function StartupOnboarding() {
-  const [step, setStep] = useState(1);
+  const { user } = useAuth();
+  const [step, setStep] = useState(() => initialStepFor(user, STEPS));
   const [showCelebration, setShowCelebration] = useState(false);
 
   // Form State
@@ -114,8 +121,10 @@ export default function StartupOnboarding() {
     e.preventDefault();
     if (step < STEPS.length) {
       setStep((prev) => prev + 1);
+      saveOnboardingStep(STEPS[step].id);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
+      saveOnboardingCompleted();
       setShowCelebration(true);
     }
   };
@@ -123,6 +132,7 @@ export default function StartupOnboarding() {
   const handleBack = () => {
     if (step > 1) {
       setStep((prev) => prev - 1);
+      saveOnboardingStep(STEPS[step - 2].id);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
