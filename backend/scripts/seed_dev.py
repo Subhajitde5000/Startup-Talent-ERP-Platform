@@ -22,7 +22,7 @@ from __future__ import annotations
 import asyncio
 import re
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 # Allow `python scripts/seed_dev.py` from backend/ without installing the pkg.
@@ -33,6 +33,7 @@ from sqlalchemy import func, select  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.db.session import async_session_factory, engine  # noqa: E402
+from app.models.milestone import Milestone  # noqa: E402
 from app.models.organization import (  # noqa: E402
     MemberStatus,
     Organization,
@@ -46,6 +47,7 @@ from app.models.startup import (  # noqa: E402
     StartupStage,
 )
 from app.models.talent import MentorProfile, TalentProfile, TalentProfileSkill, WorkMode  # noqa: E402
+from app.models.task import Task, TaskPriority, TaskStatus  # noqa: E402
 from app.models.user import AccountStatus, ReviewState, User, UserRole, UserRoleRow  # noqa: E402
 
 DEV_PASSWORD = "Forma-Dev-2026!"
@@ -212,6 +214,99 @@ STEP5A_STARTUP_PROFILE: dict[str, object] = {
     "ecosystem_goals": ["Raise Seed Funding", "Find Specialized Mentors"],
 }
 
+# Step 5b demo milestones (moved out of the wired tasks page's inline demo
+# data). Owners are real active members of the founder's organisation.
+# Fill-only: never overwrites an existing row (idempotent by name).
+STEP5B_MILESTONES: list[dict[str, object]] = [
+    {
+        "name": "MVP test launch",
+        "description": "Ship the MVP to the first cohort of test users.",
+        "target_date": date(2026, 11, 20),
+        "status": "on_track",
+        "progress": 0,
+        "owner": "founder@forma.dev",
+    },
+    {
+        "name": "Investor readiness",
+        "description": "Deck, data room and metrics ready before the raise.",
+        "target_date": date(2026, 12, 15),
+        "status": "at_risk",
+        "progress": 0,
+        "owner": "mentor@forma.dev",
+    },
+]
+
+# Step 5c demo tasks (moved out of the wired board's inline demo data).
+# `due_offset` is relative to the day the seed runs, so the board never shows
+# a uniformly-overdue board just because time moved on. Fill-only: a task
+# with the same title in the founder's org is never duplicated.
+# `assignee` is a seed email; `milestone` matches a STEP5B_MILESTONES name.
+STEP5C_TASKS: list[dict[str, object]] = [
+    {
+        "title": "Finalize pricing model",
+        "description": "Align the pricing tiers with what we have learned from customer interviews.",
+        "status": TaskStatus.in_progress,
+        "priority": TaskPriority.high,
+        "due_offset": -3,
+        "assignee": "founder@forma.dev",
+        "milestone": "MVP test launch",
+    },
+    {
+        "title": "Review customer interview notes",
+        "description": "Summarize the recurring pain points and share with the team.",
+        "status": TaskStatus.todo,
+        "priority": TaskPriority.medium,
+        "due_offset": 2,
+        "assignee": "mentor@forma.dev",
+        "milestone": "MVP test launch",
+    },
+    {
+        "title": "Update pitch deck traction slide",
+        "description": "Refresh the latest MRR and customer numbers.",
+        "status": TaskStatus.in_review,
+        "priority": TaskPriority.urgent,
+        "due_offset": 0,
+        "assignee": "founder@forma.dev",
+        "milestone": "Investor readiness",
+    },
+    {
+        "title": "Ship onboarding improvements",
+        "description": "Improve first-run experience for new test users.",
+        "status": TaskStatus.todo,
+        "priority": TaskPriority.medium,
+        "due_offset": 6,
+        "assignee": "mentor@forma.dev",
+        "milestone": "MVP test launch",
+    },
+    {
+        "title": "Run five usability sessions",
+        "description": "Complete five moderated sessions and capture feedback.",
+        "status": TaskStatus.done,
+        "priority": TaskPriority.high,
+        "due_offset": -6,
+        "assignee": "mentor@forma.dev",
+        "milestone": "MVP test launch",
+    },
+    {
+        "title": "Confirm mentor review session",
+        "description": "Prepare checklist and questions before the next review.",
+        "status": TaskStatus.todo,
+        "priority": TaskPriority.low,
+        "due_offset": 3,
+        "assignee": "founder@forma.dev",
+        "milestone": "Investor readiness",
+    },
+    {
+        "title": "Prepare beta release notes",
+        "description": "Draft release notes for the first external beta.",
+        "status": TaskStatus.blocked,
+        "priority": TaskPriority.low,
+        "due_offset": 9,
+        "assignee": "employer@forma.dev",
+        "milestone": "MVP test launch",
+    },
+]
+
 # (email, display name, role, verified?)
 SEED_USERS = [
     ("founder@forma.dev", "Aarav Sharma", UserRole.startup, True),
@@ -375,6 +470,8 @@ async def seed() -> None:
         # and team cards look populated in development. Fill-only.
         startup_profile_added = 0
         extra_members_added = 0
+        milestones_added = 0
+        tasks_added = 0
         founder_org = (
             (
                 await db.execute(
@@ -444,6 +541,102 @@ async def seed() -> None:
                 db.add(StartupProfile(org_id=founder_org.id, **STEP5A_STARTUP_PROFILE))
                 await db.commit()
                 startup_profile_added = 1
+
+            # Step 5b: demo milestones for the wired panel (fill-only).
+            for spec in STEP5B_MILESTONES:
+                exists = (
+                    await db.execute(
+                        select(Milestone.id).where(
+                            Milestone.org_id == founder_org.id,
+                            Milestone.name == str(spec["name"]),
+                            Milestone.deleted_at.is_(None),
+                        )
+                    )
+                ).first()
+                if exists is not None:
+                    continue
+                owner_user = (
+                    await db.execute(
+                        select(User).where(User.primary_email == str(spec["owner"]))
+                    )
+                ).scalar_one_or_none()
+                db.add(
+                    Milestone(
+                        org_id=founder_org.id,
+                        name=str(spec["name"]),
+                        description=(
+                            str(spec["description"]) if spec["description"] else None
+                        ),
+                        target_date=spec["target_date"],
+                        status=str(spec["status"]),
+                        progress=int(spec["progress"]),
+                        owner_id=owner_user.id if owner_user is not None else None,
+                    )
+                )
+                milestones_added += 1
+            if milestones_added:
+                await db.commit()
+
+            # Step 5c: demo tasks for the wired board (fill-only, by title).
+            # display_order is per (org, status) column, so each column is
+            # numbered independently in the order the records appear here.
+            column_seq: dict[str, int] = {}
+            seed_today = datetime.now(UTC).date()
+            for spec in STEP5C_TASKS:
+                exists = (
+                    await db.execute(
+                        select(Task.id).where(
+                            Task.org_id == founder_org.id,
+                            Task.title == str(spec["title"]),
+                            Task.deleted_at.is_(None),
+                        )
+                    )
+                ).first()
+                if exists is not None:
+                    continue
+                assignee_user = (
+                    await db.execute(
+                        select(User).where(User.primary_email == str(spec["assignee"]))
+                    )
+                ).scalar_one_or_none()
+                milestone_row = (
+                    await db.execute(
+                        select(Milestone).where(
+                            Milestone.org_id == founder_org.id,
+                            Milestone.name == str(spec["milestone"]),
+                            Milestone.deleted_at.is_(None),
+                        )
+                    )
+                ).scalar_one_or_none()
+                status = spec["status"]
+                assert isinstance(status, TaskStatus)
+                order = column_seq.get(status.value, 0)
+                column_seq[status.value] = order + 1
+                completed_at = (
+                    datetime.now(UTC) if status == TaskStatus.done else None
+                )
+                db.add(
+                    Task(
+                        org_id=founder_org.id,
+                        title=str(spec["title"]),
+                        description=(
+                            str(spec["description"]) if spec["description"] else None
+                        ),
+                        status=status,
+                        priority=spec["priority"],
+                        milestone_id=milestone_row.id if milestone_row is not None else None,
+                        assignee_id=(
+                            assignee_user.id if assignee_user is not None else None
+                        ),
+                        created_by=assignee_user.id if assignee_user is not None else None,
+                        due_on=seed_today + timedelta(days=int(spec["due_offset"])),  # type: ignore[arg-type]
+                        completed_at=completed_at,
+                        display_order=order,
+                    )
+                )
+                tasks_added += 1
+            if tasks_added:
+                await db.commit()
 
         # Step 3c: talent profile for the jobseeker (skills attached by name).
         talent_added = 0
@@ -525,6 +718,8 @@ async def seed() -> None:
     print(f"  + {orgs_added} organisation(s) with owner memberships")
     print(f"  + startup profile (5a): {startup_profile_added}")
     print(f"  + extra org member (5a): {extra_members_added}")
+    print(f"  + milestones (5b): {milestones_added}")
+    print(f"  + tasks (5c): {tasks_added}")
     print(f"  + talent profile: {talent_added}")
     print(f"  + mentor profile: {mentor_added}")
     print(f"\nPassword for all seeded accounts: {DEV_PASSWORD}")

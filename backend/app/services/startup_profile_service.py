@@ -16,7 +16,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import not_found
 from app.models.organization import Organization, OrgRole, OrgType
 from app.models.startup import ProfileVisibility, StartupProfile
 from app.models.user import User
@@ -29,14 +28,6 @@ from app.services import organization_service
 
 # Viewer role is deliberately excluded from writes (plan permission table).
 _WRITE_ROLES = frozenset({OrgRole.owner, OrgRole.admin, OrgRole.member})
-
-
-async def _startup_org(db: AsyncSession, org_id) -> Organization:  # noqa: ANN001
-    """Startup org or 404: wrong type / suspended / deleted look identical."""
-    org = await organization_service.org_or_404(db, org_id)
-    if org.type != OrgType.startup or org.status != "active":
-        raise not_found("Organization not found.")
-    return org
 
 
 async def _select_profile(db: AsyncSession, org_id) -> StartupProfile | None:  # noqa: ANN001
@@ -107,7 +98,7 @@ def _public_read(
 async def get_profile(
     db: AsyncSession, user: User, org_id  # noqa: ANN001
 ) -> StartupProfileRead:
-    org = await _startup_org(db, org_id)
+    org = await organization_service.startup_org_or_404(db, org_id)
     await organization_service.require_membership(db, org.id, user)
     profile = await _ensure_profile(db, org)
     return _read(profile)
@@ -116,7 +107,7 @@ async def get_profile(
 async def update_profile(
     db: AsyncSession, user: User, org_id, payload: StartupProfileUpdate  # noqa: ANN001
 ) -> StartupProfileRead:
-    org = await _startup_org(db, org_id)
+    org = await organization_service.startup_org_or_404(db, org_id)
     await organization_service.require_membership(
         db, org.id, user, roles=set(_WRITE_ROLES)
     )
@@ -135,7 +126,7 @@ async def get_preview(
     db: AsyncSession, user: User, org_id  # noqa: ANN001
 ) -> StartupProfilePublicRead:
     """What an outsider would see right now, for the "Public preview" tab."""
-    org = await _startup_org(db, org_id)
+    org = await organization_service.startup_org_or_404(db, org_id)
     await organization_service.require_membership(db, org.id, user)
     profile = await _ensure_profile(db, org)
     visible = profile.profile_visibility == ProfileVisibility.public

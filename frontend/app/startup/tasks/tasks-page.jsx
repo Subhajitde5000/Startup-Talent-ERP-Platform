@@ -1,119 +1,475 @@
 'use client';
-import {useMemo, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import Link from 'next/link';
-import { StartupSidebar, Btn, Card } from '../../../components';
+import { StartupSidebar, Btn } from '../../../components';
+import {useAuth} from '@/lib/auth-context';
+import {api, ApiError} from '@/lib/api/client';
 import {
   Search,Bell,ChevronDown,ChevronRight,Check,Plus,ArrowRight,CalendarDays,
-  Clock,MoreHorizontal,MessageCircle,Paperclip,Flag,Filter,Grid2X2,List,Columns3,Calendar,
-  Target,Send,X,Trash2,Download,Upload,CheckCircle2,Milestone as MilestoneIcon,ArrowUpRight,
-  Menu,Building2
+  Clock,MoreHorizontal,Flag,Filter,List,Columns3,Calendar,
+  Target,X,Trash2,Download,Upload,Milestone as MilestoneIcon,
+  Menu
 } from 'lucide-react';
-
-const starter = [
-  {id: 1, title: 'Finalize pricing model', assignee: 'Aarav Kapoor', initial: 'AK', due: '2026-11-05', priority: 'High', status: 'In progress', milestone: 'MVP test launch', criterion: 'Prototype: MVP scope defined', labels: ['Finance', 'Prototype'], comments: 2, files: 1, description: 'Align the pricing tiers with what we have learned from customer interviews.'},
-  {id: 2, title: 'Review customer interview notes', assignee: 'Priya Menon', initial: 'PM', due: '2026-11-06', priority: 'Medium', status: 'To do', milestone: 'MVP test launch', criterion: 'Prototype: Test users feedback', labels: ['Research'], comments: 4, files: 0, description: 'Summarize the recurring pain points and share with the team.'},
-  {id: 3, title: 'Update pitch deck traction slide', assignee: 'Aarav Kapoor', initial: 'AK', due: '2026-11-03', priority: 'Urgent', status: 'In review', milestone: 'Investor readiness', criterion: '', labels: ['Fundraising'], comments: 1, files: 2, description: 'Refresh the latest MRR and customer numbers.'},
-  {id: 4, title: 'Ship onboarding improvements', assignee: 'Sanjay Rao', initial: 'SR', due: '2026-11-12', priority: 'Medium', status: 'To do', milestone: 'MVP test launch', criterion: 'Prototype: Working MVP released', labels: ['Product', 'Prototype'], comments: 0, files: 0, description: 'Improve first-run experience for new test users.'},
-  {id: 5, title: 'Run five usability sessions', assignee: 'Priya Menon', initial: 'PM', due: '2026-11-08', priority: 'High', status: 'Done', milestone: 'MVP test launch', criterion: 'Prototype: Test users feedback', labels: ['Research'], comments: 3, files: 1, description: 'Complete five moderated sessions and capture feedback.'},
-  {id: 6, title: 'Confirm mentor review session', assignee: 'Aarav Kapoor', initial: 'AK', due: '2026-11-07', priority: 'Low', status: 'To do', milestone: 'Investor readiness', criterion: 'Mentor deliverable: readiness review', labels: ['Mentor'], comments: 0, files: 0, description: 'Prepare checklist and questions before the next review.'},
-  {id: 7, title: 'Prepare beta release notes', assignee: 'Sanjay Rao', initial: 'SR', due: '2026-11-13', priority: 'Low', status: 'In progress', milestone: 'MVP test launch', criterion: '', labels: ['Product'], comments: 0, files: 0, description: 'Draft release notes for the first external beta.'}
-];
 
 const columns = ['To do', 'In progress', 'In review', 'Done'];
 
+// Step 5c wire mapping: the four board columns onto the task_status enum.
+// `blocked` has no column of its own (approved): it lives in "In progress"
+// and the card carries a Blocked chip; dropping it out of that column moves
+// it to whichever column it lands in.
+const COLUMN_STATUS = {
+  'To do': 'todo',
+  'In progress': 'in_progress',
+  'In review': 'in_review',
+  Done: 'done'
+};
+const STATUS_LABEL = {
+  todo: 'To do',
+  in_progress: 'In progress',
+  in_review: 'In review',
+  blocked: 'Blocked',
+  done: 'Done'
+};
+const columnOf = t => (t.status === 'blocked' ? 'In progress' : STATUS_LABEL[t.status] || 'To do');
+const PRIORITY_LABEL = {low: 'Low', medium: 'Medium', high: 'High', urgent: 'Urgent'};
+const PRIORITY_API = {Low: 'low', Medium: 'medium', High: 'high', Urgent: 'urgent'};
+const PRIORITY_RANK = {low: 0, medium: 1, high: 2, urgent: 3};
+
+// Today in the server's own date model: the API compares due dates against
+// UTC, so the browser must not shift "today" into a different day.
+const isoToday = () => {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(
+    d.getUTCDate()
+  ).padStart(2, '0')}`;
+};
+
+const initialsOf = name =>
+  (name || '?')
+    .split(' ')
+    .map(w => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+// Step 5b: who may write milestones, status labels and 422 -> field mapping.
+const EDIT_ROLES = ['owner', 'admin', 'member'];
+const MS_STATUS_LABELS = {
+  on_track: 'On track',
+  at_risk: 'At risk',
+  off_track: 'Off track',
+  achieved: 'Achieved',
+  missed: 'Missed'
+};
+
+function errorsFrom(err) {
+  const out = {};
+  if (err instanceof ApiError && Array.isArray(err.details)) {
+    for (const d of err.details) {
+      const loc = Array.isArray(d.loc) ? d.loc : [];
+      const key = loc[loc.length - 1];
+      if (typeof key === 'string' && !out[key]) out[key] = d.msg || 'Invalid value.';
+    }
+  }
+  return out;
+}
+
 export default function TasksPage() {
+  const {user} = useAuth();
   const [mobile, setMobile] = useState(false);
   const [compact, setCompact] = useState(false);
-  const [tasks, setTasks] = useState(starter);
+  // Step 5c: tasks are real API data (TaskRead[]); the board is the source
+  // of truth and every mutation re-reads the row the API returns.
+  const [tasks, setTasks] = useState([]);
+  const [taskStatus, setTaskStatus] = useState('loading'); // loading | ready | error | none
+  const [taskError, setTaskError] = useState('');
+  const [busyMove, setBusyMove] = useState(null); // task id currently moving
   const [view, setView] = useState('Board');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('All tasks');
   const [selected, setSelected] = useState(null);
+  // Local, uncommitted edits for the open drawer (title/description commit
+  // on blur; every other control writes immediately).
+  const [drawer, setDrawer] = useState(null);
+  const [drawerErrs, setDrawerErrs] = useState({});
+  const [deleting, setDeleting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [toast, setToast] = useState('');
   const [newTitle, setNewTitle] = useState('');
+  // Task create form fields (mapped onto TaskCreate).
+  const [newAssignee, setNewAssignee] = useState('');
+  const [newPriority, setNewPriority] = useState('Medium');
+  const [newMilestone, setNewMilestone] = useState('');
   const [group, setGroup] = useState('Status');
-  const [month, setMonth] = useState(10);
-  const [milestones, setMilestones] = useState([
-    {id: 1, name: 'MVP test launch', date: '2026-11-20', owner: 'Aarav Kapoor', progress: 4, status: 'On track', criterion: 'Prototype: MVP released to test users'},
-    {id: 2, name: 'Investor readiness', date: '2026-12-15', owner: 'Priya Menon', progress: 1, status: 'At risk', criterion: 'Prototype: Mentor confirms MVP'}
-  ]);
+  const [month, setMonth] = useState(new Date().getUTCMonth());
+  // Step 5b: milestones are real API data (the dev seed keeps the panel populated).
+  const [milestones, setMilestones] = useState([]);
+  const [msStatus, setMsStatus] = useState('loading'); // loading | ready | error | none
+  const [msError, setMsError] = useState('');
+  const [org, setOrg] = useState(null); // OrganizationRead (startup, with my_role)
+  const [members, setMembers] = useState([]); // MemberRead[] for owner names/select
+  const [reloadKey, setReloadKey] = useState(0);
+  const [newDesc, setNewDesc] = useState('');
+  const [newDate, setNewDate] = useState('');
+  const [createErrs, setCreateErrs] = useState({});
+  const [createFormErr, setCreateFormErr] = useState('');
+  const [createBusy, setCreateBusy] = useState(false);
+  const [editing, setEditing] = useState(null); // MilestoneRead under edit
+  const [editForm, setEditForm] = useState(null); // {name, description, target_date, status, progress, owner_id}
+  const [editErrs, setEditErrs] = useState({});
+  const [editFormErr, setEditFormErr] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
+
+  const canEdit = !!org && EDIT_ROLES.includes(org.my_role);
+  const myId = user?.id || null;
+  const myName = user?.display_name || '';
+  const myInitials = initialsOf(myName);
+  const today = isoToday();
 
   const notify = t => {
     setToast(t);
     setTimeout(() => setToast(''), 2600);
   };
 
-  const today = '2026-11-05';
-  const overdue = t => t.status !== 'Done' && t.due < today;
+  // --- Step 5c: tasks ------------------------------------------------------
+  const loadTasks = async id => {
+    setTaskStatus('loading');
+    try {
+      const rows = await api.tasks.listAll(id);
+      setTasks(rows);
+      setTaskStatus('ready');
+    } catch (err) {
+      setTaskError(err instanceof ApiError ? err.message : 'Could not load tasks.');
+      setTaskStatus('error');
+    }
+  };
+  // Kept in a ref so the mount effect never re-runs on a re-render.
+  const loadTasksRef = useRef(loadTasks);
+  loadTasksRef.current = loadTasks;
+
+  // --- Step 5b: organization, milestones, members --------------------------
+  const loadMilestones = async id => {
+    setMsStatus('loading');
+    try {
+      const page = await api.milestones.list(id, {sort: 'target_date', order: 'asc'});
+      setMilestones(page.items);
+      setMsStatus('ready');
+    } catch (err) {
+      setMsError(err instanceof ApiError ? err.message : 'Could not load milestones.');
+      setMsStatus('error');
+    }
+  };
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setMsStatus('loading');
+      let startup = null;
+      try {
+        const orgs = await api.organizations.mine();
+        startup = orgs.find(o => o.type === 'startup') || null;
+      } catch (err) {
+        if (!alive) return;
+        setMsError(err instanceof ApiError ? err.message : 'Could not load your organization.');
+        setMsStatus('error');
+        return;
+      }
+      if (!alive) return;
+      if (!startup) {
+        setMsStatus('none');
+        return;
+      }
+      setOrg(startup);
+      // Owner names only — a members failure must not block the panel.
+      api.organizations
+        .members(startup.id)
+        .then(rows => { if (alive) setMembers(rows); })
+        .catch(() => {});
+      // Tasks render independently of milestones: one failing never hides
+      // the other (each view has its own loading/error state).
+      loadTasksRef.current(startup.id);
+      await loadMilestones(startup.id);
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reloadKey]);
+
+  const ownerNameOf = id =>
+    (id ? members.find(x => x.user_id === id)?.display_name || null : null);
+
+  const openCreate = () => {
+    setNewTitle('');
+    setNewDesc('');
+    setNewDate('');
+    setNewAssignee('');
+    setNewPriority('Medium');
+    setNewMilestone('');
+    setCreateErrs({});
+    setCreateFormErr('');
+    setCreating(true);
+  };
+
+  const openEdit = m => {
+    setEditing(m);
+    setEditForm({
+      name: m.name,
+      description: m.description || '',
+      target_date: m.target_date || '',
+      status: m.status,
+      progress: m.progress,
+      owner_id: m.owner_id || ''
+    });
+    setEditErrs({});
+    setEditFormErr('');
+  };
+
+  const removeMilestone = async m => {
+    if (!org || !window.confirm(`Delete "${m.name}"?`)) return;
+    try {
+      await api.milestones.remove(org.id, m.id);
+      notify('Milestone deleted.');
+      await loadMilestones(org.id);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not delete the milestone.');
+    }
+  };
+
+  const overdue = t => t.status !== 'done' && !!t.due_on && t.due_on < today;
+  const weekEnd = (() => {
+    const d = new Date(`${today}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 7);
+    return d.toISOString().slice(0, 10);
+  })();
+  const dueThisWeek = t =>
+    t.status !== 'done' && !!t.due_on && t.due_on >= today && t.due_on <= weekEnd;
+
+  const assigneeName = t => ownerNameOf(t.assignee_id);
+  const assigneeInitials = t => {
+    const m = t.assignee_id ? members.find(x => x.user_id === t.assignee_id) : null;
+    if (m) return m.avatar_initials || initialsOf(m.display_name);
+    if (t.assignee_id && t.assignee_id === myId) return myInitials;
+    return '—';
+  };
+  const milestoneName = t =>
+    t.milestone_id ? milestones.find(m => m.id === t.milestone_id)?.name || null : null;
+
+  const matches = t => {
+    if (query) {
+      const hay = `${t.title} ${t.description || ''} ${assigneeName(t) || ''}`.toLowerCase();
+      if (!hay.includes(query.toLowerCase())) return false;
+    }
+    if (filter === 'Assigned to me') return !!myId && t.assignee_id === myId;
+    if (filter === 'Overdue') return overdue(t);
+    if (filter in COLUMN_STATUS) return columnOf(t) === filter;
+    return true;
+  };
 
   const filtered = useMemo(
+    () => tasks.filter(matches),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tasks, query, filter, members, milestones, myId]
+  );
+
+  const open = tasks.filter(t => t.status !== 'done').length;
+  const dueweek = tasks.filter(dueThisWeek).length;
+  const late = tasks.filter(overdue).length;
+  const done = tasks.filter(t => t.status === 'done').length;
+  const donePct = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
+
+  // Workload: open tasks per teammate, straight from the (single) task list.
+  const workload = useMemo(() => {
+    const byId = new Map();
+    for (const t of tasks) {
+      if (t.status === 'done' || !t.assignee_id) continue;
+      byId.set(t.assignee_id, (byId.get(t.assignee_id) || 0) + 1);
+    }
+    return [...byId.entries()]
+      .map(([id, n]) => ({id, n, name: ownerNameOf(id) || 'Unknown member'}))
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 5);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, members]);
+
+  // "My focus": my own tasks that are due today or overdue.
+  const focusTasks = useMemo(
     () =>
       tasks.filter(
         t =>
-          (!query || `${t.title} ${t.labels.join(' ')} ${t.assignee}`.toLowerCase().includes(query.toLowerCase())) &&
-          (filter === 'All tasks' ||
-            (filter === 'Overdue' && overdue(t)) ||
-            (filter === 'Assigned to me' && t.assignee === 'Aarav Kapoor') ||
-            t.status === filter)
+          !!myId &&
+          t.assignee_id === myId &&
+          t.status !== 'done' &&
+          !!t.due_on &&
+          t.due_on <= today
       ),
-    [tasks, query, filter]
+    [tasks, myId, today]
   );
 
-  const open = tasks.filter(t => t.status !== 'Done').length;
-  const dueweek = tasks.filter(t => t.status !== 'Done' && t.due >= today && t.due <= '2026-11-11').length;
-  const late = tasks.filter(overdue).length;
+  // Open tasks per milestone (Milestones view progress line).
+  const milestoneCounts = id => {
+    const linked = tasks.filter(t => t.milestone_id === id && t.status !== 'done');
+    return linked.length;
+  };
+  const milestoneDone = id => tasks.filter(t => t.milestone_id === id && t.status === 'done').length;
 
-  const setStatus = (id, status) => {
-    setTasks(tasks.map(t => (t.id === id ? {...t, status} : t)));
-    if (status === 'Done') notify('Task completed.');
+  const replaceTask = row => {
+    setTasks(prev => prev.map(t => (t.id === row.id ? row : t)));
+    setSelected(prev => (prev && prev.id === row.id ? row : prev));
   };
 
-  const quickAdd = e => {
-    e.preventDefault();
-    if (!newTitle.trim()) return;
-    const t = {
-      id: Date.now(),
-      title: newTitle.trim(),
-      assignee: 'Aarav Kapoor',
-      initial: 'AK',
-      due: '2026-11-12',
-      priority: 'Medium',
-      status: 'To do',
-      milestone: '',
-      criterion: '',
-      labels: [],
-      comments: 0,
-      files: 0,
-      description: ''
-    };
-    setTasks([t, ...tasks]);
-    setNewTitle('');
-    notify('Task created.');
+  // Moving a task is the only writer of status/completed_at/display_order.
+  const moveTask = async (task, body, message) => {
+    if (!org || busyMove) return false;
+    setBusyMove(task.id);
+    try {
+      const row = await api.tasks.move(org.id, task.id, body);
+      replaceTask(row);
+      if (message) notify(message);
+      return true;
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not move the task.');
+      // Re-read so the board never shows a move the server rejected.
+      await loadTasks(org.id);
+      return false;
+    } finally {
+      setBusyMove(null);
+    }
+  };
+
+  // Field patch (title/description/priority/assignee/due/milestone).
+  const patchTask = async (task, body, message) => {
+    if (!org) return null;
+    setDrawerErrs({});
+    try {
+      const row = await api.tasks.update(org.id, task.id, body);
+      replaceTask(row);
+      if (message) notify(message);
+      return row;
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const errs = errorsFrom(err);
+        setDrawerErrs(errs);
+        notify(Object.keys(errs).length ? 'Please check the highlighted fields.' : err.message);
+      } else {
+        notify('Could not update the task.');
+      }
+      return null;
+    }
+  };
+
+  const removeTask = async task => {
+    if (!org || deleting) return;
+    if (!window.confirm(`Delete "${task.title}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await api.tasks.remove(org.id, task.id);
+      setTasks(prev => prev.filter(t => t.id !== task.id));
+      setSelected(null);
+      setDrawer(null);
+      notify('Task deleted.');
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not delete the task.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const setStatus = async (task, column) => {
+    const status = COLUMN_STATUS[column];
+    if (!status) return;
+    // An anchored move keeps the position; a bare column change appends.
+    await moveTask(
+      task,
+      {status},
+      status === 'done' ? 'Task completed.' : `Moved to ${column}.`
+    );
+  };
+
+  const toggleDone = task => {
+    if (task.status === 'done') {
+      return setStatus(task, 'To do');
+    }
+    return moveTask(task, {status: 'done'}, 'Task completed.');
+  };
+
+  // Reorder inside a column: before/after anchor computed from what is on
+  // screen, so the result matches the drop target.
+  const reorder = async (draggedId, column, beforeTaskId) => {
+    const dragged = tasks.find(t => t.id === draggedId);
+    if (!dragged || !org) return;
+    const status = COLUMN_STATUS[column];
+    const siblings = tasks
+      .filter(t => columnOf(t) === column && t.id !== draggedId)
+      .sort((a, b) => a.display_order - b.display_order || a.created_at.localeCompare(b.created_at));
+    const body = {status};
+    if (beforeTaskId) {
+      body.before_id = beforeTaskId;
+    } else if (siblings.length) {
+      body.after_id = siblings[siblings.length - 1].id;
+    }
+    await moveTask(dragged, body);
   };
 
   const [dragId, setDragId] = useState(null);
-  const doMove = (id, status) => {
-    setStatus(id, status);
+  const doMove = (id, column) => {
+    const t = tasks.find(x => x.id === id);
     setDragId(null);
+    if (t) setStatus(t, column);
   };
 
-  const dueChip = t => (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium ${
-        overdue(t)
-          ? 'bg-[#FCE8E6] text-[#B42318]'
-          : t.due === today
-          ? 'bg-[#F3EBDD] text-[#806236]'
-          : t.due <= '2026-11-07'
-          ? 'bg-[#FFF3D6] text-[#8A5700]'
-          : 'bg-[#F3F4F6] text-[#4A5568]'
-      }`}
-    >
-      <CalendarDays size={11} />
-      {overdue(t) ? 'Overdue' : t.due === today ? 'Today' : new Date(`${t.due}T00:00:00`).toLocaleDateString('en-IN', {day: 'numeric', month: 'short'})}
-    </span>
-  );
+  const quickAdd = async e => {
+    e.preventDefault();
+    const title = newTitle.trim();
+    if (!title || !org || createBusy) return;
+    setCreateErrs({});
+    setCreateFormErr('');
+    setCreateBusy(true);
+    try {
+      const row = await api.tasks.create(org.id, {title});
+      setTasks(prev => [...prev, row]);
+      setNewTitle('');
+      notify('Task created.');
+    } catch (err) {
+      const errs = errorsFrom(err);
+      setCreateErrs(errs);
+      setCreateFormErr(
+        Object.keys(errs).length ? '' : err instanceof ApiError ? err.message : 'Could not create the task.'
+      );
+    } finally {
+      setCreateBusy(false);
+    }
+  };
+
+  const dueChip = t => {
+    if (!t.due_on) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px] font-medium text-[#4A5568]">
+          <CalendarDays size={11} />
+          No date
+        </span>
+      );
+    }
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium ${
+          overdue(t)
+            ? 'bg-[#FCE8E6] text-[#B42318]'
+            : t.due_on === today
+            ? 'bg-[#F3EBDD] text-[#806236]'
+            : dueThisWeek(t)
+            ? 'bg-[#FFF3D6] text-[#8A5700]'
+            : 'bg-[#F3F4F6] text-[#4A5568]'
+        }`}
+      >
+        <CalendarDays size={11} />
+        {overdue(t)
+          ? 'Overdue'
+          : t.due_on === today
+          ? 'Today'
+          : new Date(`${t.due_on}T00:00:00Z`).toLocaleDateString('en-IN', {day: 'numeric', month: 'short', timeZone: 'UTC'})}
+      </span>
+    );
+  };
 
   const taskCard = t => (
     <article
@@ -123,24 +479,24 @@ export default function TasksPage() {
       onDragEnd={() => setDragId(null)}
       onClick={() => setSelected(t)}
       className={`cursor-pointer rounded-xl border border-[#E5E1D8] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,27,45,.04)] transition hover:border-[#A0A7B4] hover:shadow-sm ${
-        t.status === 'Done' ? 'opacity-70' : ''
-      }`}
+        t.status === 'done' ? 'opacity-70' : ''
+      } ${busyMove === t.id ? 'animate-pulse' : ''}`}
     >
       <div className="flex items-start gap-2">
         <button
           type="button"
           onClick={e => {
             e.stopPropagation();
-            setStatus(t.id, t.status === 'Done' ? 'To do' : 'Done');
+            toggleDone(t);
           }}
-          aria-label={t.status === 'Done' ? 'Mark incomplete' : 'Mark complete'}
+          aria-label={t.status === 'done' ? 'Mark incomplete' : 'Mark complete'}
           className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border ${
-            t.status === 'Done' ? 'border-ink bg-ink text-white' : 'border-[#A0A7B4]'
+            t.status === 'done' ? 'border-ink bg-ink text-white' : 'border-[#A0A7B4]'
           }`}
         >
-          {t.status === 'Done' && <Check size={11} />}
+          {t.status === 'done' && <Check size={11} />}
         </button>
-        <h3 className={`flex-1 text-sm font-semibold leading-5 ${t.status === 'Done' ? 'text-[#A0A7B4] line-through' : ''}`}>
+        <h3 className={`flex-1 text-sm font-semibold leading-5 ${t.status === 'done' ? 'text-[#A0A7B4] line-through' : ''}`}>
           {t.title}
         </h3>
         <button
@@ -154,47 +510,39 @@ export default function TasksPage() {
           <MoreHorizontal size={17} className="text-[#4A5568]" />
         </button>
       </div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {t.labels.map(l => (
-          <span key={l} className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px] text-[#4A5568]">
-            {l}
-          </span>
-        ))}
-      </div>
+      {/* Labels arrive with Step 5d (task_labels) — hidden until then. */}
       <div className="mt-3 flex items-center justify-between">
         <span className="flex items-center gap-2">
-          <span className="grid h-7 w-7 place-items-center rounded-full bg-[#F3EBDD] text-[10px] font-semibold">{t.initial}</span>
-          <span className="text-[11px] text-[#4A5568]">{t.assignee.split(' ')[0]}</span>
+          <span className="grid h-7 w-7 place-items-center rounded-full bg-[#F3EBDD] text-[10px] font-semibold">
+            {assigneeInitials(t)}
+          </span>
+          <span className="text-[11px] text-[#4A5568]">
+            {(assigneeName(t) || 'Unassigned').split(' ')[0]}
+          </span>
         </span>
         {dueChip(t)}
       </div>
       <div className="mt-3 flex items-center gap-3 border-t border-[#E5E1D8] pt-2.5 text-[10px] text-[#4A5568]">
-        {t.priority !== 'Low' && (
+        {t.priority !== 'low' && (
           <span
             className={`inline-flex items-center gap-1 ${
-              t.priority === 'Urgent' ? 'text-[#B42318]' : t.priority === 'High' ? 'text-[#8A5700]' : ''
+              t.priority === 'urgent' ? 'text-[#B42318]' : t.priority === 'high' ? 'text-[#8A5700]' : ''
             }`}
           >
             <Flag size={12} />
-            {t.priority}
+            {PRIORITY_LABEL[t.priority]}
           </span>
         )}
-        {t.comments > 0 && (
-          <span>
-            <MessageCircle className="mr-1 inline" size={12} />
-            {t.comments}
+        {t.status === 'blocked' && (
+          <span className="inline-flex items-center gap-1 text-[#B42318]">
+            <Clock size={12} />
+            Blocked
           </span>
         )}
-        {t.files > 0 && (
-          <span>
-            <Paperclip className="mr-1 inline" size={12} />
-            {t.files}
-          </span>
-        )}
-        {t.criterion && (
-          <span className="ml-auto max-w-[120px] truncate text-[#9A7A45]" title={t.criterion}>
-            <Target className="mr-1 inline" size={12} />
-            Linked criterion
+        {milestoneName(t) && (
+          <span className="ml-auto max-w-[130px] truncate text-[#9A7A45]" title={milestoneName(t)}>
+            <MilestoneIcon className="mr-1 inline" size={12} />
+            {milestoneName(t)}
           </span>
         )}
       </div>
@@ -237,8 +585,10 @@ export default function TasksPage() {
             <i className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#B8955A]" />
           </button>
           <span className="ml-3 flex items-center gap-2 text-xs">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-ink font-semibold text-white">AK</span>
-            <span className="hidden sm:block">Aarav Kapoor</span>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-ink font-semibold text-white">
+              {myInitials}
+            </span>
+            <span className="hidden sm:block">{myName || '…'}</span>
             <ChevronDown size={14} />
           </span>
         </div>
@@ -249,7 +599,7 @@ export default function TasksPage() {
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm text-[#4A5568]">
-              Acme Studio <span className="mx-2 text-[#B8955A]">·</span> Workspace
+              {org?.name || 'Your startup'} <span className="mx-2 text-[#B8955A]">·</span> Workspace
             </p>
             <h1 className="serif mt-1 text-[30px] font-semibold">Tasks & milestones</h1>
             <p className="mt-1 text-sm text-[#4A5568]">Plan the work, track the milestones.</p>
@@ -265,10 +615,19 @@ export default function TasksPage() {
             <button
               type="button"
               onClick={() => {
-                const csv = ['Title,Assignee,Due,Priority,Status', ...tasks.map(t => `"${t.title}","${t.assignee}",${t.due},${t.priority},${t.status}`)].join('\n');
+                if (!tasks.length) {
+                  notify('There are no tasks to export yet.');
+                  return;
+                }
+                const csv = [
+                  'Title,Assignee,Due,Priority,Status,Milestone',
+                  ...tasks.map(t =>
+                    `"${t.title.replace(/"/g, '""')}","${(assigneeName(t) || '').replace(/"/g, '""')}",${t.due_on || ''},${PRIORITY_LABEL[t.priority]},${STATUS_LABEL[t.status] || t.status},"${(milestoneName(t) || '').replace(/"/g, '""')}"`
+                  )
+                ].join('\n');
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'}));
-                a.download = 'acme-tasks.csv';
+                a.download = 'tasks.csv';
                 a.click();
                 notify('Tasks exported as CSV.');
               }}
@@ -289,7 +648,7 @@ export default function TasksPage() {
               ['Open tasks', open, ''],
               ['Due this week', dueweek, 'warn'],
               ['Overdue', late, 'error'],
-              ['Completed this month', 31, 'success']
+              ['Completed', done, 'success']
             ].map(([a, b, c]) => (
               <button
                 type="button"
@@ -304,13 +663,17 @@ export default function TasksPage() {
               </button>
             ))}
           </div>
+          {/* No sprint entity exists in schema (approved): this is board
+              progress, done / total, never a fabricated number. */}
           <div className="flex items-center gap-3 border-t border-[#E5E1D8] px-4 py-3 sm:px-6">
-            <span className="text-xs text-[#4A5568]">November sprint progress</span>
+            <span className="text-xs text-[#4A5568]">Board progress</span>
             <div className="h-2 flex-1 rounded-full bg-[#E5E1D8]">
-              <div className="h-full w-[58%] rounded-full bg-[#B8955A]" />
+              <div className="h-full rounded-full bg-[#B8955A]" style={{width: `${donePct}%`}} />
             </div>
-            <b className="text-xs">58%</b>
-            <span className="hidden text-xs text-[#4A5568] sm:inline">14 of 24 done</span>
+            <b className="text-xs">{donePct}%</b>
+            <span className="hidden text-xs text-[#4A5568] sm:inline">
+              {done} of {tasks.length} done
+            </span>
           </div>
         </section>
 
@@ -380,11 +743,45 @@ export default function TasksPage() {
           </div>
         )}
 
+        {/* Step 5c task states: loading / error / no startup */}
+        {view !== 'Milestones' && taskStatus === 'loading' && (
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4" aria-busy="true" role="status">
+            {columns.map(col => (
+              <div key={col} className="min-w-[255px] rounded-xl bg-[#F4F1EA] p-3">
+                <div className="mb-3 h-5 w-24 animate-pulse rounded bg-[#E5E1D8]" />
+                {[0, 1].map(i => (
+                  <div key={i} className="mb-2.5 h-24 animate-pulse rounded-xl bg-white" />
+                ))}
+              </div>
+            ))}
+            <span className="sr-only">Loading tasks…</span>
+          </div>
+        )}
+        {view !== 'Milestones' && taskStatus === 'error' && (
+          <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center" role="alert">
+            <p className="text-sm text-[#4A5568]">{taskError}</p>
+            <button
+              type="button"
+              onClick={() => setReloadKey(k => k + 1)}
+              className="mt-3 min-h-9 rounded-lg bg-ink px-4 text-sm font-semibold text-white"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {view !== 'Milestones' && taskStatus === 'none' && (
+          <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center text-sm text-[#4A5568]" role="status">
+            Create your startup first — tasks live in your startup workspace.
+          </div>
+        )}
+
         {/* Board View */}
-        {view === 'Board' && (
+        {view === 'Board' && taskStatus === 'ready' && (
           <div className="grid gap-4 overflow-x-auto pb-2 md:grid-cols-2 2xl:grid-cols-4">
             {columns.map(col => {
-              const list = filtered.filter(t => t.status === col);
+              const list = filtered
+                .filter(t => columnOf(t) === col)
+                .sort((a, b) => a.display_order - b.display_order || a.created_at.localeCompare(b.created_at));
               return (
                 <section
                   key={col}
@@ -412,10 +809,28 @@ export default function TasksPage() {
                     </button>
                   </header>
                   <div className="space-y-2.5">
-                    {list.map(taskCard)}
+                    {list.map(t => (
+                      <div
+                        key={t.id}
+                        onDragOver={e => {
+                          // Dropping onto a card inserts the dragged task
+                          // before it (native DnD; no extra library).
+                          if (dragId && dragId !== t.id) e.preventDefault();
+                        }}
+                        onDrop={e => {
+                          if (!dragId || dragId === t.id) return;
+                          e.preventDefault();
+                          e.stopPropagation();
+                          reorder(dragId, col, t.id);
+                          setDragId(null);
+                        }}
+                      >
+                        {taskCard(t)}
+                      </div>
+                    ))}
                     {list.length === 0 && (
                       <div className="rounded-lg border border-dashed border-[#D6D0C5] p-5 text-center text-xs text-[#4A5568]">
-                        Drop a task here
+                        {tasks.length === 0 && canEdit ? 'No tasks yet — add the first one.' : 'Drop a task here'}
                       </div>
                     )}
                   </div>
@@ -426,17 +841,22 @@ export default function TasksPage() {
         )}
 
         {/* List View */}
-        {view === 'List' && (
+        {view === 'List' && taskStatus === 'ready' && (
           <div className="overflow-x-auto rounded-xl border border-[#E5E1D8] bg-white">
             <form onSubmit={quickAdd} className="flex min-w-[760px] items-center gap-3 border-b border-[#E5E1D8] bg-[#FAF8F4] p-3">
               <Plus size={16} className="text-[#9A7A45]" />
               <input
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
-                placeholder="Add a task… Press Enter"
-                className="h-9 flex-1 bg-transparent text-sm outline-none"
+                placeholder={canEdit ? 'Add a task… Press Enter' : 'Read-only access'}
+                disabled={!canEdit}
+                className="h-9 flex-1 bg-transparent text-sm outline-none disabled:cursor-not-allowed"
               />
-              <button type="submit" className="text-xs font-semibold text-[#9A7A45]">
+              <button
+                type="submit"
+                disabled={!canEdit || createBusy}
+                className="text-xs font-semibold text-[#9A7A45] disabled:opacity-50"
+              >
                 Add task
               </button>
             </form>
@@ -451,35 +871,48 @@ export default function TasksPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E1D8]">
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-3 py-8 text-center text-[#4A5568]">
+                      {tasks.length === 0
+                        ? canEdit
+                          ? 'No tasks yet. Add the first one above.'
+                          : 'No tasks have been created yet.'
+                        : 'No tasks match the current search and filter.'}
+                    </td>
+                  </tr>
+                )}
                 {filtered.map(t => (
                   <tr key={t.id} onClick={() => setSelected(t)} className="h-12 cursor-pointer hover:bg-[#F4F1EA]">
                     <td className="px-3">
                       <input
                         type="checkbox"
-                        checked={t.status === 'Done'}
+                        checked={t.status === 'done'}
+                        disabled={!canEdit}
                         onClick={e => e.stopPropagation()}
-                        onChange={() => setStatus(t.id, t.status === 'Done' ? 'To do' : 'Done')}
+                        onChange={() => toggleDone(t)}
                         className="mr-2 accent-ink"
                       />
-                      <span className={t.status === 'Done' ? 'text-[#A0A7B4] line-through' : ''}>{t.title}</span>
+                      <span className={t.status === 'done' ? 'text-[#A0A7B4] line-through' : ''}>{t.title}</span>
                     </td>
-                    <td className="px-3">{t.assignee}</td>
+                    <td className="px-3">{assigneeName(t) || '—'}</td>
                     <td className="px-3">{dueChip(t)}</td>
-                    <td className="px-3">{t.priority}</td>
+                    <td className="px-3">{PRIORITY_LABEL[t.priority]}</td>
                     <td className="px-3">
                       <select
-                        value={t.status}
+                        value={columnOf(t)}
+                        disabled={!canEdit}
                         onClick={e => e.stopPropagation()}
-                        onChange={e => setStatus(t.id, e.target.value)}
-                        className="rounded-md border border-[#E5E1D8] bg-white px-2 py-1"
+                        onChange={e => setStatus(t, e.target.value)}
+                        className="rounded-md border border-[#E5E1D8] bg-white px-2 py-1 disabled:opacity-60"
                       >
                         {columns.map(c => (
                           <option key={c}>{c}</option>
                         ))}
                       </select>
                     </td>
-                    <td className="px-3 text-[#9A7A45]">{t.criterion || t.milestone || '—'}</td>
-                    <td className="px-3">{t.labels.join(', ') || '—'}</td>
+                    <td className="px-3 text-[#9A7A45]">{milestoneName(t) || '—'}</td>
+                    <td className="px-3">{/* Labels arrive with Step 5d. */}—</td>
                   </tr>
                 ))}
               </tbody>
@@ -487,80 +920,125 @@ export default function TasksPage() {
           </div>
         )}
 
-        {/* Milestones View */}
+        {/* Milestones View (Step 5b: real API data) */}
         {view === 'Milestones' && (
           <div className="space-y-5">
-            <section className="overflow-x-auto rounded-xl border border-[#E5E1D8] bg-white p-5">
-              <div className="flex min-w-[620px] items-start">
-                {milestones.map((m, i) => (
-                  <div key={m.id} className="flex flex-1 items-start last:flex-none">
-                    <div className="flex flex-col items-center">
-                      <span className={`grid h-9 w-9 place-items-center rounded-full border-2 ${i === 0 ? 'border-[#B8955A] bg-[#F3EBDD] text-[#806236]' : 'border-ink bg-ink text-white'}`}>
-                        {i === 0 ? <Target size={16} /> : <Check size={16} />}
-                      </span>
-                      <span className="mt-2 text-xs font-semibold">
-                        {new Date(`${m.date}T00:00:00`).toLocaleDateString('en-IN', {month: 'short', day: 'numeric'})}
-                      </span>
-                      <small className="mt-1 text-[10px] text-[#4A5568]">{m.name}</small>
-                    </div>
-                    {i < milestones.length - 1 && <span className="mt-4 h-[2px] flex-1 bg-[#E5E1D8]" />}
-                  </div>
-                ))}
+            {msStatus === 'loading' && (
+              <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center text-sm text-[#4A5568]" role="status">
+                Loading milestones…
+              </div>
+            )}
+            {msStatus === 'error' && (
+              <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center" role="alert">
+                <p className="text-sm text-[#4A5568]">{msError}</p>
                 <button
                   type="button"
-                  onClick={() => setCreating(true)}
-                  className="ml-5 grid h-9 w-9 place-items-center rounded-full border border-dashed border-[#A0A7B4]"
+                  onClick={() => setReloadKey(k => k + 1)}
+                  className="mt-3 min-h-9 rounded-lg bg-ink px-4 text-sm font-semibold text-white"
                 >
-                  <Plus size={15} />
+                  Retry
                 </button>
               </div>
-            </section>
-            <div className="flex justify-end">
-              <Btn onClick={() => setCreating(true)}>
-                <Plus size={15} /> New milestone
-              </Btn>
-            </div>
-            {milestones.map(m => {
-              const linked = tasks.filter(t => t.milestone === m.name);
-              const complete = linked.filter(t => t.status === 'Done').length;
-              return (
-                <section key={m.id} className="rounded-xl border border-[#E5E1D8] bg-white p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h2 className="serif text-xl font-semibold">{m.name}</h2>
-                      <p className="mt-1 text-xs text-[#4A5568]">
-                        Target {new Date(`${m.date}T00:00:00`).toLocaleDateString('en-IN', {day: 'numeric', month: 'long', year: 'numeric'})} · Owner: {m.owner}
-                      </p>
-                    </div>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${m.status === 'At risk' ? 'bg-[#FFF3D6] text-[#8A5700]' : 'bg-[#E7F3EC] text-[#286749]'}`}>
-                      {m.status}
-                    </span>
-                  </div>
-                  <div className="mt-4 flex items-center gap-3">
-                    <div className="h-2 flex-1 rounded-full bg-[#E5E1D8]">
-                      <div className="h-full rounded-full bg-[#B8955A]" style={{width: `${linked.length ? (complete / linked.length) * 100 : 0}%`}} />
-                    </div>
-                    <span className="text-xs text-[#4A5568]">{complete} of {linked.length} tasks done</span>
-                  </div>
-                  <p className="mt-3 text-xs text-[#9A7A45]">
-                    <Target size={13} className="mr-1 inline" />
-                    {m.criterion}
-                  </p>
-                  <details className="mt-3 border-t border-[#E5E1D8] pt-3">
-                    <summary className="cursor-pointer text-xs font-semibold">Show linked tasks ({linked.length})</summary>
-                    <div className="mt-2 space-y-2">
-                      {linked.map(t => (
-                        <button type="button" onClick={() => setSelected(t)} key={t.id} className="flex w-full items-center gap-2 text-left text-xs">
-                          <span className="h-2 w-2 rounded-full bg-[#B8955A]" />
-                          {t.title}
-                          <span className="ml-auto text-[#4A5568]">{t.status}</span>
-                        </button>
+            )}
+            {msStatus === 'none' && (
+              <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center text-sm text-[#4A5568]" role="status">
+                Create your startup first — milestones live in your startup workspace.
+              </div>
+            )}
+            {msStatus === 'ready' && (
+              <>
+                {milestones.length > 0 && (
+                  <section className="overflow-x-auto rounded-xl border border-[#E5E1D8] bg-white p-5">
+                    <div className="flex min-w-[620px] items-start">
+                      {milestones.map((m, i) => (
+                        <div key={m.id} className="flex flex-1 items-start last:flex-none">
+                          <div className="flex flex-col items-center">
+                            <span className={`grid h-9 w-9 place-items-center rounded-full border-2 ${i === 0 ? 'border-[#B8955A] bg-[#F3EBDD] text-[#806236]' : 'border-ink bg-ink text-white'}`}>
+                              {i === 0 ? <Target size={16} /> : <Check size={16} />}
+                            </span>
+                            <span className="mt-2 text-xs font-semibold">
+                              {m.target_date
+                                ? new Date(`${m.target_date}T00:00:00`).toLocaleDateString('en-IN', {month: 'short', day: 'numeric'})
+                                : 'No date'}
+                            </span>
+                            <small className="mt-1 text-[10px] text-[#4A5568]">{m.name}</small>
+                          </div>
+                          {i < milestones.length - 1 && <span className="mt-4 h-[2px] flex-1 bg-[#E5E1D8]" />}
+                        </div>
                       ))}
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={openCreate}
+                          aria-label="New milestone"
+                          className="ml-5 grid h-9 w-9 place-items-center rounded-full border border-dashed border-[#A0A7B4]"
+                        >
+                          <Plus size={15} />
+                        </button>
+                      )}
                     </div>
-                  </details>
-                </section>
-              );
-            })}
+                  </section>
+                )}
+                <div className="flex justify-end">
+                  {canEdit && (
+                    <Btn onClick={openCreate}>
+                      <Plus size={15} /> New milestone
+                    </Btn>
+                  )}
+                </div>
+                {milestones.length === 0 && (
+                  <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center text-sm text-[#4A5568]" role="status">
+                    No milestones yet.{canEdit ? ' Create the first one to start the timeline.' : ''}
+                  </div>
+                )}
+                {milestones.map(m => {
+                  const label = MS_STATUS_LABELS[m.status] || m.status;
+                  const risky = m.status === 'at_risk' || m.status === 'off_track';
+                  const missed = m.status === 'missed';
+                  const badge = missed
+                    ? 'bg-[#FDECEC] text-[#9A3A3A]'
+                    : risky
+                      ? 'bg-[#FFF3D6] text-[#8A5700]'
+                      : 'bg-[#E7F3EC] text-[#286749]';
+                  return (
+                    <section key={m.id} className="rounded-xl border border-[#E5E1D8] bg-white p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h2 className="serif text-xl font-semibold">{m.name}</h2>
+                          <p className="mt-1 text-xs text-[#4A5568]">
+                            Target {m.target_date
+                              ? new Date(`${m.target_date}T00:00:00`).toLocaleDateString('en-IN', {day: 'numeric', month: 'long', year: 'numeric'})
+                              : '—'} · Owner: {ownerNameOf(m.owner_id) || '—'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${badge}`}>
+                            {label}
+                          </span>
+                          {canEdit && (
+                            <span className="flex gap-2 text-xs font-semibold">
+                              <button type="button" onClick={() => openEdit(m)} className="text-[#9A7A45] hover:underline">
+                                Edit
+                              </button>
+                              <button type="button" onClick={() => removeMilestone(m)} className="text-[#9A3A3A] hover:underline">
+                                Delete
+                              </button>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {/* Step 5c: real task progress from this board. */}
+                      <p className="mt-4 text-xs text-[#9A7A45]">
+                        <Target size={13} className="mr-1 inline" />
+                        {milestoneCounts(m.id)} open task{milestoneCounts(m.id) === 1 ? '' : 's'}
+                        {' · '}
+                        {milestoneDone(m.id)} done
+                      </p>
+                    </section>
+                  );
+                })}
+              </>
+            )}
           </div>
         )}
 
@@ -577,10 +1055,14 @@ export default function TasksPage() {
                 <ChevronRight className="rotate-180" size={17} />
               </button>
               <h2 className="serif text-xl font-semibold">
-                {new Date(2026, month).toLocaleDateString('en-IN', {month: 'long', year: 'numeric'})}
+                {new Date(Date.UTC(Number(today.slice(0, 4)), month, 1)).toLocaleDateString('en-IN', {month: 'long', year: 'numeric', timeZone: 'UTC'})}
               </h2>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setMonth(10)} className="rounded-lg border px-3 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setMonth(new Date().getUTCMonth())}
+                  className="rounded-lg border px-3 text-xs"
+                >
                   Today
                 </button>
                 <button
@@ -593,35 +1075,50 @@ export default function TasksPage() {
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-7 border-l border-t border-[#E5E1D8]">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
-                <div key={d} className="border-b border-r border-[#E5E1D8] bg-[#FAF8F4] p-2 text-center text-[10px] font-semibold text-[#4A5568]">
-                  {d}
+            {(() => {
+              // Real calendar for the selected month (UTC, Monday-first):
+              // no fixed 35 cells and no year pinned in the source.
+              const year = Number(today.slice(0, 4));
+              const first = new Date(Date.UTC(year, month, 1));
+              const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+              const lead = (first.getUTCDay() + 6) % 7; // Monday = 0
+              const cells = [...Array(lead).fill(null), ...Array.from({length: daysInMonth}, (_, i) => i + 1)];
+              return (
+                <div className="grid grid-cols-7 border-l border-t border-[#E5E1D8]">
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
+                    <div key={d} className="border-b border-r border-[#E5E1D8] bg-[#FAF8F4] p-2 text-center text-[10px] font-semibold text-[#4A5568]">
+                      {d}
+                    </div>
+                  ))}
+                  {cells.map((day, i) => {
+                    if (day === null) {
+                      return <div key={`lead-${i}`} className="min-h-[78px] border-b border-r border-[#E5E1D8] bg-[#FCFBF8]" />;
+                    }
+                    const date = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const items = tasks.filter(t => t.due_on === date);
+                    return (
+                      <div key={date} className="min-h-[78px] border-b border-r border-[#E5E1D8] p-1.5">
+                        <span className={`text-[10px] ${date === today ? 'grid h-5 w-5 place-items-center rounded-full bg-ink text-white' : ''}`}>
+                          {day}
+                        </span>
+                        {items.map(t => (
+                          <button
+                            type="button"
+                            key={t.id}
+                            onClick={() => setSelected(t)}
+                            className={`mt-1 block w-full truncate rounded px-1 py-1 text-left text-[9px] ${
+                              t.status === 'done' ? 'bg-[#E7F3EC] text-[#286749] line-through' : 'bg-[#F3EBDD] text-[#806236]'
+                            }`}
+                          >
+                            {t.title}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-              {Array.from({length: 35}, (_, i) => {
-                const day = i + 1;
-                const date = `2026-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const items = tasks.filter(t => t.due === date);
-                return (
-                  <div key={i} className="min-h-[78px] border-b border-r border-[#E5E1D8] p-1.5">
-                    <span className={`text-[10px] ${date === today ? 'grid h-5 w-5 place-items-center rounded-full bg-ink text-white' : ''}`}>
-                      {day <= 31 ? day : ''}
-                    </span>
-                    {items.map(t => (
-                      <button
-                        type="button"
-                        key={t.id}
-                        onClick={() => setSelected(t)}
-                        className="mt-1 block w-full truncate rounded bg-[#F3EBDD] px-1 py-1 text-left text-[9px] text-[#806236]"
-                      >
-                        {t.title}
-                      </button>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
+              );
+            })()}
           </section>
         )}
 
@@ -631,17 +1128,14 @@ export default function TasksPage() {
             <h2 className="text-sm font-semibold">My focus</h2>
             <p className="mt-1 text-xs text-[#4A5568]">Today and overdue</p>
             <div className="mt-3 space-y-3">
-              {tasks
-                .filter(t => t.assignee === 'Aarav Kapoor' && t.status !== 'Done' && (overdue(t) || t.due <= today))
-                .slice(0, 5)
-                .map(t => (
-                  <label key={t.id} className="flex items-center gap-2 text-xs">
-                    <input type="checkbox" onChange={() => setStatus(t.id, 'Done')} className="accent-ink" />
-                    <span className="flex-1">{t.title}</span>
-                    {dueChip(t)}
-                  </label>
-                ))}
-              {tasks.filter(t => t.assignee === 'Aarav Kapoor' && t.status !== 'Done' && (overdue(t) || t.due <= today)).length === 0 && (
+              {focusTasks.slice(0, 5).map(t => (
+                <label key={t.id} className="flex items-center gap-2 text-xs">
+                  <input type="checkbox" onChange={() => toggleDone(t)} className="accent-ink" />
+                  <span className="flex-1">{t.title}</span>
+                  {dueChip(t)}
+                </label>
+              ))}
+              {focusTasks.length === 0 && (
                 <p className="text-xs text-[#4A5568]">You’re all caught up.</p>
               )}
             </div>
@@ -652,10 +1146,14 @@ export default function TasksPage() {
 
           <section className="rounded-xl border border-[#E5E1D8] bg-white p-5">
             <h2 className="text-sm font-semibold">Stage progress</h2>
-            <p className="mt-2 rounded-lg bg-[#F3EBDD] p-3 text-xs">
-              <b>Prototype</b> · 2 of 5 criteria approved
+            {/* Readiness criteria are Step 5f — no real data yet, so show an
+                honest empty state instead of invented numbers. */}
+            <p className="mt-2 rounded-lg bg-[#FAF8F4] p-3 text-xs text-[#4A5568]" role="status">
+              Stage criteria and approvals arrive with readiness (Step 5f).
             </p>
-            <p className="mt-3 text-xs text-[#4A5568]">3 open tasks linked to stage criteria</p>
+            <p className="mt-3 text-xs text-[#4A5568]">
+              {tasks.filter(t => t.status !== 'done').length} open tasks on this board
+            </p>
             <Link href="/startup/stage" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
               View stage toolkit <ArrowRight className="inline" size={13} />
             </Link>
@@ -664,21 +1162,23 @@ export default function TasksPage() {
           <section className="rounded-xl border border-[#E5E1D8] bg-white p-5">
             <h2 className="text-sm font-semibold">Workload</h2>
             <p className="mt-1 text-xs text-[#4A5568]">Open tasks by teammate</p>
-            {[
-              ['Aarav Kapoor', 4],
-              ['Priya Menon', 3],
-              ['Sanjay Rao', 2]
-            ].map(([name, n]) => (
-              <div key={name} className="mt-3">
+            {workload.map(({id, name, n}) => (
+              <div key={id} className="mt-3">
                 <div className="mb-1 flex justify-between text-xs">
                   <span>{name}</span>
                   <span>{n} open</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-[#E5E1D8]">
-                  <div className={`h-full rounded-full ${n > 3 ? 'bg-[#B7791F]' : 'bg-ink'}`} style={{width: `${n * 17}%`}} />
+                  <div
+                    className={`h-full rounded-full ${n > 3 ? 'bg-[#B7791F]' : 'bg-ink'}`}
+                    style={{width: `${Math.min(100, n * 17)}%`}}
+                  />
                 </div>
               </div>
             ))}
+            {workload.length === 0 && (
+              <p className="mt-3 text-xs text-[#4A5568]">No assigned open tasks yet.</p>
+            )}
           </section>
         </div>
       </main>
@@ -699,46 +1199,76 @@ export default function TasksPage() {
               </button>
             </div>
             <form
-              onSubmit={e => {
+              onSubmit={async e => {
                 e.preventDefault();
                 const title = newTitle.trim();
-                if (!title) return;
+                if (!title || createBusy) return;
                 if (view === 'Milestones') {
-                  setMilestones([
-                    ...milestones,
-                    {
-                      id: Date.now(),
+                  setCreateErrs({});
+                  setCreateFormErr('');
+                  setCreateBusy(true);
+                  try {
+                    await api.milestones.create(org.id, {
                       name: title,
-                      date: '2026-12-01',
-                      owner: 'Aarav Kapoor',
-                      progress: 0,
-                      status: 'On track',
-                      criterion: 'Prototype: MVP scope defined'
-                    }
-                  ]);
+                      description: newDesc.trim() || null,
+                      target_date: newDate || null
+                    });
+                  } catch (err) {
+                    const errs = errorsFrom(err);
+                    setCreateErrs(errs);
+                    setCreateFormErr(
+                      Object.keys(errs).length
+                        ? ''
+                        : err instanceof ApiError
+                          ? err.message
+                          : 'Could not create the milestone.'
+                    );
+                    setCreateBusy(false);
+                    return;
+                  }
+                  setCreateBusy(false);
                   notify('Milestone created.');
-                } else {
-                  setTasks([
-                    {
-                      id: Date.now(),
-                      title,
-                      assignee: 'Aarav Kapoor',
-                      initial: 'AK',
-                      due: '2026-11-12',
-                      priority: 'Medium',
-                      status: 'To do',
-                      milestone: '',
-                      criterion: '',
-                      labels: [],
-                      comments: 0,
-                      files: 0,
-                      description: ''
-                    },
-                    ...tasks
-                  ]);
-                  notify('Task created.');
+                  setNewTitle('');
+                  setNewDesc('');
+                  setNewDate('');
+                  setCreating(false);
+                  await loadMilestones(org.id);
+                  return;
                 }
+                setCreateErrs({});
+                setCreateFormErr('');
+                setCreateBusy(true);
+                try {
+                  const row = await api.tasks.create(org.id, {
+                    title,
+                    description: newDesc.trim() || null,
+                    priority: PRIORITY_API[newPriority] || 'medium',
+                    milestone_id: newMilestone || null,
+                    assignee_id: newAssignee || null,
+                    due_on: newDate || null
+                  });
+                  setTasks(prev => [...prev, row]);
+                } catch (err) {
+                  const errs = errorsFrom(err);
+                  setCreateErrs(errs);
+                  setCreateFormErr(
+                    Object.keys(errs).length
+                      ? ''
+                      : err instanceof ApiError
+                        ? err.message
+                        : 'Could not create the task.'
+                  );
+                  setCreateBusy(false);
+                  return;
+                }
+                setCreateBusy(false);
+                notify('Task created.');
                 setNewTitle('');
+                setNewDesc('');
+                setNewDate('');
+                setNewAssignee('');
+                setNewPriority('Medium');
+                setNewMilestone('');
                 setCreating(false);
               }}
               className="space-y-4"
@@ -754,16 +1284,39 @@ export default function TasksPage() {
                   placeholder={view === 'Milestones' ? 'e.g. Launch MVP to test users' : 'e.g. Share pricing proposal'}
                   className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm outline-none focus:border-[#B8955A]"
                 />
+                {createErrs[view === 'Milestones' ? 'name' : 'title'] && (
+                  <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">
+                    {createErrs[view === 'Milestones' ? 'name' : 'title']}
+                  </span>
+                )}
               </label>
               {view === 'Milestones' ? (
                 <>
                   <label className="block text-sm font-medium">
                     Description
-                    <textarea rows={3} placeholder="What does success look like?" className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm" />
+                    <textarea
+                      rows={3}
+                      value={newDesc}
+                      onChange={e => setNewDesc(e.target.value)}
+                      placeholder="What does success look like?"
+                      className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm"
+                    />
+                    {createErrs.description && (
+                      <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{createErrs.description}</span>
+                    )}
                   </label>
                   <label className="block text-sm font-medium">
                     Target date
-                    <input type="date" required className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] px-3" />
+                    <input
+                      type="date"
+                      required
+                      value={newDate}
+                      onChange={e => setNewDate(e.target.value)}
+                      className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] px-3"
+                    />
+                    {createErrs.target_date && (
+                      <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{createErrs.target_date}</span>
+                    )}
                   </label>
                 </>
               ) : (
@@ -771,48 +1324,95 @@ export default function TasksPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <label className="text-sm font-medium">
                       Assignee
-                      <select className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm">
-                        <option>Aarav Kapoor</option>
-                        <option>Priya Menon</option>
-                        <option>Sanjay Rao</option>
+                      <select
+                        value={newAssignee}
+                        onChange={e => setNewAssignee(e.target.value)}
+                        className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
+                      >
+                        <option value="">Unassigned</option>
+                        {members.filter(x => x.status === 'active').map(x => (
+                          <option key={x.user_id} value={x.user_id}>{x.display_name}</option>
+                        ))}
                       </select>
+                      {createErrs.assignee_id && (
+                        <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{createErrs.assignee_id}</span>
+                      )}
                     </label>
                     <label className="text-sm font-medium">
                       Due date
-                      <input type="date" defaultValue="2026-11-12" className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm" />
+                      <input
+                        type="date"
+                        value={newDate}
+                        onChange={e => setNewDate(e.target.value)}
+                        className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
+                      />
+                      {createErrs.due_on && (
+                        <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{createErrs.due_on}</span>
+                      )}
                     </label>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <label className="text-sm font-medium">
                       Priority
-                      <select className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm">
-                        <option>Medium</option>
-                        <option>Low</option>
-                        <option>High</option>
-                        <option>Urgent</option>
+                      <select
+                        value={newPriority}
+                        onChange={e => setNewPriority(e.target.value)}
+                        className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
+                      >
+                        {['Low', 'Medium', 'High', 'Urgent'].map(p => (
+                          <option key={p}>{p}</option>
+                        ))}
                       </select>
+                      {createErrs.priority && (
+                        <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{createErrs.priority}</span>
+                      )}
                     </label>
                     <label className="text-sm font-medium">
                       Milestone
-                      <select className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm">
+                      <select
+                        value={newMilestone}
+                        onChange={e => setNewMilestone(e.target.value)}
+                        className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
+                      >
                         <option value="">No milestone</option>
                         {milestones.map(m => (
-                          <option key={m.id}>{m.name}</option>
+                          <option key={m.id} value={m.id}>{m.name}</option>
                         ))}
                       </select>
+                      {createErrs.milestone_id && (
+                        <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{createErrs.milestone_id}</span>
+                      )}
                     </label>
                   </div>
                   <label className="block text-sm font-medium">
                     Description (optional)
-                    <textarea rows={3} placeholder="Add context or acceptance criteria" className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm" />
+                    <textarea
+                      rows={3}
+                      value={newDesc}
+                      onChange={e => setNewDesc(e.target.value)}
+                      placeholder="Add context or acceptance criteria"
+                      className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm"
+                    />
+                    {createErrs.description && (
+                      <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{createErrs.description}</span>
+                    )}
                   </label>
                 </>
+              )}
+              {createFormErr && (
+                <p className="rounded-lg bg-[#FDECEC] px-3 py-2 text-xs text-[#9A3A3A]" role="alert">
+                  {createFormErr}
+                </p>
               )}
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setCreating(false)} className="min-h-10 px-4 text-sm">
                   Cancel
                 </button>
-                <button type="submit" className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white">
+                <button
+                  type="submit"
+                  disabled={createBusy}
+                  className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
+                >
                   Create {view === 'Milestones' ? 'milestone' : 'task'}
                 </button>
               </div>
@@ -821,43 +1421,218 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Selected Task Details Drawer */}
+      {/* Milestone Editor (Step 5b) */}
+      {editing && editForm && (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-[#0F1B2D]/45 p-4">
+          <section role="dialog" aria-modal="true" aria-labelledby="edit-heading" className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-5 flex items-start justify-between">
+              <div>
+                <h2 id="edit-heading" className="serif text-2xl font-semibold">Edit milestone</h2>
+                <p className="mt-1 text-sm text-[#4A5568]">Update the plan, owner and status.</p>
+              </div>
+              <button type="button" onClick={() => setEditing(null)} aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+            <form
+              onSubmit={async e => {
+                e.preventDefault();
+                if (editBusy) return;
+                const name = (editForm.name || '').trim();
+                if (!name) {
+                  setEditErrs({name: 'Required.'});
+                  return;
+                }
+                setEditErrs({});
+                setEditFormErr('');
+                setEditBusy(true);
+                const progress = Math.min(100, Math.max(0, Number(editForm.progress) || 0));
+                try {
+                  await api.milestones.update(org.id, editing.id, {
+                    name,
+                    description: (editForm.description || '').trim() || null,
+                    target_date: editForm.target_date || null,
+                    status: editForm.status,
+                    progress,
+                    owner_id: editForm.owner_id || null
+                  });
+                } catch (err) {
+                  const errs = errorsFrom(err);
+                  setEditErrs(errs);
+                  setEditFormErr(
+                    Object.keys(errs).length
+                      ? ''
+                      : err instanceof ApiError
+                        ? err.message
+                        : 'Could not update the milestone.'
+                  );
+                  setEditBusy(false);
+                  return;
+                }
+                setEditBusy(false);
+                notify('Milestone updated.');
+                setEditing(null);
+                await loadMilestones(org.id);
+              }}
+              className="space-y-4"
+            >
+              <label className="block text-sm font-medium">
+                Name
+                <input
+                  autoFocus
+                  required
+                  maxLength={200}
+                  value={editForm.name}
+                  onChange={e => setEditForm({...editForm, name: e.target.value})}
+                  className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm outline-none focus:border-[#B8955A]"
+                />
+                {editErrs.name && (
+                  <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{editErrs.name}</span>
+                )}
+              </label>
+              <label className="block text-sm font-medium">
+                Description
+                <textarea
+                  rows={3}
+                  value={editForm.description}
+                  onChange={e => setEditForm({...editForm, description: e.target.value})}
+                  placeholder="What does success look like?"
+                  className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm"
+                />
+                {editErrs.description && (
+                  <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{editErrs.description}</span>
+                )}
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-sm font-medium">
+                  Target date
+                  <input
+                    type="date"
+                    value={editForm.target_date}
+                    onChange={e => setEditForm({...editForm, target_date: e.target.value})}
+                    className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] px-3"
+                  />
+                  {editErrs.target_date && (
+                    <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{editErrs.target_date}</span>
+                  )}
+                </label>
+                <label className="block text-sm font-medium">
+                  Status
+                  <select
+                    value={editForm.status}
+                    onChange={e => setEditForm({...editForm, status: e.target.value})}
+                    className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
+                  >
+                    {Object.entries(MS_STATUS_LABELS).map(([value, text]) => (
+                      <option key={value} value={value}>{text}</option>
+                    ))}
+                  </select>
+                  {editErrs.status && (
+                    <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{editErrs.status}</span>
+                  )}
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-sm font-medium">
+                  Progress (%)
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={editForm.progress}
+                    onChange={e => setEditForm({...editForm, progress: e.target.value})}
+                    className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] px-3"
+                  />
+                  {editErrs.progress && (
+                    <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{editErrs.progress}</span>
+                  )}
+                </label>
+                <label className="block text-sm font-medium">
+                  Owner
+                  <select
+                    value={editForm.owner_id}
+                    onChange={e => setEditForm({...editForm, owner_id: e.target.value})}
+                    className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
+                  >
+                    <option value="">No owner</option>
+                    {members.filter(x => x.status === 'active').map(x => (
+                      <option key={x.user_id} value={x.user_id}>{x.display_name}</option>
+                    ))}
+                  </select>
+                  {editErrs.owner_id && (
+                    <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{editErrs.owner_id}</span>
+                  )}
+                </label>
+              </div>
+              {editFormErr && (
+                <p className="rounded-lg bg-[#FDECEC] px-3 py-2 text-xs text-[#9A3A3A]" role="alert">
+                  {editFormErr}
+                </p>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setEditing(null)} className="min-h-10 px-4 text-sm">
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editBusy}
+                  className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  Save changes
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {/* Selected Task Details Drawer (Step 5c: real reads and writes) */}
       {selected && (
         <div className="fixed inset-0 z-40 bg-[#0F1B2D]/35" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}>
           <aside role="dialog" aria-modal="true" aria-label="Task details" className="absolute inset-y-0 right-0 w-full max-w-[480px] overflow-y-auto bg-[#FAF8F4] p-5 shadow-xl sm:p-7">
             <div className="mb-5 flex justify-end">
-              <button type="button" onClick={() => setSelected(null)} aria-label="Close task details" className="grid h-10 w-10 place-items-center rounded-lg bg-white">
+              <button type="button" onClick={() => { setSelected(null); setDrawer(null); setDrawerErrs({}); }} aria-label="Close task details" className="grid h-10 w-10 place-items-center rounded-lg bg-white">
                 <X size={18} />
               </button>
             </div>
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={() => setStatus(selected.id, selected.status === 'Done' ? 'To do' : 'Done')}
-                className={`mt-1 grid h-5 w-5 shrink-0 place-items-center rounded border ${
-                  selected.status === 'Done' ? 'border-ink bg-ink text-white' : 'border-[#A0A7B4]'
+                disabled={!canEdit}
+                onClick={() => toggleDone(selected)}
+                aria-label={selected.status === 'done' ? 'Mark incomplete' : 'Mark complete'}
+                className={`mt-1 grid h-5 w-5 shrink-0 place-items-center rounded border disabled:opacity-50 ${
+                  selected.status === 'done' ? 'border-ink bg-ink text-white' : 'border-[#A0A7B4]'
                 }`}
               >
-                {selected.status === 'Done' && <Check size={14} />}
+                {selected.status === 'done' && <Check size={14} />}
               </button>
               <input
-                value={selected.title}
-                onChange={e => {
-                  const value = e.target.value;
-                  setSelected({...selected, title: value});
-                  setTasks(tasks.map(t => (t.id === selected.id ? {...t, title: value} : t)));
+                value={drawer?.title ?? selected.title}
+                disabled={!canEdit}
+                onChange={e => setDrawer({...(drawer || {}), title: e.target.value})}
+                onBlur={() => {
+                  const value = (drawer?.title ?? '').trim();
+                  if (!value || value === selected.title) {
+                    setDrawer(null);
+                    return;
+                  }
+                  patchTask(selected, {title: value}, 'Task updated.');
+                  setDrawer(null);
                 }}
-                className="w-full bg-transparent font-semibold outline-none"
+                className="w-full bg-transparent font-semibold outline-none disabled:opacity-70"
               />
             </div>
+            {drawerErrs.title && (
+              <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{drawerErrs.title}</span>
+            )}
             <div className="mt-4 flex gap-2">
               <select
-                value={selected.status}
-                onChange={e => {
-                  setStatus(selected.id, e.target.value);
-                  setSelected({...selected, status: e.target.value});
-                }}
-                className="h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs"
+                value={columnOf(selected)}
+                disabled={!canEdit}
+                onChange={e => setStatus(selected, e.target.value)}
+                aria-label="Task status"
+                className="h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs disabled:opacity-60"
               >
                 {columns.map(c => (
                   <option key={c}>{c}</option>
@@ -865,16 +1640,20 @@ export default function TasksPage() {
               </select>
               <select
                 value={selected.priority}
-                onChange={e => {
-                  setSelected({...selected, priority: e.target.value});
-                  setTasks(tasks.map(t => (t.id === selected.id ? {...t, priority: e.target.value} : t)));
-                }}
-                className="h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs"
+                disabled={!canEdit}
+                onChange={e => patchTask(selected, {priority: e.target.value})}
+                aria-label="Task priority"
+                className="h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs disabled:opacity-60"
               >
-                {['Low', 'Medium', 'High', 'Urgent'].map(x => (
-                  <option key={x}>{x}</option>
+                {['low', 'medium', 'high', 'urgent'].map(x => (
+                  <option key={x} value={x}>{PRIORITY_LABEL[x]}</option>
                 ))}
               </select>
+              {selected.status === 'blocked' && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#FDECEC] px-3 text-xs font-medium text-[#9A3A3A]">
+                  <Clock size={12} /> Blocked
+                </span>
+              )}
             </div>
             <div className="mt-6 rounded-xl border border-[#E5E1D8] bg-white p-4">
               <h3 className="text-sm font-semibold">Task details</h3>
@@ -882,118 +1661,112 @@ export default function TasksPage() {
                 <label className="text-xs text-[#4A5568]">
                   Assignee
                   <select
-                    value={selected.assignee}
-                    onChange={e => {
-                      const p = [
-                        ['Aarav Kapoor', 'AK'],
-                        ['Priya Menon', 'PM'],
-                        ['Sanjay Rao', 'SR']
-                      ].find(x => x[0] === e.target.value);
-                      setSelected({...selected, assignee: p[0], initial: p[1]});
-                      setTasks(tasks.map(t => (t.id === selected.id ? {...t, assignee: p[0], initial: p[1]} : t)));
-                    }}
-                    className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-2 text-xs"
+                    value={selected.assignee_id || ''}
+                    disabled={!canEdit}
+                    onChange={e => patchTask(selected, {assignee_id: e.target.value || null})}
+                    className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-2 text-xs disabled:opacity-60"
                   >
-                    {['Aarav Kapoor', 'Priya Menon', 'Sanjay Rao'].map(x => (
-                      <option key={x}>{x}</option>
+                    <option value="">Unassigned</option>
+                    {members.filter(x => x.status === 'active').map(x => (
+                      <option key={x.user_id} value={x.user_id}>{x.display_name}</option>
                     ))}
                   </select>
+                  {drawerErrs.assignee_id && (
+                    <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{drawerErrs.assignee_id}</span>
+                  )}
                 </label>
                 <label className="text-xs text-[#4A5568]">
                   Due date
                   <input
                     type="date"
-                    value={selected.due}
-                    onChange={e => {
-                      setSelected({...selected, due: e.target.value});
-                      setTasks(tasks.map(t => (t.id === selected.id ? {...t, due: e.target.value} : t)));
-                    }}
-                    className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-2 text-xs"
+                    value={selected.due_on || ''}
+                    disabled={!canEdit}
+                    onChange={e => patchTask(selected, {due_on: e.target.value || null})}
+                    className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-2 text-xs disabled:opacity-60"
                   />
+                  {drawerErrs.due_on && (
+                    <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{drawerErrs.due_on}</span>
+                  )}
                 </label>
                 <label className="text-xs text-[#4A5568]">
                   Milestone
                   <select
-                    value={selected.milestone}
-                    onChange={e => {
-                      setSelected({...selected, milestone: e.target.value});
-                      setTasks(tasks.map(t => (t.id === selected.id ? {...t, milestone: e.target.value} : t)));
-                    }}
-                    className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-2 text-xs"
+                    value={selected.milestone_id || ''}
+                    disabled={!canEdit}
+                    onChange={e => patchTask(selected, {milestone_id: e.target.value || null})}
+                    className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-2 text-xs disabled:opacity-60"
                   >
                     <option value="">None</option>
                     {milestones.map(m => (
-                      <option key={m.id}>{m.name}</option>
+                      <option key={m.id} value={m.id}>{m.name}</option>
                     ))}
                   </select>
+                  {drawerErrs.milestone_id && (
+                    <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{drawerErrs.milestone_id}</span>
+                  )}
                 </label>
                 <div className="text-xs text-[#4A5568]">
                   Created by
-                  <p className="mt-2 font-medium text-ink">Aarav Kapoor</p>
+                  <p className="mt-2 font-medium text-ink">
+                    {selected.created_by === myId
+                      ? myName || 'You'
+                      : ownerNameOf(selected.created_by) || '—'}
+                  </p>
                 </div>
               </div>
             </div>
             <label className="mt-5 block text-sm font-semibold">
               Description
               <textarea
-                value={selected.description}
-                onChange={e => {
-                  setSelected({...selected, description: e.target.value});
-                  setTasks(tasks.map(t => (t.id === selected.id ? {...t, description: e.target.value} : t)));
+                value={drawer?.description ?? selected.description ?? ''}
+                disabled={!canEdit}
+                onChange={e => setDrawer({...(drawer || {}), description: e.target.value})}
+                onBlur={() => {
+                  const value = drawer?.description ?? '';
+                  const current = selected.description ?? '';
+                  if (value === current) {
+                    setDrawer(null);
+                    return;
+                  }
+                  patchTask(selected, {description: value.trim() || null}, 'Task updated.');
+                  setDrawer(null);
                 }}
                 rows={5}
                 placeholder="Add a description…"
-                className="mt-2 w-full rounded-xl border border-[#E5E1D8] bg-white p-3 text-sm leading-6"
+                className="mt-2 w-full rounded-xl border border-[#E5E1D8] bg-white p-3 text-sm leading-6 disabled:opacity-70"
               />
             </label>
-            {selected.criterion && (
-              <div className="mt-4 rounded-xl border border-[#E5E1D8] bg-white p-4">
-                <h3 className="text-xs font-semibold">Linked to</h3>
-                <Link href="/startup/stage" className="mt-2 block text-xs text-[#9A7A45]">
-                  <Target className="mr-1 inline" size={13} />
-                  {selected.criterion}
-                </Link>
-              </div>
+            {drawerErrs.description && (
+              <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{drawerErrs.description}</span>
             )}
+            {/* "Linked to" (readiness criterion) arrives with Step 5f; the
+                readiness_id column exists but is not API-exposed yet (D1). */}
             <div className="mt-4 rounded-xl border border-[#E5E1D8] bg-white p-4">
-              <h3 className="text-sm font-semibold">Comments</h3>
-              <p className="mt-2 text-xs text-[#4A5568]">{selected.comments} comments in this task</p>
-              <div className="mt-3 flex gap-2">
-                <input placeholder="Write a comment…" className="h-10 flex-1 rounded-lg border border-[#E5E1D8] px-3 text-xs" />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const updated = {...selected, comments: selected.comments + 1};
-                    setSelected(updated);
-                    setTasks(tasks.map(t => (t.id === selected.id ? updated : t)));
-                    notify('Comment added.');
-                  }}
-                  aria-label="Send comment"
-                  className="grid h-10 w-10 place-items-center rounded-lg bg-ink text-white"
-                >
-                  <Send size={15} />
-                </button>
-              </div>
+              <h3 className="text-sm font-semibold">Linked to</h3>
+              <p className="mt-2 text-xs text-[#4A5568]" role="status">
+                {milestoneName(selected)
+                  ? `Milestone: ${milestoneName(selected)}`
+                  : 'No milestone. Stage-criterion links arrive with readiness (Step 5f).'}
+              </p>
             </div>
+            {/* Comments are Step 5d (task_comments) — hidden until then. */}
             <div className="mt-4 flex justify-between">
               <button
                 type="button"
-                onClick={() => {
-                  setTasks(tasks.filter(t => t.id !== selected.id));
-                  setSelected(null);
-                  notify('Task deleted.');
-                }}
-                className="text-xs font-semibold text-[#B42318]"
+                disabled={!canEdit || deleting}
+                onClick={() => removeTask(selected)}
+                className="text-xs font-semibold text-[#B42318] disabled:opacity-50"
               >
                 <Trash2 className="mr-1 inline" size={14} /> Delete task
               </button>
               <button
                 type="button"
+                disabled={!canEdit || selected.status === 'done'}
                 onClick={() => {
-                  setStatus(selected.id, 'Done');
+                  moveTask(selected, {status: 'done'}, 'Task completed.');
                   setSelected(null);
                 }}
-                className="rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white"
+                className="rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
               >
                 Mark complete
               </button>

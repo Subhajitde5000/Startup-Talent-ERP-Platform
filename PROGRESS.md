@@ -70,13 +70,13 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [x] B: `/startup/profile`, startup onboarding flow, `/startup/stage` selector wired; demo data removed
 
 ### 5b Milestones
-- [ ] A: `milestones` CRUD, cross-organization checks
-- [ ] B: milestone panel wired
+- [x] A: `milestones` CRUD, cross-organization checks
+- [x] B: milestone panel wired
 
 ### 5c Tasks (core)
-- [ ] A: `tasks` CRUD, move and reorder, filters, assignee and milestone validation, per-member task counts
-- [ ] A: decision on the task "criterion" link
-- [ ] B: `/startup/tasks` board wired
+- [x] A: `tasks` CRUD, move and reorder, filters, assignee and milestone validation, per-member task counts
+- [x] A: decision on the task "criterion" link: maps to a `startup_readiness` stage-checklist row (5f); `tasks.readiness_id` created now without its FK and kept out of every 5c schema
+- [x] B: `/startup/tasks` board wired (board, list, calendar and milestone progress on real tasks; labels, comments and criterion links stay hidden until 5d/5f); team directory shows the real per-member `task_count`
 
 ### 5d Task labels and comments
 - [ ] A: labels, attach/detach, comments

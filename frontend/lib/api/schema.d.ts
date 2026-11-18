@@ -555,6 +555,141 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/{org_id}/milestones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List milestones
+         * @description Active members (including viewers) list the org's live milestones,
+         *     paginated with whitelisted sort/filter fields.
+         */
+        get: operations["list_milestones_api_v1_organizations__org_id__milestones_get"];
+        put?: never;
+        /**
+         * Create milestone
+         * @description Owner/admin/member create (viewer 403). Owner defaults to the
+         *     creator; a supplied owner must be an active member of this org
+         *     (422 on body.owner_id).
+         */
+        post: operations["create_milestone_api_v1_organizations__org_id__milestones_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/milestones/{milestone_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get milestone
+         * @description Read one milestone; an id from another organization is 404.
+         */
+        get: operations["get_milestone_api_v1_organizations__org_id__milestones__milestone_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete milestone (soft)
+         * @description Soft delete (deleted_at set); repeat deletes are 404.
+         */
+        delete: operations["delete_milestone_api_v1_organizations__org_id__milestones__milestone_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update milestone
+         * @description Owner/admin/member patch (viewer 403). Server-controlled fields
+         *     are rejected with 422 by extra=forbid.
+         */
+        patch: operations["update_milestone_api_v1_organizations__org_id__milestones__milestone_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List tasks
+         * @description Active members (including viewers) list the org's open tasks,
+         *     paginated with whitelisted sort/filter fields (plan D4 filters).
+         */
+        get: operations["list_tasks_api_v1_organizations__org_id__tasks_get"];
+        put?: never;
+        /**
+         * Create task
+         * @description Owner/admin/member create (viewer 403). Starts in the ``todo``
+         *     column at the end; milestone/assignee must belong to this org (422).
+         */
+        post: operations["create_task_api_v1_organizations__org_id__tasks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get task
+         * @description Read one task; an id from another organization is 404.
+         */
+        get: operations["get_task_api_v1_organizations__org_id__tasks__task_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete task (soft)
+         * @description Soft delete (deleted_at set); repeat deletes are 404.
+         */
+        delete: operations["delete_task_api_v1_organizations__org_id__tasks__task_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update task fields
+         * @description Owner/admin/member field patch (viewer 403). ``status`` /
+         *     ``completed_at`` / ``display_order`` belong to /move (plan D6);
+         *     server-controlled fields are rejected with 422 by extra=forbid.
+         */
+        patch: operations["update_task_api_v1_organizations__org_id__tasks__task_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/tasks/{task_id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Move task (column and/or position)
+         * @description Board move: optional ``status`` (column) and optional anchor
+         *     (``before_id`` XOR ``after_id``) — at least one action required.
+         *     The server owns ``completed_at`` (set on done, cleared on leave)
+         *     and computes ``display_order`` (midpoint insert, plan D3).
+         */
+        patch: operations["move_task_api_v1_organizations__org_id__tasks__task_id__move_patch"];
+        trace?: never;
+    };
     "/api/v1/invites/{token}/accept": {
         parameters: {
             query?: never;
@@ -868,6 +1003,11 @@ export interface components {
             is_public?: boolean;
             /** Joined At */
             joined_at?: string | null;
+            /**
+             * Task Count
+             * @default 0
+             */
+            task_count?: number;
         };
         /**
          * MemberUpdate
@@ -1055,6 +1195,109 @@ export interface components {
         MessageResponse: {
             /** Message */
             message: string;
+        };
+        /**
+         * MilestoneCreate
+         * @description Member create. Server-owned fields are structurally absent.
+         */
+        MilestoneCreate: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Target Date */
+            target_date?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** @default on_track */
+            status?: components["schemas"]["MilestoneStatus"];
+            /**
+             * Progress
+             * @default 0
+             */
+            progress?: number;
+        };
+        /**
+         * MilestonePage
+         * @description Paginated list envelope (limit/offset; first paginated list in
+         *     the API — earlier lists predate the pagination rule).
+         */
+        MilestonePage: {
+            /** Items */
+            items: components["schemas"]["MilestoneRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * MilestoneRead
+         * @description Member shape: every stored column except deleted_at (internal).
+         */
+        MilestoneRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Target Date */
+            target_date: string | null;
+            /** Owner Id */
+            owner_id: string | null;
+            status: components["schemas"]["MilestoneStatus"];
+            /** Progress */
+            progress: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * MilestoneStatus
+         * @description schema.sql CHECK on milestones.status.
+         * @enum {string}
+         */
+        MilestoneStatus: "on_track" | "at_risk" | "off_track" | "achieved" | "missed";
+        /**
+         * MilestoneUpdate
+         * @description Member patch. Server-owned fields are structurally absent.
+         */
+        MilestoneUpdate: {
+            /**
+             * Name
+             * @default
+             */
+            name?: string;
+            /** Description */
+            description?: string | null;
+            /** Target Date */
+            target_date?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** @default on_track */
+            status?: components["schemas"]["MilestoneStatus"];
+            /**
+             * Progress
+             * @default 0
+             */
+            progress?: number;
         };
         /** NotificationPreferenceItem */
         NotificationPreferenceItem: {
@@ -1624,6 +1867,134 @@ export interface components {
              * @default []
              */
             skills?: string[];
+        };
+        /**
+         * TaskCreate
+         * @description Member create. Server-owned fields are structurally absent.
+         */
+        TaskCreate: {
+            /** Title */
+            title: string;
+            /** Description */
+            description?: string | null;
+            /** @default medium */
+            priority?: components["schemas"]["TaskPriority"];
+            /** Milestone Id */
+            milestone_id?: string | null;
+            /** Assignee Id */
+            assignee_id?: string | null;
+            /** Due On */
+            due_on?: string | null;
+        };
+        /**
+         * TaskMove
+         * @description Column move and/or position within a column.
+         *
+         *     Anchors reference a task in the TARGET column of the same
+         *     organization (service-validated, 422 with a field-level loc);
+         *     exactly one anchor at most, and at least one action overall.
+         *     Raw display_order / completed_at are structurally absent (D3/D6).
+         */
+        TaskMove: {
+            status?: components["schemas"]["TaskStatus"] | null;
+            /** Before Id */
+            before_id?: string | null;
+            /** After Id */
+            after_id?: string | null;
+        };
+        /**
+         * TaskPage
+         * @description Paginated list envelope (limit/offset, same shape as 5b).
+         */
+        TaskPage: {
+            /** Items */
+            items: components["schemas"]["TaskRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * TaskPriority
+         * @description schema.sql ``task_priority``.
+         * @enum {string}
+         */
+        TaskPriority: "low" | "medium" | "high" | "urgent";
+        /**
+         * TaskRead
+         * @description Member shape. ``readiness_id`` is intentionally absent until
+         *     Step 5f adds its foreign key (D1).
+         */
+        TaskRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            status: components["schemas"]["TaskStatus"];
+            priority: components["schemas"]["TaskPriority"];
+            /** Milestone Id */
+            milestone_id: string | null;
+            /** Assignee Id */
+            assignee_id: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Due On */
+            due_on: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /** Display Order */
+            display_order: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * TaskStatus
+         * @description schema.sql ``task_status``. The UI maps its four columns onto
+         *     these values (``blocked`` is kept but has no board column yet).
+         * @enum {string}
+         */
+        TaskStatus: "todo" | "in_progress" | "in_review" | "blocked" | "done";
+        /**
+         * TaskUpdate
+         * @description Member patch: fields only. ``status``, ``completed_at`` and
+         *     ``display_order`` belong to the move endpoint (D6).
+         */
+        TaskUpdate: {
+            /**
+             * Title
+             * @default
+             */
+            title?: string;
+            /** Description */
+            description?: string | null;
+            /** @default medium */
+            priority?: components["schemas"]["TaskPriority"];
+            /** Milestone Id */
+            milestone_id?: string | null;
+            /** Assignee Id */
+            assignee_id?: string | null;
+            /** Due On */
+            due_on?: string | null;
         };
         /** TokenResponse */
         TokenResponse: {
@@ -3014,6 +3385,409 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StartupProfilePublicRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_milestones_api_v1_organizations__org_id__milestones_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                sort?: "target_date" | "created_at" | "name" | "status";
+                order?: "asc" | "desc";
+                status?: components["schemas"]["MilestoneStatus"] | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MilestonePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_milestone_api_v1_organizations__org_id__milestones_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MilestoneCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MilestoneRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_milestone_api_v1_organizations__org_id__milestones__milestone_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                milestone_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MilestoneRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_milestone_api_v1_organizations__org_id__milestones__milestone_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                milestone_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_milestone_api_v1_organizations__org_id__milestones__milestone_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                milestone_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MilestoneUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MilestoneRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tasks_api_v1_organizations__org_id__tasks_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                sort?: "display_order" | "created_at" | "due_on";
+                order?: "asc" | "desc";
+                assignee_id?: string | null;
+                status?: components["schemas"]["TaskStatus"] | null;
+                priority?: components["schemas"]["TaskPriority"] | null;
+                milestone_id?: string | null;
+                due_this_week?: boolean;
+                assigned_to_me?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_task_api_v1_organizations__org_id__tasks_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_task_api_v1_organizations__org_id__tasks__task_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_task_api_v1_organizations__org_id__tasks__task_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_task_api_v1_organizations__org_id__tasks__task_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_task_api_v1_organizations__org_id__tasks__task_id__move_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskMove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskRead"];
                 };
             };
             /** @description Validation Error */

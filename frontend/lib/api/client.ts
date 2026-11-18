@@ -49,6 +49,30 @@ export type StartupProfileUpdate = components["schemas"]["StartupProfileUpdate"]
 export type StartupProfilePublicRead = components["schemas"]["StartupProfilePublicRead"];
 export type StartupStage = components["schemas"]["StartupStage"];
 export type ProfileVisibility = components["schemas"]["ProfileVisibility"];
+export type MilestoneStatus = components["schemas"]["MilestoneStatus"];
+export type MilestoneCreate = components["schemas"]["MilestoneCreate"];
+export type MilestoneUpdate = components["schemas"]["MilestoneUpdate"];
+export type MilestoneRead = components["schemas"]["MilestoneRead"];
+export type MilestonePage = components["schemas"]["MilestonePage"];
+export type TaskStatus = components["schemas"]["TaskStatus"];
+export type TaskPriority = components["schemas"]["TaskPriority"];
+export type TaskCreate = components["schemas"]["TaskCreate"];
+export type TaskUpdate = components["schemas"]["TaskUpdate"];
+export type TaskMove = components["schemas"]["TaskMove"];
+export type TaskRead = components["schemas"]["TaskRead"];
+export type TaskPage = components["schemas"]["TaskPage"];
+
+/** Whitelisted filters/sort shared by `tasks.list` and `tasks.listAll`. */
+export type TaskListQuery = {
+  sort?: "display_order" | "created_at" | "due_on";
+  order?: "asc" | "desc";
+  assignee_id?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  milestone_id?: string;
+  due_this_week?: boolean;
+  assigned_to_me?: boolean;
+};
 
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "/api/v1").replace(/\/+$/, "");
 
@@ -451,6 +475,126 @@ export const api = {
         `/organizations/${orgId}/startup-profile/preview`,
         { method: "GET", signal },
       ),
+  },
+
+  milestones: {
+    /** Paginated list; whitelisted sort/order/status (Step 5b). */
+    list: (
+      orgId: string,
+      query?: {
+        limit?: number;
+        offset?: number;
+        sort?: "target_date" | "created_at" | "name" | "status";
+        order?: "asc" | "desc";
+        status?: MilestoneStatus;
+      },
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<MilestonePage>(`/organizations/${orgId}/milestones`, {
+        method: "GET",
+        query,
+        signal,
+      }),
+
+    get: (orgId: string, milestoneId: string, signal?: AbortSignal) =>
+      apiRequest<MilestoneRead>(
+        `/organizations/${orgId}/milestones/${milestoneId}`,
+        { method: "GET", signal },
+      ),
+
+    /** Owner/admin/member create (viewer -> 403). Owner defaults to the caller. */
+    create: (orgId: string, body: MilestoneCreate) =>
+      apiRequest<MilestoneRead>(`/organizations/${orgId}/milestones`, {
+        method: "POST",
+        body,
+      }),
+
+    /** Owner/admin/member patch (viewer -> 403); server fields 422. */
+    update: (orgId: string, milestoneId: string, body: MilestoneUpdate) =>
+      apiRequest<MilestoneRead>(
+        `/organizations/${orgId}/milestones/${milestoneId}`,
+        { method: "PATCH", body },
+      ),
+
+    /** Soft delete (owner/admin/member; viewer -> 403). */
+    remove: (orgId: string, milestoneId: string) =>
+      apiRequest<void>(`/organizations/${orgId}/milestones/${milestoneId}`, {
+        method: "DELETE",
+      }),
+  },
+
+  tasks: {
+    /** Paginated list; whitelisted sort/order and the 5c filters (AND-combined). */
+    list: (
+      orgId: string,
+      query?: TaskListQuery & { limit?: number; offset?: number },
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<TaskPage>(`/organizations/${orgId}/tasks`, {
+        method: "GET",
+        query,
+        signal,
+      }),
+
+    /**
+     * Every task in the org, following the server's own pagination until
+     * `total` is reached (limit caps at 100 per request). The board needs the
+     * whole set, and this never silently truncates.
+     */
+    async listAll(
+      orgId: string,
+      query?: TaskListQuery,
+      signal?: AbortSignal,
+    ): Promise<TaskRead[]> {
+      const pageSize = 100;
+      const first = await apiRequest<TaskPage>(`/organizations/${orgId}/tasks`, {
+        method: "GET",
+        query: { ...query, limit: pageSize, offset: 0 },
+        signal,
+      });
+      const items = [...first.items];
+      while (items.length < first.total) {
+        const next = await apiRequest<TaskPage>(`/organizations/${orgId}/tasks`, {
+          method: "GET",
+          query: { ...query, limit: pageSize, offset: items.length },
+          signal,
+        });
+        if (next.items.length === 0) break; // defensive: never loop forever
+        items.push(...next.items);
+      }
+      return items;
+    },
+
+    get: (orgId: string, taskId: string, signal?: AbortSignal) =>
+      apiRequest<TaskRead>(`/organizations/${orgId}/tasks/${taskId}`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** Owner/admin/member create (viewer -> 403). Always starts in `todo`. */
+    create: (orgId: string, body: TaskCreate) =>
+      apiRequest<TaskRead>(`/organizations/${orgId}/tasks`, { method: "POST", body }),
+
+    /** Fields only; status/completed_at/display_order go through `move`. */
+    update: (orgId: string, taskId: string, body: TaskUpdate) =>
+      apiRequest<TaskRead>(`/organizations/${orgId}/tasks/${taskId}`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /**
+     * The only writer of status / completed_at / display_order.
+     * Pass `status` and/or one anchor (`before_id` XOR `after_id`).
+     */
+    move: (orgId: string, taskId: string, body: TaskMove) =>
+      apiRequest<TaskRead>(`/organizations/${orgId}/tasks/${taskId}/move`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /** Soft delete (owner/admin/member; viewer -> 403). */
+    remove: (orgId: string, taskId: string) =>
+      apiRequest<void>(`/organizations/${orgId}/tasks/${taskId}`, { method: "DELETE" }),
   },
 
   notificationPreferences: {
