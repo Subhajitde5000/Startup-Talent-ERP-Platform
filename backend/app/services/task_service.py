@@ -28,6 +28,7 @@ never a global renumber, and never on an ordinary drag. Reads sort
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from fastapi import BackgroundTasks
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
@@ -38,7 +39,7 @@ from app.models.organization import OrgRole
 from app.models.task import Task, TaskPriority, TaskStatus
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskMove, TaskPage, TaskRead, TaskUpdate
-from app.services import organization_service
+from app.services import organization_service, status_notification_service
 
 # Viewer role is deliberately excluded from writes (plan permission table).
 _WRITE_ROLES = frozenset({OrgRole.owner, OrgRole.admin, OrgRole.member})
@@ -209,22 +210,50 @@ async def create_task(
     user: User,
     org_id,  # noqa: ANN001
     payload: TaskCreate,
+    *,
+    background_tasks: BackgroundTasks | None = None,
 ) -> TaskRead:
     org = await organization_service.startup_org_or_404(db, org_id)
     await organization_service.require_membership(
         db, org.id, user, roles=set(_WRITE_ROLES)
     )
     data = payload.model_dump(exclude_unset=True)
+    milestone_name: str | None = None
     if data.get("milestone_id") is not None:
         await _require_milestone(db, org.id, data["milestone_id"])
+        ms = await db.get(Milestone, data["milestone_id"])
+        if ms:
+            milestone_name = ms.name
+    assignee_name: str | None = None
     if data.get("assignee_id") is not None:
         await _require_assignee(db, org.id, data["assignee_id"])
+        u = await db.get(User, data["assignee_id"])
+        if u:
+            assignee_name = u.display_name or u.primary_email
     task = Task(org_id=org.id, created_by=user.id, **data)
     # New tasks start at the end of the "todo" column (server-controlled).
     task.display_order = await _max_order(db, org.id, TaskStatus.todo)
     db.add(task)
+    recipients = await status_notification_service.get_active_team_recipients(
+        db, org.id, category="tasks"
+    )
     await db.commit()
     await db.refresh(task)
+
+    status_notification_service.queue_task_notification(
+        background_tasks,
+        recipients=recipients,
+        org_name=org.name,
+        actor_name=user.display_name or user.primary_email,
+        action="created",
+        task_title=task.title,
+        status=task.status.value,
+        priority=task.priority.value,
+        due_on=str(task.due_on) if task.due_on else None,
+        assignee_name=assignee_name,
+        milestone_name=milestone_name,
+    )
+
     return _read(task)
 
 
@@ -314,6 +343,8 @@ async def update_task(
     org_id,  # noqa: ANN001
     task_id,  # noqa: ANN001
     payload: TaskUpdate,
+    *,
+    background_tasks: BackgroundTasks | None = None,
 ) -> TaskRead:
     org = await organization_service.startup_org_or_404(db, org_id)
     await organization_service.require_membership(
@@ -327,9 +358,39 @@ async def update_task(
         await _require_assignee(db, org.id, data["assignee_id"])
     for field, value in data.items():
         setattr(row, field, value)
+
+    assignee_name: str | None = None
+    if row.assignee_id:
+        u = await db.get(User, row.assignee_id)
+        if u:
+            assignee_name = u.display_name or u.primary_email
+    milestone_name: str | None = None
+    if row.milestone_id:
+        ms = await db.get(Milestone, row.milestone_id)
+        if ms:
+            milestone_name = ms.name
+    recipients = await status_notification_service.get_active_team_recipients(
+        db, org.id, category="tasks"
+    )
+
     await db.commit()
     # Same post-commit refresh reason as the profile/milestone services.
     await db.refresh(row)
+
+    status_notification_service.queue_task_notification(
+        background_tasks,
+        recipients=recipients,
+        org_name=org.name,
+        actor_name=user.display_name or user.primary_email,
+        action="updated",
+        task_title=row.title,
+        status=row.status.value,
+        priority=row.priority.value,
+        due_on=str(row.due_on) if row.due_on else None,
+        assignee_name=assignee_name,
+        milestone_name=milestone_name,
+    )
+
     return _read(row)
 
 
@@ -339,6 +400,8 @@ async def move_task(
     org_id,  # noqa: ANN001
     task_id,  # noqa: ANN001
     payload: TaskMove,
+    *,
+    background_tasks: BackgroundTasks | None = None,
 ) -> TaskRead:
     """Column move and/or in-column position (plan D3/D6): the only
     writer of ``status``, ``completed_at`` and ``display_order``."""
@@ -351,6 +414,7 @@ async def move_task(
     data = payload.model_dump(exclude_unset=True)
     status_value = data.get("status")
     new_status = status_value if status_value is not None else task.status
+    old_status = task.status
     before_id = data.get("before_id")
     after_id = data.get("after_id")
     side = "before" if before_id is not None else ("after" if after_id is not None else None)
@@ -399,8 +463,27 @@ async def move_task(
             db, org.id, new_status, exclude_id=task.id
         )
 
+    recipients = await status_notification_service.get_active_team_recipients(
+        db, org.id, category="tasks"
+    )
+
     await db.commit()
     await db.refresh(task)
+
+    if status_changed:
+        status_notification_service.queue_task_notification(
+            background_tasks,
+            recipients=recipients,
+            org_name=org.name,
+            actor_name=user.display_name or user.primary_email,
+            action="moved",
+            task_title=task.title,
+            status=task.status.value,
+            old_status=old_status.value,
+            priority=task.priority.value,
+            due_on=str(task.due_on) if task.due_on else None,
+        )
+
     return _read(task)
 
 
@@ -409,11 +492,26 @@ async def delete_task(
     user: User,
     org_id,  # noqa: ANN001
     task_id,  # noqa: ANN001
+    *,
+    background_tasks: BackgroundTasks | None = None,
 ) -> None:
     org = await organization_service.startup_org_or_404(db, org_id)
     await organization_service.require_membership(
         db, org.id, user, roles=set(_WRITE_ROLES)
     )
     row = await _get_task(db, org.id, task_id)
+    task_title = row.title
     row.deleted_at = datetime.now(UTC)
+    recipients = await status_notification_service.get_active_team_recipients(
+        db, org.id, category="tasks"
+    )
     await db.commit()
+
+    status_notification_service.queue_task_notification(
+        background_tasks,
+        recipients=recipients,
+        org_name=org.name,
+        actor_name=user.display_name or user.primary_email,
+        action="deleted",
+        task_title=task_title,
+    )

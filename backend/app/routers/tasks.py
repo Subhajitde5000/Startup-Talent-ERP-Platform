@@ -9,7 +9,7 @@ reference validation and move/reorder logic live in task_service.
 import uuid
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user
@@ -31,12 +31,15 @@ router = APIRouter(prefix="/organizations", tags=["tasks"])
 async def create_task(
     org_id: uuid.UUID,
     payload: TaskCreate,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> TaskRead:
     """Owner/admin/member create (viewer 403). Starts in the ``todo``
     column at the end; milestone/assignee must belong to this org (422)."""
-    return await task_service.create_task(db, user, org_id, payload)
+    return await task_service.create_task(
+        db, user, org_id, payload, background_tasks=background_tasks
+    )
 
 
 @router.get(
@@ -102,13 +105,16 @@ async def update_task(
     org_id: uuid.UUID,
     task_id: uuid.UUID,
     payload: TaskUpdate,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> TaskRead:
     """Owner/admin/member field patch (viewer 403). ``status`` /
     ``completed_at`` / ``display_order`` belong to /move (plan D6);
     server-controlled fields are rejected with 422 by extra=forbid."""
-    return await task_service.update_task(db, user, org_id, task_id, payload)
+    return await task_service.update_task(
+        db, user, org_id, task_id, payload, background_tasks=background_tasks
+    )
 
 
 @router.patch(
@@ -120,6 +126,7 @@ async def move_task(
     org_id: uuid.UUID,
     task_id: uuid.UUID,
     payload: TaskMove,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> TaskRead:
@@ -127,7 +134,9 @@ async def move_task(
     (``before_id`` XOR ``after_id``) — at least one action required.
     The server owns ``completed_at`` (set on done, cleared on leave)
     and computes ``display_order`` (midpoint insert, plan D3)."""
-    return await task_service.move_task(db, user, org_id, task_id, payload)
+    return await task_service.move_task(
+        db, user, org_id, task_id, payload, background_tasks=background_tasks
+    )
 
 
 @router.delete(
@@ -138,8 +147,11 @@ async def move_task(
 async def delete_task(
     org_id: uuid.UUID,
     task_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> None:
     """Soft delete (deleted_at set); repeat deletes are 404."""
-    await task_service.delete_task(db, user, org_id, task_id)
+    await task_service.delete_task(
+        db, user, org_id, task_id, background_tasks=background_tasks
+    )

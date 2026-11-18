@@ -9,7 +9,7 @@ and owner validation live in milestone_service.
 import uuid
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user
@@ -36,13 +36,16 @@ router = APIRouter(prefix="/organizations", tags=["milestones"])
 async def create_milestone(
     org_id: uuid.UUID,
     payload: MilestoneCreate,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> MilestoneRead:
     """Owner/admin/member create (viewer 403). Owner defaults to the
     creator; a supplied owner must be an active member of this org
     (422 on body.owner_id)."""
-    return await milestone_service.create_milestone(db, user, org_id, payload)
+    return await milestone_service.create_milestone(
+        db, user, org_id, payload, background_tasks=background_tasks
+    )
 
 
 @router.get(
@@ -98,13 +101,14 @@ async def update_milestone(
     org_id: uuid.UUID,
     milestone_id: uuid.UUID,
     payload: MilestoneUpdate,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> MilestoneRead:
     """Owner/admin/member patch (viewer 403). Server-controlled fields
     are rejected with 422 by extra=forbid."""
     return await milestone_service.update_milestone(
-        db, user, org_id, milestone_id, payload
+        db, user, org_id, milestone_id, payload, background_tasks=background_tasks
     )
 
 
@@ -116,8 +120,11 @@ async def update_milestone(
 async def delete_milestone(
     org_id: uuid.UUID,
     milestone_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> None:
     """Soft delete (deleted_at set); repeat deletes are 404."""
-    await milestone_service.delete_milestone(db, user, org_id, milestone_id)
+    await milestone_service.delete_milestone(
+        db, user, org_id, milestone_id, background_tasks=background_tasks
+    )

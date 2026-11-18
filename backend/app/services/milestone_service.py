@@ -20,6 +20,7 @@ Object-level rules (BUILD_PLAN Step 5 security):
 from datetime import UTC, datetime
 from typing import Any
 
+from fastapi import BackgroundTasks
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
@@ -34,7 +35,7 @@ from app.schemas.milestone import (
     MilestoneRead,
     MilestoneUpdate,
 )
-from app.services import organization_service
+from app.services import organization_service, status_notification_service
 
 # Viewer role is deliberately excluded from writes (plan permission table).
 _WRITE_ROLES = frozenset({OrgRole.owner, OrgRole.admin, OrgRole.member})
@@ -85,6 +86,8 @@ async def create_milestone(
     user: User,
     org_id,  # noqa: ANN001
     payload: MilestoneCreate,
+    *,
+    background_tasks: BackgroundTasks | None = None,
 ) -> MilestoneRead:
     org = await organization_service.startup_org_or_404(db, org_id)
     await organization_service.require_membership(
@@ -93,12 +96,34 @@ async def create_milestone(
     data = payload.model_dump(exclude_unset=True)
     # Plan D4: omitted owner -> the creator; explicit null stays null.
     owner_id = data.pop("owner_id", user.id)
+    owner_name: str | None = None
     if owner_id is not None:
         await _require_active_member(db, org.id, owner_id)
+        ou = await db.get(User, owner_id)
+        if ou:
+            owner_name = ou.display_name or ou.primary_email
     row = Milestone(org_id=org.id, **data, owner_id=owner_id)
     db.add(row)
+    recipients = await status_notification_service.get_active_team_recipients(
+        db, org.id, category="milestones"
+    )
     await db.commit()
     await db.refresh(row)
+
+    status_notification_service.queue_milestone_notification(
+        background_tasks,
+        recipients=recipients,
+        org_name=org.name,
+        actor_name=user.display_name or user.primary_email,
+        action="created",
+        milestone_name=row.name,
+        status=getattr(row.status, "value", str(row.status)),
+        progress=row.progress,
+        target_date=str(row.target_date) if row.target_date else None,
+        owner_name=owner_name,
+        description=row.description,
+    )
+
     return _read(row)
 
 
@@ -165,6 +190,8 @@ async def update_milestone(
     org_id,  # noqa: ANN001
     milestone_id,  # noqa: ANN001
     payload: MilestoneUpdate,
+    *,
+    background_tasks: BackgroundTasks | None = None,
 ) -> MilestoneRead:
     org = await organization_service.startup_org_or_404(db, org_id)
     await organization_service.require_membership(
@@ -176,10 +203,35 @@ async def update_milestone(
         await _require_active_member(db, org.id, data["owner_id"])
     for field, value in data.items():
         setattr(row, field, value)
+
+    owner_name: str | None = None
+    if row.owner_id:
+        ou = await db.get(User, row.owner_id)
+        if ou:
+            owner_name = ou.display_name or ou.primary_email
+    recipients = await status_notification_service.get_active_team_recipients(
+        db, org.id, category="milestones"
+    )
+
     await db.commit()
     # Same post-commit refresh reason as the profile service (onupdate
     # expires updated_at; never lazy-load outside a greenlet).
     await db.refresh(row)
+
+    status_notification_service.queue_milestone_notification(
+        background_tasks,
+        recipients=recipients,
+        org_name=org.name,
+        actor_name=user.display_name or user.primary_email,
+        action="updated",
+        milestone_name=row.name,
+        status=getattr(row.status, "value", str(row.status)),
+        progress=row.progress,
+        target_date=str(row.target_date) if row.target_date else None,
+        owner_name=owner_name,
+        description=row.description,
+    )
+
     return _read(row)
 
 
@@ -188,11 +240,26 @@ async def delete_milestone(
     user: User,
     org_id,  # noqa: ANN001
     milestone_id,  # noqa: ANN001
+    *,
+    background_tasks: BackgroundTasks | None = None,
 ) -> None:
     org = await organization_service.startup_org_or_404(db, org_id)
     await organization_service.require_membership(
         db, org.id, user, roles=set(_WRITE_ROLES)
     )
     row = await _get_milestone(db, org.id, milestone_id)
+    milestone_name = row.name
     row.deleted_at = datetime.now(UTC)
+    recipients = await status_notification_service.get_active_team_recipients(
+        db, org.id, category="milestones"
+    )
     await db.commit()
+
+    status_notification_service.queue_milestone_notification(
+        background_tasks,
+        recipients=recipients,
+        org_name=org.name,
+        actor_name=user.display_name or user.primary_email,
+        action="deleted",
+        milestone_name=milestone_name,
+    )
