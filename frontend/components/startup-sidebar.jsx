@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
 import {
   LayoutDashboard,
   Compass,
@@ -45,6 +46,14 @@ export default function StartupSidebar({
   onAction,
 }) {
   const router = useRouter();
+  const { user } = useAuth();
+  const userInitials = (user?.display_name || '?')
+    .split(' ')
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
   const pathname = usePathname();
   const [localCompact, setLocalCompact] = useState(false);
 
@@ -204,11 +213,11 @@ export default function StartupSidebar({
             }`}
           >
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#F3EBDD] text-xs font-bold text-ink">
-              AK
+              {userInitials}
             </span>
             {!isCompact && (
               <div className="min-w-0 flex-1">
-                <b className="block truncate text-xs text-white">Aarav Kapoor</b>
+                <b className="block truncate text-xs text-white">{user?.display_name || '…'}</b>
                 <small className="block truncate text-[11px] text-white/50">
                   Founder Personal Profile →
                 </small>
@@ -276,10 +285,10 @@ export default function StartupSidebar({
                 className="flex items-center gap-3 rounded-lg border border-white/10 p-2.5 hover:border-[#B8955A] hover:bg-white/5 transition"
               >
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#F3EBDD] text-xs font-bold text-ink">
-                  AK
+                  {userInitials}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <b className="block truncate text-xs text-white">Aarav Kapoor</b>
+                  <b className="block truncate text-xs text-white">{user?.display_name || '…'}</b>
                   <small className="block truncate text-[11px] text-white/50">Founder Personal Profile →</small>
                 </div>
               </Link>

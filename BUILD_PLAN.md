@@ -11,6 +11,7 @@ Roles: startup member/founder, mentor, investor, job seeker, employer, admin.
 - If a table is marked **GAP**, it is not in schema.sql. Tell me first, propose the table, then add it by migration.
 - If the frontend and schema.sql disagree, tell me and propose a fix.
 - Every step ends with "Done when". Tick it in PROGRESS.md.
+- Size limit per agent session: about 5 tables, about 12 endpoints and about 3 frontend pages. If a step is bigger, it is split into sub-steps (Step 5 is already split into 5a to 5i). Give the agent one sub-step at a time. Steps 8, 9 and 10 are large and should be split the same way before they are started.
 
 Standard for every step (from AGENTS.md): thin routers, logic in services, separate Create/Update/Read schemas, object-level permission checks, paginated lists, consistent error format, tests for happy path, validation, authentication failure and authorization failure.
 
@@ -110,6 +111,8 @@ Done when: every role can finish onboarding, orgs and invites work, and permissi
 
 ## STEP 4: Files and media
 
+**Status: deferred.** Step 5 does not need Step 4, so Step 5 can be built first. Build Step 4 before anything that must store real files (resumes in Step 7, data room in Step 9). When it is built, add a short follow-up that wires uploads into the places listed under "Waiting for Step 4" in Step 5.
+
 Tables: `files`. (Data room tables come in Step 9.)
 
 Parts:
@@ -125,22 +128,140 @@ Done when: avatar, logo, resume and pitch deck upload and download with permissi
 
 ---
 
-## STEP 5: Startups
+## STEP 5: Startup workspace (split into 5a to 5i)
 
-Tables: `startup_profiles`, `startup_metrics`, `readiness_criteria`, `startup_readiness`, `milestones`, `tasks`, `task_labels`, `task_label_links`, `task_comments`. Team uses `organization_members` from Step 3.
+**Do not give the agent "Step 5" as one task. Give it one sub-step at a time ("Do Step 5c only").** The whole startup section of the frontend (`/startup/*`) is about six steps of work, not one, so this step covers only the startup's own workspace. The rest of the `/startup/*` routes belong to later steps (see the route map below).
 
-Parts:
-1. Startup profile: tagline, stage, sector, problem, solution, traction, location, founded date.
-2. Visibility toggles (summary, traction, team, funding, round, readiness) and overall `profile_visibility`.
-3. Team directory: titles, departments, public flag, founder flag.
-4. Metrics time series (MRR, customers, burn, runway) with source labels; latest value for dashboards.
-5. Readiness: criteria list, evidence, submit, mentor sign-off, score calculation (`v_startup_readiness`).
-6. Milestones with progress and status.
-7. Tasks: board columns, priority, assignee, due date, labels, comments, ordering.
-8. Startup discovery list with filters (stage, sector, location), respecting visibility.
-9. Mentor-verified and admin-verified flags.
+Already done in Step 3 (do not redo): team directory, member and invite management, startup organization create/edit (name, summary, website, city, founded year), founder profile, account settings. The team directory uses `organization_members`; there is no separate startup members table.
 
-Done when: a founder can create a startup, manage team, tasks and metrics, and visibility rules are enforced.
+Step 4 (files) is deferred and is **not a blocker** for Step 5. Anything that needs an upload (logo, pitch deck, documents list) stays on demo data or is hidden until Step 4 is built; see "Waiting for Step 4" below.
+
+### Sizing rule for every sub-step
+
+Per agent session: at most about 5 tables, about 12 endpoints, and about 3 frontend pages. Backend first (phase A), then I approve, then frontend wiring (phase B) for that sub-step only. If the agent's plan is bigger than this, ask it to split.
+
+### Rules for every sub-step (security and correctness)
+
+- Every row belongs to an organization (`org_id`). Every endpoint checks that the caller is an active member of that organization with a sufficient role: viewer reads only, member edits content, admin and owner manage.
+- IDOR and cross-organization checks, with a test for each: a task's `milestone_id`, `assignee_id`, label and readiness item must belong to the same organization as the task. An assignee must be an active member. A label or milestone from another organization is rejected.
+- Server-controlled fields are never writable by the startup: `mentor_verified`, `readiness_score`, `signed_off_by`, `signed_off_at`, metric `source` values `mentor_verified` and `admin_verified`. Add a mass-assignment test for each.
+- Only the startup organization type can have a startup profile. Soft-deleted organizations and suspended organizations return 404.
+- All list endpoints are paginated with whitelisted sort and filter fields. Free-text fields have length limits. Rate-limit comment and metric writes.
+- Single source of truth: `organizations` already holds name, summary, website, city and founded year. Do not duplicate them in `startup_profiles` (the `location` and `founded_on` columns in `schema.sql` duplicate them; tell me and drop them from the migration unless you have a reason). Team size is computed from members, not stored.
+- Reference data (readiness criteria, default labels) is created by an idempotent bootstrap command, not by guessing in migrations. Old demo records go into the dev seed script (`backend/scripts`), never into migrations.
+
+### Sub-steps
+
+| Sub-step | Scope | Tables | About endpoints | Frontend pages (phase B) |
+|---|---|---|---|---|
+| **5a** Startup profile and visibility | Startup profile, stage, visibility settings, public read | `startup_profiles` | 6 | `/startup/profile`, startup onboarding flow, `/startup/stage` (stage selector only) |
+| **5b** Milestones | Create, edit, status, progress, soft delete | `milestones` | 5 | milestone panel inside tasks and dashboard |
+| **5c** Tasks (core) | Board, columns, drag reorder, assignee, due date, priority, filters, task counts per member | `tasks` | 8 | `/startup/tasks` (labels and comments come in 5d) |
+| **5d** Task labels and comments | Labels per organization, attach and detach, comments | `task_labels`, `task_label_links`, `task_comments` | 7 | `/startup/tasks` (labels, comments) |
+| **5e** Metrics | Enter metrics, latest values, history, source labels | `startup_metrics` | 5 | `/startup/analytics` Overview and Journey tabs, dashboard metric cards |
+| **5f** Readiness | Criteria, evidence, submit, score, sign-off | `readiness_criteria`, `startup_readiness` (+ foreign key from `tasks.readiness_id`) | 7 | `/startup/readiness` (this page lives inside `mentors/mentor-app.jsx`), dashboard readiness card |
+| **5g** Dashboard summary | One read-only summary endpoint built from 5a to 5f | none (view or queries) | 1 | `/startup/dashboard` |
+| **5h** Discovery and public startup page | Startup list with filters, public profile, respects visibility | none | 3 | consumers are wired in Steps 7, 8 and 9 |
+| **5i** Step 5 test pass | End-to-end check of every wired page, remove leftover demo data | none | 0 | all pages above |
+
+Order matters: 5a, 5b, 5c, 5d, 5e, 5f, 5g, 5h, 5i. 5b comes before 5c because tasks link to milestones. 5f comes after 5c because it adds the foreign key from tasks to readiness items. 5g reads everything else, so it is last of the build steps.
+
+#### 5a Startup profile and visibility
+
+Backend:
+1. `startup_profiles` (primary key `org_id`): tagline, stage, sector, business model, problem, solution, traction summary, TAM text, visibility settings.
+2. Create on demand for a startup organization. Endpoints for read and update by organization members, and a public read (`/public/startups/{slug}`) that returns only what the visibility settings allow.
+3. Visibility values: `private`, `mentors`, `mentors_and_investors`, `public`, plus the per-section toggles (summary, traction, team, funding, round, readiness).
+4. Stage mapping decision (tell me before building): the frontend uses idea, prototype, early-revenue, scaling and also has a `mature` page; the schema enum is idea, prototype, early_revenue, growth, mature. Map `scaling` to `growth`, and confirm.
+5. Gaps to decide: the profile page share toggle "contacts" has no column (add `contacts_public` or drop the toggle). The onboarding flow collects revenue range, funding status, pitch deck, DPIIT recognition and ecosystem goals, which have no columns. Propose small nullable columns, or defer the ones that need files or are not needed yet.
+6. The profile page "documents" list needs files: leave it on demo data until Step 4.
+
+Done when: a founder can save the full startup profile, change visibility, and an outsider sees only what the toggles allow.
+
+#### 5b Milestones
+
+`milestones` with name, target date, owner (must be an org member), status (`on_track`, `at_risk`, `off_track`, `achieved`, `missed`), progress 0 to 100, soft delete. Progress is set manually now; it can be derived from tasks later (say so in the plan, do not build it silently).
+
+Done when: milestones can be created, edited, listed and deleted by members, and cross-organization access is rejected.
+
+#### 5c Tasks (core)
+
+`tasks`: title, description, status, priority, milestone, assignee, due date, completion time, display order. UI has 4 columns (To do, In progress, In review, Done); the enum also has `blocked`, so keep it and map it.
+1. CRUD, move between columns, reorder within a column (stable ordering, no full renumbering on every drag, handle concurrent moves).
+2. Filters (assignee, status, priority, milestone, due this week, assigned to me) and pagination.
+3. The team directory shows a task count per member: add that count to the members response here.
+4. The `tasks.readiness_id` column is created now without its foreign key (added in 5f). The UI task has a "criterion" link that looks like stage checklist text (for example "Prototype: MVP scope defined"). Tell me how you plan to map it; do not invent it silently.
+
+Done when: the task board works for members, assignees are validated, and cross-organization access is rejected.
+
+#### 5d Task labels and comments
+
+`task_labels`, `task_label_links`, `task_comments`: unique label name per organization, attach and detach, comment create, edit own, delete own, admins can delete any. Comments are soft-deleted. Rate-limit comments. Labels are per organization.
+
+Done when: labels and comments work on the board, and a label from another organization cannot be attached.
+
+#### 5e Metrics
+
+`startup_metrics`: allowed keys are mrr, arr, customers, burn, runway_months, growth_mom, headcount, active_users. Unique per organization, key and period. Endpoints: upsert a metric value, latest value per key, history range, delete a mistaken entry.
+- The `source` is `startup_reported` when the startup enters it. Verified sources are server-only.
+- The analytics page shows much more than these 8 keys (see "Deferred" below). Wire only the Overview and Journey tabs and the parts that map to these metrics.
+- The "Revenue vs burn" and "MRR trend" charts read from history.
+
+Done when: a founder enters monthly metrics, the dashboard and analytics read the latest and history values, and verified sources cannot be set by the startup.
+
+#### 5f Readiness
+
+`readiness_criteria` (reference data, the 6 criteria the page shows) and `startup_readiness` (per organization and criterion: status, evidence, score, sign-off).
+1. Bootstrap the criteria with an idempotent command.
+2. Startup side: view criteria, add evidence, submit for review. Status flow: `not_started`, `in_progress`, `submitted`, `signed_off`, `rejected`.
+3. Score: percent of signed-off criteria (the `v_startup_readiness` view or an equivalent query), cached into `startup_profiles.readiness_score` and recomputed on change.
+4. Sign-off: only the platform admin for now. **Mentor sign-off is switched on in Step 8**, because it needs the mentorship relationship. Do not let any startup member sign off.
+5. Add the foreign key from `tasks.readiness_id` and wire the task link.
+6. The `/startup/readiness` page is rendered inside `mentors/mentor-app.jsx`, which also contains mentor pages for Step 8. Wire only the readiness page and leave the rest on demo data.
+
+Done when: evidence can be submitted, a sign-off changes the score, and a startup member cannot sign off or edit the score.
+
+#### 5g Dashboard summary
+
+One read-only endpoint for `/startup/dashboard`: my tasks (due, overdue), milestone progress, readiness score, latest metrics (MRR, burn, runway), recent activity from the startup's own data. Cards that depend on later steps (mentor feedback, investor interest, data room views, hiring) stay on demo data or are hidden until those steps (8, 9, 7).
+
+Done when: the dashboard loads real data for the cards that have a source, and shows empty states (not fake numbers) for the rest.
+
+#### 5h Discovery and public startup page
+
+Startup list with filters (stage, sector, location, text search), pagination, and the public startup read. Respect `profile_visibility` and the per-section toggles: an outsider never sees private sections, and viewer role (mentor, investor, other) decides what is visible. This is the shared read used by job seeker, mentor and investor discovery later. The consumer pages (`jobseeker/startups`, mentor and investor startup lists) are wired in Steps 7, 8 and 9, not here.
+
+Done when: discovery returns only what each caller may see, with tests for each visibility value.
+
+#### 5i Step 5 test pass
+
+Log in as a founder, a team member, a viewer, a mentor and an investor, and click through every wired page. Check there is no leftover demo data on wired pages, and that unwired cards are clearly empty or hidden.
+
+### Route map: which `/startup/*` pages belong to which step
+
+| Route group | File | Step |
+|---|---|---|
+| `/startup/profile`, `/startup/stage` | `startup-profile.jsx`, `stage-page.jsx` | 5a |
+| `/startup/tasks` | `tasks-page.jsx` | 5b, 5c, 5d |
+| `/startup/analytics` | `analytics-page.jsx` | 5e (Overview, Journey); other tabs deferred |
+| `/startup/readiness` | inside `mentors/mentor-app.jsx` | 5f |
+| `/startup/dashboard` | `startup-dashboard.jsx` | 5g |
+| `/startup/team`, `/startup/settings`, `/startup/user-profile`, `/startup/founder-profile` | | done in Step 3 |
+| `/startup/hiring/*` | `hiring/hiring-app.jsx` (about 1,500 lines) | Step 7 |
+| `/startup/mentors/*`, `/startup/sessions/*` | `mentors/mentor-app.jsx` (about 1,400 lines) | Step 8 |
+| `/startup/investors/*`, `/startup/rounds/*`, `/startup/data-room/*` | `investors/investor-app.jsx` (about 1,650 lines) | Step 9 |
+| `/startup/meetings`, `/startup/messages` | inside `investor-app.jsx` | Step 11 (messages), Step 9 (investor meetings) |
+| `/startup/community` | `community/community-shell` | Step 10 |
+
+### Waiting for Step 4
+
+Logo upload, pitch deck and documents list on the profile page, onboarding pitch deck upload, "share analytics report" export. Keep these on demo data or hidden. When Step 4 is built, add a short "wire uploads" follow-up for these places.
+
+### Deferred (no table in `schema.sql`; decide later, do not build now)
+
+- Stage tools on `/startup/stage/*`: idea canvas, interview tracker, market sizing, co-founder search, customer persona. The stage checklist text is static content and can stay as is.
+- Analytics Business and Market tabs: unit economics, sales funnel, customers and retention, TAM/SAM/SOM, competitor landscape, goals tracker, peer benchmarks, industry signals, investor landscape. Some need data from other steps (investor funnel from Step 9, hiring funnel from Step 7); the rest need new tables and a proposal first.
+- Mentor impact and workspace usage cards on analytics (Step 8 and later).
 
 ---
 
@@ -371,6 +492,6 @@ Parts:
 
 ## Order summary
 
-0 Paper review, 1 Foundation, 2 Auth, 3 Profiles and organizations, 4 Files, 5 Startups, 6 Connections, 7 Jobs, 8 Mentors, 9 Investors and data room, 10 Community and events, 11 Messaging, 12 Notifications, 13 Search, 14 Billing, 15 Admin, 16 Frontend connection, 17 Hardening, 18 Deployment.
+0 Paper review, 1 Foundation, 2 Auth, 3 Profiles and organizations, 4 Files (deferred), 5 Startup workspace (5a to 5i), 6 Connections, 7 Jobs, 8 Mentors, 9 Investors and data room, 10 Community and events, 11 Messaging, 12 Notifications, 13 Search, 14 Billing, 15 Admin, 16 Frontend connection, 17 Hardening, 18 Deployment.
 
-Steps 0 to 5 keep this order. Steps 6 to 13 can be reordered by what the frontend needs most. Pause for a real frontend test after steps 5, 7, 9 and 10.
+Steps 0 to 3 keep this order. Step 4 can move after Step 5 (it is deferred). Step 5 sub-steps keep the order 5a to 5i. Steps 6 to 13 can be reordered by what the frontend needs most. Pause for a real frontend test after steps 5, 7, 9 and 10.

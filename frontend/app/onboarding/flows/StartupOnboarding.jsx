@@ -57,11 +57,17 @@ const REVENUE_RANGES = [
   '₹50,00,000+ / mo ($60k+)',
 ];
 
+// Onboarding stage ids <-> startup_profiles.stage (Step 5a D1).
+const TO_API_STAGE = { 'early-revenue': 'early_revenue', scaling: 'growth' };
+const FROM_API_STAGE = { early_revenue: 'early-revenue', growth: 'scaling' };
+const ONBOARDING_STAGE_IDS = ['idea', 'prototype', 'early-revenue', 'scaling'];
+
 export default function StartupOnboarding() {
   const { user, refreshUser } = useAuth();
   const [step, setStep] = useState(() => initialStepFor(user, STEPS));
   const [showCelebration, setShowCelebration] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [ready, setReady] = useState(false);
   const [saveError, setSaveError] = useState('');
 
   // Form State
@@ -71,7 +77,6 @@ export default function StartupOnboarding() {
     legalEntity: 'Private Limited (Pvt Ltd)',
     sector: 'B2B SaaS',
     stage: 'prototype',
-    teamSize: '2-5 members',
     website: '',
     // Step 2
     problemStatement: '',
@@ -80,13 +85,13 @@ export default function StartupOnboarding() {
     mrrRange: '< ₹1,00,000 / mo ($1.2k)',
     demoUrl: '',
     // Step 3
-    fundingStatus: 'Bootstrapped',
+    fundingStatus: 'Bootstrapped (Founder Funded)',
     activelyRaising: 'Yes — currently raising',
     targetAmount: '₹1.5 Crores (~$180k)',
     deckUrl: '',
     // Step 4
     goals: ['Raise Seed Funding', 'Find Specialized Mentors'],
-    dpiitStatus: 'Applied / In Review',
+    dpiitStatus: 'Applied / In Review with DPIIT',
     // Founder profile — this belongs to the user, not the startup profile.
     displayName: user?.display_name || '',
     handle: user?.handle || '',
@@ -99,14 +104,57 @@ export default function StartupOnboarding() {
     founderVision: user?.founder_vision || '',
   });
 
-  // Load draft from localStorage on mount
+  // Load once on mount: saved organization + startup profile first
+  // (Step 5a), then the local draft on top so unsaved edits always win.
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('forma_onboarding_startup');
-      if (saved) {
-        setFormData((prev) => ({ ...prev, ...JSON.parse(saved) }));
+    let cancelled = false;
+    (async () => {
+      let server = null;
+      try {
+        const orgs = await api.organizations.mine();
+        const startup = orgs.find((o) => o.type === 'startup');
+        if (startup) {
+          const prof = await api.startupProfile.get(startup.id);
+          server = {
+            startupName: startup.name || '',
+            website: startup.website || '',
+            tagline: prof.tagline || '',
+            sector: prof.sector || '',
+            stage: FROM_API_STAGE[prof.stage] || prof.stage,
+            problemStatement: prof.problem || '',
+            targetMarket: prof.market || '',
+            revenueModel: prof.business_model || '',
+            mrrRange: prof.mrr_range || '',
+            fundingStatus: prof.funding_status || '',
+            deckUrl: prof.pitch_deck_url || '',
+            dpiitStatus: prof.dpiit_status || '',
+            legalEntity: prof.legal_entity || '',
+            demoUrl: prof.demo_url || '',
+            activelyRaising: prof.actively_raising || '',
+            targetAmount: prof.target_raise || '',
+          };
+          if (prof.ecosystem_goals?.length) server.goals = prof.ecosystem_goals;
+        }
+      } catch {
+        // No org yet (or request failed): defaults + draft still work.
       }
-    } catch {}
+      if (cancelled) return;
+      let draft = null;
+      try {
+        const saved = localStorage.getItem('forma_onboarding_startup');
+        if (saved) draft = JSON.parse(saved);
+      } catch {}
+      setFormData((prev) => {
+        const clean = server
+          ? Object.fromEntries(Object.entries(server).filter(([, v]) => v !== '' && v != null))
+          : {};
+        // The flow offers four stage cards; other stored stages stay at the default.
+        if (clean.stage && !ONBOARDING_STAGE_IDS.includes(clean.stage)) delete clean.stage;
+        return { ...prev, ...clean, ...(draft || {}) };
+      });
+      setReady(true);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   // Save draft whenever formData changes
@@ -139,7 +187,45 @@ export default function StartupOnboarding() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       setSaving(true);
+      setSaveError('');
       try {
+        // Step 5a: make sure the startup organization + profile exist and
+        // hold everything this flow collected.
+        const orgs = await api.organizations.mine();
+        let startup = orgs.find((o) => o.type === 'startup') || null;
+        if (startup) {
+          const orgPatch = {};
+          if (formData.startupName.trim()) orgPatch.name = formData.startupName.trim();
+          orgPatch.website = formData.website.trim() || null;
+          startup = await api.organizations.update(startup.id, orgPatch);
+        } else {
+          startup = await api.organizations.create({
+            name: formData.startupName.trim() || 'My Startup',
+            type: 'startup',
+          });
+          if (formData.website.trim()) {
+            startup = await api.organizations.update(startup.id, {
+              website: formData.website.trim(),
+            });
+          }
+        }
+        await api.startupProfile.update(startup.id, {
+          tagline: formData.tagline.trim() || null,
+          sector: formData.sector || null,
+          stage: TO_API_STAGE[formData.stage] || 'prototype',
+          problem: formData.problemStatement.trim() || null,
+          market: formData.targetMarket || null,
+          business_model: formData.revenueModel || null,
+          mrr_range: formData.mrrRange || null,
+          funding_status: formData.fundingStatus || null,
+          pitch_deck_url: formData.deckUrl.trim() || null,
+          dpiit_status: formData.dpiitStatus || null,
+          ecosystem_goals: formData.goals.filter(Boolean),
+          legal_entity: formData.legalEntity || null,
+          demo_url: formData.demoUrl.trim() || null,
+          actively_raising: formData.activelyRaising || null,
+          target_raise: formData.targetAmount.trim() || null,
+        });
         await api.users.updateMe({
           display_name: formData.displayName,
           handle: formData.handle,
@@ -158,7 +244,7 @@ export default function StartupOnboarding() {
         setSaveError(
           error instanceof ApiError
             ? error.message
-            : 'We could not save your founder profile. Please try again.',
+            : 'We could not save your startup details. Please try again.',
         );
       } finally {
         setSaving(false);
@@ -262,23 +348,6 @@ export default function StartupOnboarding() {
                         {s}
                       </option>
                     ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#0F1B2D] mb-1.5">
-                    Team Size
-                  </label>
-                  <select
-                    value={formData.teamSize}
-                    onChange={(e) => handleChange('teamSize', e.target.value)}
-                    className="field text-sm"
-                  >
-                    <option>1 Solo Founder</option>
-                    <option>2-5 members</option>
-                    <option>6-15 members</option>
-                    <option>16-30 members</option>
-                    <option>30+ members</option>
                   </select>
                 </div>
               </div>
@@ -681,10 +750,10 @@ export default function StartupOnboarding() {
               {saveError && <p role="alert" className="mb-2 text-xs text-red-600">{saveError}</p>}
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || !ready}
                 className="inline-flex items-center gap-2 rounded-xl bg-[#0F1B2D] px-6 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1A2E4C] disabled:opacity-60"
               >
-                {saving ? 'Saving founder profile…' : step === STEPS.length ? 'Complete Setup & Launch' : 'Continue'}
+                {!ready ? 'Loading…' : saving ? 'Saving…' : step === STEPS.length ? 'Complete Setup & Launch' : 'Continue'}
                 <ArrowRight size={14} />
               </button>
             </div>
