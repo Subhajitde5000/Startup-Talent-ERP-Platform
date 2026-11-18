@@ -170,6 +170,10 @@ class MemberRead(BaseModel):
     is_founder: bool = False
     is_public: bool = True
     joined_at: datetime | None = None
+    # Step 5c: non-deleted tasks assigned to this member (done tasks are
+    # included today — see the 5c report open question). One grouped
+    # query, never client-writable.
+    task_count: int = 0
 
 
 class MemberUpdate(BaseModel):
