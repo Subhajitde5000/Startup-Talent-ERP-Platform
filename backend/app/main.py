@@ -19,11 +19,13 @@ from app.routers import (
     auth,
     invites,
     mentor,
+    milestones,
     organizations,
     public,
     skills,
     startup_profile,
     talent,
+    tasks,
     users,
 )
 
@@ -97,6 +99,8 @@ def create_app() -> FastAPI:
     app.include_router(skills.router, prefix=settings.API_V1_PREFIX)
     app.include_router(organizations.router, prefix=settings.API_V1_PREFIX)
     app.include_router(startup_profile.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(milestones.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(tasks.router, prefix=settings.API_V1_PREFIX)
     app.include_router(invites.router, prefix=settings.API_V1_PREFIX)
     app.include_router(talent.router, prefix=settings.API_V1_PREFIX)
     app.include_router(mentor.router, prefix=settings.API_V1_PREFIX)

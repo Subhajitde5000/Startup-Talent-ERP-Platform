@@ -10,23 +10,12 @@ import {
   Linkedin,MapPin,CheckCircle2,Send,ExternalLink,Menu,Users
 } from 'lucide-react';
 
-const initial = [
-  {id: 1, name: 'Aarav Kapoor', email: 'aarav@acmestudio.example', title: 'Founder & CEO', role: 'Owner', dept: 'Operations', status: 'Active', joined: 'Jan 12, 2023', initial: 'AK', founder: true, bio: 'Building a more confident financial future for small businesses.', tasks: 8, active: 'Active now', public: true},
-  {id: 2, name: 'Priya Menon', email: 'priya@acmestudio.example', title: 'Co-founder · Product', role: 'Admin', dept: 'Product', status: 'Active', joined: 'Feb 02, 2023', initial: 'PM', founder: true, bio: 'Product strategy, design systems and customer discovery.', tasks: 5, active: 'Active 2 hours ago', public: true},
-  {id: 3, name: 'Sanjay Rao', email: 'sanjay@acmestudio.example', title: 'Engineering Lead', role: 'Member', dept: 'Engineering', status: 'Active', joined: 'May 18, 2023', initial: 'SR', bio: 'Platform engineering and infrastructure.', tasks: 6, active: 'Active yesterday', public: true},
-  {id: 4, name: 'Nisha Bose', email: 'nisha@acmestudio.example', title: 'Growth Associate', role: 'Member', dept: 'Sales', status: 'Active', joined: 'Aug 11, 2024', initial: 'NB', bio: 'Helping more teams discover better ways to manage cash.', tasks: 4, active: 'Active 3 days ago', public: false},
-  {id: 5, name: 'Rhea Mukherjee', email: 'rhea@advisor.example', title: 'Finance Advisor', role: 'Viewer', dept: 'Finance', status: 'Active', joined: 'Mar 04, 2025', initial: 'RM', bio: 'Finance mentor supporting the team on planning and readiness.', tasks: 2, active: 'Active last week', public: true},
-  {id: 6, name: 'Kunal Das', email: 'kunal@acmestudio.example', title: 'Product Designer', role: 'Member', dept: 'Product', status: 'Pending', joined: 'Invite sent Oct 28', initial: 'KD', bio: '', tasks: 0, active: 'Invite pending', public: true},
-  {id: 7, name: 'Meera Shah', email: 'meera@acmestudio.example', title: 'Growth Intern', role: 'Viewer', dept: 'Sales', status: 'Pending', joined: 'Invite sent Nov 02', initial: 'MS', bio: '', tasks: 0, active: 'Invite pending', public: false},
-  {id: 8, name: 'Dev Patel', email: 'dev@acmestudio.example', title: 'Operations', role: 'Member', dept: 'Operations', status: 'Deactivated', joined: 'Sep 20, 2023', initial: 'DP', bio: '', tasks: 0, active: 'Deactivated', public: false}
-];
-
 const depts = ['Product', 'Engineering', 'Sales', 'Operations', 'Finance', 'Other'];
 
 export default function TeamDirectory() {
   const [mobile, setMobile] = useState(false);
   const [compact, setCompact] = useState(false);
-  const [people, setPeople] = useState(initial);
+  const [people, setPeople] = useState([]);
   const [query, setQuery] = useState('');
   const [role, setRole] = useState('All roles');
   const [status, setStatus] = useState('All statuses');
@@ -98,7 +87,9 @@ export default function TeamDirectory() {
     initial: m.avatar_initials || (m.display_name || '?').slice(0, 2).toUpperCase(),
     founder: m.is_founder,
     bio: '',
-    tasks: 0,
+    // Step 5c: real per-member count from the members endpoint (single
+    // grouped query server-side). Invites have no tasks yet.
+    tasks: m.task_count ?? 0,
     active: '—',
     public: m.is_public,
     isInvite: false
@@ -152,7 +143,9 @@ export default function TeamDirectory() {
   const patchMember = async (userId, body) => {
     if (!orgId) return;
     try {
-      await api.organizations.updateMember(orgId, userId, body);
+      const row = await api.organizations.updateMember(orgId, userId, body);
+      // The patch response re-reads the same count; keep the card in sync.
+      setPeople(prev => prev.map(p => (p.id === userId ? {...p, tasks: row.task_count ?? p.tasks} : p)));
     } catch (err) {
       notify(err instanceof ApiError ? err.message : 'Could not update the member.');
       await loadTeam();

@@ -17,10 +17,10 @@ import re
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import conflict, forbidden, not_found
+from app.core.exceptions import conflict, forbidden, not_found, validation_error
 from app.models.organization import (
     MemberStatus,
     Organization,
@@ -29,6 +29,7 @@ from app.models.organization import (
     OrgRole,
     OrgType,
 )
+from app.models.task import Task
 from app.models.user import User, UserRole, UserRoleRow
 from app.schemas.organization import (
     InviteCreate,
@@ -95,6 +96,16 @@ async def org_or_404(db: AsyncSession, org_id) -> Organization:  # noqa: ANN001
     return org
 
 
+async def startup_org_or_404(db: AsyncSession, org_id) -> Organization:  # noqa: ANN001
+    """Startup-workspace org or 404 (Steps 5a/5b shared): wrong type,
+    suspended and deleted organizations are indistinguishable — no
+    existence oracle for callers outside the startup workspace."""
+    org = await org_or_404(db, org_id)
+    if org.type != OrgType.startup or org.status != "active":
+        raise not_found("Organization not found.")
+    return org
+
+
 async def require_membership(
     db: AsyncSession,
     org_id,
@@ -126,6 +137,33 @@ async def require_membership(
     elif write and member.role not in (OrgRole.owner, OrgRole.admin):
         raise forbidden("Only owners and admins can manage this organization.")
     return member
+
+
+async def require_active_member_ref(
+    db: AsyncSession,
+    org_id,
+    user_id,
+    *,
+    field: str,
+    label: str,
+) -> None:  # noqa: ANN001
+    """Cross-org/IDOR guard for user references in payloads (5b owner,
+    5c assignee): a non-member (or a member of another organization)
+    is a 422 with ``loc: [body, field]`` so the frontend can map it."""
+    result = await db.execute(
+        select(OrganizationMember.id).where(
+            OrganizationMember.org_id == org_id,
+            OrganizationMember.user_id == user_id,
+            OrganizationMember.deleted_at.is_(None),
+            OrganizationMember.status == MemberStatus.active,
+        )
+    )
+    if result.first() is None:
+        message = f"{label} must be an active member of this organization."
+        raise validation_error(
+            message,
+            details=[{"loc": ["body", field], "msg": message, "type": "value_error"}],
+        )
 
 
 async def _active_member_count(db: AsyncSession, org_id, role: OrgRole | None = None) -> int:  # noqa: ANN001
@@ -307,7 +345,9 @@ async def update_organization(
 # --- members ----------------------------------------------------------------
 
 
-def _member_read(member: OrganizationMember, user: User) -> MemberRead:
+def _member_read(
+    member: OrganizationMember, user: User, task_count: int = 0
+) -> MemberRead:
     return MemberRead(
         user_id=member.user_id,
         display_name=user.display_name or "",
@@ -321,7 +361,24 @@ def _member_read(member: OrganizationMember, user: User) -> MemberRead:
         is_founder=member.is_founder,
         is_public=member.is_public,
         joined_at=member.joined_at,
+        task_count=task_count,
     )
+
+
+async def _task_counts(db: AsyncSession, org_id) -> dict:  # noqa: ANN001
+    """Non-deleted tasks per assignee for this org — one grouped query,
+    no N+1 (Step 5c: the team directory shows a task count per member).
+    Done tasks are currently included; see the 5c report open question."""
+    result = await db.execute(
+        select(Task.assignee_id, func.count())
+        .where(
+            Task.org_id == org_id,
+            Task.deleted_at.is_(None),
+            Task.assignee_id.is_not(None),
+        )
+        .group_by(Task.assignee_id)
+    )
+    return {assignee_id: count for assignee_id, count in result.all()}
 
 
 async def list_members(
@@ -340,7 +397,11 @@ async def list_members(
         )
         .order_by(OrganizationMember.is_founder.desc(), OrganizationMember.joined_at)
     )
-    return [_member_read(member, row_user) for member, row_user in result.all()]
+    counts = await _task_counts(db, org.id)
+    return [
+        _member_read(member, row_user, counts.get(member.user_id, 0))
+        for member, row_user in result.all()
+    ]
 
 
 async def update_member(
@@ -382,7 +443,8 @@ async def update_member(
     for field, value in data.items():
         setattr(target, field, value)
     await db.commit()
-    return _member_read(target, target_user)
+    counts = await _task_counts(db, org.id)
+    return _member_read(target, target_user, counts.get(target.user_id, 0))
 
 
 async def remove_member(
