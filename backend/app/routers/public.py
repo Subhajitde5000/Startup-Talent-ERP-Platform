@@ -15,7 +15,8 @@ from app.core.exceptions import not_found
 from app.db.session import get_db
 from app.schemas.organization import OrganizationPublicRead
 from app.schemas.profile import MentorPublicRead, TalentPublicRead
-from app.services import mentor_service, public_service, talent_service
+from app.schemas.startup import StartupProfilePublicRead
+from app.services import mentor_service, public_service, startup_profile_service, talent_service
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -32,6 +33,23 @@ async def public_organization(
     if org is None:
         raise not_found("Organization not found.")
     return org
+
+
+@router.get(
+    "/startups/{slug}",
+    response_model=StartupProfilePublicRead,
+    summary="Public startup profile",
+)
+async def public_startup(
+    slug: str, db: Annotated[AsyncSession, Depends(get_db)]
+) -> StartupProfilePublicRead:
+    """Visibility-gated: private/mentors/mentors_and_investors profiles
+    404 like nonexistent ones; public profiles serve only the sections
+    whose toggle is on."""
+    profile = await startup_profile_service.get_public(db, slug)
+    if profile is None:
+        raise not_found("Startup profile not found.")
+    return profile
 
 
 @router.get(

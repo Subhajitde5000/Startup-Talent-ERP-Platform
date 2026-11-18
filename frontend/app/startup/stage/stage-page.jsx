@@ -1,14 +1,17 @@
 'use client';
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import Link from 'next/link';
-import { StartupSidebar, Card, Button } from '../../../components';
+import { StartupSidebar, Card } from '../../../components';
+import {useAuth} from '@/lib/auth-context';
+import {api, ApiError} from '@/lib/api/client';
 import {
-  FolderLock,Users,Briefcase,Search,Bell,ChevronRight,Check,Lock,ArrowRight,ArrowUpRight,Plus,FileText,
-  MessageCircle,CalendarDays,Clock,CheckCircle2,Upload,Play,Target,UsersRound,BarChart3,Kanban,
-  FlaskConical,Wallet,Building2,ClipboardList,BookOpen,ExternalLink,Send,X,ShieldCheck,AlertCircle,
-  Download,Mail,Menu
+  FolderLock,Users,Briefcase,Search,Bell,ChevronRight,Check,Lock,ArrowRight,ArrowUpRight,FileText,
+  MessageCircle,CheckCircle2,Upload,Target,UsersRound,BarChart3,Kanban,
+  FlaskConical,Wallet,Building2,ClipboardList,BookOpen,ExternalLink,X,Menu
 } from 'lucide-react';
 
+// Static toolkit content (product copy, not records). Progress strings are
+// neutral: real tool metrics arrive with their own steps (5c/5e/…).
 const stages = [
   {
     id: 'idea',
@@ -23,10 +26,10 @@ const stages = [
       'Mentor confirms the problem is validated'
     ],
     tools: [
-      ['Idea canvas', 'Map the essentials of your business idea.', 'Canvas saved 3 days ago', Target],
-      ['Interview tracker', 'Log conversations and surface recurring customer needs.', '7 interviews logged', UsersRound],
-      ['Market sizing', 'Estimate TAM, SAM and SOM with source-backed assumptions.', '2 of 3 estimates drafted', BarChart3],
-      ['Co-founder search', 'Meet people who could help build your company.', 'Profile not started', Users],
+      ['Idea canvas', 'Map the essentials of your business idea.', 'Available in your workspace', Target],
+      ['Interview tracker', 'Log conversations and surface recurring customer needs.', 'Available in your workspace', UsersRound],
+      ['Market sizing', 'Estimate TAM, SAM and SOM with source-backed assumptions.', 'Available in your workspace', BarChart3],
+      ['Co-founder search', 'Meet people who could help build your company.', 'Available in your workspace', Users],
       ['Customer persona', 'Create a clear picture of your target customer.', 'Optional tool', ClipboardList]
     ],
     resources: ['Problem interview guide', 'Idea validation canvas', 'Market sizing primer', 'Founder matching sessions']
@@ -44,10 +47,10 @@ const stages = [
       'Mentor confirms the MVP is functional'
     ],
     tools: [
-      ['Roadmap & sprint board', 'Plan milestones and move work from backlog to done.', 'Sprint 03 · 8 of 13 points done', Kanban],
-      ['Prototype & feedback log', 'Track product versions and turn feedback into action.', '3 versions · 12 feedback items', FlaskConical],
-      ['User-testing tracker', 'Recruit testers, record sessions and learn from use.', '4 of 5 test sessions complete', UsersRound],
-      ['Grants & incubators', 'Find curated programmes that fit your startup.', '6 opportunities match', Building2]
+      ['Roadmap & sprint board', 'Plan milestones and move work from backlog to done.', 'Available in your workspace', Kanban],
+      ['Prototype & feedback log', 'Track product versions and turn feedback into action.', 'Available in your workspace', FlaskConical],
+      ['User-testing tracker', 'Recruit testers, record sessions and learn from use.', 'Available in your workspace', UsersRound],
+      ['Grants & incubators', 'Find curated programmes that fit your startup.', 'Available in your workspace', Building2]
     ],
     resources: ['MVP scope worksheet', 'Usability testing guide', 'Prototype test checklist', 'Incubator application calendar']
   },
@@ -64,12 +67,32 @@ const stages = [
       'Mentor confirms traction'
     ],
     tools: [
-      ['Customer & sales pipeline', 'Track leads from first contact to close.', '₹18.2L pipeline · 24 active leads', UsersRound],
-      ['Revenue & burn', 'Monitor MRR, cash balance, burn and runway.', 'MRR ₹4.8L · runway 9 months', BarChart3],
-      ['KPI tracker', 'Set targets and review the metrics that matter.', '8 KPIs · 6 on track', ClipboardList],
-      ['Hiring requests', 'Plan critical roles and publish jobs.', '3 open requests · 12 applicants', Briefcase]
+      ['Customer & sales pipeline', 'Track leads from first contact to close.', 'Available in your workspace', UsersRound],
+      ['Revenue & burn', 'Monitor MRR, cash balance, burn and runway.', 'Available in your workspace', BarChart3],
+      ['KPI tracker', 'Set targets and review the metrics that matter.', 'Available in your workspace', ClipboardList],
+      ['Hiring requests', 'Plan critical roles and publish jobs.', 'Available in your workspace', Briefcase]
     ],
     resources: ['Sales playbook template', 'Unit economics calculator', 'Investor update template', 'Founder sales workshop']
+  },
+  {
+    id: 'growth',
+    title: 'Growth',
+    focus: 'Scale a repeatable engine',
+    goal: 'Repeatable growth with healthy unit economics.',
+    criteria: [
+      'Growth channels documented and producing steady demand',
+      'Retention and conversion tracked week over week',
+      'Unit economics (CAC, LTV, payback) support the plan',
+      'Hiring plan aligned to the next 12 months',
+      'Mentor confirms the growth engine is repeatable'
+    ],
+    tools: [
+      ['Growth dashboard', 'Watch the metrics that drive expansion week to week.', 'Available in your workspace', BarChart3],
+      ['Channel experiments', 'Run and score acquisition experiments in one place.', 'Available in your workspace', Target],
+      ['Hiring plan', 'Plan roles and publish jobs as the team grows.', 'Available in your workspace', Briefcase],
+      ['Investor updates', 'Share progress with supporters on a steady cadence.', 'Available in your workspace', FileText]
+    ],
+    resources: ['Growth playbook template', 'Channel experiment canvas', 'Hiring plan worksheet', 'Investor update examples']
   },
   {
     id: 'mature',
@@ -84,10 +107,10 @@ const stages = [
       '12-month hiring and operating plan ready'
     ],
     tools: [
-      ['Finance & cap table', 'Review financial performance and model ownership.', 'Cap table last updated Oct 28', Wallet],
-      ['HR & payroll basics', 'Keep employee, leave and compensation records organized.', '8 team members', Users],
-      ['Board & investor reporting', 'Prepare concise monthly updates and board packs.', 'Last report shared Oct 31', FileText],
-      ['Data room', 'Organize secure diligence documents and permissions.', '76% complete · 4 items to review', FolderLock]
+      ['Finance & cap table', 'Review financial performance and model ownership.', 'Available in your workspace', Wallet],
+      ['HR & payroll basics', 'Keep employee, leave and compensation records organized.', 'Available in your workspace', Users],
+      ['Board & investor reporting', 'Prepare concise monthly updates and board packs.', 'Available in your workspace', FileText],
+      ['Data room', 'Organize secure diligence documents and permissions.', 'Available in your workspace', FolderLock]
     ],
     resources: ['Board pack template', 'Cap table guide', 'Data room checklist', 'Growth fundraising briefing']
   }
@@ -97,23 +120,37 @@ const paths = [
   '/startup/stage/idea',
   '/startup/stage/prototype',
   '/startup/stage/early-revenue',
+  '/startup/stage/growth',
   '/startup/stage/mature'
 ];
 
+// startup_profiles.stage -> toolkit id used by the URLs above.
+const API_TO_URL = {
+  idea: 'idea',
+  prototype: 'prototype',
+  early_revenue: 'early-revenue',
+  growth: 'growth',
+  mature: 'mature'
+};
+
+const ROLE_LABELS = {owner: 'Founder', admin: 'Admin', member: 'Member', viewer: 'Viewer'};
+const EDIT_ROLES = ['owner', 'admin', 'member'];
+
 export default function StagePage({stage}) {
   const isOverview = stage === 'overview';
-  const idx = isOverview ? 1 : stages.findIndex(s => s.id === stage);
-  const current = stages[Math.max(idx, 0)];
 
+  const {user} = useAuth();
+  const [org, setOrg] = useState(null);
+  const [profile, setProfile] = useState(null); // StartupProfileRead
+  const [loadStatus, setLoadStatus] = useState('loading'); // loading | ready | error | none
   const [mobile, setMobile] = useState(false);
   const [compact, setCompact] = useState(false);
-  const [checks, setChecks] = useState([true, true, false, false, false]);
-  const [statuses, setStatuses] = useState(['Approved', 'Approved', 'In progress', 'Not started', 'Not started']);
+  // Exit criteria stay 'Not started' until the readiness step wires mentor
+  // sign-off; nothing is pre-approved and nothing fakes a submitted state.
   const [tool, setTool] = useState(null);
   const [toast, setToast] = useState('');
   const [request, setRequest] = useState(false);
-  const [reason, setReason] = useState('');
-  const [pending, setPending] = useState(false);
+  const [savingStage, setSavingStage] = useState(false);
   const [note, setNote] = useState('');
 
   const notify = t => {
@@ -121,13 +158,57 @@ export default function StagePage({stage}) {
     setTimeout(() => setToast(''), 2800);
   };
 
-  const done = statuses.filter(s => s === 'Approved').length;
-  const locked = i => i > 1;
-  const completed = i => i < 1;
+  const load = async () => {
+    setLoadStatus('loading');
+    try {
+      const orgs = await api.organizations.mine();
+      const startup = orgs.find(o => o.type === 'startup') || null;
+      if (!startup) {
+        setLoadStatus('none');
+        return;
+      }
+      const prof = await api.startupProfile.get(startup.id);
+      setOrg(startup);
+      setProfile(prof);
+      setLoadStatus('ready');
+    } catch (err) {
+      setLoadStatus('error');
+      notify(err instanceof ApiError ? err.message : 'Could not load your stage.');
+    }
+  };
 
-  const submit = i => {
-    setStatuses(statuses.map((x, n) => (n === i ? 'Submitted' : x)));
-    notify('Sent to your mentor for review.');
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Which toolkit page we are on; the stored stage drives journey state.
+  const storedUrlId = profile ? API_TO_URL[profile.stage] || 'idea' : null;
+  const storedIdx = storedUrlId ? Math.max(stages.findIndex(s => s.id === storedUrlId), 0) : -1;
+  const idx = isOverview ? Math.max(storedIdx, 0) : Math.max(stages.findIndex(s => s.id === stage), 0);
+  const current = stages[idx];
+  const canEdit = !!org && EDIT_ROLES.includes(org.my_role);
+  const nextStage = storedIdx >= 0 && storedIdx < stages.length - 1 ? stages[storedIdx + 1] : null;
+
+  const statuses = ['Not started', 'Not started', 'Not started', 'Not started', 'Not started'];
+  const doneCount = statuses.filter(s => s === 'Approved').length;
+  const locked = i => storedIdx >= 0 && i > storedIdx;
+  const completed = i => storedIdx >= 0 && i < storedIdx;
+
+  const confirmStageChange = async () => {
+    if (!nextStage || !org || savingStage) return;
+    setSavingStage(true);
+    try {
+      const apiStage = nextStage.id === 'early-revenue' ? 'early_revenue' : nextStage.id;
+      const prof = await api.startupProfile.update(org.id, {stage: apiStage});
+      setProfile(prof);
+      setRequest(false);
+      notify(`Stage updated to ${nextStage.title}.`);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not update the stage.');
+    } finally {
+      setSavingStage(false);
+    }
   };
 
   const criterionRows = current.criteria.map((label, i) => ({
@@ -141,6 +222,18 @@ export default function StagePage({stage}) {
       'A mentor will review and sign off this item.'
     ][i]
   }));
+
+  const updatedLabel = profile
+    ? new Date(profile.updated_at).toLocaleDateString('en-GB', {day: 'numeric', month: 'short'})
+    : '—';
+
+  const initials = (user?.display_name || '?')
+    .split(' ')
+    .map(w => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#0F1B2D]">
@@ -178,8 +271,8 @@ export default function StagePage({stage}) {
             <i className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#B8955A]" />
           </button>
           <button type="button" className="ml-3 flex items-center gap-2 rounded-lg p-1.5">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-ink text-xs font-semibold text-white">AK</span>
-            <span className="hidden text-xs sm:block">Aarav Kapoor</span>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-ink text-xs font-semibold text-white">{initials}</span>
+            <span className="hidden text-xs sm:block">{user?.display_name || '…'}</span>
             <ChevronRight size={14} />
           </button>
         </div>
@@ -187,24 +280,51 @@ export default function StagePage({stage}) {
 
       {/* Main Content */}
       <main id="stage-main" className={`mx-auto max-w-[1440px] px-4 pb-12 pt-7 sm:px-7 lg:px-8 ${compact ? 'lg:ml-[76px]' : 'lg:ml-[240px]'}`}>
+        {loadStatus === 'loading' && (
+          <div className="flex items-center gap-3 rounded-[10px] border border-[#E5E1D8] bg-white p-6 text-sm text-[#4A5568]">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
+            Loading your stage…
+          </div>
+        )}
+        {loadStatus === 'error' && (
+          <div className="rounded-[10px] border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+            Could not load your stage.{' '}
+            <button type="button" onClick={load} className="font-semibold underline">
+              Retry
+            </button>
+          </div>
+        )}
+        {loadStatus === 'none' && (
+          <div className="max-w-xl rounded-[10px] border border-[#E5E1D8] bg-white p-6">
+            <h2 className="serif text-xl font-semibold">No startup yet</h2>
+            <p className="mt-1 text-sm text-[#4A5568]">
+              Create your startup organization to track your stage and toolkit.
+            </p>
+            <Link href="/startup/profile" className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white">
+              Go to profile <ArrowRight size={15} />
+            </Link>
+          </div>
+        )}
+        {loadStatus === 'ready' && (
+        <>
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm text-[#4A5568]">
-              Acme Studio <span className="mx-2 text-[#B8955A]">·</span> Stage toolkit
+              {org?.name} <span className="mx-2 text-[#B8955A]">·</span> Stage toolkit
             </p>
             <h1 className="serif mt-1 text-[30px] font-semibold">{isOverview ? 'Your stage' : `${current.title} toolkit`}</h1>
             <p className="mt-1 text-sm text-[#4A5568]">{isOverview ? 'Where you are and what it takes to move up.' : current.focus + '.'}</p>
           </div>
           {isOverview ? (
-            idx < 3 ? (
+            nextStage ? (
               <button
                 type="button"
-                disabled={done < 5}
-                title={done < 5 ? 'Complete all exit criteria first.' : ''}
+                disabled={!canEdit || savingStage}
+                title={!canEdit ? 'Viewers can’t change the stage.' : ''}
                 onClick={() => setRequest(true)}
                 className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#E5E1D8] disabled:text-[#A0A7B4]"
               >
-                Request stage change
+                {savingStage ? 'Updating…' : `Move to ${nextStage.title}`}
               </button>
             ) : (
               <span className="rounded-lg bg-[#F3EBDD] px-4 py-3 text-sm">You’re in the final stage. Keep your reports current.</span>
@@ -216,17 +336,8 @@ export default function StagePage({stage}) {
           )}
         </div>
 
-        {pending && (
-          <div role="status" className="mb-5 flex items-center gap-2 rounded-lg border border-[#E7D4B0] bg-[#F3EBDD] p-3 text-sm text-[#806236]">
-            Your request to move to Early revenue is under review.
-            <button type="button" onClick={() => { setPending(false); notify('Stage change request cancelled.'); }} className="ml-auto underline">
-              Cancel request
-            </button>
-          </div>
-        )}
-
         <nav aria-label="Startup stages" className="mb-6 overflow-x-auto rounded-xl border border-[#E5E1D8] bg-white p-5">
-          <ol className="flex min-w-[600px] items-center">
+          <ol className="flex min-w-[720px] items-center">
             {stages.map((s, i) => (
               <li key={s.id} className="flex flex-1 items-center last:flex-none">
                 <Link href={paths[i]} aria-current={idx === i ? 'step' : undefined} className="group flex items-center gap-2">
@@ -234,7 +345,7 @@ export default function StagePage({stage}) {
                     className={`grid h-9 w-9 place-items-center rounded-full border-2 text-xs font-semibold ${
                       completed(i)
                         ? 'border-ink bg-ink text-white'
-                        : i === idx
+                        : i === storedIdx
                         ? 'border-[#B8955A] bg-[#F3EBDD] text-ink'
                         : 'border-[#E5E1D8] bg-white text-[#A0A7B4]'
                     }`}
@@ -242,14 +353,13 @@ export default function StagePage({stage}) {
                     {completed(i) ? <Check size={16} /> : locked(i) ? <Lock size={13} /> : i + 1}
                   </span>
                   <span>
-                    <b className={`block text-xs ${i === idx ? 'text-ink' : 'text-[#4A5568]'}`}>
+                    <b className={`block text-xs ${i === storedIdx ? 'text-ink' : 'text-[#4A5568]'}`}>
                       {s.title}
                       {locked(i) && <small className="ml-1">· preview</small>}
                     </b>
-                    {i === idx && <small className="text-[10px] text-[#4A5568]">Since Sep 12</small>}
                   </span>
                 </Link>
-                {i < 3 && <span className={`mx-3 h-[2px] flex-1 ${completed(i) ? 'bg-ink' : 'bg-[#E5E1D8]'}`} />}
+                {i < stages.length - 1 && <span className={`mx-3 h-[2px] flex-1 ${completed(i) ? 'bg-ink' : 'bg-[#E5E1D8]'}`} />}
               </li>
             ))}
           </ol>
@@ -261,7 +371,7 @@ export default function StagePage({stage}) {
               <section className="rounded-xl border border-[#E7D4B0] bg-[#F3EBDD] p-5 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <span className="text-xs font-semibold uppercase tracking-wide text-[#806236]">Current stage · since Sep 12</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-[#806236]">Current stage</span>
                     <h2 className="serif mt-1 text-2xl font-semibold">{current.title}: {current.focus}</h2>
                     <p className="mt-2 text-sm text-[#4A5568]">{current.goal}</p>
                   </div>
@@ -271,16 +381,16 @@ export default function StagePage({stage}) {
                 </div>
                 <div className="mt-5 grid grid-cols-3 gap-3 border-t border-[#DCC8A4] pt-4">
                   <div>
-                    <b className="serif text-xl">{done} / 5</b>
+                    <b className="serif text-xl">{doneCount} / 5</b>
                     <small className="block text-xs text-[#4A5568]">criteria approved</small>
                   </div>
                   <div>
-                    <b className="serif text-xl">4 / 5</b>
-                    <small className="block text-xs text-[#4A5568]">tools in use</small>
+                    <b className="serif text-xl">{current.tools.length}</b>
+                    <small className="block text-xs text-[#4A5568]">tools available</small>
                   </div>
                   <div>
-                    <b className="serif text-xl">54 days</b>
-                    <small className="block text-xs text-[#4A5568]">in this stage</small>
+                    <b className="serif text-xl">{updatedLabel}</b>
+                    <small className="block text-xs text-[#4A5568]">profile last updated</small>
                   </div>
                 </div>
               </section>
@@ -288,79 +398,37 @@ export default function StagePage({stage}) {
 
             <Card
               title={isOverview ? `Exit criteria for ${current.title}` : current.id === 'mature' ? 'Growth readiness' : `Exit criteria for ${current.title}`}
-              action={<span className="text-xs font-semibold text-[#4A5568]">{done} of 5 approved</span>}
+              action={<span className="text-xs font-semibold text-[#4A5568]">{doneCount} of 5 approved</span>}
             >
               <div className="mb-5 h-2 rounded-full bg-[#E5E1D8]">
-                <div className="h-full rounded-full bg-[#B8955A] transition-all" style={{width: `${done * 20}%`}} />
+                <div className="h-full rounded-full bg-[#B8955A] transition-all" style={{width: `${doneCount * 20}%`}} />
               </div>
               <div className="space-y-3">
-                {criterionRows.map((c, i) => (
+                {criterionRows.map(c => (
                   <article
                     key={c.label}
-                    className={`rounded-lg border p-3 sm:p-4 ${
-                      c.status === 'Submitted'
-                        ? 'border-[#E7D4B0] bg-[#FFF8E8]'
-                        : c.status === 'Approved'
-                        ? 'border-[#D2E7DA] bg-[#F6FBF8]'
-                        : 'border-[#E5E1D8] bg-white'
-                    }`}
+                    className="rounded-lg border border-[#E5E1D8] bg-white p-3 sm:p-4"
                   >
                     <div className="flex items-start gap-3">
-                      <span
-                        className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full ${
-                          c.status === 'Approved'
-                            ? 'bg-[#E7F3EC] text-[#2E7D5B]'
-                            : c.status === 'Submitted'
-                            ? 'bg-[#FFF3D6] text-[#8A5700]'
-                            : c.status === 'Changes requested'
-                            ? 'bg-[#FCE8E6] text-[#B42318]'
-                            : 'bg-[#F3F4F6] text-[#4A5568]'
-                        }`}
-                      >
-                        {c.status === 'Approved' ? <Check size={15} /> : c.status === 'Submitted' ? <Clock size={15} /> : c.status === 'Changes requested' ? <AlertCircle size={15} /> : <Target size={15} />}
+                      <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#F3F4F6] text-[#4A5568]">
+                        <Target size={15} />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-sm font-semibold">{c.label}</h3>
-                          <span
-                            className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
-                              c.status === 'Approved'
-                                ? 'bg-[#E7F3EC] text-[#286749]'
-                                : c.status === 'Submitted'
-                                ? 'bg-[#FFF3D6] text-[#8A5700]'
-                                : c.status === 'Changes requested'
-                                ? 'bg-[#FCE8E6] text-[#B42318]'
-                                : 'bg-[#F3F4F6] text-[#4A5568]'
-                            }`}
-                          >
+                          <span className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px] font-semibold text-[#4A5568]">
                             {c.status}
                           </span>
                         </div>
                         <p className="mt-1 text-xs leading-5 text-[#4A5568]">{c.desc}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-[#4A5568]">
-                          <button type="button" onClick={() => notify(`Evidence for: ${c.label}`)} className="font-semibold text-[#9A7A45]">
-                            {c.status === 'Not started' ? 'Add evidence' : 'View evidence'}
-                          </button>
-                          <span>Reviewer: Rhea Mukherjee</span>
-                        </div>
-                        {c.status === 'Changes requested' && (
-                          <p className="mt-2 rounded bg-[#FCE8E6] p-2 text-xs text-[#B42318]">Please attach a clearer summary and resubmit.</p>
-                        )}
                       </div>
-                      {c.status !== 'Approved' && (
-                        <button
-                          type="button"
-                          onClick={() => submit(i)}
-                          disabled={c.status === 'Submitted'}
-                          className="min-h-9 shrink-0 rounded-lg border border-[#E5E1D8] px-2.5 text-[11px] font-semibold hover:bg-[#FAF8F4] disabled:opacity-50"
-                        >
-                          {c.status === 'Submitted' ? 'Waiting' : 'Submit for review'}
-                        </button>
-                      )}
                     </div>
                   </article>
                 ))}
               </div>
+              <p className="mt-4 text-xs text-[#4A5568]">
+                Mentor sign-off on exit criteria arrives with the readiness workspace.
+              </p>
             </Card>
 
             {!isOverview && (
@@ -419,7 +487,7 @@ export default function StagePage({stage}) {
                         <b className="block text-xs">{name}</b>
                         <small className="text-[11px] text-[#4A5568]">{progress}</small>
                       </span>
-                      <ArrowUpRight size={15} className="ml-auto shrink-0" />
+                      <ArrowUpRight size={15} className="ml-auto" />
                     </button>
                   ))}
                 </div>
@@ -433,14 +501,14 @@ export default function StagePage({stage}) {
                     key={s.id}
                     href={paths[i]}
                     className={`rounded-xl border p-4 transition hover:border-[#A0A7B4] ${
-                      i === idx ? 'border-[#DCC8A4] bg-[#F3EBDD]' : 'border-[#E5E1D8] bg-white'
+                      i === storedIdx ? 'border-[#DCC8A4] bg-[#F3EBDD]' : 'border-[#E5E1D8] bg-white'
                     } ${locked(i) ? 'opacity-65' : ''}`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold">{i + 1}. {s.title}</span>
                       {completed(i) ? (
                         <span className="text-[10px] font-semibold text-[#286749]">Completed</span>
-                      ) : i === idx ? (
+                      ) : i === storedIdx ? (
                         <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-[#806236]">Current</span>
                       ) : (
                         <span className="text-[10px] text-[#4A5568]">Preview</span>
@@ -455,64 +523,33 @@ export default function StagePage({stage}) {
             </Card>
 
             <Card title="Stage history">
-              <div className="space-y-4">
-                {[
-                  ['Idea stage completed', 'Criteria approved by mentor · Jul 18, 2026', 'idea'],
-                  ['Prototype stage started', 'Aarav Kapoor · Sep 12, 2026', 'prototype'],
-                  ['MVP scope submitted', 'Awaiting mentor review · Nov 03, 2026', 'prototype']
-                ].map(([a, b, s], i) => (
-                  <div key={a} className="flex gap-3">
-                    <span className={`mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-full ${i === 0 ? 'bg-[#E7F3EC] text-[#2E7D5B]' : 'bg-[#F3EBDD] text-[#806236]'}`}>
-                      {i === 0 ? <Check size={14} /> : <Clock size={14} />}
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{a}</p>
-                      <p className="mt-1 text-xs text-[#4A5568]">{b}</p>
-                    </div>
-                    <Link href={paths[stages.findIndex(x => x.id === s)]} className="text-xs font-semibold text-[#9A7A45]">
-                      View record
-                    </Link>
-                  </div>
-                ))}
+              <div className="rounded-lg border border-dashed border-[#E5E1D8] bg-[#FAF8F4] p-6 text-center text-sm text-[#4A5568]">
+                No stage changes yet. Your history will appear here as your startup moves up.
               </div>
             </Card>
           </div>
 
           <aside className="space-y-5">
             <Card title="Your mentor">
-              <div className="flex items-center gap-3">
-                <div className="grid h-11 w-11 place-items-center rounded-full bg-[#E8EAF0] text-sm font-semibold">RM</div>
-                <div>
-                  <p className="text-sm font-semibold">Rhea Mukherjee</p>
-                  <p className="text-xs text-[#4A5568]">Go-to-market · SaaS</p>
-                </div>
-              </div>
-              <div className="mt-4 rounded-lg bg-[#FAF8F4] p-3 text-xs">
-                <CalendarDays size={15} className="mr-2 inline text-[#9A7A45]" />
-                Next session: <b>Thu, 4:00 PM</b>
-              </div>
-              <p className="mt-3 text-xs text-[#4A5568]">2 criteria awaiting review</p>
+              <p className="text-sm text-[#4A5568]">
+                No mentor yet. Find one from the mentors workspace to review your exit criteria.
+              </p>
               <Link
                 href="/startup/mentors"
                 className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[#E5E1D8] text-xs font-semibold hover:bg-[#FAF8F4]"
               >
-                <MessageCircle className="mr-2 inline" size={14} /> Message mentor
+                <MessageCircle className="mr-2 inline" size={14} /> Find a mentor
               </Link>
             </Card>
 
             <Card title="Readiness score">
               <div className="flex items-center gap-4">
-                <div
-                  className="relative grid h-20 w-20 place-items-center rounded-full"
-                  style={{background: 'conic-gradient(#B8955A 0deg 259deg,#E5E1D8 259deg 360deg)'}}
-                >
-                  <div className="grid h-[62px] w-[62px] place-items-center rounded-full bg-white">
-                    <span className="serif text-2xl font-semibold">72</span>
-                  </div>
+                <div className="grid h-20 w-20 place-items-center rounded-full border-2 border-dashed border-[#E5E1D8]">
+                  <span className="serif text-2xl font-semibold text-[#A0A7B4]">—</span>
                 </div>
                 <div>
                   <p className="text-xs text-[#4A5568]">out of 100</p>
-                  <p className="mt-1 text-xs font-semibold">3 items to improve</p>
+                  <p className="mt-1 text-xs font-semibold">Not assessed yet</p>
                   <Link href="/startup/readiness" className="mt-2 inline-block text-xs font-semibold text-[#9A7A45]">
                     View breakdown <ArrowRight className="inline" size={13} />
                   </Link>
@@ -538,6 +575,8 @@ export default function StagePage({stage}) {
             </Card>
           </aside>
         </div>
+        </>
+        )}
       </main>
 
       {/* Modals & Tool Drawers */}
@@ -572,7 +611,7 @@ export default function StagePage({stage}) {
                     placeholder="Capture your team's progress, decisions or next steps…"
                     className="mt-2 w-full rounded-xl border border-[#E5E1D8] bg-white p-3 text-sm font-normal outline-none focus:border-[#B8955A] focus:ring-2 focus:ring-[#B8955A]/20"
                   />
-                  <small className="mt-1 block text-xs font-normal text-[#4A5568]">Draft autosaved locally · {note.length} characters</small>
+                  <small className="mt-1 block text-xs font-normal text-[#4A5568]">Kept while this page is open · {note.length} characters</small>
                 </label>
                 <div className="rounded-xl border border-dashed border-[#E5E1D8] bg-white p-5">
                   <Upload className="mb-3 text-[#9A7A45]" size={20} />
@@ -583,16 +622,9 @@ export default function StagePage({stage}) {
                   </button>
                 </div>
               </div>
-              <div className="mt-5 flex justify-end gap-2">
-                <button type="button" onClick={() => setTool(null)} className="min-h-10 px-4 text-sm">
+              <div className="mt-5 flex justify-end">
+                <button type="button" onClick={() => setTool(null)} className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white">
                   Close
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setTool(null); notify('Tool progress saved.'); }}
-                  className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white"
-                >
-                  Save progress
                 </button>
               </div>
             </div>
@@ -600,34 +632,27 @@ export default function StagePage({stage}) {
         </div>
       )}
 
-      {request && (
+      {request && nextStage && (
         <div className="fixed inset-0 z-40 grid place-items-center bg-[#0F1B2D]/45 p-4">
           <section role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white p-6">
             <button type="button" onClick={() => setRequest(false)} className="float-right" aria-label="Close request">
               <X size={18} />
             </button>
-            <h2 className="serif text-2xl font-semibold">Request stage change</h2>
-            <p className="mt-2 text-sm leading-6 text-[#4A5568]">Your mentor or an admin will review the exit criteria before moving your startup to the next stage.</p>
-            <label className="mt-4 block text-sm font-medium">
-              Reason (optional)
-              <textarea
-                value={reason}
-                onChange={e => setReason(e.target.value)}
-                rows={3}
-                placeholder="Share context for your request"
-                className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm"
-              />
-            </label>
+            <h2 className="serif text-2xl font-semibold">Move to {nextStage.title}</h2>
+            <p className="mt-2 text-sm leading-6 text-[#4A5568]">
+              Your startup’s stage updates immediately. Mentor review of exit criteria is tracked separately in the readiness workspace.
+            </p>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setRequest(false)} className="px-4 text-sm">
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={() => { setRequest(false); setPending(true); notify('Stage change request sent for review.'); }}
-                className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white"
+                onClick={confirmStageChange}
+                disabled={savingStage}
+                className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
               >
-                Send request
+                {savingStage ? 'Updating…' : `Move to ${nextStage.title}`}
               </button>
             </div>
           </section>
