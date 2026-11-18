@@ -22,8 +22,23 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     bind = op.get_bind()
     if bind.dialect.name == "postgresql":
-        op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
-        op.execute("CREATE EXTENSION IF NOT EXISTS citext")
+        # pgcrypto/citext back the schema.sql baseline conventions, but
+        # nothing in the Alembic path references them (UUIDs are generated
+        # client-side; citext columns are VARCHAR for portability). The
+        # savepoint-guarded block lets migrations run on minimal PostgreSQL
+        # builds without contrib (e.g. pgserver's bundled binary); on
+        # standard PostgreSQL both extensions are still created.
+        op.execute(
+            """
+            DO $$
+            BEGIN
+                CREATE EXTENSION IF NOT EXISTS pgcrypto;
+                CREATE EXTENSION IF NOT EXISTS citext;
+            EXCEPTION WHEN feature_not_supported THEN
+                NULL;
+            END $$;
+            """
+        )
         op.execute(
             """
             CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger

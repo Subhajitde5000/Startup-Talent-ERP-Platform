@@ -20,15 +20,8 @@ from app.models.organization import Department, OrgRole, OrgType
 SLUG_RE = r"^[a-z0-9](?:[a-z0-9-]{0,198}[a-z0-9])?$"
 
 
-def _clean_text(v: str | None, max_len: int) -> str | None:
-    if v is None:
-        return None
-    cleaned = v.strip()
-    if cleaned == "":
-        return None
-    if len(cleaned) > max_len:
-        raise ValueError(f"must be at most {max_len} characters")
-    return cleaned
+# Shared with the Step 5a startup-profile schemas (single implementation).
+from app.schemas.common import clean_text as _clean_text  # noqa: E402
 
 
 class OrganizationCreate(BaseModel):

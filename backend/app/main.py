@@ -15,7 +15,17 @@ from app.core.config import get_settings
 from app.core.exceptions import AppException, error_body
 from app.core.logging import RequestIDMiddleware, configure_logging
 from app.db.session import engine
-from app.routers import auth, invites, mentor, organizations, public, skills, talent, users
+from app.routers import (
+    auth,
+    invites,
+    mentor,
+    organizations,
+    public,
+    skills,
+    startup_profile,
+    talent,
+    users,
+)
 
 configure_logging()
 logger = logging.getLogger("forma")
@@ -86,6 +96,7 @@ def create_app() -> FastAPI:
     app.include_router(users.router, prefix=settings.API_V1_PREFIX)
     app.include_router(skills.router, prefix=settings.API_V1_PREFIX)
     app.include_router(organizations.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(startup_profile.router, prefix=settings.API_V1_PREFIX)
     app.include_router(invites.router, prefix=settings.API_V1_PREFIX)
     app.include_router(talent.router, prefix=settings.API_V1_PREFIX)
     app.include_router(mentor.router, prefix=settings.API_V1_PREFIX)

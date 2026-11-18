@@ -25,6 +25,9 @@ cd backend
 cp .env.example .env                   # optional in dev — defaults already work
 alembic upgrade head                   # creates ./forma.db (migrations 0001–0005)
 uvicorn app.main:app --reload --port 8000
+
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
 ```
 
 Dev defaults (no `.env` needed): SQLite `backend/forma.db`, console email sink, dev JWT secret.

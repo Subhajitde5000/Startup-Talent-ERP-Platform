@@ -65,9 +65,9 @@ _Backend phase (A) complete: 32 tests pass, ruff + mypy clean, migrations up/dow
 Already done in Step 3: team directory, members and invites, startup organization create/edit, founder profile, account settings.
 
 ### 5a Startup profile and visibility
-- [ ] A: `startup_profiles`, read/update, public read, visibility settings, stage mapping confirmed
-- [ ] A: gaps decided (contacts toggle, onboarding revenue/funding/DPIIT fields)
-- [ ] B: `/startup/profile`, startup onboarding flow, `/startup/stage` selector wired; demo data removed
+- [x] A: `startup_profiles`, read/update, public read, visibility settings, stage mapping confirmed
+- [x] A: gaps decided (contacts toggle, onboarding revenue/funding/DPIIT fields)
+- [x] B: `/startup/profile`, startup onboarding flow, `/startup/stage` selector wired; demo data removed
 
 ### 5b Milestones
 - [ ] A: `milestones` CRUD, cross-organization checks

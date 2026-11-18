@@ -40,6 +40,11 @@ from app.models.organization import (  # noqa: E402
     OrgRole,
 )
 from app.models.profile import Skill, UserReadiness  # noqa: E402
+from app.models.startup import (  # noqa: E402
+    ProfileVisibility,
+    StartupProfile,
+    StartupStage,
+)
 from app.models.talent import MentorProfile, TalentProfile, TalentProfileSkill, WorkMode  # noqa: E402
 from app.models.user import AccountStatus, ReviewState, User, UserRole, UserRoleRow  # noqa: E402
 
@@ -177,6 +182,34 @@ STEP3B_MENTOR = {
     "languages": ["English", "Hindi", "Bengali"],
     "hourly_fee": 6500,
     "cadence": "Next 2 weeks",
+}
+
+# Step 5a demo startup profile (moved out of the wired startup-profile
+# page's inline seed data). Visibility is public so /public/startups/{slug}
+# serves it in development. Fill-only: never overwrites an existing row.
+STEP5A_STARTUP_PROFILE: dict[str, object] = {
+    "tagline": "Making financial operations effortless for growing businesses.",
+    "stage": StartupStage.prototype,
+    "sector": "B2B SaaS",
+    "business_model": "B2B SaaS · SaaS Subscription",
+    "problem": (
+        "Small businesses make high-stakes decisions with fragmented financial "
+        "data and outdated spreadsheets."
+    ),
+    "solution": (
+        "A single live workspace that connects accounts, forecasts runway, and "
+        "turns financial signals into clear next steps."
+    ),
+    "market": "SMB finance software · India first",
+    "profile_visibility": ProfileVisibility.public,
+    "legal_entity": "Private Limited (Pvt Ltd)",
+    "demo_url": "https://app.northstarlabs.example",
+    "actively_raising": "Yes — currently raising",
+    "target_raise": "₹1.5 Crores (~$180k)",
+    "funding_status": "Bootstrapped (Founder Funded)",
+    "pitch_deck_url": "https://northstarlabs.example/deck",
+    "dpiit_status": "Applied / In Review with DPIIT",
+    "ecosystem_goals": ["Raise Seed Funding", "Find Specialized Mentors"],
 }
 
 # (email, display name, role, verified?)
@@ -337,6 +370,81 @@ async def seed() -> None:
         if orgs_added:
             await db.commit()
 
+        # Step 5a: startup profile for the founder's organisation, plus the
+        # org summary/founded year and a second member so the wired profile
+        # and team cards look populated in development. Fill-only.
+        startup_profile_added = 0
+        extra_members_added = 0
+        founder_org = (
+            (
+                await db.execute(
+                    select(Organization)
+                    .join(
+                        OrganizationMember,
+                        OrganizationMember.org_id == Organization.id,
+                    )
+                    .join(User, User.id == OrganizationMember.user_id)
+                    .where(
+                        User.primary_email == "founder@forma.dev",
+                        Organization.type == "startup",
+                        OrganizationMember.role == OrgRole.owner,
+                    )
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if founder_org is not None:
+            if founder_org.summary is None:
+                founder_org.summary = (
+                    "Live cash-flow visibility, forecasting and GST invoicing for "
+                    "fast-growing Indian SMBs — one workspace instead of spreadsheets."
+                )
+            if founder_org.founded_year is None:
+                founder_org.founded_year = 2021
+            await db.commit()
+
+            mentor_user = (
+                await db.execute(
+                    select(User).where(User.primary_email == "mentor@forma.dev")
+                )
+            ).scalar_one_or_none()
+            if mentor_user is not None:
+                member_exists = (
+                    await db.execute(
+                        select(OrganizationMember.id).where(
+                            OrganizationMember.org_id == founder_org.id,
+                            OrganizationMember.user_id == mentor_user.id,
+                        )
+                    )
+                ).first()
+                if member_exists is None:
+                    db.add(
+                        OrganizationMember(
+                            org_id=founder_org.id,
+                            user_id=mentor_user.id,
+                            role=OrgRole.member,
+                            status=MemberStatus.active,
+                            title="Go-to-market advisor",
+                            joined_at=now,
+                            last_active_at=now,
+                        )
+                    )
+                    extra_members_added += 1
+                    await db.commit()
+
+            profile_exists = (
+                await db.execute(
+                    select(StartupProfile.org_id).where(
+                        StartupProfile.org_id == founder_org.id
+                    )
+                )
+            ).first()
+            if profile_exists is None:
+                db.add(StartupProfile(org_id=founder_org.id, **STEP5A_STARTUP_PROFILE))
+                await db.commit()
+                startup_profile_added = 1
+
         # Step 3c: talent profile for the jobseeker (skills attached by name).
         talent_added = 0
         talent = (
@@ -415,6 +523,8 @@ async def seed() -> None:
     print(f"  + {skills_added} skill(s)")
     print(f"  + {readiness_added} readiness row(s)")
     print(f"  + {orgs_added} organisation(s) with owner memberships")
+    print(f"  + startup profile (5a): {startup_profile_added}")
+    print(f"  + extra org member (5a): {extra_members_added}")
     print(f"  + talent profile: {talent_added}")
     print(f"  + mentor profile: {mentor_added}")
     print(f"\nPassword for all seeded accounts: {DEV_PASSWORD}")

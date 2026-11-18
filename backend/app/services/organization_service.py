@@ -82,7 +82,7 @@ async def _user_holds_role(db: AsyncSession, user: User, role: UserRole) -> bool
     return result.first() is not None
 
 
-async def _org(db: AsyncSession, org_id) -> Organization:  # noqa: ANN001
+async def org_or_404(db: AsyncSession, org_id) -> Organization:  # noqa: ANN001
     result = await db.execute(
         select(Organization).where(
             Organization.id == org_id,
@@ -95,10 +95,20 @@ async def _org(db: AsyncSession, org_id) -> Organization:  # noqa: ANN001
     return org
 
 
-async def _membership(
-    db: AsyncSession, org_id, user: User, *, write: bool = False
+async def require_membership(
+    db: AsyncSession,
+    org_id,
+    user: User,
+    *,
+    write: bool = False,
+    roles: set[OrgRole] | None = None,
 ) -> OrganizationMember:  # noqa: ANN001
-    """Actor must be an ACTIVE member; writes additionally need owner/admin."""
+    """Actor must be an ACTIVE member.
+
+    - ``roles`` (Step 5a): when given, membership must hold one of these
+      roles (e.g. ``{owner, admin, member}`` excludes viewers).
+    - ``write`` (Step 3): owner/admin only — used when ``roles`` is None.
+    """
     result = await db.execute(
         select(OrganizationMember).where(
             OrganizationMember.org_id == org_id,
@@ -110,7 +120,10 @@ async def _membership(
     member = result.scalar_one_or_none()
     if member is None:
         raise forbidden("You are not an active member of this organization.")
-    if write and member.role not in (OrgRole.owner, OrgRole.admin):
+    if roles is not None:
+        if member.role not in roles:
+            raise forbidden()
+    elif write and member.role not in (OrgRole.owner, OrgRole.admin):
         raise forbidden("Only owners and admins can manage this organization.")
     return member
 
@@ -245,8 +258,8 @@ async def list_my_organizations(db: AsyncSession, user: User) -> list[Organizati
 async def get_organization(
     db: AsyncSession, user: User, org_id  # noqa: ANN001
 ) -> OrganizationRead:
-    org = await _org(db, org_id)
-    member = await _membership(db, org.id, user)
+    org = await org_or_404(db, org_id)
+    member = await require_membership(db, org.id, user)
     return OrganizationRead(
         id=org.id,
         name=org.name,
@@ -271,8 +284,8 @@ async def get_organization(
 async def update_organization(
     db: AsyncSession, user: User, org_id, payload: OrganizationUpdate  # noqa: ANN001
 ) -> OrganizationRead:
-    org = await _org(db, org_id)
-    await _membership(db, org.id, user, write=True)
+    org = await org_or_404(db, org_id)
+    await require_membership(db, org.id, user, write=True)
 
     data = payload.model_dump(exclude_unset=True)
     if "slug" in data and data["slug"] != org.slug:
@@ -314,8 +327,8 @@ def _member_read(member: OrganizationMember, user: User) -> MemberRead:
 async def list_members(
     db: AsyncSession, user: User, org_id  # noqa: ANN001
 ) -> list[MemberRead]:
-    org = await _org(db, org_id)
-    await _membership(db, org.id, user)
+    org = await org_or_404(db, org_id)
+    await require_membership(db, org.id, user)
     result = await db.execute(
         select(OrganizationMember, User)
         .join(User, User.id == OrganizationMember.user_id)
@@ -337,8 +350,8 @@ async def update_member(
     target_user_id,
     payload: MemberUpdate,
 ) -> MemberRead:
-    org = await _org(db, org_id)
-    actor = await _membership(db, org.id, user, write=True)
+    org = await org_or_404(db, org_id)
+    actor = await require_membership(db, org.id, user, write=True)
 
     result = await db.execute(
         select(OrganizationMember, User)
@@ -375,8 +388,8 @@ async def update_member(
 async def remove_member(
     db: AsyncSession, user: User, org_id, target_user_id  # noqa: ANN001
 ) -> None:
-    org = await _org(db, org_id)
-    actor = await _membership(db, org.id, user, write=True)
+    org = await org_or_404(db, org_id)
+    actor = await require_membership(db, org.id, user, write=True)
 
     result = await db.execute(
         select(OrganizationMember).where(
@@ -403,8 +416,8 @@ async def remove_member(
 async def transfer_ownership(
     db: AsyncSession, user: User, org_id, payload: TransferOwnership  # noqa: ANN001
 ) -> list[MemberRead]:
-    org = await _org(db, org_id)
-    actor = await _membership(db, org.id, user)
+    org = await org_or_404(db, org_id)
+    actor = await require_membership(db, org.id, user)
     if actor.role != OrgRole.owner:
         raise forbidden("Only the owner can transfer ownership.")
     if payload.user_id == actor.user_id:
@@ -450,8 +463,8 @@ def _invite_read(invite: OrganizationInvite, token: str | None = None) -> Invite
 async def create_invite(
     db: AsyncSession, user: User, org_id, payload: InviteCreate  # noqa: ANN001
 ) -> InviteRead:
-    org = await _org(db, org_id)
-    await _membership(db, org.id, user, write=True)
+    org = await org_or_404(db, org_id)
+    await require_membership(db, org.id, user, write=True)
 
     email = payload.email.strip().lower()
     existing = await db.execute(
@@ -488,8 +501,8 @@ async def create_invite(
 async def list_invites(
     db: AsyncSession, user: User, org_id  # noqa: ANN001
 ) -> list[InviteRead]:
-    org = await _org(db, org_id)
-    await _membership(db, org.id, user, write=True)
+    org = await org_or_404(db, org_id)
+    await require_membership(db, org.id, user, write=True)
     result = await db.execute(
         select(OrganizationInvite)
         .where(
@@ -505,8 +518,8 @@ async def list_invites(
 async def revoke_invite(
     db: AsyncSession, user: User, org_id, invite_id  # noqa: ANN001
 ) -> None:
-    org = await _org(db, org_id)
-    await _membership(db, org.id, user, write=True)
+    org = await org_or_404(db, org_id)
+    await require_membership(db, org.id, user, write=True)
     result = await db.execute(
         select(OrganizationInvite).where(
             OrganizationInvite.id == invite_id,
@@ -541,7 +554,7 @@ async def accept_invite(db: AsyncSession, user: User, token: str) -> Organizatio
     if invite.email.lower() != (user.primary_email or "").lower():
         raise forbidden("This invite was issued to a different email address.")
 
-    org = await _org(db, invite.org_id)
+    org = await org_or_404(db, invite.org_id)
     existing = await db.execute(
         select(OrganizationMember).where(
             OrganizationMember.org_id == org.id,

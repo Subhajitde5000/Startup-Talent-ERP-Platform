@@ -44,6 +44,11 @@ export type MentorProfileRead = components["schemas"]["MentorProfileRead"];
 export type MentorProfileUpdate = components["schemas"]["MentorProfileUpdate"];
 export type NotificationPreferenceRead = components["schemas"]["NotificationPreferenceRead"];
 export type NotificationPreferenceUpdate = components["schemas"]["NotificationPreferenceUpdate"];
+export type StartupProfileRead = components["schemas"]["StartupProfileRead"];
+export type StartupProfileUpdate = components["schemas"]["StartupProfileUpdate"];
+export type StartupProfilePublicRead = components["schemas"]["StartupProfilePublicRead"];
+export type StartupStage = components["schemas"]["StartupStage"];
+export type ProfileVisibility = components["schemas"]["ProfileVisibility"];
 
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "/api/v1").replace(/\/+$/, "");
 
@@ -425,6 +430,29 @@ export const api = {
       apiRequest<MentorProfileRead>("/mentor-profile/me", { method: "PATCH", body }),
   },
 
+  startupProfile: {
+    /** Member shape; created on demand for a startup org (Step 5a). */
+    get: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<StartupProfileRead>(`/organizations/${orgId}/startup-profile`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** Owner/admin/member patch (viewer -> 403); server-owned fields 422. */
+    update: (orgId: string, body: StartupProfileUpdate) =>
+      apiRequest<StartupProfileRead>(`/organizations/${orgId}/startup-profile`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /** Public/preview shape with visibility + visible_to_public flags. */
+    preview: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<StartupProfilePublicRead>(
+        `/organizations/${orgId}/startup-profile/preview`,
+        { method: "GET", signal },
+      ),
+  },
+
   notificationPreferences: {
     get: (signal?: AbortSignal) =>
       apiRequest<NotificationPreferenceRead>("/users/me/notification-preferences", {
@@ -453,6 +481,14 @@ export const api = {
       }),
     mentor: (handle: string, signal?: AbortSignal) =>
       apiRequest<Record<string, unknown>>(`/public/mentors/${handle}`, {
+        method: "GET",
+        auth: false,
+        signal,
+      }),
+
+    /** Visibility-gated startup profile; non-public profiles 404 (Step 5a). */
+    startup: (slug: string, signal?: AbortSignal) =>
+      apiRequest<StartupProfilePublicRead>(`/public/startups/${slug}`, {
         method: "GET",
         auth: false,
         signal,

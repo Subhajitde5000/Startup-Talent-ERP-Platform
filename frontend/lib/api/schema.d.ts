@@ -508,6 +508,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/{org_id}/startup-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get startup profile
+         * @description Active members (including viewers) read the profile; created on
+         *     demand with defaults for a startup organization.
+         */
+        get: operations["get_startup_profile_api_v1_organizations__org_id__startup_profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update startup profile
+         * @description Owner/admin/member patch (viewer 403). Server-controlled fields
+         *     are rejected with 422 by extra=forbid.
+         */
+        patch: operations["update_startup_profile_api_v1_organizations__org_id__startup_profile_patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/startup-profile/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview the public startup profile
+         * @description What an anonymous visitor would see right now (member-facing aid,
+         *     not a security boundary — it only exposes this org's own data).
+         */
+        get: operations["preview_startup_profile_api_v1_organizations__org_id__startup_profile_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invites/{token}/accept": {
         parameters: {
             query?: never;
@@ -582,6 +629,28 @@ export interface paths {
         };
         /** Public organization profile */
         get: operations["public_organization_api_v1_public_organizations__slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/startups/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public startup profile
+         * @description Visibility-gated: private/mentors/mentors_and_investors profiles
+         *     404 like nonexistent ones; public profiles serve only the sections
+         *     whose toggle is on.
+         */
+        get: operations["public_startup_api_v1_public_startups__slug__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1151,6 +1220,12 @@ export interface components {
             logo_url?: string | null;
         };
         /**
+         * ProfileVisibility
+         * @description Who may discover the startup profile (schema.sql CHECK values).
+         * @enum {string}
+         */
+        ProfileVisibility: "private" | "mentors" | "mentors_and_investors" | "public";
+        /**
          * ReadinessRead
          * @description Computed readiness scores (0-100). resume/practice stay 0 until
          *     Step 4 (resume scan) and Step 5 (practice) land.
@@ -1231,6 +1306,200 @@ export interface components {
             /** Category */
             category?: string | null;
         };
+        /**
+         * StartupProfilePublicRead
+         * @description Public/preview shape. Section fields are None when the caller may
+         *     not see them (or when the profile is not publicly visible at all).
+         */
+        StartupProfilePublicRead: {
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            visibility: components["schemas"]["ProfileVisibility"];
+            /** Visible To Public */
+            visible_to_public: boolean;
+            /** Tagline */
+            tagline?: string | null;
+            stage?: components["schemas"]["StartupStage"] | null;
+            /** Sector */
+            sector?: string | null;
+            /** City */
+            city?: string | null;
+            /** Founded Year */
+            founded_year?: number | null;
+            /** Website */
+            website?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Business Model */
+            business_model?: string | null;
+            /** Problem */
+            problem?: string | null;
+            /** Solution */
+            solution?: string | null;
+            /** Market */
+            market?: string | null;
+            /** Traction Summary */
+            traction_summary?: string | null;
+        };
+        /**
+         * StartupProfileRead
+         * @description Member shape: everything stored, including server-controlled fields.
+         */
+        StartupProfileRead: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Tagline */
+            tagline: string | null;
+            stage: components["schemas"]["StartupStage"];
+            /** Sector */
+            sector: string | null;
+            /** Business Model */
+            business_model: string | null;
+            /** Problem */
+            problem: string | null;
+            /** Solution */
+            solution: string | null;
+            /** Market */
+            market: string | null;
+            /** Traction Summary */
+            traction_summary: string | null;
+            /** Mrr Range */
+            mrr_range: string | null;
+            /** Funding Status */
+            funding_status: string | null;
+            /** Pitch Deck Url */
+            pitch_deck_url: string | null;
+            /** Dpiit Status */
+            dpiit_status: string | null;
+            /** Legal Entity */
+            legal_entity: string | null;
+            /** Demo Url */
+            demo_url: string | null;
+            /** Actively Raising */
+            actively_raising: string | null;
+            /** Target Raise */
+            target_raise: string | null;
+            /** Ecosystem Goals */
+            ecosystem_goals: string[];
+            /** Mentor Verified */
+            mentor_verified: boolean;
+            /** Readiness Score */
+            readiness_score: number | null;
+            profile_visibility: components["schemas"]["ProfileVisibility"];
+            /** Summary Public */
+            summary_public: boolean;
+            /** Traction Public */
+            traction_public: boolean;
+            /** Team Public */
+            team_public: boolean;
+            /** Funding Public */
+            funding_public: boolean;
+            /** Round Public */
+            round_public: boolean;
+            /** Readiness Public */
+            readiness_public: boolean;
+            /** Contacts Public */
+            contacts_public: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * StartupProfileUpdate
+         * @description Member patch. Server-controlled fields are structurally absent.
+         */
+        StartupProfileUpdate: {
+            /** Tagline */
+            tagline?: string | null;
+            /** @default idea */
+            stage?: components["schemas"]["StartupStage"];
+            /** Sector */
+            sector?: string | null;
+            /** Business Model */
+            business_model?: string | null;
+            /** Problem */
+            problem?: string | null;
+            /** Solution */
+            solution?: string | null;
+            /** Market */
+            market?: string | null;
+            /** Traction Summary */
+            traction_summary?: string | null;
+            /** Mrr Range */
+            mrr_range?: string | null;
+            /** Funding Status */
+            funding_status?: string | null;
+            /** Pitch Deck Url */
+            pitch_deck_url?: string | null;
+            /** Dpiit Status */
+            dpiit_status?: string | null;
+            /** Legal Entity */
+            legal_entity?: string | null;
+            /** Demo Url */
+            demo_url?: string | null;
+            /** Actively Raising */
+            actively_raising?: string | null;
+            /** Target Raise */
+            target_raise?: string | null;
+            /** Ecosystem Goals */
+            ecosystem_goals?: string[];
+            /** @default mentors_and_investors */
+            profile_visibility?: components["schemas"]["ProfileVisibility"];
+            /**
+             * Summary Public
+             * @default true
+             */
+            summary_public?: boolean;
+            /**
+             * Traction Public
+             * @default true
+             */
+            traction_public?: boolean;
+            /**
+             * Team Public
+             * @default true
+             */
+            team_public?: boolean;
+            /**
+             * Funding Public
+             * @default false
+             */
+            funding_public?: boolean;
+            /**
+             * Round Public
+             * @default false
+             */
+            round_public?: boolean;
+            /**
+             * Readiness Public
+             * @default true
+             */
+            readiness_public?: boolean;
+            /**
+             * Contacts Public
+             * @default false
+             */
+            contacts_public?: boolean;
+        };
+        /**
+         * StartupStage
+         * @description Schema.sql ``startup_stage``. The frontend's 'scaling' maps to
+         *     ``growth`` in phase B (5a plan D1).
+         * @enum {string}
+         */
+        StartupStage: "idea" | "prototype" | "early_revenue" | "growth" | "mature";
         /** TalentProfileRead */
         TalentProfileRead: {
             /**
@@ -1530,6 +1799,10 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
         /** VerifyEmailRequest */
         VerifyEmailRequest: {
@@ -2651,6 +2924,109 @@ export interface operations {
             };
         };
     };
+    get_startup_profile_api_v1_organizations__org_id__startup_profile_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_startup_profile_api_v1_organizations__org_id__startup_profile_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartupProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_startup_profile_api_v1_organizations__org_id__startup_profile_preview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupProfilePublicRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     accept_invite_api_v1_invites__token__accept_post: {
         parameters: {
             query?: never;
@@ -2834,6 +3210,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrganizationPublicRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_startup_api_v1_public_startups__slug__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupProfilePublicRead"];
                 };
             };
             /** @description Validation Error */
