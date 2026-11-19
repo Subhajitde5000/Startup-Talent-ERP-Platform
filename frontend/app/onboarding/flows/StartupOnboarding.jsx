@@ -69,6 +69,8 @@ export default function StartupOnboarding() {
   const [saving, setSaving] = useState(false);
   const [ready, setReady] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [isInvitedMember, setIsInvitedMember] = useState(false);
+  const [invitedOrgName, setInvitedOrgName] = useState('');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -114,6 +116,12 @@ export default function StartupOnboarding() {
         const orgs = await api.organizations.mine();
         const startup = orgs.find((o) => o.type === 'startup');
         if (startup) {
+          const notOwner = Boolean(startup.my_role && startup.my_role.toLowerCase() !== 'owner');
+          if (notOwner) {
+            setIsInvitedMember(true);
+            setInvitedOrgName(startup.name || 'your startup');
+            setStep(5);
+          }
           const prof = await api.startupProfile.get(startup.id);
           server = {
             startupName: startup.name || '',
@@ -181,7 +189,7 @@ export default function StartupOnboarding() {
   const handleNext = async (e) => {
     e.preventDefault();
     setSaveError('');
-    if (step < STEPS.length) {
+    if (step < STEPS.length && !isInvitedMember) {
       setStep((prev) => prev + 1);
       saveOnboardingStep(STEPS[step].id);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -189,43 +197,45 @@ export default function StartupOnboarding() {
       setSaving(true);
       setSaveError('');
       try {
-        // Step 5a: make sure the startup organization + profile exist and
-        // hold everything this flow collected.
-        const orgs = await api.organizations.mine();
-        let startup = orgs.find((o) => o.type === 'startup') || null;
-        if (startup) {
-          const orgPatch = {};
-          if (formData.startupName.trim()) orgPatch.name = formData.startupName.trim();
-          orgPatch.website = formData.website.trim() || null;
-          startup = await api.organizations.update(startup.id, orgPatch);
-        } else {
-          startup = await api.organizations.create({
-            name: formData.startupName.trim() || 'My Startup',
-            type: 'startup',
-          });
-          if (formData.website.trim()) {
-            startup = await api.organizations.update(startup.id, {
-              website: formData.website.trim(),
+        if (!isInvitedMember) {
+          // Step 5a: make sure the startup organization + profile exist and
+          // hold everything this flow collected.
+          const orgs = await api.organizations.mine();
+          let startup = orgs.find((o) => o.type === 'startup') || null;
+          if (startup) {
+            const orgPatch = {};
+            if (formData.startupName.trim()) orgPatch.name = formData.startupName.trim();
+            orgPatch.website = formData.website.trim() || null;
+            startup = await api.organizations.update(startup.id, orgPatch);
+          } else {
+            startup = await api.organizations.create({
+              name: formData.startupName.trim() || 'My Startup',
+              type: 'startup',
             });
+            if (formData.website.trim()) {
+              startup = await api.organizations.update(startup.id, {
+                website: formData.website.trim(),
+              });
+            }
           }
+          await api.startupProfile.update(startup.id, {
+            tagline: formData.tagline.trim() || null,
+            sector: formData.sector || null,
+            stage: TO_API_STAGE[formData.stage] || 'prototype',
+            problem: formData.problemStatement.trim() || null,
+            market: formData.targetMarket || null,
+            business_model: formData.revenueModel || null,
+            mrr_range: formData.mrrRange || null,
+            funding_status: formData.fundingStatus || null,
+            pitch_deck_url: formData.deckUrl.trim() || null,
+            dpiit_status: formData.dpiitStatus || null,
+            ecosystem_goals: formData.goals.filter(Boolean),
+            legal_entity: formData.legalEntity || null,
+            demo_url: formData.demoUrl.trim() || null,
+            actively_raising: formData.activelyRaising || null,
+            target_raise: formData.targetAmount.trim() || null,
+          });
         }
-        await api.startupProfile.update(startup.id, {
-          tagline: formData.tagline.trim() || null,
-          sector: formData.sector || null,
-          stage: TO_API_STAGE[formData.stage] || 'prototype',
-          problem: formData.problemStatement.trim() || null,
-          market: formData.targetMarket || null,
-          business_model: formData.revenueModel || null,
-          mrr_range: formData.mrrRange || null,
-          funding_status: formData.fundingStatus || null,
-          pitch_deck_url: formData.deckUrl.trim() || null,
-          dpiit_status: formData.dpiitStatus || null,
-          ecosystem_goals: formData.goals.filter(Boolean),
-          legal_entity: formData.legalEntity || null,
-          demo_url: formData.demoUrl.trim() || null,
-          actively_raising: formData.activelyRaising || null,
-          target_raise: formData.targetAmount.trim() || null,
-        });
         await api.users.updateMe({
           display_name: formData.displayName,
           handle: formData.handle,
@@ -253,6 +263,7 @@ export default function StartupOnboarding() {
   };
 
   const handleBack = () => {
+    if (isInvitedMember) return;
     if (step > 1) {
       setStep((prev) => prev - 1);
       saveOnboardingStep(STEPS[step - 2].id);
@@ -263,7 +274,14 @@ export default function StartupOnboarding() {
   return (
     <div className="space-y-6">
       {/* Step Header */}
-      <StepProgress steps={STEPS} currentStep={step} onStepClick={setStep} />
+      {!isInvitedMember ? (
+        <StepProgress steps={STEPS} currentStep={step} onStepClick={setStep} />
+      ) : (
+        <div className="rounded-2xl border border-[#E5E1D8] bg-[#FAF8F4] p-4 text-xs text-[#4A5568] flex items-center justify-between">
+          <span>You joined <b>{invitedOrgName}</b>. Complete your personal profile below to start working with your team.</span>
+          <span className="rounded-full bg-[#0F1B2D] px-2.5 py-1 text-[11px] font-semibold text-white">Team member</span>
+        </div>
+      )}
 
       {/* Main Form Card */}
       <div className="rounded-3xl border border-[#E5E1D8] bg-white p-6 sm:p-8 shadow-sm">
@@ -680,9 +698,15 @@ export default function StartupOnboarding() {
           {step === 5 && (
             <div className="space-y-5 animate-enter">
               <div className="border-b border-[#E5E1D8] pb-4">
-                <span className="text-xs font-semibold uppercase tracking-wider text-[#9A7A45]">Step 5 of 5 · Founder profile</span>
-                <h2 className="mt-1 font-serif text-xl font-bold text-[#0F1B2D] sm:text-2xl">Tell people who is building this startup</h2>
-                <p className="text-xs text-[#4A5568] sm:text-sm">These are your personal founder details, separate from the startup profile.</p>
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#9A7A45]">
+                  {isInvitedMember ? 'Team Member Profile' : 'Step 5 of 5 · Founder profile'}
+                </span>
+                <h2 className="mt-1 font-serif text-xl font-bold text-[#0F1B2D] sm:text-2xl">
+                  {isInvitedMember ? 'Complete your team profile' : 'Tell people who is building this startup'}
+                </h2>
+                <p className="text-xs text-[#4A5568] sm:text-sm">
+                  {isInvitedMember ? 'Your personal details visible to your team and collaborators.' : 'These are your personal founder details, separate from the startup profile.'}
+                </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -765,14 +789,22 @@ export default function StartupOnboarding() {
       {showCelebration && (
         <CelebrationModal
           role="startup"
-          roleLabel="Startup Founder"
+          roleLabel={isInvitedMember ? 'Team Member' : 'Startup Founder'}
           dashboardUrl="/startup/dashboard"
-          profileSummary={[
-            { label: 'Startup Name', value: formData.startupName || 'New Venture' },
-            { label: 'Vertical', value: formData.sector },
-            { label: 'Stage', value: formData.stage.toUpperCase() },
-            { label: 'Fundraising Goal', value: formData.targetAmount || 'Configured' },
-          ]}
+          profileSummary={
+            isInvitedMember
+              ? [
+                  { label: 'Organization', value: invitedOrgName || 'Startup' },
+                  { label: 'Name', value: formData.displayName },
+                  { label: 'Title', value: formData.headline },
+                ]
+              : [
+                  { label: 'Startup Name', value: formData.startupName || 'New Venture' },
+                  { label: 'Vertical', value: formData.sector },
+                  { label: 'Stage', value: formData.stage.toUpperCase() },
+                  { label: 'Fundraising Goal', value: formData.targetAmount || 'Configured' },
+                ]
+          }
           onClose={() => setShowCelebration(false)}
         />
       )}

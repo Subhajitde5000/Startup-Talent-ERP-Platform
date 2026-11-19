@@ -12,7 +12,7 @@
  *
  * No component should call fetch() directly — go through this module.
  */
-import type { components } from "./schema";
+import type { components, operations } from "./schema";
 
 export type TokenResponse = components["schemas"]["TokenResponse"];
 export type UserMeRead = components["schemas"]["UserMeRead"];
@@ -42,6 +42,14 @@ export type MemberRead = components["schemas"]["MemberRead"];
 export type MemberUpdate = components["schemas"]["MemberUpdate"];
 export type InviteCreate = components["schemas"]["InviteCreate"];
 export type InviteRead = components["schemas"]["InviteRead"];
+export type MemberPage = components["schemas"]["MemberPage"];
+export type TeamSummary = components["schemas"]["TeamSummary"];
+export type BulkMemberAction = components["schemas"]["BulkMemberAction"];
+export type BulkMemberResult = components["schemas"]["BulkMemberResult"];
+export type BulkInviteRevoke = components["schemas"]["BulkInviteRevoke"];
+export type BulkInviteResult = components["schemas"]["BulkInviteResult"];
+export type OrgRole = components["schemas"]["OrgRole"];
+export type Department = components["schemas"]["Department"];
 export type TalentProfileRead = components["schemas"]["TalentProfileRead"];
 export type TalentProfileUpdate = components["schemas"]["TalentProfileUpdate"];
 export type MentorProfileRead = components["schemas"]["MentorProfileRead"];
@@ -234,6 +242,31 @@ function toApiError(status: number, payload: unknown): ApiError {
   return new ApiError(status, { code: "REQUEST_FAILED", message: "Request failed." });
 }
 
+/**
+ * Team list filters (Step 3d item 10) — all whitelisted server-side.
+ * Extends Record<string, …> so it satisfies RequestOptions["query"] without
+ * a cast (same shape apiRequest already expects).
+ */
+export interface MemberListQuery extends Record<
+  string,
+  string | number | boolean | undefined
+> {
+  role?: OrgRole;
+  status?: "active" | "deactivated" | "invited" | "all";
+  department?: Department;
+  q?: string;
+  sort?: "name" | "-name" | "joined" | "-joined" | "last_active" | "-last_active";
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * GET /organizations/permissions. Derived from the endpoint's own response
+ * rather than hand-written, so a backend matrix change flows through.
+ */
+export type PermissionMatrix =
+  operations["get_permissions_api_v1_organizations_permissions_get"]["responses"][200]["content"]["application/json"];
+
 /* ----------------------------------------------------------------- request */
 
 interface RequestOptions {
@@ -356,6 +389,64 @@ export async function apiRequest<T>(path: string, opts: RequestOptions = {}): Pr
   }
 }
 
+/**
+ * Like apiRequest, but returns the raw response body as text.
+ *
+ * Needed for non-JSON responses (the team CSV export). It reuses the SAME
+ * auth header, ApiError mapping and single-flight refresh-then-retry rule
+ * as apiRequest, so there is still exactly one request path in the app —
+ * pages never call fetch() themselves.
+ */
+export async function apiRequestText(
+  path: string,
+  opts: RequestOptions = {},
+): Promise<string> {
+  const withAuth = opts.auth !== false;
+  const read = async (token: string | null): Promise<string> => {
+    let url = BASE_URL + path;
+    if (opts.query) {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(opts.query)) {
+        if (value !== undefined) params.set(key, String(value));
+      }
+      const qs = params.toString();
+      if (qs) url += (url.includes("?") ? "&" : "?") + qs;
+    }
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(url, { method: "GET", headers, signal: opts.signal });
+    if (!res.ok) {
+      const text = await res.text();
+      let payload: unknown = null;
+      try {
+        payload = text ? JSON.parse(text) : null;
+      } catch {
+        payload = null;
+      }
+      throw toApiError(res.status, payload);
+    }
+    return res.text();
+  };
+
+  const token = withAuth ? getAccessToken() : null;
+  try {
+    return await read(token);
+  } catch (err) {
+    const canRetry =
+      err instanceof ApiError &&
+      err.status === 401 &&
+      withAuth &&
+      getRefreshToken() !== null;
+    if (!canRetry) throw err;
+    const tokens = await refreshTokens();
+    if (!tokens) {
+      emitUnauthenticated();
+      throw err;
+    }
+    return read(tokens.access_token);
+  }
+}
+
 /* -------------------------------------------------------- typed endpoints */
 
 export const api = {
@@ -466,8 +557,35 @@ export const api = {
     update: (orgId: string, body: OrganizationUpdate) =>
       apiRequest<OrganizationRead>(`/organizations/${orgId}`, { method: "PATCH", body }),
 
-    members: (orgId: string, signal?: AbortSignal) =>
-      apiRequest<MemberRead[]>(`/organizations/${orgId}/members`, { method: "GET", signal }),
+    /**
+     * Paginated member list (Step 3d item 10). Filtering, sorting and paging
+     * happen in SQL, not in the browser.
+     */
+    members: (
+      orgId: string,
+      query?: MemberListQuery,
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<MemberPage>(`/organizations/${orgId}/members`, {
+        method: "GET",
+        query,
+        signal,
+      }),
+
+    /** The three counter cards; `open_jobs_count` is null until Step 7a. */
+    teamSummary: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<TeamSummary>(`/organizations/${orgId}/team/summary`, {
+        method: "GET",
+        signal,
+      }),
+
+    /**
+     * The permission matrix the page renders (Step 3d item 7). Public to any
+     * authenticated caller, so the "Roles at a glance" text can never drift
+     * from the rules the API actually enforces.
+     */
+    permissions: (signal?: AbortSignal) =>
+      apiRequest<PermissionMatrix>("/organizations/permissions", { method: "GET", signal }),
 
     updateMember: (orgId: string, userId: string, body: MemberUpdate) =>
       apiRequest<MemberRead>(`/organizations/${orgId}/members/${userId}`, {
@@ -478,18 +596,53 @@ export const api = {
     removeMember: (orgId: string, userId: string) =>
       apiRequest<void>(`/organizations/${orgId}/members/${userId}`, { method: "DELETE" }),
 
+    /** Step 3d item 1: access ends immediately, history stays. */
+    deactivateMember: (orgId: string, userId: string) =>
+      apiRequest<MemberRead>(`/organizations/${orgId}/members/${userId}/deactivate`, {
+        method: "POST",
+      }),
+
+    reactivateMember: (orgId: string, userId: string) =>
+      apiRequest<MemberRead>(`/organizations/${orgId}/members/${userId}/reactivate`, {
+        method: "POST",
+      }),
+
+    /** Item 4: one transaction, all-or-nothing. */
+    bulkMemberAction: (orgId: string, body: BulkMemberAction) =>
+      apiRequest<BulkMemberResult>(`/organizations/${orgId}/members/bulk`, {
+        method: "POST",
+        body,
+      }),
+
+    /** Item 9: server-built CSV, owner/admin only. Returns the raw text. */
+    exportMembersCsv: (orgId: string, signal?: AbortSignal) =>
+      apiRequestText(`/organizations/${orgId}/members/export`, { signal }),
+
     transferOwnership: (orgId: string, userId: string) =>
       apiRequest<MemberRead[]>(`/organizations/${orgId}/transfer-ownership`, {
         method: "POST",
         body: { user_id: userId },
       }),
 
-    /** Owner/admin invite; `token` is returned once (no email send yet). */
+    /** Owner/admin invite; the accept link is emailed and `token` returned once. */
     createInvite: (orgId: string, body: InviteCreate) =>
       apiRequest<InviteRead>(`/organizations/${orgId}/invites`, { method: "POST", body }),
 
     invites: (orgId: string, signal?: AbortSignal) =>
       apiRequest<InviteRead[]>(`/organizations/${orgId}/invites`, { method: "GET", signal }),
+
+    /** Item 2: issues a NEW token, so the old accept link stops working. */
+    resendInvite: (orgId: string, inviteId: string) =>
+      apiRequest<InviteRead>(`/organizations/${orgId}/invites/${inviteId}/resend`, {
+        method: "POST",
+      }),
+
+    /** Item 4 for invites: all-or-nothing. */
+    bulkRevokeInvites: (orgId: string, body: BulkInviteRevoke) =>
+      apiRequest<BulkInviteResult>(`/organizations/${orgId}/invites/bulk-revoke`, {
+        method: "POST",
+        body,
+      }),
 
     revokeInvite: (orgId: string, inviteId: string) =>
       apiRequest<void>(`/organizations/${orgId}/invites/${inviteId}`, { method: "DELETE" }),

@@ -14,7 +14,7 @@ import { ROLE_HOME, useAuth } from '@/lib/auth-context';
 export default function RoleGuard({ role, children }) {
   const { user, loading, hasRole } = useAuth();
   const router = useRouter();
-  const allowed = hasRole(role);
+  const allowed = hasRole(role) || Boolean(user?.organizations?.some(o => (o.type || o.membership_type) === role));
 
   useEffect(() => {
     if (loading) return;

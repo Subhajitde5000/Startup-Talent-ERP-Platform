@@ -120,17 +120,25 @@ export default function AcceptInvitePage() {
 
         {!loading && !user && status !== 'accepted' ? (
           <div className="mt-5">
-            <h1 className="serif text-2xl font-bold">Sign in to accept</h1>
+            <h1 className="serif text-2xl font-bold">Join your team on Forma</h1>
             <p className="mt-2 text-sm text-[#4A5568]">
-              You need to be signed in as the invited user to accept this
-              organization invite.
+              You have been invited to join an organization. To accept, create a new
+              account or sign in using the email address where you received this invite.
             </p>
-            <Link
-              href={`/login?next=/invites/${token}`}
-              className="mt-6 inline-flex min-h-11 items-center rounded-lg bg-[#0F1B2D] px-5 text-sm font-semibold text-white hover:bg-[#1C2B42]"
-            >
-              Sign in to continue
-            </Link>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href={`/register?next=/invites/${token}`}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#0F1B2D] px-5 text-sm font-semibold text-white hover:bg-[#1C2B42]"
+              >
+                Create account to accept
+              </Link>
+              <Link
+                href={`/login?next=/invites/${token}`}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#E5E1D8] px-5 text-sm font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4]"
+              >
+                Sign in
+              </Link>
+            </div>
           </div>
         ) : null}
       </div>
