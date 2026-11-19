@@ -26,6 +26,7 @@ from app.routers import (
     public,
     readiness,
     skills,
+    stage,
     startup_profile,
     talent,
     tasks,
@@ -114,6 +115,8 @@ def create_app() -> FastAPI:
     # /public/startups/{slug} (detail, in public.py) differ in segment
     # count, so registration order does not matter between them.
     app.include_router(discovery.router, prefix=settings.API_V1_PREFIX)
+    # Step 5i/5j: stage summary, history, exit criteria and stage tools.
+    app.include_router(stage.router, prefix=settings.API_V1_PREFIX)
     return app
 
 

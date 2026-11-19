@@ -235,19 +235,25 @@ async def _ready_org(
 async def test_bootstrap_is_idempotent_and_ordered(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
+    # Step 5i extended this bootstrap to also publish the 25 stage exit
+    # criteria (is_exit_criterion=True), so the total is 31. The six
+    # readiness items below are unchanged, and they are the ones this test
+    # is about.
     first = await readiness_service.bootstrap_criteria(db_session)
-    assert first == (6, 0)
+    assert first == (31, 0)
     second = await readiness_service.bootstrap_criteria(db_session)
     assert second == (0, 0)
 
     count = (
         await db_session.execute(select(func.count(ReadinessCriterion.id)))
     ).scalar_one()
-    assert count == 6
+    assert count == 31
 
     rows = (
         await db_session.execute(
-            select(ReadinessCriterion).order_by(ReadinessCriterion.display_order)
+            select(ReadinessCriterion)
+            .where(ReadinessCriterion.is_exit_criterion.is_(False))
+            .order_by(ReadinessCriterion.display_order)
         )
     ).scalars().all()
     assert [row.code for row in rows] == EXPECTED_CODES

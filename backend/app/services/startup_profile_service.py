@@ -12,6 +12,7 @@ Object-level rules (BUILD_PLAN Step 5 security):
   StartupProfileUpdate (extra=forbid -> 422).
 """
 
+from datetime import UTC, datetime
 from typing import TypedDict
 
 from sqlalchemy import select
@@ -19,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.organization import Organization, OrgRole, OrgType
+from app.models.stage import StartupStageHistory
 from app.models.startup import ProfileVisibility, StartupProfile
 from app.models.user import User
 from app.schemas.startup import (
@@ -150,9 +152,25 @@ async def update_profile(
         db, org.id, user, roles=set(_WRITE_ROLES)
     )
     profile = await _ensure_profile(db, org)
+    before_stage = profile.stage
     data = payload.model_dump(exclude_unset=True)
     for field, value in data.items():
         setattr(profile, field, value)
+    # Step 5i item 4: a stage change through this endpoint records history
+    # in the SAME transaction. The dedicated PATCH /stage endpoint is the
+    # richer surface (it also takes a note); this hook keeps the existing
+    # client honest so no stage change goes unrecorded. Readiness
+    # sign-offs are never touched here.
+    if "stage" in data and data["stage"] != before_stage:
+        db.add(
+            StartupStageHistory(
+                org_id=org.id,
+                from_stage=before_stage,
+                to_stage=profile.stage,
+                changed_by=user.id,
+                changed_at=datetime.now(UTC),
+            )
+        )
     await db.commit()
     # The UPDATE's server-side onupdate expires updated_at; reload it in
     # async context (the org service re-selects after commit for the same

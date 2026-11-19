@@ -24,6 +24,10 @@ Plan decisions carried by this module:
   scoring has no per-criterion number to store.
 - D6: ``evidence`` is a single text column (overwritten on resubmit);
   Step 4 (uploads) is deferred, so no file reference is invented.
+- 5i D1: ``is_exit_criterion`` splits the table in two audiences. The six
+  readiness items (``False``) feed ``readiness_score``; the 25 stage exit
+  criteria (``True``) are the per-stage checklists and are EXCLUDED from
+  that score, so adding them cannot move a single 5f percentage.
 
 Portable types: ``status`` is VARCHAR + the named CHECK from schema.sql
 (``startup_readiness_status_valid``); ``stage`` uses the same
@@ -94,6 +98,13 @@ class ReadinessCriterion(Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )
+    # 5i D1: exit criteria are readiness rows too (one source of truth,
+    # tasks can link to them via startup_readiness.id) but they never
+    # count towards readiness_score. Default False keeps every 5f row
+    # exactly as it was.
+    is_exit_criterion: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -111,7 +122,12 @@ class ReadinessCriterion(Base):
 
 
 class StartupReadiness(Base):
-    """Per (organization, criterion) readiness state."""
+    """Per (organization, criterion) readiness state.
+
+    Holds the state of BOTH kinds of criterion: the six readiness items
+    and the 25 stage exit criteria. The same state machine, evidence and
+    admin sign-off apply; only the score denominator differs (5i D1).
+    """
 
     __tablename__ = "startup_readiness"
 
