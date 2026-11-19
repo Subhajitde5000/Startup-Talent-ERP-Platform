@@ -12,6 +12,8 @@ Object-level rules (BUILD_PLAN Step 5 security):
   StartupProfileUpdate (extra=forbid -> 422).
 """
 
+from typing import TypedDict
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +30,18 @@ from app.services import organization_service
 
 # Viewer role is deliberately excluded from writes (plan permission table).
 _WRITE_ROLES = frozenset({OrgRole.owner, OrgRole.admin, OrgRole.member})
+
+
+class _Sections(TypedDict):
+    """Per-section values after the visibility + toggle gate (see below)."""
+
+    summary: str | None
+    business_model: str | None
+    problem: str | None
+    solution: str | None
+    market: str | None
+    traction_summary: str | None
+    readiness_score: int | None
 
 
 async def _select_profile(db: AsyncSession, org_id) -> StartupProfile | None:  # noqa: ANN001
@@ -64,13 +78,41 @@ def _read(profile: StartupProfile) -> StartupProfileRead:
     return StartupProfileRead.model_validate(profile, from_attributes=True)
 
 
+def section_values(
+    org: Organization, profile: StartupProfile, *, visible: bool
+) -> _Sections:
+    """THE section gate — one implementation, two shapes (5a detail, 5h card).
+
+    ``visible`` is True when the caller may see this profile at all (the
+    visibility policy already said yes, or the caller is a member of the
+    org). Each section is then further gated by its own toggle, so an
+    outsider never sees a section the startup turned off.
+
+    ``readiness_score`` is returned here but consumed only by the discovery
+    card: the 5a public detail shape deliberately predates it, and adding a
+    column to that contract is not this step's scope.
+    """
+    gated = visible
+    return _Sections(
+        summary=org.summary if gated and profile.summary_public else None,
+        business_model=profile.business_model if gated and profile.summary_public else None,
+        problem=profile.problem if gated and profile.summary_public else None,
+        solution=profile.solution if gated and profile.summary_public else None,
+        market=profile.market if gated and profile.summary_public else None,
+        traction_summary=(
+            profile.traction_summary if gated and profile.traction_public else None
+        ),
+        readiness_score=(profile.readiness_score if gated and profile.readiness_public else None),
+    )
+
+
 def _public_read(
     org: Organization, profile: StartupProfile, *, visible: bool
 ) -> StartupProfilePublicRead:
     """Section gating (plan §4): core fields are always in the member
     preview; for an anonymous caller ``visible`` is only True when
     profile_visibility == public, and sections then follow the toggles."""
-    gated = visible
+    sections = section_values(org, profile, visible=visible)
     return StartupProfilePublicRead(
         slug=org.slug,
         name=org.name,
@@ -82,16 +124,12 @@ def _public_read(
         city=org.city,
         founded_year=org.founded_year,
         website=org.website,
-        summary=org.summary if gated and profile.summary_public else None,
-        business_model=(
-            profile.business_model if gated and profile.summary_public else None
-        ),
-        problem=profile.problem if gated and profile.summary_public else None,
-        solution=profile.solution if gated and profile.summary_public else None,
-        market=profile.market if gated and profile.summary_public else None,
-        traction_summary=(
-            profile.traction_summary if gated and profile.traction_public else None
-        ),
+        summary=sections["summary"],
+        business_model=sections["business_model"],
+        problem=sections["problem"],
+        solution=sections["solution"],
+        market=sections["market"],
+        traction_summary=sections["traction_summary"],
     )
 
 
@@ -112,7 +150,8 @@ async def update_profile(
         db, org.id, user, roles=set(_WRITE_ROLES)
     )
     profile = await _ensure_profile(db, org)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    for field, value in data.items():
         setattr(profile, field, value)
     await db.commit()
     # The UPDATE's server-side onupdate expires updated_at; reload it in

@@ -17,6 +17,7 @@ from app.core.logging import RequestIDMiddleware, configure_logging
 from app.db.session import engine
 from app.routers import (
     auth,
+    discovery,
     invites,
     mentor,
     metrics,
@@ -109,6 +110,10 @@ def create_app() -> FastAPI:
     app.include_router(talent.router, prefix=settings.API_V1_PREFIX)
     app.include_router(mentor.router, prefix=settings.API_V1_PREFIX)
     app.include_router(public.router, prefix=settings.API_V1_PREFIX)
+    # Step 5h: the startup discovery list. /public/startups (list) and
+    # /public/startups/{slug} (detail, in public.py) differ in segment
+    # count, so registration order does not matter between them.
+    app.include_router(discovery.router, prefix=settings.API_V1_PREFIX)
     return app
 
 
