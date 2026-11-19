@@ -11,7 +11,7 @@ Roles: startup member/founder, mentor, investor, job seeker, employer, admin.
 - If a table is marked **GAP**, it is not in schema.sql. Tell me first, propose the table, then add it by migration.
 - If the frontend and schema.sql disagree, tell me and propose a fix.
 - Every step ends with "Done when". Tick it in PROGRESS.md.
-- Size limit per agent session: about 5 tables, about 12 endpoints and about 3 frontend pages. If a step is bigger, it is split into sub-steps (Step 5 is already split into 5a to 5i). Give the agent one sub-step at a time. Steps 8, 9 and 10 are large and should be split the same way before they are started.
+- Size limit per agent session: about 5 tables, about 12 endpoints and about 3 frontend pages. If a step is bigger, it is split into sub-steps (Step 5 is already split into 5a to 5i). Give the agent one sub-step at a time. Steps 5, 7, 8, 9, 14 and 15 are already split into sub-steps. Steps 10 to 13 are still unsplit: ask for the same split (tables, endpoints, pages per sub-step) before starting any of them.
 
 Standard for every step (from AGENTS.md): thin routers, logic in services, separate Create/Update/Read schemas, object-level permission checks, paginated lists, consistent error format, tests for happy path, validation, authentication failure and authorization failure.
 
@@ -111,7 +111,7 @@ Done when: every role can finish onboarding, orgs and invites work, and permissi
 
 ## STEP 4: Files and media
 
-**Status: deferred.** Step 5 does not need Step 4, so Step 5 can be built first. Build Step 4 before anything that must store real files (resumes in Step 7, data room in Step 9). When it is built, add a short follow-up that wires uploads into the places listed under "Waiting for Step 4" in Step 5.
+**Status: deferred.** Step 5 does not need Step 4, so Step 5 can be built first. Build Step 4 before anything that must store real files (hire documents in 7h, data room in 9f, and any resume file upload in 7c). When it is built, add a short follow-up that wires uploads into the places listed under "Waiting for Step 4" in Step 5.
 
 Tables: `files`. (Data room tables come in Step 9.)
 
@@ -215,7 +215,7 @@ Done when: a founder enters monthly metrics, the dashboard and analytics read th
 1. Bootstrap the criteria with an idempotent command.
 2. Startup side: view criteria, add evidence, submit for review. Status flow: `not_started`, `in_progress`, `submitted`, `signed_off`, `rejected`.
 3. Score: percent of signed-off criteria (the `v_startup_readiness` view or an equivalent query), cached into `startup_profiles.readiness_score` and recomputed on change.
-4. Sign-off: only the platform admin for now. **Mentor sign-off is switched on in Step 8**, because it needs the mentorship relationship. Do not let any startup member sign off.
+4. Sign-off: only the platform admin for now (a user with the `admin` role created by the bootstrap command from 15a, or a dev-seeded admin until then; the full admin hardening arrives in 15a). **Mentor sign-off is switched on in Step 8**, because it needs the mentorship relationship. Do not let any startup member sign off.
 5. Add the foreign key from `tasks.readiness_id` and wire the task link.
 6. The `/startup/readiness` page is rendered inside `mentors/mentor-app.jsx`, which also contains mentor pages for Step 8. Wire only the readiness page and leave the rest on demo data.
 
@@ -280,58 +280,109 @@ Done when: connections work between allowed pairs and blocks are respected by pr
 
 ---
 
-## STEP 7: Jobs and talent
+## STEP 7: Hiring: employer side and job seeker side (split into 7a to 7r)
 
-Tables: `hiring_requests`, `jobs`, `job_skills`, `job_benefits`, `job_alerts`, `saved_jobs`, `talent_shortlists`, `talent_shortlist_members`, `job_applications`, `application_stage_events`, `application_notes`, `scorecards`, `scorecard_criteria`, `application_scores`, `interviews`, `interview_participants`, `interview_feedback`, `job_offers`, `offer_decline_reasons`, `hires`, `onboarding_templates`, `onboarding_template_items`, `hire_onboarding_items`, `hire_documents`, `message_templates`, and for job seekers `resumes`, `resume_experiences`, `resume_education`, `resume_skills`, `resume_ats_runs`, `practice_drills`, `practice_sessions`, `practice_transcript_turns`.
+Employer and job seeker pages share the same tables, so both sides are built together in the order a real hiring flow runs. **Do not give the agent "Step 7" as one task; give it one sub-step at a time.** Already done in Step 3: employer organization profile and settings, job seeker profile and settings, talent profile and skills, readiness score.
 
-Build in sub-steps, each tested before the next:
-- 7a Jobs: employer creates, publishes, pauses, closes; search and filters; salary and equity ranges.
-- 7b Applications: apply with resume, duplicate prevention, stage pipeline with history, notes, withdraw.
-- 7c Hiring workflow: scorecards, interviews and feedback, offers, hires, onboarding checklist and documents.
-- 7d Job seeker tools: saved jobs, alerts, resumes, ATS runs, practice sessions.
-- 7e Hiring requests and shortlists; funnel view (`v_job_funnel`).
+Rules from Step 5 apply to every sub-step here: the sizing rule (about 5 tables, 12 endpoints, 3 pages), organization and ownership checks on every row, cross-organization reference tests, server-controlled fields that clients never write, mass-assignment tests, paginated lists, and demo records moved to the dev seed script. Backend phase A first, then I approve, then frontend phase B for that sub-step only.
 
-Visibility: employers see only their own applicants; job seekers see only their own applications; blind-review mode hides identity fields.
+| Sub-step | Scope | Tables | About endpoints | Frontend pages (phase B) |
+|---|---|---|---|---|
+| **7a** Jobs (employer) | Create, edit, publish, pause, close and archive jobs; salary and equity ranges; job visibility | `jobs`, `job_skills`, `job_benefits` | 10 | /employer/jobs/new, /employer/jobs/[jobId]/edit, /employer/jobs/[jobId] (job details), /employer/hiring |
+| **7b** Job search and company pages (job seeker) | Search with filters and pagination, job detail, company page, startups that are hiring | none new (reads 7a, Step 3 and 5h) | 5 | /jobseeker/jobs, /jobseeker/jobs/[jobId], /jobseeker/companies/[companyId], /jobseeker/startups |
+| **7c** Apply and my applications | Apply with profile, cover note and screening answers; duplicate and deadline checks; withdraw; stage history visible to the applicant | `job_applications`, `application_stage_events` | 8 | /jobseeker/jobs/[jobId]/apply, /jobseeker/applications, /jobseeker/applications/[applicationId] |
+| **7d** Applicant pipeline (employer) | Applicants per job with filters, applicant detail, stage changes with history, private notes, reject reasons, blind-review mode | `application_notes` (uses 7c tables) | 9 | /employer/jobs/[jobId] (applicants), /employer/jobs/[jobId]/applicants/[applicantId] |
+| **7e** Scorecards and compare | Scorecard templates and criteria, scores per applicant, side-by-side compare | `scorecards`, `scorecard_criteria`, `application_scores` | 8 | /employer/jobs/[jobId]/compare, scoring panel on the applicant page |
+| **7f** Interviews | Schedule, participants, feedback, reschedule, cancel; applicant view | `interviews`, `interview_participants`, `interview_feedback` | 10 | /employer/interviews, /jobseeker/interviews |
+| **7g** Offers | Create and send offers, approval, accept, decline, expire, decline reasons, applicant compare | `job_offers`, `offer_decline_reasons` | 10 | /employer/offers, /employer/offers/[offerId], /jobseeker/offers, /jobseeker/offers/[offerId], /jobseeker/offers/compare |
+| **7h** Hires and onboarding | Turn an accepted offer into a hire; onboarding templates and checklist; hire documents (documents need Step 4) | `hires`, `onboarding_templates`, `onboarding_template_items`, `hire_onboarding_items`, `hire_documents` | 12 | /employer/hires, /employer/hires/[hireId], /employer/templates (onboarding part) |
+| **7i** Hiring requests and approvals | Request a role, approve or reject, convert an approved request into a job | `hiring_requests` | 6 | /employer/requests/new, request list in /employer/hiring |
+| **7j** Talent search and shortlists | Search job seekers who opted in, filters, shortlists, privacy rules, outreach limits | `talent_shortlists`, `talent_shortlist_members` | 9 | /employer/talent |
+| **7k** Message templates | Reusable messages (rejection, interview invite, offer follow-up) | `message_templates` | 5 | /employer/templates (message part) |
+| **7l** Employer dashboard, analytics and activity | Read-only: hiring funnel, time to hire, activity feed | view `v_job_funnel`, `activity_events` | 5 | /employer/dashboard, /employer/analytics, /employer/activity |
+| **7m** Saved jobs and alerts (job seeker) | Save and unsave jobs, saved searches as alerts (delivery is Step 12) | `saved_jobs`, `job_alerts` | 8 | /jobseeker/saved, /jobseeker/alerts |
+| **7n** Resume builder | Resumes, sections, versions, ordering, duplicate and delete | `resumes`, `resume_experiences`, `resume_education`, `resume_skills` | 12 | /jobseeker/resumes, /jobseeker/resumes/new, /jobseeker/resumes/[resumeId] |
+| **7o** ATS check and tailor | Score a resume against a job, tailoring suggestions | `resume_ats_runs` | 4 | /jobseeker/resumes/[resumeId]/ats, /jobseeker/resumes/[resumeId]/tailor |
+| **7p** Practice interviews (core) | Drill catalogue, sessions, transcript turns, history | `practice_drills`, `practice_sessions`, `practice_transcript_turns` | 9 | /jobseeker/practice, /new, /drills, /history, /[sessionId] |
+| **7q** Practice scoring and report | Scoring against the rubric and the session report | none new (uses 7p) | 3 | /jobseeker/practice/[sessionId]/report, /jobseeker/practice/rubric |
+| **7r** Job seeker dashboard and Step 7 test pass | Dashboard from 7a to 7q, then a click-through of every employer and job seeker page above | none | 1 | /jobseeker/dashboard, then all pages from 7a to 7q |
 
-Done when: post job, search, apply, review, interview, offer, hire all work and permissions hold.
+Build the sub-steps in this order. A sub-step marked GAP has no table in `schema.sql`: propose the table in the plan and wait for my answer; do not invent it.
+
+Notes:
+- **7a**: job status flow (`draft`, `open`, `paused`, `closed`) and who may publish (owner, admin, or a member with the hiring permission). Jobs of suspended or unverified organizations are not shown in search (verification arrives in 15d; until then use the organization status only).
+- **7c**: attaching a resume file needs Step 4. Until then the applicant applies with the profile and, once 7n exists, a builder resume.
+- **7d**: the applicant's private data (phone, email, salary expectation) is visible only to the job's organization members and only after the application exists. Blind-review mode hides name, photo and school.
+- **7g and 7i**: the UI shows several approvers, but `hiring_requests` and offers have one `approver_id`. Propose a small approval table or settle on one approver, and wait for my answer.
+- **7h**: needs Step 4 for documents. If Step 4 is not built yet, build the checklist part and leave documents for later.
+- **7j**: only job seekers with `is_searchable` and `profile_public` appear. Respect `hide_current_employer`. Rate-limit contact and exports.
+- **7o and 7q**: use rule-based scoring first. Sending resume text or interview answers to an AI provider needs a decision on provider, cost and user consent (DPDP) before it is built.
+- Not part of Step 7: `/employer/billing` (Step 14), `/employer/trust` (15d), messages (Step 11), community (Step 10), profile and settings (done in Step 3).
 
 ---
 
-## STEP 8: Mentors
+## STEP 8: Mentors (split into 8a to 8k)
 
-Tables: `mentor_profiles`, `mentorships`, `mentoring_sessions`, `session_attendees`, `mentor_deliverables`, `mentor_agreements`, `mentor_earnings`.
-**GAPs**: mentor availability slots and session reviews/ratings are not in schema.sql. Propose tables if the frontend needs them.
+**Do not give the agent "Step 8" as one task; give it one sub-step at a time.** Already done in Step 3: mentor profile and settings.
 
-Parts:
-1. Mentor listing and search (expertise, sector, accepting, rating).
-2. Mentorship request from a startup, accept or decline, one active mentorship per pair.
-3. Sessions: schedule, confirm, complete with summary and action items, cancel, no-show.
-4. No double booking (database-level protection).
-5. Deliverables with status flow and links to readiness criteria.
-6. Agreements (fee, equity, cadence), signing status.
-7. Earnings records (gross, commission, TDS, net); payouts are paid in Step 14.
-8. Health indicator (on track, at risk, stalled).
+Rules from Step 5 apply to every sub-step here: the sizing rule (about 5 tables, 12 endpoints, 3 pages), organization and ownership checks on every row, cross-organization reference tests, server-controlled fields that clients never write, mass-assignment tests, paginated lists, and demo records moved to the dev seed script. Backend phase A first, then I approve, then frontend phase B for that sub-step only.
 
-Done when: request, accept, schedule, complete a session and record earnings; double booking is impossible.
+| Sub-step | Scope | Tables | About endpoints | Frontend pages (phase B) |
+|---|---|---|---|---|
+| **8a** Mentor directory (startup view) | Search and filter mentors, public mentor page, mentor suggestions for a startup | none new (reads Step 3 mentor profiles) | 4 | /startup/mentors (discover), public mentor profile |
+| **8b** Mentorship requests | A startup requests a mentor, the mentor accepts or declines, one active mentorship per pair, end a mentorship | `mentorships` | 9 | /mentor/requests, /mentor/startups (list), /mentor/discover, /startup/mentors (my mentors and requests) |
+| **8c** Availability slots (GAP, only if the UI needs it) | Mentor weekly availability with timezone, so sessions can be booked into free slots | new `mentor_availability` (propose first) | 6 | availability section in /mentor/profile/edit and the booking step in sessions |
+| **8d** Sessions | Schedule, confirm, reschedule, cancel, complete with summary and action items, no-show; no double booking | `mentoring_sessions`, `session_attendees` | 11 | /mentor/sessions, /mentor/sessions/[sessionId], /startup/sessions |
+| **8e** Deliverables | Create, assign, submit and review deliverables with a status flow; link to readiness items | `mentor_deliverables` | 7 | /mentor/deliverables, deliverables in /startup/mentors |
+| **8f** Mentor readiness sign-off | Switch on mentor sign-off for the readiness items from 5f; only a mentor with an active mentorship; revoke | none new (uses 5f and 8b) | 3 | /mentor/startups/[mentorshipId]/readiness |
+| **8g** Agreements | Terms (fee, equity, cadence), send, sign by each side, versions | `mentor_agreements` | 7 | /mentor/agreements, /mentor/agreements/[agreementId], agreement view for the startup |
+| **8h** Earnings records | Record per completed session (gross, commission, TDS, net) and summaries; payouts are paid in 14f | `mentor_earnings` | 4 | /mentor/earnings (read-only until 14f) |
+| **8i** Reviews and ratings (GAP) | Participants review a session once, mentor rating is recomputed; propose the table first | new `session_reviews` (propose first) | 5 | review prompt after a session, rating on mentor cards |
+| **8j** Mentor workspace, dashboard and impact | Mentorship workspace, health indicator, dashboard and derived impact numbers | none | 5 | /mentor/startups/[mentorshipId], /mentor/startups/[mentorshipId]/startup, /mentor/dashboard, /mentor/impact |
+| **8k** Step 8 test pass | Click through as a mentor, a founder, a team member and an outsider | none | 0 | all pages above |
+
+Build the sub-steps in this order. A sub-step marked GAP has no table in `schema.sql`: propose the table in the plan and wait for my answer; do not invent it.
+
+Notes:
+- **Shared file:** the startup-side mentor pages (`/startup/mentors/*`, `/startup/sessions/*`, `/startup/readiness`) live inside `startup/mentors/mentor-app.jsx` (about 1,400 lines). In each sub-step wire only the page that belongs to it and leave the rest on demo data.
+- **8b**: confirm what `/mentor/discover` shows (startups looking for mentors is assumed) and reuse the 5h startup list instead of building a second one.
+- **8c and 8i**: do not build until the plan shows the frontend really needs them. If slots are needed, build 8c before 8d.
+- **8f**: only a mentor with an active mentorship in that startup can sign off; startup members never can. Cross-organization tests are mandatory.
+- **8g**: money fields are `NUMERIC`, never float; amounts come from the session records, not from the client.
+- Not part of Step 8: events (Step 10), messages (Step 11), profile and settings (done in Step 3), `/mentor/earnings` payout actions (14f).
 
 ---
 
-## STEP 9: Investors, rounds and data room
+## STEP 9: Investors, rounds and data room (split into 9a to 9l)
 
-Tables: `funding_rounds`, `investor_deals`, `investor_offers`, `commitments`, `portfolio_holdings`, `data_rooms`, `data_room_folders`, `data_room_documents`, `data_room_access_requests`, `document_views`.
-**GAP**: investor preferences (focus sectors, stage, ticket size) and watchlist are not in schema.sql.
+**Do not give the agent "Step 9" as one task; give it one sub-step at a time.** Already done in Step 3: investor organization profile and settings.
 
-Parts:
-1. Funding round setup and progress (`v_round_progress`).
-2. Investor pipeline board: stages, probability, ticket size, next step, private notes (never visible to startups).
-3. Startup discovery for investors, respecting startup visibility settings.
-4. Offers with versions and counters; accept, decline, expire.
-5. Commitments and funding status; portfolio holdings.
-6. Data room: folders and documents, visibility levels, access requests, NDA tracking, approve, deny, revoke, expiry.
-7. Every document view logged in `document_views`.
-8. Confidentiality tests: an investor without approved access can never read data-room files.
+Rules from Step 5 apply to every sub-step here: the sizing rule (about 5 tables, 12 endpoints, 3 pages), organization and ownership checks on every row, cross-organization reference tests, server-controlled fields that clients never write, mass-assignment tests, paginated lists, and demo records moved to the dev seed script. Backend phase A first, then I approve, then frontend phase B for that sub-step only.
 
-Done when: pipeline, offers, commitments and data room access all work and access control is airtight.
+| Sub-step | Scope | Tables | About endpoints | Frontend pages (phase B) |
+|---|---|---|---|---|
+| **9a** Funding rounds (startup) | Create and edit a round (target, instrument, valuation, dates), status, progress against target | `funding_rounds` | 7 | /startup/rounds, /startup/rounds/[roundId] |
+| **9b** Investor discovery and startup detail | Search startups with filters, startup detail respecting visibility and the round visibility toggles; compare stays client-side | none new (reads 5h and 9a) | 4 | /investor/discover, /investor/startups/[startupId], /investor/compare |
+| **9c** Preferences, saved searches and shortlist (GAP) | Investor preferences (sectors, stage, ticket size), saved searches, shortlist; propose tables first | new `investor_preferences`, `saved_searches` (propose first) | 10 | /investor/searches, /investor/shortlist, preferences in profile edit |
+| **9d** Pipeline | Investor deal board with stages, probability, ticket size, next step, stage history, private notes; startup side sees its own investor list without private notes | `investor_deals` | 10 | /investor/pipeline, /startup/investors |
+| **9e** Requests and introductions (GAP) | Intro, meeting and information requests between investors and startups; propose the model first | propose first (maybe `investor_deals` stages plus messages) | 7 | /investor/requests, /investor/meetings, investor requests in /startup/investors |
+| **9f** Data room core (needs Step 4) | Folders, documents stored as files, visibility level per document, versions | `data_rooms`, `data_room_folders`, `data_room_documents` (uses `files` from Step 4) | 12 | /startup/data-room |
+| **9g** Data room access, NDA and audit | Access requests (approve, deny, revoke, expire), NDA tracking, every view logged | `data_room_access_requests`, `document_views` | 10 | /startup/data-room/requests, /investor/data-rooms, /investor/data-rooms/[startupId], /investor/data-rooms/[startupId]/nda |
+| **9h** Offers | Offers with versions and counters; accept, decline, expire | `investor_offers` | 10 | /investor/offers, /investor/offers/new, /investor/offers/[offerId], offers view for the startup |
+| **9i** Commitments and portfolio | Commitments with status and funding progress; portfolio holdings | `commitments`, `portfolio_holdings` | 10 | /investor/commitments, /investor/commitments/[commitmentId], /investor/portfolio, /investor/portfolio/[startupId] |
+| **9j** Diligence (GAP) | Diligence checklist and notes per startup; no table exists, propose first | new table or derive from data room and notes (propose first) | 6 | /investor/startups/[startupId]/diligence |
+| **9k** Investor dashboard, insights and activity | Read-only aggregates and activity feed | `activity_events` | 4 | /investor/dashboard, /investor/insights, /investor/activity |
+| **9l** Step 9 test pass | Click through as an investor, a founder, a team member, an investor without access and an outsider | none | 0 | all pages above |
+
+Build the sub-steps in this order. A sub-step marked GAP has no table in `schema.sql`: propose the table in the plan and wait for my answer; do not invent it.
+
+Notes:
+- **Shared file:** the startup-side investor pages (`/startup/investors/*`, `/startup/rounds/*`, `/startup/data-room/*`, `/startup/meetings`) live inside `startup/investors/investor-app.jsx` (about 1,650 lines). In each sub-step wire only the page that belongs to it.
+- **Step 4 must be built before 9f.** Data room documents are files.
+- **Confidentiality (every sub-step):** investor private notes and pipeline data are never visible to the startup. A startup's financials, round details and data room are visible only to investors it has approved. An investor without approved access can never read a data room file, with a test for it.
+- **9c, 9e, 9j** have no tables in `schema.sql`. Do not invent tables; propose them in the plan and wait.
+- **9h and 9i**: money fields are `NUMERIC` with a currency code. Statuses change only through the defined transitions, never by a free-form update.
+- Not part of Step 9: events (Step 10), messages (Step 11), billing (Step 14), profile and settings (done in Step 3).
 
 ---
 
@@ -401,48 +452,69 @@ Done when: search is fast, relevant, and never returns data the user may not see
 
 ---
 
-## STEP 14: Billing, plans, payments and payouts
+## STEP 14: Billing, plans, payments and payouts (split into 14a to 14h)
 
-Tables: `plans`, `entitlements`, `plan_entitlements`, `subscriptions`, `promotions`, `billing_products`, `invoices`, `invoice_lines`, `payments`, `payment_methods`, `refunds`, `credit_wallets`, `credit_transactions`, `usage_meters`, `spending_controls`, `payout_batches`, `payout_holds`, `reconciliation_records`, `dunning_attempts`.
+Billing is large and risky, so it is built in small slices with the payment provider decided first. **Give the agent one sub-step at a time.**
 
-Parts:
-1. Confirm payment provider with me first (Razorpay proposed).
-2. Plans and entitlements; feature gating by plan and usage meters.
-3. Subscriptions, trials, seats, cancel.
-4. Checkout and invoices with GST/tax math, invoice numbering.
-5. Payments from verified provider webhooks only; idempotent handling.
-6. Refunds and failed-payment retries (dunning).
-7. Credits for job posts, invites and featured listings.
-8. Mentor payouts: batches, holds, maker/checker approval.
-9. Reconciliation against provider settlements.
+Rules from Step 5 apply to every sub-step here: the sizing rule (about 5 tables, 12 endpoints, 3 pages), organization and ownership checks on every row, cross-organization reference tests, server-controlled fields that clients never write, mass-assignment tests, paginated lists, and demo records moved to the dev seed script. Backend phase A first, then I approve, then frontend phase B for that sub-step only.
 
-Done when: a paid plan can be bought, an invoice is issued, a webhook marks it paid, and a payout batch needs two different admins.
+| Sub-step | Scope | Tables | About endpoints | Frontend pages (phase B) |
+|---|---|---|---|---|
+| **14a** Plans and entitlements (admin catalogue) | Plans, entitlements per plan, promotions and billing products, managed by admin | `plans`, `entitlements`, `plan_entitlements`, `promotions`, `billing_products` | 14 | /admin/plans, /admin/plans/new, /admin/plans/[id] |
+| **14b** Subscriptions and usage gating | Subscribe, upgrade, cancel; usage meters; feature gating helper used by other steps | `subscriptions`, `usage_meters` | 9 | plan and usage sections of /employer/billing and /investor/billing |
+| **14c** Checkout, invoices and payments | Create checkout, invoices with tax math and numbering, payments only from verified provider webhooks, saved payment methods (tokens only) | `invoices`, `invoice_lines`, `payments`, `payment_methods` (+ `webhook_events`) | 12 | checkout and invoice list in /employer/billing and /investor/billing |
+| **14d** Refunds and dunning | Refund requests and approval, failed-payment retries | `refunds`, `dunning_attempts` | 7 | refund actions in /admin/billing |
+| **14e** Credits and spending controls | Credit wallets and transactions, spending limits | `credit_wallets`, `credit_transactions`, `spending_controls` | 9 | credits sections in billing pages |
+| **14f** Mentor payouts | Payout batches and holds with maker/checker approval, linked to mentor earnings | `payout_batches`, `payout_holds` | 10 | /admin/payouts, /admin/payouts/batches/[id], payout status in /mentor/earnings |
+| **14g** Reconciliation and admin billing | Match payments to provider settlements, admin billing overview | `reconciliation_records` | 5 | /admin/billing |
+| **14h** Step 14 test pass | Buy a plan, pay, refund, run a payout batch with two different admins | none | 0 | all pages above |
+
+Build the sub-steps in this order. A sub-step marked GAP has no table in `schema.sql`: propose the table in the plan and wait for my answer; do not invent it.
+
+Notes:
+- **Decision before 14c:** payment provider (Razorpay proposed). Verify the provider signature before processing any webhook, make handlers idempotent and store the raw event. Amounts and statuses come from the verified webhook, never from the client. Never store card numbers or CVV.
+- **`webhook_events`** belongs to Step 15m in `schema.sql`, but 14c needs it. Create it in 14c; 15m only adds the admin screens.
+- **14f**: the person who creates a payout batch can never approve it (maker/checker), with a test. Admin accounts must exist first (15a).
+- Admin pages `/admin/plans`, `/admin/billing` and `/admin/payouts` are covered here, not in Step 15.
 
 ---
 
-## STEP 15: Admin console, trust and safety, support, compliance
+## STEP 15: Admin console, trust and safety, support, compliance (split into 15a to 15r)
 
-Tables:
-- 15a Admin access and audit: `admin_members`, `audit_events`, `audit_integrity_checks`, `audit_export_requests`, `security_alerts`.
-- 15b Trust and safety: `verifications`, `verification_checks`, `trust_policies`, `policy_rules`, `policy_blocklists`, `moderation_cases`, `user_reports`, `moderation_appeals`, `disputes`, `fraud_detections`.
-- 15c Support: `help_articles`, `support_ticket_categories`, `support_tickets`, `support_ticket_messages`.
-- 15d Compliance and data rights: `data_requests`, `consent_records`, `user_consents`, `data_processing_records`, `compliance_*`, `legal_holds`, `dpia_assessments`.
-- 15e Platform operations: `feature_flags`, `platform_limits`, `integration_providers`, `webhook_endpoints`, `webhook_events`, `system_services`, `system_incidents`, `system_alerts`, `opportunities`, `opportunity_applications`, `matching_rules`, `fairness_metrics`, `ai_models`, `ai_reviews`, `content_items`, `content_versions`.
+The admin console has about 57 route files, so it is split into 18 sub-steps. **Do not give the agent "Step 15" as one task; give it one sub-step at a time.** Everything runs on the admin subdomain with the stricter admin auth policy.
 
-Build in this order and test each: 15a, 15b, 15c, 15d, 15e. Everything runs on the admin subdomain with the stricter auth policy from Step 2.
+Rules from Step 5 apply to every sub-step here: the sizing rule (about 5 tables, 12 endpoints, 3 pages), organization and ownership checks on every row, cross-organization reference tests, server-controlled fields that clients never write, mass-assignment tests, paginated lists, and demo records moved to the dev seed script. Backend phase A first, then I approve, then frontend phase B for that sub-step only.
 
-Parts:
-1. Admin permission levels (analyst, support, manager, super admin) enforced per endpoint.
-2. User management: search, verify, suspend, restore, force logout.
-3. Moderation queues with SLA, assignment, resolution; appeals; disputes.
-4. Verification review workflow.
-5. Support tickets for users and a staff queue.
-6. Data requests (access, erasure, and so on) with deadline tracking.
-7. Feature flags, limits, integration health, system status.
-8. Audit event written for every admin action (actor, target, before and after, reason).
-9. Dashboards with aggregated, cached queries.
+| Sub-step | Scope | Tables | About endpoints | Frontend pages (phase B) |
+|---|---|---|---|---|
+| **15a** Admin accounts and access | Admin login on the separate admin subdomain policy, MFA, IP allow-list, short sessions, permission levels, first-admin bootstrap command (no public sign-up) | `admin_members`, `user_mfa_factors` | 14 | /admin/login, /admin/profile, /admin/profile/edit, /admin/staff |
+| **15b** Audit log | One audit helper used by every admin action (who, what, target, before and after, reason); audit list, export, integrity checks | `audit_events`, `audit_integrity_checks`, `audit_export_requests` | 8 | /admin/audit |
+| **15c** Users and organizations | Search, view, suspend, restore, force logout, verify, delete requests; organization list and detail | none new | 12 | /admin/users, /admin/users/[userId], /admin/organizations/[orgId] |
+| **15d** Verifications | Verification requests per user or organization, checks, approve, reject, expiry; user-facing submission | `verifications`, `verification_checks` | 12 | /admin/verifications, /admin/verifications/[type]/[id], /admin/verifications/expiring, /employer/trust (submission) |
+| **15e** Reports and moderation | User reports, moderation cases with queue, assignment, SLA and resolution (content scans come from Step 10) | `moderation_cases`, `user_reports` | 12 | /admin/moderation, /admin/moderation/[caseId], /admin/reports |
+| **15f** Appeals and disputes | User appeals of moderation decisions, disputes between parties | `moderation_appeals`, `disputes` | 10 | /admin/appeals, /admin/disputes, appeal part of /employer/trust |
+| **15g** Trust policies and fraud | Policies, rules, blocklists, fraud detections, security alerts | `trust_policies`, `policy_rules`, `policy_blocklists`, `fraud_detections`, `security_alerts` | 14 | /admin/policies, /admin/fraud |
+| **15h** Support and help centre | Help articles, ticket categories, tickets and replies; user-facing ticket creation | `help_articles`, `support_ticket_categories`, `support_tickets`, `support_ticket_messages` | 14 | /admin/support, /admin/support/[ticketId], /admin/help, /help |
+| **15i** Data requests and consent | Access, correction and erasure requests with deadlines; consent records | `data_requests` (started in Step 3), `consent_records`, `user_consents` | 10 | /admin/data-requests, /admin/data-requests/[id] |
+| **15j** Compliance records | Records of processing, vendors, DPIA assessments | `data_processing_records`, `compliance_vendors`, `dpia_assessments` | 10 | /admin/compliance (records tabs), /admin/compliance/[id] |
+| **15k** Compliance operations | Incidents, legal holds, trainings, calendar, compliance reports | `compliance_incidents`, `legal_holds`, `compliance_trainings`, `compliance_calendar`, `compliance_reports` | 12 | /admin/compliance (operations tabs) |
+| **15l** Platform configuration | Feature flags, platform limits, settings | `feature_flags`, `platform_limits` | 9 | /admin/config, /admin/config/new, /admin/settings |
+| **15m** Integrations, webhooks and system status | Integration providers, webhook endpoints and events (admin screens), service status, incidents, alerts | `integration_providers`, `webhook_endpoints`, `system_services`, `system_incidents`, `system_alerts` (`webhook_events` from 14c) | 12 | /admin/integrations, /admin/system |
+| **15n** Opportunities and matching | Opportunities (grants, programs), applications, matching rules, fairness metrics | `opportunities`, `opportunity_applications`, `matching_rules`, `fairness_metrics` | 14 | /admin/opportunities, /admin/opportunities/new, /admin/opportunities/[id], /admin/matching |
+| **15o** AI quality | AI models and review queue | `ai_models`, `ai_reviews` | 8 | /admin/ai-quality, /admin/ai-quality/reviews/[id] |
+| **15p** Content and templates | Platform content with versions, platform templates | `content_items`, `content_versions` | 10 | /admin/content, /admin/templates, /admin/templates/new, /admin/templates/[id] |
+| **15q** Admin dashboard, analytics and notifications | Read-only aggregates from every earlier step, admin notifications | `activity_events` (if not yet created), views | 5 | /admin/dashboard, /admin/analytics, /admin/notifications |
+| **15r** Step 15 test pass | Click through every admin page as each permission level; check that normal user tokens are rejected everywhere | none | 0 | all admin pages |
 
-Done when: every admin action is permission-checked and audited, and nothing admin-related is reachable with a normal user token.
+Build the sub-steps in this order. A sub-step marked GAP has no table in `schema.sql`: propose the table in the plan and wait for my answer; do not invent it.
+
+Notes:
+- **Order:** build 15a, 15b and 15c early (right after Step 5, see the build order at the end) so admin sign-off, verification and suspension exist before other steps need them. 15d to 15q can wait until their data exists.
+- **15a rules:** no public route can create an admin. The first admin comes from a bootstrap command. Admin tokens have a shorter lifetime, require MFA, and are rejected on normal user routes (and the reverse). Every later sub-step writes to the audit log from 15b.
+- **Every admin sub-step:** permission level per endpoint (analyst, support, manager, super admin), an audit event for every write, and a test that a normal user token and a lower permission level are rejected.
+- **Dependencies:** 15e needs content from Step 10, 15d needs Step 4 for document checks, 15m reuses the webhook table from 14c, 15q needs everything else.
+- **Covered elsewhere:** `/admin/plans`, `/admin/billing`, `/admin/payouts` (Step 14), `/admin/community` and `/admin/events` (Step 10).
+- **No backend needed:** `/admin/manual` is static documentation (about 850 lines plus a 2,800-line data file). `/admin/dashbord` is a typo route and can be removed. The five-line pages `/admin/configuration`, `/admin/events`, `/admin/organizations`, `/admin/rubrics` and `/admin/staff` are aliases; confirm in the plan what each re-exports.
 
 ---
 
@@ -490,8 +562,18 @@ Parts:
 
 ---
 
-## Order summary
+## Order summary and recommended build order
 
-0 Paper review, 1 Foundation, 2 Auth, 3 Profiles and organizations, 4 Files (deferred), 5 Startup workspace (5a to 5i), 6 Connections, 7 Jobs, 8 Mentors, 9 Investors and data room, 10 Community and events, 11 Messaging, 12 Notifications, 13 Search, 14 Billing, 15 Admin, 16 Frontend connection, 17 Hardening, 18 Deployment.
+Step numbers: 0 Paper review, 1 Foundation, 2 Auth, 3 Profiles and organizations, 4 Files, 5 Startup workspace (5a to 5i), 6 Connections, 7 Hiring (7a to 7r), 8 Mentors (8a to 8k), 9 Investors and data room (9a to 9l), 10 Community and events, 11 Messaging, 12 Notifications, 13 Search, 14 Billing (14a to 14h), 15 Admin console (15a to 15r), 16 Frontend final sweep, 17 Hardening, 18 Deployment.
 
-Steps 0 to 3 keep this order. Step 4 can move after Step 5 (it is deferred). Step 5 sub-steps keep the order 5a to 5i. Steps 6 to 13 can be reordered by what the frontend needs most. Pause for a real frontend test after steps 5, 7, 9 and 10.
+Recommended build order, because of dependencies:
+1. Steps 0 to 3 (done) and Step 5 (5a to 5i, in progress).
+2. **Admin core: 15a, 15b, 15c.** Admin accounts, the audit log, and user and organization management. Many later steps need an admin (readiness sign-off, verification, suspension), and every admin action must be audited from the start.
+3. **Step 4 (files).** Needed by 7h (hire documents), 9f (data room) and uploads such as logos and decks.
+4. **Step 7** (employer and job seeker hiring), then **Step 8** (mentors), then **Step 9** (investors). Within each, follow the sub-step order. 8f needs 5f; 9f needs Step 4.
+5. Step 6 (connections) only if the frontend needs it, then Steps 10, 11, 12, 13 (split them first).
+6. **Step 14** (billing), with the payment provider decided before 14c.
+7. The rest of the admin console: 15d to 15r, once the data they manage exists.
+8. Steps 16, 17, 18.
+
+Pause for a real frontend click-through at the end of each step (the "test pass" sub-step). Use the same two prompts for every sub-step: "Do <sub-step> backend phase only", then "Do <sub-step> frontend wiring".

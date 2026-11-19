@@ -5,9 +5,10 @@ Portable types (same policy as migrations 0003-0009): ``task_status``
 and ``task_priority`` become VARCHAR + CHECK via
 ``Enum(native_enum=False)``, never native PG enums.
 
-``readiness_id`` is created WITHOUT its foreign key on purpose
-(BUILD_PLAN 5c item 4): the FK and its cross-org validation arrive
-with Step 5f. It is not exposed in any 5c API schema (plan D1).
+``readiness_id`` links a task to a readiness item of the same
+organization. Step 5c created the column WITHOUT its foreign key on
+purpose; Step 5f adds the FK (migration 0010) and exposes the field on
+the task PATCH schema with a same-org validation.
 """
 
 import enum
@@ -82,9 +83,12 @@ class Task(Base):
         ForeignKey("milestones.id", ondelete="SET NULL"),
         nullable=True,
     )
-    # FK added in Step 5f (BUILD_PLAN 5c item 4); not API-exposed yet (D1).
+    # FK added in Step 5f (migration 0010). Validated as a same-org
+    # readiness item by task_service on every write.
     readiness_id: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), nullable=True
+        PG_UUID(as_uuid=True),
+        ForeignKey("startup_readiness.id", ondelete="SET NULL"),
+        nullable=True,
     )
     assignee_id: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),

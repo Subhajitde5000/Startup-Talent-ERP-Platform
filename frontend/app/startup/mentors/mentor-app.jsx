@@ -1,7 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { StartupSidebar, Btn, Card, SubNavTabs } from '../../../components';
+import { api, ApiError } from '@/lib/api/client';
 import {
   Search,
   Bell,
@@ -126,6 +127,48 @@ const sessionDetails = {
   }
 };
 
+// ---- Step 5f: readiness page (real API) -------------------------------------
+// The only wired page in this shared file. Everything else here (overview,
+// find, requests, sessions, workspace, billing) is Step 8 and stays on demo
+// data until then.
+const READINESS_EDIT_ROLES = ['owner', 'admin', 'member'];
+
+const READINESS_LABEL = {
+  not_started: 'Not started',
+  in_progress: 'In progress',
+  submitted: 'Submitted for sign-off',
+  signed_off: 'Signed off',
+  rejected: 'Changes requested'
+};
+
+const READINESS_CHIP = {
+  signed_off: 'bg-[#E7F3EC] text-[#286749]',
+  submitted: 'bg-[#FFF3D6] text-[#8A5700]',
+  rejected: 'bg-[#FDECEC] text-[#A33A3A]',
+  in_progress: 'bg-[#F3F4F6] text-[#4A5568]',
+  not_started: 'bg-[#F3F4F6] text-[#4A5568]'
+};
+
+const formatSignedOff = value => {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+/** 422 details -> {field: message}, same shape the tasks page uses. */
+function readinessFieldErrors(err) {
+  const out = {};
+  if (err instanceof ApiError && Array.isArray(err.details)) {
+    for (const d of err.details) {
+      const loc = Array.isArray(d.loc) ? d.loc : [];
+      const key = loc[loc.length - 1];
+      if (typeof key === 'string' && !out[key]) out[key] = d.msg || 'Invalid value.';
+    }
+  }
+  return out;
+}
+
 export default function MentorApp({ page = 'overview', id = 'rhea' }) {
   const [toast, setToast] = useState('');
   const [modal, setModal] = useState('');
@@ -143,6 +186,22 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
   const [mobileNav, setMobileNav] = useState(false);
   const [compact, setCompact] = useState(false);
 
+  // Step 5f readiness page state. `status` above stays as-is for the Step 8
+  // blocks; nothing here is shared with them.
+  const [readiness, setReadiness] = useState(null); // ReadinessBoard
+  // Starts at 'loading': the effect runs after the first paint, and an
+  // 'idle' start would flash an empty body under the page header.
+  const [readinessPhase, setReadinessPhase] = useState('loading'); // loading|ready|error|none
+  const [readinessError, setReadinessError] = useState('');
+  const [readinessOrg, setReadinessOrg] = useState(null); // OrganizationRead (my_role)
+  const [readinessReload, setReadinessReload] = useState(0);
+  const [evidenceFor, setEvidenceFor] = useState(null); // criterion id of the open editor
+  const [evidenceDraft, setEvidenceDraft] = useState('');
+  const [readinessErrs, setReadinessErrs] = useState({});
+  const [readinessFormErr, setReadinessFormErr] = useState('');
+  const [readinessBusy, setReadinessBusy] = useState(false); // any in-flight write
+  const readinessAlive = useRef(true);
+
   const notify = (s) => {
     setToast(s);
     setTimeout(() => setToast(''), 2700);
@@ -154,6 +213,126 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
   const approved = status.filter(s => s === 'Signed off').length;
 
   const currentSession = sessionDetails[id] || sessionDetails['session-01'];
+
+  // Step 5f: load the readiness board only when this page is open, so no
+  // Step 8 page pays for a request it does not use.
+  useEffect(() => {
+    readinessAlive.current = true;
+    return () => { readinessAlive.current = false; };
+  }, []);
+
+  useEffect(() => {
+    if (page !== 'readiness') return undefined;
+    const alive = readinessAlive;
+    (async () => {
+      setReadinessPhase('loading');
+      setReadinessError('');
+      let startup = null;
+      try {
+        const orgs = await api.organizations.mine();
+        startup = orgs.find(o => o.type === 'startup') || null;
+      } catch (err) {
+        if (!alive.current) return;
+        setReadinessError(err instanceof ApiError ? err.message : 'Could not load your organization.');
+        setReadinessPhase('error');
+        return;
+      }
+      if (!alive.current) return;
+      if (!startup) {
+        setReadinessPhase('none');
+        return;
+      }
+      setReadinessOrg(startup);
+      try {
+        const board = await api.readiness.board(startup.id);
+        if (!alive.current) return;
+        setReadiness(board);
+        setReadinessPhase('ready');
+      } catch (err) {
+        if (!alive.current) return;
+        setReadinessError(err instanceof ApiError ? err.message : 'Could not load readiness.');
+        setReadinessPhase('error');
+      }
+    })();
+  }, [page, readinessReload]);
+
+  const canEditReadiness = !!readinessOrg && READINESS_EDIT_ROLES.includes(readinessOrg.my_role);
+
+  /** Re-read the board after a write so the score always matches the rows. */
+  const reloadReadiness = () => setReadinessReload(n => n + 1);
+
+  /** One write path for every transition: maps 422/409/403 onto the UI. */
+  /** One write path: `closeEditorFor` clears the editor on success,
+   *  `fieldFor` reopens it when the server flags that field. */
+  const runReadinessWrite = async (fn, { toast, closeEditorFor = null, fieldFor = null } = {}) => {
+    setReadinessBusy(true);
+    setReadinessErrs({});
+    setReadinessFormErr('');
+    try {
+      const item = await fn();
+      if (!readinessAlive.current) return null;
+      setReadiness(prev => {
+        if (!prev) return prev;
+        return { ...prev, items: prev.items.map(x => (x.criterion_id === item.criterion_id ? item : x)) };
+      });
+      reloadReadiness();
+      if (toast) notify(toast);
+      if (closeEditorFor) {
+        setEvidenceFor(null);
+        setEvidenceDraft('');
+      }
+      return item;
+    } catch (err) {
+      if (!readinessAlive.current) return null;
+      const fieldErrs = readinessFieldErrors(err);
+      if (Object.keys(fieldErrs).length) {
+        setReadinessErrs(fieldErrs);
+        // A field error the user cannot see is not an error message: open
+        // the evidence editor when that is the offending field.
+        if (fieldErrs.evidence && fieldFor) setEvidenceFor(fieldFor);
+      } else {
+        const msg = err instanceof ApiError ? err.message : 'Something went wrong. Please try again.';
+        setReadinessFormErr(msg);
+        notify(msg);
+      }
+      return null;
+    } finally {
+      if (readinessAlive.current) setReadinessBusy(false);
+    }
+  };
+
+  const openEvidence = item => {
+    setEvidenceFor(item.criterion_id);
+    setEvidenceDraft(item.evidence || '');
+    setReadinessErrs({});
+    setReadinessFormErr('');
+  };
+
+  const saveEvidence = item => {
+    // The server requires evidence before a submission, so an empty save is
+    // a dead end for the user: stop it here and mark the field instead of
+    // writing a blank row that only fails later.
+    if (!evidenceDraft.trim()) {
+      setReadinessErrs({ evidence: 'Add evidence before saving, or cancel.' });
+      return Promise.resolve(null);
+    }
+    return runReadinessWrite(
+      () => api.readiness.update(readinessOrg.id, item.criterion_id, { evidence: evidenceDraft }),
+      { toast: 'Evidence saved.', closeEditorFor: item.criterion_id, fieldFor: item.criterion_id }
+    );
+  };
+
+  const submitItem = item =>
+    runReadinessWrite(() => api.readiness.submit(readinessOrg.id, item.criterion_id), {
+      toast: 'Submitted for sign-off.',
+      fieldFor: item.criterion_id
+    });
+
+  const withdrawItem = item =>
+    runReadinessWrite(() => api.readiness.withdraw(readinessOrg.id, item.criterion_id), {
+      toast: 'Submission withdrawn.',
+      fieldFor: item.criterion_id
+    });
 
   const head = (title, sub, action) => (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -1048,122 +1227,253 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
               </Link>
             )}
 
-            <div className="mb-5 grid gap-5 lg:grid-cols-3">
-              <Card title="Readiness score">
-                <div className="flex items-center gap-5">
-                  <div className="grid h-28 w-28 place-items-center rounded-full" style={{ background: 'conic-gradient(#B8955A 0deg 259deg,#E5E1D8 259deg 360deg)' }}>
-                    <div className="grid h-[88px] w-[88px] place-items-center rounded-full bg-white">
-                      <span className="serif text-3xl">72</span>
+            {readinessPhase === 'loading' && (
+              <div className="grid gap-3">
+                {[0, 1, 2].map(k => (
+                  <div key={k} className="h-28 animate-pulse rounded-xl border border-[#E5E1D8] bg-white" />
+                ))}
+                <p className="text-xs text-[#4A5568]">Loading your readiness checklist…</p>
+              </div>
+            )}
+
+            {readinessPhase === 'error' && (
+              <Card title="Could not load readiness">
+                <p className="text-xs text-[#A33A3A]">{readinessError}</p>
+                <button type="button" onClick={reloadReadiness} className="mt-3 rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs font-semibold">
+                  Try again
+                </button>
+              </Card>
+            )}
+
+            {readinessPhase === 'none' && (
+              <Card title="No startup workspace yet">
+                <p className="text-xs text-[#4A5568]">
+                  Readiness is tracked per startup organization. Create your startup profile to start the checklist.
+                </p>
+                <Link href="/onboarding" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
+                  Set up your startup <ArrowRight className="inline" size={12} />
+                </Link>
+              </Card>
+            )}
+
+            {readinessPhase === 'ready' && readiness && (
+              <>
+                <div className="mb-5 grid gap-5 lg:grid-cols-3">
+                  <Card title="Readiness score">
+                    <div className="flex items-center gap-5">
+                      <div
+                        className="grid h-28 w-28 place-items-center rounded-full"
+                        style={{ background: `conic-gradient(#B8955A 0deg ${Math.round((readiness.summary.readiness_pct / 100) * 360)}deg,#E5E1D8 ${Math.round((readiness.summary.readiness_pct / 100) * 360)}deg 360deg)` }}
+                      >
+                        <div className="grid h-[88px] w-[88px] place-items-center rounded-full bg-white">
+                          <span className="serif text-3xl">{readiness.summary.readiness_pct}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-[#4A5568]">out of 100</p>
+                        <p className="mt-2 text-xs font-semibold">
+                          {readiness.summary.criteria_signed_off} of {readiness.summary.criteria_total} signed off
+                        </p>
+                        <p className="mt-1 text-xs text-[#4A5568]">The score is a guide. Sign-offs decide the badge.</p>
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-[#4A5568]">out of 100</p>
-                    <p className="mt-2 text-xs font-semibold">{approved} of 6 signed off</p>
-                    <p className="mt-1 text-xs text-[#4A5568]">The score is a guide. Sign-offs decide the badge.</p>
+                  </Card>
+
+                  <div className="lg:col-span-2">
+                    {readiness.summary.is_ready ? (
+                      <Card title="Investment Ready">
+                        <div className="rounded-xl bg-[#F3EBDD] p-5">
+                          <ShieldCheck size={24} className="text-[#9A7A45]" />
+                          <h3 className="mt-2 serif text-xl font-semibold">Investment Ready</h3>
+                          <p className="mt-1 text-xs text-[#4A5568]">
+                            Earned with sign-off on every readiness item.
+                          </p>
+                          <Link href="/startup/profile" className="mt-4 inline-block rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
+                            Manage profile visibility
+                          </Link>
+                        </div>
+                      </Card>
+                    ) : (
+                      <Card title="Badge status">
+                        <div className="rounded-xl bg-[#FAF8F4] p-5">
+                          <p className="font-semibold">Not yet earned</p>
+                          <p className="mt-1 text-xs text-[#4A5568]">Complete all six reviewed items to receive the Investment Ready badge.</p>
+                          <Link href="/startup/profile" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
+                            Manage profile visibility <ArrowRight className="inline" size={12} />
+                          </Link>
+                        </div>
+                      </Card>
+                    )}
                   </div>
                 </div>
-              </Card>
 
-              <div className="lg:col-span-2">
-                {approved === 6 ? (
-                  <Card title="Investment Ready">
-                    <div className="rounded-xl bg-[#F3EBDD] p-5">
-                      <ShieldCheck size={24} className="text-[#9A7A45]" />
-                      <h3 className="mt-2 serif text-xl font-semibold">Investment Ready</h3>
-                      <p className="mt-1 text-xs text-[#4A5568]">Earned with mentor sign-off · Rhea Mukherjee</p>
-                      <button
-                        type="button"
-                        onClick={() => setVisibility(!visibility)}
-                        className="mt-4 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white"
-                      >
-                        {visibility ? 'Profile visible to investors' : 'Make profile visible to investors'}
-                      </button>
-                    </div>
+                {(readinessFormErr || (readinessErrs.evidence && evidenceFor === null)) && (
+                  <div className="mb-4 rounded-lg border border-[#F0C9C9] bg-[#FDECEC] p-3 text-xs text-[#A33A3A]" role="alert">
+                    {readinessFormErr || readinessErrs.evidence}
+                  </div>
+                )}
+
+                {readiness.items.length === 0 ? (
+                  <Card title="Checklist">
+                    <p className="text-xs text-[#4A5568]">
+                      No readiness criteria are published yet. Your checklist appears here once they are.
+                    </p>
                   </Card>
                 ) : (
-                  <Card title="Badge status">
-                    <div className="rounded-xl bg-[#FAF8F4] p-5">
-                      <p className="font-semibold">Not yet earned</p>
-                      <p className="mt-1 text-xs text-[#4A5568]">Complete all six reviewed items to receive the Investment Ready badge.</p>
-                      <Link href="/startup/profile" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
-                        Manage profile visibility <ArrowRight className="inline" size={12} />
-                      </Link>
+                  <div className="grid items-start gap-5 xl:grid-cols-3">
+                    <div className="space-y-4 xl:col-span-2">
+                      {readiness.items.map((item, i) => {
+                        const chip = READINESS_CHIP[item.status] || READINESS_CHIP.not_started;
+                        const signedOn = formatSignedOff(item.signed_off_at);
+                        const editing = evidenceFor === item.criterion_id;
+                        return (
+                          <Card
+                            key={item.criterion_id}
+                            title={`${i + 1}. ${item.title}`}
+                            action={
+                              <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${chip}`}>
+                                {READINESS_LABEL[item.status] || item.status}
+                              </span>
+                            }
+                          >
+                            {item.description && (
+                              <p className="text-xs leading-5 text-[#4A5568]">{item.description}</p>
+                            )}
+
+                            {editing ? (
+                              <div className="mt-3">
+                                <label htmlFor={`evidence-${item.criterion_id}`} className="text-xs font-semibold">
+                                  Evidence
+                                </label>
+                                <textarea
+                                  id={`evidence-${item.criterion_id}`}
+                                  value={evidenceDraft}
+                                  onChange={e => setEvidenceDraft(e.target.value)}
+                                  rows={3}
+                                  maxLength={2000}
+                                  placeholder="Describe the evidence: what exists, where it lives, who reviewed it."
+                                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-xs ${readinessErrs.evidence ? 'border-[#C95B5B]' : 'border-[#E5E1D8]'}`}
+                                />
+                                {readinessErrs.evidence && (
+                                  <p className="mt-1 text-[10px] text-[#A33A3A]">{readinessErrs.evidence}</p>
+                                )}
+                                <div className="mt-2 flex gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={readinessBusy}
+                                    onClick={() => saveEvidence(item)}
+                                    className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                                  >
+                                    {readinessBusy ? 'Saving…' : 'Save evidence'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setEvidenceFor(null); setReadinessErrs({}); }}
+                                    className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="mt-3 text-xs">
+                                <FileText className="mr-1 inline text-[#9A7A45]" size={13} />
+                                {item.evidence ? (
+                                  <span className="text-[#0F1B2D]">{item.evidence}</span>
+                                ) : (
+                                  <span className="text-[#4A5568]">No evidence yet</span>
+                                )}
+                              </p>
+                            )}
+
+                            {item.status === 'rejected' && item.notes && (
+                              <p className="mt-2 rounded-lg bg-[#FDECEC] p-2 text-[10px] leading-4 text-[#A33A3A]">
+                                Changes requested: {item.notes}
+                              </p>
+                            )}
+
+                            {item.status === 'not_started' && !editing && (
+                              <div className="mt-3 flex gap-2">
+                                {canEditReadiness ? (
+                                  <button type="button" onClick={() => openEvidence(item)} className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs">
+                                    Add evidence
+                                  </button>
+                                ) : (
+                                  <p className="text-xs text-[#4A5568]">Only the startup team can add evidence.</p>
+                                )}
+                              </div>
+                            )}
+
+                            {(item.status === 'in_progress' || item.status === 'rejected') && !editing && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {canEditReadiness ? (
+                                  <>
+                                    <button type="button" onClick={() => openEvidence(item)} className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs">
+                                      {/* A rejected item is reworked here, then re-submitted (5f D6). */}
+                                      {item.status === 'rejected' ? 'Edit and resubmit' : 'Edit evidence'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={readinessBusy}
+                                      onClick={() => submitItem(item)}
+                                      className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                                    >
+                                      Submit for sign-off
+                                    </button>
+                                  </>
+                                ) : (
+                                  <p className="text-xs text-[#4A5568]">Read-only: your workspace role cannot edit readiness items.</p>
+                                )}
+                              </div>
+                            )}
+
+                            {item.status === 'submitted' && (
+                              <div className="mt-3 flex flex-wrap items-center gap-3">
+                                <p className="text-xs text-[#8A5700]">Waiting for platform review.</p>
+                                {canEditReadiness && (
+                                  <button
+                                    type="button"
+                                    disabled={readinessBusy}
+                                    onClick={() => withdrawItem(item)}
+                                    className="text-xs font-semibold text-[#9A7A45] disabled:opacity-40"
+                                  >
+                                    Withdraw
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
+                            {item.status === 'signed_off' && (
+                              <p className="mt-3 text-xs text-[#286749]">
+                                Signed off{signedOn ? ` · ${signedOn}` : ''}
+                              </p>
+                            )}
+                          </Card>
+                        );
+                      })}
                     </div>
-                  </Card>
+
+                    <aside className="space-y-5">
+                      <Card title="Score breakdown">
+                        <p className="text-xs leading-5 text-[#4A5568]">
+                          Per-area scoring (checklist, traction, mentor feedback) arrives with mentor sign-off in Step 8.
+                        </p>
+                      </Card>
+
+                      <Card title="Reviewers">
+                        <p className="text-xs leading-5 text-[#4A5568]">
+                          Readiness items are reviewed by the platform team today. Mentor review from your own mentorship
+                          arrives in Step 8.
+                        </p>
+                        <Link href="/startup/mentors/find" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
+                          Find a mentor <ArrowRight className="inline" size={12} />
+                        </Link>
+                      </Card>
+                    </aside>
+                  </div>
                 )}
-              </div>
-            </div>
-
-            <div className="grid items-start gap-5 xl:grid-cols-3">
-              <div className="space-y-4 xl:col-span-2">
-                {criteria.map((c, i) => (
-                  <Card
-                    key={c}
-                    title={`${i + 1}. ${c}`}
-                    action={
-                      <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
-                        status[i] === 'Signed off' ? 'bg-[#E7F3EC] text-[#286749]' : status[i] === 'Submitted for sign-off' ? 'bg-[#FFF3D6] text-[#8A5700]' : 'bg-[#F3F4F6] text-[#4A5568]'
-                      }`}>
-                        {status[i]}
-                      </span>
-                    }
-                  >
-                    <p className="text-xs leading-5 text-[#4A5568]">Done means this item is documented, current and supported by evidence that your mentor can review.</p>
-                    <p className="mt-3 text-xs">
-                      <FileText className="mr-1 inline text-[#9A7A45]" size={13} /> Evidence: {i < 2 ? 'Pitch deck v3.pdf · linked' : 'No evidence attached yet'}
-                    </p>
-                    <p className="mt-2 text-[10px] text-[#4A5568]">Owner: Aarav Kapoor · Reviewer: Rhea Mukherjee</p>
-                    {status[i] === 'In progress' || status[i] === 'Not started' ? (
-                      <div className="mt-3 flex gap-2">
-                        <button type="button" onClick={() => notify('Evidence picker opened.')} className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs">
-                          Add evidence
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setStatus(status.map((s, n) => (n === i ? 'Submitted for sign-off' : s)))}
-                          className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white"
-                        >
-                          Submit for sign-off
-                        </button>
-                      </div>
-                    ) : status[i] === 'Submitted for sign-off' ? (
-                      <p className="mt-3 text-xs text-[#8A5700]">Waiting for mentor review · Rhea Mukherjee</p>
-                    ) : (
-                      <p className="mt-3 text-xs text-[#286749]">Signed off by Rhea Mukherjee · Nov 01</p>
-                    )}
-                  </Card>
-                ))}
-              </div>
-
-              <aside className="space-y-5">
-                <Card title="Score breakdown">
-                  {[
-                    ['Checklist completion', 80],
-                    ['Traction data', 65],
-                    ['Mentor feedback', 70],
-                  ].map(([x, v]) => (
-                    <div key={x} className="mb-4">
-                      <div className="mb-1 flex justify-between text-xs">
-                        <span>{x}</span>
-                        <b>{v}%</b>
-                      </div>
-                      <div className="h-2 rounded-full bg-[#E5E1D8]">
-                        <div className="h-full rounded-full bg-[#B8955A]" style={{ width: `${v}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </Card>
-
-                <Card title="Mentors responsible">
-                  <p className="text-sm font-semibold">Rhea Mukherjee</p>
-                  <p className="mt-1 text-xs text-[#4A5568]">Go-to-market · 4 of 6 items</p>
-                  <p className="mt-3 text-xs text-[#4A5568]">A mentor needs to review each submitted item before it can be signed off.</p>
-                  <button type="button" onClick={() => notify('Message sent to Rhea.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
-                    Message mentor <ArrowRight className="inline" size={12} />
-                  </button>
-                </Card>
-              </aside>
-            </div>
+              </>
+            )}
           </>
         )}
 

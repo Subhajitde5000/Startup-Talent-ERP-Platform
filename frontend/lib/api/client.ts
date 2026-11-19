@@ -17,7 +17,11 @@ import type { components } from "./schema";
 export type TokenResponse = components["schemas"]["TokenResponse"];
 export type UserMeRead = components["schemas"]["UserMeRead"];
 export type UserUpdate = components["schemas"]["UserUpdate"];
-export type ReadinessRead = components["schemas"]["ReadinessRead"];
+// Step 3 talent readiness (profile/resume/practice scores), NOT the 5f
+// startup checklist: the backend has two schemas of this name, so the
+// generated keys are module-qualified.
+export type TalentReadinessRead =
+  components["schemas"]["app__schemas__profile__ReadinessRead"];
 export type DeleteRequestRead = components["schemas"]["DeleteRequestRead"];
 export type SkillRead = components["schemas"]["SkillRead"];
 export type RegisterRequest = components["schemas"]["RegisterRequest"];
@@ -61,6 +65,33 @@ export type TaskUpdate = components["schemas"]["TaskUpdate"];
 export type TaskMove = components["schemas"]["TaskMove"];
 export type TaskRead = components["schemas"]["TaskRead"];
 export type TaskPage = components["schemas"]["TaskPage"];
+export type ReadinessStatus = components["schemas"]["ReadinessStatus"];
+export type ReadinessCriterionRead = components["schemas"]["ReadinessCriterionRead"];
+export type ReadinessBoard = components["schemas"]["ReadinessBoard"];
+export type ReadinessSummary = components["schemas"]["ReadinessSummary"];
+export type ReadinessUpdate = components["schemas"]["ReadinessUpdate"];
+export type ReadinessReject = components["schemas"]["ReadinessReject"];
+// The per-org item shape repeats the global criterion plus this org's state.
+export type ReadinessItem =
+  components["schemas"]["app__schemas__readiness__ReadinessRead"];
+
+export type MetricKey = components["schemas"]["MetricKey"];
+export type MetricSource = components["schemas"]["MetricSource"];
+export type MetricUpsert = components["schemas"]["MetricUpsert"];
+export type MetricRead = components["schemas"]["MetricRead"];
+export type MetricPoint = components["schemas"]["MetricPoint"];
+export type MetricHistory = components["schemas"]["MetricHistory"];
+export type MetricPage = components["schemas"]["MetricPage"];
+export type MetricLatestRead = components["schemas"]["MetricLatestRead"];
+
+/** Whitelisted filters for `metrics.list` (`period_from`/`period_to` inclusive). */
+export type MetricListQuery = {
+  metric_key?: MetricKey;
+  period_from?: string;
+  period_to?: string;
+  limit?: number;
+  offset?: number;
+};
 
 /** Whitelisted filters/sort shared by `tasks.list` and `tasks.listAll`. */
 export type TaskListQuery = {
@@ -362,7 +393,7 @@ export const api = {
       apiRequest<UserMeRead>("/users/me", { method: "PATCH", body }),
 
     readiness: (signal?: AbortSignal) =>
-      apiRequest<ReadinessRead>("/users/me/readiness", { method: "GET", signal }),
+      apiRequest<TalentReadinessRead>("/users/me/readiness", { method: "GET", signal }),
 
     /** Latest data (erasure) request, or null when none exists. */
     deleteRequest: (signal?: AbortSignal) =>
@@ -595,6 +626,130 @@ export const api = {
     /** Soft delete (owner/admin/member; viewer -> 403). */
     remove: (orgId: string, taskId: string) =>
       apiRequest<void>(`/organizations/${orgId}/tasks/${taskId}`, { method: "DELETE" }),
+  },
+
+  readiness: {
+    /**
+     * The six reference criteria (any authenticated caller). The board below
+     * returns the same rows merged with this org's state, so pages normally
+     * need only `board`; this endpoint is for checklists without an org.
+     */
+    criteria: (signal?: AbortSignal) =>
+      apiRequest<ReadinessCriterionRead[]>("/readiness/criteria", {
+        method: "GET",
+        signal,
+      }),
+
+    /**
+     * Criteria + this org's state + the score summary in one read.
+     * Any active member (viewer included) may read. The server creates the
+     * `not_started` rows on this read (5f plan D5), so the ids returned here
+     * are always safe to link a task to.
+     */
+    board: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<ReadinessBoard>(`/organizations/${orgId}/readiness`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** One item (any active member). */
+    item: (orgId: string, criterionId: string, signal?: AbortSignal) =>
+      apiRequest<ReadinessItem>(
+        `/organizations/${orgId}/readiness/${criterionId}`,
+        { method: "GET", signal },
+      ),
+
+    /** Evidence/notes only (owner/admin/member; viewer -> 403). */
+    update: (orgId: string, criterionId: string, body: ReadinessUpdate) =>
+      apiRequest<ReadinessItem>(
+        `/organizations/${orgId}/readiness/${criterionId}`,
+        { method: "PATCH", body },
+      ),
+
+    /** Send for review; 422 with `loc: ["body","evidence"]` when empty. */
+    submit: (orgId: string, criterionId: string) =>
+      apiRequest<ReadinessItem>(
+        `/organizations/${orgId}/readiness/${criterionId}/submit`,
+        { method: "POST" },
+      ),
+
+    /** Take a submitted item back (409 unless it is `submitted`). */
+    withdraw: (orgId: string, criterionId: string) =>
+      apiRequest<ReadinessItem>(
+        `/organizations/${orgId}/readiness/${criterionId}/withdraw`,
+        { method: "POST" },
+      ),
+
+    /** Platform admin only (403 for every startup role). */
+    signOff: (orgId: string, criterionId: string) =>
+      apiRequest<ReadinessItem>(
+        `/organizations/${orgId}/readiness/${criterionId}/sign-off`,
+        { method: "POST" },
+      ),
+
+    /** Platform admin only; the reason is required and stored in `notes`. */
+    reject: (orgId: string, criterionId: string, body: ReadinessReject) =>
+      apiRequest<ReadinessItem>(
+        `/organizations/${orgId}/readiness/${criterionId}/reject`,
+        { method: "POST", body },
+      ),
+  },
+
+  metrics: {
+    /**
+     * Latest value per key (any active member, viewer included). `missing`
+     * lists the keys with no data yet, so a card can show an honest empty
+     * state instead of 0.
+     */
+    latest: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<MetricLatestRead>(`/organizations/${orgId}/metrics/latest`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** One key's history, newest period first: the trend/revenue charts. */
+    history: (
+      orgId: string,
+      metricKey: MetricKey,
+      query: { limit?: number; offset?: number } = {},
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<MetricHistory>(`/organizations/${orgId}/metrics/${metricKey}/history`, {
+        method: "GET",
+        query: { limit: query.limit, offset: query.offset },
+        signal,
+      }),
+
+    /** Paginated list with filters; `period_from`/`period_to` are inclusive. */
+    list: (orgId: string, query: MetricListQuery = {}, signal?: AbortSignal) =>
+      apiRequest<MetricPage>(`/organizations/${orgId}/metrics`, {
+        method: "GET",
+        query: {
+          metric_key: query.metric_key,
+          period_from: query.period_from,
+          period_to: query.period_to,
+          limit: query.limit,
+          offset: query.offset,
+        },
+        signal,
+      }),
+
+    /**
+     * Upsert one (key, period). Owner/admin/member; a viewer gets 403. The
+     * server writes `source`; a client-sent `source` is a 422, and a
+     * verified row is a 409 rather than being overwritten.
+     */
+    upsert: (orgId: string, body: MetricUpsert) =>
+      apiRequest<MetricRead>(`/organizations/${orgId}/metrics`, {
+        method: "PUT",
+        body,
+      }),
+
+    /** Hard delete a mistaken entry (owner/admin/member; 404 if not ours). */
+    remove: (orgId: string, metricId: string) =>
+      apiRequest<void>(`/organizations/${orgId}/metrics/${metricId}`, {
+        method: "DELETE",
+      }),
   },
 
   notificationPreferences: {

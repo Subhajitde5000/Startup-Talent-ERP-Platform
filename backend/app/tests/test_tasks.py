@@ -227,8 +227,8 @@ async def test_create_defaults_and_get(client: AsyncClient) -> None:
     # server-owned, never client-supplied
     assert created["created_by"] == me_id
     assert created["display_order"] == 0
-    # D1: the readiness column is not API-exposed in 5c
-    assert "readiness_id" not in created
+    # 5c D1 deferral, closed by Step 5f: the link is exposed but starts empty.
+    assert created["readiness_id"] is None
     assert "deleted_at" not in created
 
     fetched = await _get(client, auth, org["id"], created["id"])
