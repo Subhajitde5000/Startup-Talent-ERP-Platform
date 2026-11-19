@@ -1236,7 +1236,7 @@ async def test_members_task_count(client: AsyncClient) -> None:
         f"/api/v1/organizations/{org['id']}/members", headers=owner["headers"]
     )
     assert resp.status_code == 200, resp.text
-    counts = {m["user_id"]: m["task_count"] for m in resp.json()}
+    counts = {m["user_id"]: m["task_count"] for m in resp.json()["items"]}
     assert counts[mate_id] == 3  # deleted task excluded
     assert counts[owner_id] == 1
 
@@ -1268,8 +1268,8 @@ async def test_members_task_count_is_per_org(client: AsyncClient) -> None:
     resp_b = await client.get(
         f"/api/v1/organizations/{org_b['id']}/members", headers=a["headers"]
     )
-    assert {m["user_id"]: m["task_count"] for m in resp_a.json()}[a_id] == 1
-    assert {m["user_id"]: m["task_count"] for m in resp_b.json()}[a_id] == 2
+    assert {m["user_id"]: m["task_count"] for m in resp_a.json()["items"]}[a_id] == 1
+    assert {m["user_id"]: m["task_count"] for m in resp_b.json()["items"]}[a_id] == 2
 
 
 # --- ordering stability -----------------------------------------------------

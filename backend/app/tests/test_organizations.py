@@ -215,11 +215,11 @@ async def test_members_list_and_last_owner_rules(client: AsyncClient) -> None:
         f"/api/v1/organizations/{org['id']}/members", headers=owner["headers"]
     )
     assert members.status_code == 200
-    assert len(members.json()) == 1
-    assert members.json()[0]["role"] == "owner"
+    assert members.json()["total"] == 1
+    assert members.json()["items"][0]["role"] == "owner"
 
     # self role change is blocked (transfer endpoint is the only path)
-    owner_id = members.json()[0]["user_id"]
+    owner_id = members.json()["items"][0]["user_id"]
     self_edit = await client.patch(
         f"/api/v1/organizations/{org['id']}/members/{owner_id}",
         json={"role": "admin"},
@@ -252,8 +252,9 @@ async def test_member_role_rules(client: AsyncClient) -> None:
     members = await client.get(
         f"/api/v1/organizations/{org['id']}/members", headers=owner["headers"]
     )
-    member_row = next(m for m in members.json() if m["email"] == member["email"])
-    owner_row = next(m for m in members.json() if m["role"] == "owner")
+    rows = members.json()["items"]
+    member_row = next(m for m in rows if m["email"] == member["email"])
+    owner_row = next(m for m in rows if m["role"] == "owner")
 
     # member (non-admin) cannot change roles
     denied = await client.patch(
@@ -281,16 +282,24 @@ async def test_member_role_rules(client: AsyncClient) -> None:
     )
     assert self_edit.status_code == 403
 
-    # owner cannot assign owner role to someone else directly
+    # Step 3d item 12: the owner role can NEVER be handed out through a
+    # role change — only transfer-ownership can, because that is the only
+    # path that also demotes the outgoing owner (no accidental 2nd owner).
     owner_assign = await client.patch(
         f"/api/v1/organizations/{org['id']}/members/{member_row['user_id']}",
         json={"role": "owner"},
         headers=owner["headers"],
     )
-    # actor IS owner here, so assigning owner is allowed by role rule —
-    # but there is only one owner rule: allowed (two owners afterwards).
-    # The dedicated transfer endpoint demotes the old owner instead.
-    assert owner_assign.status_code in (200, 403)
+    assert owner_assign.status_code == 422
+    assert owner_assign.json()["error"]["code"] == "OWNER_VIA_TRANSFER_ONLY"
+    # ... and the role really did not change.
+    after = await client.get(
+        f"/api/v1/organizations/{org['id']}/members", headers=owner["headers"]
+    )
+    still_admin = next(
+        m for m in after.json()["items"] if m["email"] == member["email"]
+    )
+    assert still_admin["role"] == "admin"
 
 
 @pytest.mark.asyncio
@@ -317,7 +326,7 @@ async def test_transfer_ownership(client: AsyncClient) -> None:
         f"/api/v1/organizations/{org['id']}/members", headers=owner["headers"]
     )
     member_id = next(
-        m["user_id"] for m in members.json() if m["email"] == member["email"]
+        m["user_id"] for m in members.json()["items"] if m["email"] == member["email"]
     )
     resp = await client.post(
         f"/api/v1/organizations/{org['id']}/transfer-ownership",
@@ -329,13 +338,34 @@ async def test_transfer_ownership(client: AsyncClient) -> None:
     assert roles[member["email"]] == "owner"
     assert roles[owner["email"]] == "admin"
 
-    # new owner can now manage; old owner (admin) still can
-    removed = await client.patch(
+    # The demoted owner is now an ADMIN, and Step 3d added the rule that an
+    # admin may never touch an owner (item 1's "an admin cannot deactivate
+    # an owner" generalised to every member mutation). Editing the NEW
+    # owner is therefore refused; editing their own row is refused too
+    old_owner = next(m for m in resp.json() if m["email"] == owner["email"])
+    denied_rank = await client.patch(
         f"/api/v1/organizations/{org['id']}/members/{member_id}",
         json={"title": "Founder Emeritus"},
         headers=owner["headers"],
     )
-    assert removed.status_code == 200
+    assert denied_rank.status_code == 403
+    assert denied_rank.json()["error"]["code"] == "OWNER_TARGET"
+    denied_self = await client.patch(
+        f"/api/v1/organizations/{org['id']}/members/{old_owner['user_id']}",
+        json={"title": "Ex-founder"},
+        headers=owner["headers"],
+    )
+    assert denied_self.status_code == 403
+    assert denied_self.json()["error"]["code"] == "SELF_ACTION"
+
+    # The new owner can edit the old owner (rank runs one way).
+    edited = await client.patch(
+        f"/api/v1/organizations/{org['id']}/members/{old_owner['user_id']}",
+        json={"title": "Founder Emeritus"},
+        headers=member["headers"],
+    )
+    assert edited.status_code == 200
+    assert edited.json()["title"] == "Founder Emeritus"
 
 
 @pytest.mark.asyncio
@@ -347,7 +377,7 @@ async def test_remove_member_and_last_owner_protection(client: AsyncClient) -> N
     members = await client.get(
         f"/api/v1/organizations/{org['id']}/members", headers=owner["headers"]
     )
-    owner_id = members.json()[0]["user_id"]
+    owner_id = members.json()["items"][0]["user_id"]
     self_remove = await client.delete(
         f"/api/v1/organizations/{org['id']}/members/{owner_id}",
         headers=owner["headers"],
@@ -365,7 +395,7 @@ async def test_remove_member_and_last_owner_protection(client: AsyncClient) -> N
         f"/api/v1/organizations/{org['id']}/members", headers=owner["headers"]
     )
     member_id = next(
-        m["user_id"] for m in members.json() if m["email"] == member["email"]
+        m["user_id"] for m in members.json()["items"] if m["email"] == member["email"]
     )
     removed = await client.delete(
         f"/api/v1/organizations/{org['id']}/members/{member_id}",
@@ -376,7 +406,7 @@ async def test_remove_member_and_last_owner_protection(client: AsyncClient) -> N
     members = await client.get(
         f"/api/v1/organizations/{org['id']}/members", headers=owner["headers"]
     )
-    assert all(m["user_id"] != member_id for m in members.json())
+    assert all(m["user_id"] != member_id for m in members.json()["items"])
 
 
 # --- invites ----------------------------------------------------------------

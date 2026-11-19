@@ -12,6 +12,7 @@ transfer endpoint.
 import re
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
@@ -156,6 +157,10 @@ class OrganizationPublicRead(BaseModel):
 
 
 class MemberRead(BaseModel):
+    """Team-directory row. Deliberately excludes ``phone``, ``din_number``
+    and every auth field: the drawer needs bio and LinkedIn, nothing more
+    (Step 3d item 13 — asserted by a test)."""
+
     model_config = ConfigDict(extra="forbid")
 
     user_id: uuid.UUID
@@ -174,6 +179,107 @@ class MemberRead(BaseModel):
     # included today — see the 5c report open question). One grouped
     # query, never client-writable.
     task_count: int = 0
+    # Step 3d items 5 and 13: the drawer's "Last active" line and LinkedIn
+    # link. ``linkedin_url`` is blanked for non-public members unless the
+    # caller manages the team (service-side gate).
+    last_active_at: datetime | None = None
+    linkedin_url: str | None = None
+    bio: str | None = None
+    # Step 3d item 7: what THIS caller may do, so the page disables a
+    # control instead of offering it and collecting a 403.
+    can_manage: bool = False
+
+
+class MemberPage(BaseModel):
+    """Paginated member list (Step 3d item 10) — the same limit/offset
+    envelope as 5b/5c/5h, so the frontend has one list shape."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[MemberRead]
+    total: int
+    limit: int
+    offset: int
+
+
+class JoinStat(BaseModel):
+    """One month of the team page's "Join trend" sparkline."""
+
+    month: str  # YYYY-MM
+    joined: int
+
+
+class MemberStatusRead(BaseModel):
+    """Response for deactivate/reactivate: the changed row, so the page can
+    re-render without a second round trip."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    member: MemberRead
+
+
+class BulkMemberAction(BaseModel):
+    """Item 4: one request, one transaction, all-or-nothing.
+
+    ``action`` is a closed vocabulary — anything else is a 422 before the
+    service runs. ``user_ids`` is capped at 50 (a bulk action is a UI
+    affordance, not a migration tool).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["deactivate", "reactivate", "remove"]
+    user_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
+
+    @field_validator("user_ids")
+    @classmethod
+    def _distinct(cls, v: list[uuid.UUID]) -> list[uuid.UUID]:
+        # Duplicates would make "the same target twice" ambiguous in an
+        # all-or-nothing batch; reject rather than silently dedupe.
+        if len(set(v)) != len(v):
+            raise ValueError("must not contain duplicate user ids")
+        return v
+
+
+class BulkMemberResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["deactivate", "reactivate", "remove"]
+    affected: int
+    members: list[MemberRead]
+
+
+class BulkInviteRevoke(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    invite_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
+
+    @field_validator("invite_ids")
+    @classmethod
+    def _distinct(cls, v: list[uuid.UUID]) -> list[uuid.UUID]:
+        if len(set(v)) != len(v):
+            raise ValueError("must not contain duplicate invite ids")
+        return v
+
+
+class BulkInviteResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    revoked: int
+
+
+class TeamSummary(BaseModel):
+    """The three counter cards. ``open_jobs_count`` is ``None`` until Step
+    7a exists: a null renders as an empty state, whereas a 0 would look
+    like real data (Step 3d item 6)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    active_members: int
+    pending_invites: int
+    open_jobs_count: int | None = None
+    deactivated_members: int = 0
+    my_role: OrgRole
 
 
 class MemberUpdate(BaseModel):
@@ -204,6 +310,16 @@ class InviteCreate(BaseModel):
     role: OrgRole = OrgRole.member
     title: str | None = Field(default=None, max_length=200)
     department: Department | None = None
+    # Step 3d item 3: the inviter's note, sent in the email. Length-capped
+    # because it is free text landing in an outbound message.
+    message: str | None = Field(default=None, max_length=500)
+    # Carried into the new member row on accept (the toggle lives there).
+    is_public: bool = True
+
+    @field_validator("message")
+    @classmethod
+    def _message_clean(cls, v: str | None) -> str | None:
+        return _clean_text(v, 500)
 
     @field_validator("role")
     @classmethod
@@ -228,6 +344,18 @@ class InviteRead(BaseModel):
     accepted_at: datetime | None = None
     revoked_at: datetime | None = None
     created_at: datetime
-    # Present exactly once, in the create response (no email send yet —
-    # Step 12 wires delivery; the client shows/copies the accept link).
+    message: str | None = None
+    is_public: bool = True
+    # Present exactly once, in the create and RESEND responses: the raw
+    # token is never stored, only its hash. The create/resend call also
+    # emails the accept link, so the client no longer has to.
     token: str | None = None
+
+
+class InvitePage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[InviteRead]
+    total: int
+    limit: int
+    offset: int

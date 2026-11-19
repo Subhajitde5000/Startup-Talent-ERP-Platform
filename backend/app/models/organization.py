@@ -7,6 +7,8 @@ Step 3b subset. Deviations from schema.sql (documented, for portability):
   func.lower() so it behaves like citext on both PostgreSQL and SQLite.
 - organization_invites gains updated_at (AGENTS.md section 6 requires it;
   schema.sql only has created_at there).
+- Step 3d adds organization_invites.message and .is_public, which schema.sql
+  lacks; both back controls the invite form already has.
 """
 
 import enum
@@ -225,6 +227,15 @@ class OrganizationInvite(Base):
     token_hash: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     invited_by: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # Step 3d item 3: the inviter's personal note, carried in the invite
+    # email. schema.sql has no column for it (documented deviation).
+    message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Step 3d item 3: the invite form's "show on public profile" toggle.
+    # is_public lives on the MEMBER row, so the invite must remember the
+    # choice until accept copies it across. schema.sql has no column.
+    is_public: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
