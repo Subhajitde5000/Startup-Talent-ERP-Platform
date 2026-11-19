@@ -399,6 +399,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The organization permission matrix
+         * @description Item 7: the roles/permissions text the team page renders.
+         *
+         *     Declared BEFORE ``/{org_id}`` on purpose: FastAPI matches routes in
+         *     registration order, and a later declaration would try to parse
+         *     "permissions" as a UUID and return 422.
+         */
+        get: operations["get_permissions_api_v1_organizations_permissions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{org_id}": {
         parameters: {
             query?: never;
@@ -424,8 +448,51 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List members */
+        /**
+         * List members (filter, sort, paginate)
+         * @description Item 10. Filtering and sorting happen in SQL, so the page keeps
+         *     working past one page of results. ``status`` defaults to ``active``,
+         *     which is what the directory showed before.
+         */
         get: operations["list_members_api_v1_organizations__org_id__members_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/team/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Team counter cards */
+        get: operations["team_summary_api_v1_organizations__org_id__team_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/members/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the member list as CSV
+         * @description Item 9: owner/admin only, no private fields. Built server-side so
+         *     it covers the whole team rather than the loaded page.
+         */
+        get: operations["export_members_api_v1_organizations__org_id__members_export_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -444,12 +511,73 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Remove a member */
+        /**
+         * Remove a member
+         * @description Also unassigns the member's tasks in the same transaction (item 11).
+         */
         delete: operations["remove_member_api_v1_organizations__org_id__members__target_user_id__delete"];
         options?: never;
         head?: never;
         /** Update a member */
         patch: operations["update_member_api_v1_organizations__org_id__members__target_user_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/members/{target_user_id}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deactivate a member's access
+         * @description Item 1. Access ends immediately; the member row and its history stay.
+         */
+        post: operations["deactivate_member_api_v1_organizations__org_id__members__target_user_id__deactivate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/members/{target_user_id}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore a deactivated member's access */
+        post: operations["reactivate_member_api_v1_organizations__org_id__members__target_user_id__reactivate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/members/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deactivate, reactivate or remove up to 50 members
+         * @description Item 4. One transaction, all-or-nothing: if any target breaks a rule
+         *     (last owner, role hierarchy, wrong organization) nothing is applied.
+         */
+        post: operations["bulk_member_action_api_v1_organizations__org_id__members_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/organizations/{org_id}/transfer-ownership": {
@@ -481,10 +609,55 @@ export interface paths {
         put?: never;
         /**
          * Invite a member by email
-         * @description Owner/admin invites by email. No mail is sent yet (Step 12); the
-         *     one-time `token` is returned so the UI can show the accept link.
+         * @description Owner/admin invites by email.
+         *
+         *     Step 3d item 3: the accept link is emailed in a background task, so a
+         *     slow mail provider never delays the response. The one-time ``token`` is
+         *     still returned once as well, so the UI can offer "copy link" and the
+         *     dev flow keeps working without a mailbox.
          */
         post: operations["create_invite_api_v1_organizations__org_id__invites_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/invites/{invite_id}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend an invite with a fresh token
+         * @description Item 2. The old accept link stops working immediately (the stored
+         *     hash is replaced) and the expiry is extended by the full TTL.
+         */
+        post: operations["resend_invite_api_v1_organizations__org_id__invites__invite_id__resend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/invites/bulk-revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke up to 50 pending invites
+         * @description Item 4: all-or-nothing, like the member bulk endpoint.
+         */
+        post: operations["bulk_revoke_invites_api_v1_organizations__org_id__invites_bulk_revoke_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1337,6 +1510,45 @@ export interface components {
         AddRoleRequest: {
             role: components["schemas"]["UserRole"];
         };
+        /** BulkInviteResult */
+        BulkInviteResult: {
+            /** Revoked */
+            revoked: number;
+        };
+        /** BulkInviteRevoke */
+        BulkInviteRevoke: {
+            /** Invite Ids */
+            invite_ids: string[];
+        };
+        /**
+         * BulkMemberAction
+         * @description Item 4: one request, one transaction, all-or-nothing.
+         *
+         *     ``action`` is a closed vocabulary — anything else is a 422 before the
+         *     service runs. ``user_ids`` is capped at 50 (a bulk action is a UI
+         *     affordance, not a migration tool).
+         */
+        BulkMemberAction: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "deactivate" | "reactivate" | "remove";
+            /** User Ids */
+            user_ids: string[];
+        };
+        /** BulkMemberResult */
+        BulkMemberResult: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "deactivate" | "reactivate" | "remove";
+            /** Affected */
+            affected: number;
+            /** Members */
+            members: components["schemas"]["MemberRead"][];
+        };
         /**
          * BusinessAnalytics
          * @description ``GET /analytics/business``.
@@ -1634,6 +1846,13 @@ export interface components {
             /** Title */
             title?: string | null;
             department?: components["schemas"]["Department"] | null;
+            /** Message */
+            message?: string | null;
+            /**
+             * Is Public
+             * @default true
+             */
+            is_public?: boolean;
         };
         /** InviteRead */
         InviteRead: {
@@ -1667,6 +1886,13 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Message */
+            message?: string | null;
+            /**
+             * Is Public
+             * @default true
+             */
+            is_public?: boolean;
             /** Token */
             token?: string | null;
         };
@@ -1807,7 +2033,27 @@ export interface components {
          * @enum {string}
          */
         MarketUnit: "currency" | "count";
-        /** MemberRead */
+        /**
+         * MemberPage
+         * @description Paginated member list (Step 3d item 10) — the same limit/offset
+         *     envelope as 5b/5c/5h, so the frontend has one list shape.
+         */
+        MemberPage: {
+            /** Items */
+            items: components["schemas"]["MemberRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * MemberRead
+         * @description Team-directory row. Deliberately excludes ``phone``, ``din_number``
+         *     and every auth field: the drawer needs bio and LinkedIn, nothing more
+         *     (Step 3d item 13 — asserted by a test).
+         */
         MemberRead: {
             /**
              * User Id
@@ -1845,6 +2091,17 @@ export interface components {
              * @default 0
              */
             task_count?: number;
+            /** Last Active At */
+            last_active_at?: string | null;
+            /** Linkedin Url */
+            linkedin_url?: string | null;
+            /** Bio */
+            bio?: string | null;
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage?: boolean;
         };
         /**
          * MemberUpdate
@@ -3240,6 +3497,26 @@ export interface components {
             /** Readiness Id */
             readiness_id?: string | null;
         };
+        /**
+         * TeamSummary
+         * @description The three counter cards. ``open_jobs_count`` is ``None`` until Step
+         *     7a exists: a null renders as an empty state, whereas a 0 would look
+         *     like real data (Step 3d item 6).
+         */
+        TeamSummary: {
+            /** Active Members */
+            active_members: number;
+            /** Pending Invites */
+            pending_invites: number;
+            /** Open Jobs Count */
+            open_jobs_count?: number | null;
+            /**
+             * Deactivated Members
+             * @default 0
+             */
+            deactivated_members?: number;
+            my_role: components["schemas"]["OrgRole"];
+        };
         /** TokenResponse */
         TokenResponse: {
             /** Access Token */
@@ -4287,6 +4564,28 @@ export interface operations {
             };
         };
     };
+    get_permissions_api_v1_organizations_permissions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     get_organization_api_v1_organizations__org_id__get: {
         parameters: {
             query?: never;
@@ -4359,6 +4658,47 @@ export interface operations {
     };
     list_members_api_v1_organizations__org_id__members_get: {
         parameters: {
+            query?: {
+                role?: components["schemas"]["OrgRole"] | null;
+                status?: "active" | "deactivated" | "invited" | "all";
+                department?: components["schemas"]["Department"] | null;
+                q?: string | null;
+                sort?: "name" | "-name" | "joined" | "-joined" | "last_active" | "-last_active";
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    team_summary_api_v1_organizations__org_id__team_summary_get: {
+        parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
@@ -4376,7 +4716,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MemberRead"][];
+                    "application/json": components["schemas"]["TeamSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_members_api_v1_organizations__org_id__members_export_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
                 };
             };
             /** @description Validation Error */
@@ -4447,6 +4820,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deactivate_member_api_v1_organizations__org_id__members__target_user_id__deactivate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                target_user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reactivate_member_api_v1_organizations__org_id__members__target_user_id__reactivate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                target_user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_member_action_api_v1_organizations__org_id__members_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkMemberAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkMemberResult"];
                 };
             };
             /** @description Validation Error */
@@ -4554,6 +5032,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InviteRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resend_invite_api_v1_organizations__org_id__invites__invite_id__resend_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                invite_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_revoke_invites_api_v1_organizations__org_id__invites_bulk_revoke_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkInviteRevoke"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkInviteResult"];
                 };
             };
             /** @description Validation Error */

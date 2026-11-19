@@ -150,8 +150,10 @@ export default function StartupProfile() {
   const loadMembers = async id => {
     setMembersStatus('loading');
     try {
-      const rows = await api.organizations.members(id);
-      setMembers(rows);
+      // Step 3d made GET /members paginated ({items,total,limit,offset}).
+      // This page only needs the rows, so unwrap the envelope.
+      const page = await api.organizations.members(id);
+      setMembers(page.items);
       setMembersStatus('ready');
     } catch {
       setMembersStatus('error');
