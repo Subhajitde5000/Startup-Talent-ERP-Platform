@@ -16,8 +16,11 @@ from app.core.exceptions import AppException, error_body
 from app.core.logging import RequestIDMiddleware, configure_logging
 from app.db.session import engine
 from app.routers import (
+    analytics,
     auth,
+    discovery,
     invites,
+    market,
     mentor,
     metrics,
     milestones,
@@ -25,6 +28,7 @@ from app.routers import (
     public,
     readiness,
     skills,
+    stage,
     startup_profile,
     talent,
     tasks,
@@ -109,6 +113,15 @@ def create_app() -> FastAPI:
     app.include_router(talent.router, prefix=settings.API_V1_PREFIX)
     app.include_router(mentor.router, prefix=settings.API_V1_PREFIX)
     app.include_router(public.router, prefix=settings.API_V1_PREFIX)
+    # Step 5h: the startup discovery list. /public/startups (list) and
+    # /public/startups/{slug} (detail, in public.py) differ in segment
+    # count, so registration order does not matter between them.
+    app.include_router(discovery.router, prefix=settings.API_V1_PREFIX)
+    # Step 5i/5j: stage summary, history, exit criteria and stage tools.
+    app.include_router(stage.router, prefix=settings.API_V1_PREFIX)
+    # Steps 5k/5l: business analytics and the market tab.
+    app.include_router(analytics.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(market.router, prefix=settings.API_V1_PREFIX)
     return app
 
 

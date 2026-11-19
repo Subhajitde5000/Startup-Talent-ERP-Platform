@@ -40,6 +40,8 @@ class ReadinessCriterionRead(BaseModel):
     stage: StartupStage | None
     weight: int
     display_order: int
+    # 5i D1: True for the 25 stage exit criteria (excluded from the score).
+    is_exit_criterion: bool
 
 
 class ReadinessUpdate(BaseModel):
@@ -87,6 +89,8 @@ class ReadinessRead(BaseModel):
     description: str | None
     stage: StartupStage | None
     display_order: int
+    # 5i D1: exit criteria share this table but never move readiness_score.
+    is_exit_criterion: bool
 
     # Per-org state.
     status: ReadinessStatus

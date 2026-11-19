@@ -1058,6 +1058,277 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/startups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Discover public startups (anonymous)
+         * @description Only ``profile_visibility == public`` rows; other profiles are absent
+         *     from the result rather than redacted (no existence oracle).
+         */
+        get: operations["discover_public_startups_api_v1_public_startups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/startups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Discover startups (signed in)
+         * @description Viewer role decides the visible set: a mentor additionally sees
+         *     ``mentors`` rows, an investor ``mentors_and_investors`` rows, and a
+         *     job-seeker stays on ``public`` rows like an anonymous caller.
+         */
+        get: operations["discover_startups_api_v1_startups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current stage, since when, and exit-criteria progress
+         * @description Active members (including viewers) read the stage summary.
+         */
+        get: operations["get_stage_api_v1_organizations__org_id__stage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the startup stage (records history)
+         * @description Owner/admin/member. The history row is written in the same
+         *     transaction; a stage change never alters readiness sign-offs.
+         */
+        patch: operations["change_stage_api_v1_organizations__org_id__stage_patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/stage/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stage change history */
+        get: operations["list_stage_history_api_v1_organizations__org_id__stage_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/stage/{stage}/criteria": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exit criteria for one stage, with this org's state
+         * @description The rows are ``startup_readiness`` rows (5i D1): the same evidence,
+         *     status and sign-off fields the 5f readiness page uses.
+         */
+        get: operations["get_stage_criteria_api_v1_organizations__org_id__stage__stage__criteria_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/stage/tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stage tools with saved progress
+         * @description Stage comes from the query string; the vocabulary decides the keys.
+         */
+        get: operations["get_stage_tools_api_v1_organizations__org_id__stage_tools_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/stage/tools/{tool_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One stage tool */
+        get: operations["get_stage_tool_api_v1_organizations__org_id__stage_tools__tool_key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Save stage tool progress and notes
+         * @description Owner/admin/member only (viewers 403). ``stage``/``tool_key``/
+         *     ``updated_by`` are server-controlled and absent from the body schema.
+         */
+        patch: operations["update_stage_tool_api_v1_organizations__org_id__stage_tools__tool_key__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/analytics/business": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Business tab analytics
+         * @description Any active member (viewer included).
+         *
+         *     Reported KPIs carry their source; derived figures (LTV:CAC, payback,
+         *     net burn) are computed here and are never client-writable. Any figure
+         *     that cannot be computed is absent and named in ``missing`` — never 0.
+         */
+        get: operations["business_analytics_api_v1_organizations__org_id__analytics_business_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/market-size": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Market size board
+         * @description Any active member. ``missing`` names the (metric, scenario) pairs with
+         *     no figure yet; ``market_share_pct`` is None whenever it cannot be
+         *     computed honestly.
+         */
+        get: operations["list_market_size_api_v1_organizations__org_id__market_size_get"];
+        /**
+         * Write a market size (upsert)
+         * @description Owner/admin/member (viewer 403). One row per (metric, scenario), so a
+         *     second write for the same figure edits it. ``source_type`` may only be
+         *     ``team_estimate`` or ``external_report``.
+         */
+        put: operations["upsert_market_size_api_v1_organizations__org_id__market_size_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/market-size/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a market size
+         * @description Owner/admin/member (viewer 403); a foreign id is 404.
+         */
+        delete: operations["delete_market_size_api_v1_organizations__org_id__market_size__entry_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/competitors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List competitors
+         * @description Any active member. Soft-deleted competitors are never returned.
+         */
+        get: operations["list_competitors_api_v1_organizations__org_id__competitors_get"];
+        put?: never;
+        /**
+         * Add a competitor
+         * @description Owner/admin/member (viewer 403). A name already tracked in this
+         *     organization is a 409.
+         */
+        post: operations["create_competitor_api_v1_organizations__org_id__competitors_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/competitors/{competitor_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a competitor
+         * @description Owner/admin/member (viewer 403). Soft delete: the row survives so the
+         *     competitor can be re-added later.
+         */
+        delete: operations["delete_competitor_api_v1_organizations__org_id__competitors__competitor_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a competitor
+         * @description Owner/admin/member (viewer 403); only the fields sent are changed. A
+         *     foreign or deleted competitor id is 404.
+         */
+        patch: operations["update_competitor_api_v1_organizations__org_id__competitors__competitor_id__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1065,6 +1336,76 @@ export interface components {
         /** AddRoleRequest */
         AddRoleRequest: {
             role: components["schemas"]["UserRole"];
+        };
+        /**
+         * BusinessAnalytics
+         * @description ``GET /analytics/business``.
+         */
+        BusinessAnalytics: {
+            /** Kpis */
+            kpis: components["schemas"]["BusinessKpi"][];
+            /** Unit Economics */
+            unit_economics: components["schemas"]["CalculatedValue"][];
+            retention: components["schemas"]["RetentionBlock"];
+            /** Funnel */
+            funnel: components["schemas"]["FunnelStep"][];
+            completeness: components["schemas"]["BusinessCompleteness"];
+            /** Sources */
+            sources: components["schemas"]["SourceUsage"][];
+            /** Missing */
+            missing: string[];
+        };
+        /**
+         * BusinessCompleteness
+         * @description The "Data completeness" card, scoped to the Business tab's own keys.
+         *
+         *     Scoped deliberately: reporting "12 / 23" across the whole vocabulary
+         *     would tell a founder they are missing data that this tab never shows.
+         *     The denominator is the Business tab's own 20 keys (15 KPI + 5 funnel).
+         */
+        BusinessCompleteness: {
+            /** Reported */
+            reported: number;
+            /** Total */
+            total: number;
+            /** Missing */
+            missing: components["schemas"]["MetricKey"][];
+        };
+        /**
+         * BusinessKpi
+         * @description One KPI card: a reported value plus the period it describes.
+         */
+        BusinessKpi: {
+            key: components["schemas"]["MetricKey"];
+            /** Value */
+            value: string;
+            /** Unit */
+            unit: string | null;
+            /** Currency */
+            currency: string | null;
+            source: components["schemas"]["MetricSource"];
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+        };
+        /**
+         * CalculatedValue
+         * @description A figure the service derives — never stored, never client-writable.
+         *
+         *     ``inputs`` names the reported keys it was computed from, so the UI can
+         *     show its working ("LTV ÷ CAC") and a reader can audit it.
+         */
+        CalculatedValue: {
+            /** Key */
+            key: string;
+            /** Value */
+            value: string;
+            /** Unit */
+            unit: string;
+            /** Inputs */
+            inputs: components["schemas"]["MetricKey"][];
         };
         /**
          * CasePriority
@@ -1088,6 +1429,122 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /**
+         * CompetitorCreate
+         * @description Add a competitor. Server-owned fields are absent, not ignored.
+         */
+        CompetitorCreate: {
+            /** Name */
+            name: string;
+            /** @default direct */
+            type?: components["schemas"]["CompetitorType"];
+            /** Website */
+            website?: string | null;
+            /** Target Customer */
+            target_customer?: string | null;
+            /** Positioning */
+            positioning?: string | null;
+            /** Strengths */
+            strengths?: string | null;
+            /** Weaknesses */
+            weaknesses?: string | null;
+            /** Pricing Note */
+            pricing_note?: string | null;
+            /** Last Reviewed On */
+            last_reviewed_on?: string | null;
+        };
+        /**
+         * CompetitorPage
+         * @description Paginated competitor list (the 5e/5i envelope).
+         */
+        CompetitorPage: {
+            /** Items */
+            items: components["schemas"]["CompetitorRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * CompetitorRead
+         * @description One competitor row.
+         */
+        CompetitorRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Name */
+            name: string;
+            type: components["schemas"]["CompetitorType"];
+            /** Website */
+            website: string | null;
+            /** Target Customer */
+            target_customer: string | null;
+            /** Positioning */
+            positioning: string | null;
+            /** Strengths */
+            strengths: string | null;
+            /** Weaknesses */
+            weaknesses: string | null;
+            /** Pricing Note */
+            pricing_note: string | null;
+            /** Last Reviewed On */
+            last_reviewed_on: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * CompetitorType
+         * @description Direct / Indirect / Substitute — the three the design doc names.
+         * @enum {string}
+         */
+        CompetitorType: "direct" | "indirect" | "substitute";
+        /**
+         * CompetitorUpdate
+         * @description Partial edit. ``exclude_unset`` means an absent field is untouched.
+         */
+        CompetitorUpdate: {
+            /** Name */
+            name?: string | null;
+            type?: components["schemas"]["CompetitorType"] | null;
+            /** Website */
+            website?: string | null;
+            /** Target Customer */
+            target_customer?: string | null;
+            /** Positioning */
+            positioning?: string | null;
+            /** Strengths */
+            strengths?: string | null;
+            /** Weaknesses */
+            weaknesses?: string | null;
+            /** Pricing Note */
+            pricing_note?: string | null;
+            /** Last Reviewed On */
+            last_reviewed_on?: string | null;
+        };
+        /**
+         * Confidence
+         * @description The design doc's confidence labels, one per market figure.
+         * @enum {string}
+         */
+        Confidence: "high" | "medium" | "low";
         /**
          * DataRequestStatus
          * @enum {string}
@@ -1136,6 +1593,29 @@ export interface components {
              * Format: email
              */
             email: string;
+        };
+        /**
+         * FunnelStep
+         * @description One bar of the sales funnel.
+         *
+         *     ``count`` is the reported cumulative count for ``period_end``.
+         *     ``step_conversion_pct`` is this step ÷ the step above it; ``total_
+         *     conversion_pct`` is this step ÷ the first step. Both are decimal
+         *     strings, and both are ``None`` for the first step or when a count is
+         *     zero — a percentage of nothing is not zero, it is unknown.
+         */
+        FunnelStep: {
+            key: components["schemas"]["MetricKey"];
+            /** Label */
+            label: string;
+            /** Count */
+            count: string | null;
+            /** Period End */
+            period_end: string | null;
+            /** Step Conversion Pct */
+            step_conversion_pct: string | null;
+            /** Total Conversion Pct */
+            total_conversion_pct: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1200,6 +1680,133 @@ export interface components {
             /** Password */
             password: string;
         };
+        /**
+         * MarketMetric
+         * @description The three market sizes, in nesting order (TAM ⊃ SAM ⊃ SOM).
+         * @enum {string}
+         */
+        MarketMetric: "tam" | "sam" | "som";
+        /**
+         * MarketScenario
+         * @description The page's Conservative / Base / Optimistic toggle — real rows, not a
+         *     client-side multiplier (5l plan L4).
+         * @enum {string}
+         */
+        MarketScenario: "conservative" | "base" | "optimistic";
+        /**
+         * MarketSizeBoard
+         * @description ``GET /market-size`` — every scenario the startup has filled in.
+         *
+         *     ``missing`` names the (metric, scenario) pairs with no row, so the page
+         *     can render an honest empty state instead of a zero. It is a flat list of
+         *     ``"tam:base"``-style keys because Pydantic tuple keys would not survive
+         *     as JSON object keys.
+         */
+        MarketSizeBoard: {
+            /** Items */
+            items: components["schemas"]["MarketSizeRead"][];
+            /** Missing */
+            missing: string[];
+            /** Market Share Pct */
+            market_share_pct?: string | null;
+            /**
+             * Competitors Tracked
+             * @default 0
+             */
+            competitors_tracked?: number;
+        };
+        /**
+         * MarketSizeRead
+         * @description One stored market figure.
+         */
+        MarketSizeRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            metric: components["schemas"]["MarketMetric"];
+            scenario: components["schemas"]["MarketScenario"];
+            /** Value */
+            value: string;
+            unit: components["schemas"]["MarketUnit"];
+            /** Currency */
+            currency: string | null;
+            /** Estimate Year */
+            estimate_year: number;
+            source_type: components["schemas"]["MarketSourceType"];
+            /** Source Note */
+            source_note: string | null;
+            /** Source Url */
+            source_url: string | null;
+            confidence: components["schemas"]["Confidence"];
+            /** Assumptions */
+            assumptions: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * MarketSizeUpsert
+         * @description Write one market figure. ``(org, metric, scenario)`` is the identity.
+         */
+        MarketSizeUpsert: {
+            metric: components["schemas"]["MarketMetric"];
+            /** @default base */
+            scenario?: components["schemas"]["MarketScenario"];
+            /** Value */
+            value: number | string;
+            /** @default currency */
+            unit?: components["schemas"]["MarketUnit"];
+            /** Currency */
+            currency?: string | null;
+            /** Estimate Year */
+            estimate_year: number;
+            /** @default team_estimate */
+            source_type?: components["schemas"]["MarketSourceType"];
+            /** Source Note */
+            source_note?: string | null;
+            /** Source Url */
+            source_url?: string | null;
+            /** @default low */
+            confidence?: components["schemas"]["Confidence"];
+            /** Assumptions */
+            assumptions?: string | null;
+        };
+        /**
+         * MarketSourceType
+         * @description Where the figure came from.
+         *
+         *     Only the first two are writable by a client (5l plan, security): the
+         *     platform-derived values are produced by our own aggregate jobs in a
+         *     later step, never asserted by a startup.
+         * @enum {string}
+         */
+        MarketSourceType: "team_estimate" | "external_report" | "calculated" | "platform";
+        /**
+         * MarketUnit
+         * @description What the number counts. A market can be sized in money or in people
+         *     or accounts, so the column is explicit rather than implied by currency.
+         *
+         *     The members are prefixed because ``count`` and ``currency`` shadow
+         *     ``str`` methods on a StrEnum, which mypy reads as a type error. The
+         *     STORED values stay ``currency`` / ``count`` — that is the database
+         *     contract and the API vocabulary.
+         * @enum {string}
+         */
+        MarketUnit: "currency" | "count";
         /** MemberRead */
         MemberRead: {
             /**
@@ -1447,13 +2054,17 @@ export interface components {
         };
         /**
          * MetricKey
-         * @description schema.sql CHECK ``startup_metric_key_valid`` — the 8 allowed keys.
+         * @description schema.sql CHECK ``startup_metric_key_valid`` — the allowed keys.
          *
-         *     Anything else (for example the analytics page's "cash balance",
-         *     which schema.sql has no key for) is rejected with 422.
+         *     Step 5e defined the first eight (Overview/Journey tabs). Step 5k (plan
+         *     K1) extends the vocabulary ADDITIVELY with the Business tab's unit
+         *     economics, retention and funnel counts; the first eight keep their
+         *     exact meaning, so every 5e row stays valid and untouched.
+         *
+         *     Anything else is rejected with 422 — never an auto-created key.
          * @enum {string}
          */
-        MetricKey: "mrr" | "arr" | "customers" | "burn" | "runway_months" | "growth_mom" | "headcount" | "active_users";
+        MetricKey: "mrr" | "arr" | "customers" | "burn" | "runway_months" | "growth_mom" | "headcount" | "active_users" | "churn_rate" | "cac" | "ltv" | "nrr" | "arpc" | "gross_margin" | "activation_rate" | "nps" | "support_response_hours" | "weekly_active_users" | "funnel_lead" | "funnel_contacted" | "funnel_demo" | "funnel_proposal" | "funnel_won";
         /**
          * MetricLatestRead
          * @description ``GET /metrics/latest`` — the dashboard/analytics card row.
@@ -1865,6 +2476,8 @@ export interface components {
             weight: number;
             /** Display Order */
             display_order: number;
+            /** Is Exit Criterion */
+            is_exit_criterion: boolean;
         };
         /**
          * ReadinessReject
@@ -1957,6 +2570,16 @@ export interface components {
             new_password: string;
         };
         /**
+         * RetentionBlock
+         * @description Customers & retention card.
+         */
+        RetentionBlock: {
+            churn_rate: components["schemas"]["BusinessKpi"] | null;
+            nrr: components["schemas"]["BusinessKpi"] | null;
+            arpc: components["schemas"]["BusinessKpi"] | null;
+            calculated_arpc: components["schemas"]["CalculatedValue"] | null;
+        };
+        /**
          * SkillRead
          * @description One searchable skill (read-only; creation is admin-only, Step 7).
          */
@@ -1970,6 +2593,201 @@ export interface components {
             name: string;
             /** Category */
             category?: string | null;
+        };
+        /**
+         * SourceUsage
+         * @description The "Data sources" card: one line per key that has a value.
+         */
+        SourceUsage: {
+            key: components["schemas"]["MetricKey"];
+            source: components["schemas"]["MetricSource"];
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+        };
+        /**
+         * StageChange
+         * @description Body of a stage change. ``note`` is optional context for history.
+         */
+        StageChange: {
+            stage: components["schemas"]["StartupStage"];
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * StageCriteriaBoard
+         * @description Exit criteria for ONE stage, each with this org's state.
+         *
+         *     ``ReadinessRead`` is reused verbatim: an exit criterion is a
+         *     ``startup_readiness`` row, so it carries the same evidence, status and
+         *     sign-off fields the 5f page already renders. That is what makes this
+         *     one source of truth instead of two lists (5i item 1).
+         */
+        StageCriteriaBoard: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            stage: components["schemas"]["StartupStage"];
+            /** Is Current Stage */
+            is_current_stage: boolean;
+            /** Items */
+            items: components["schemas"]["app__schemas__readiness__ReadinessRead"][];
+        };
+        /**
+         * StageHistoryPage
+         * @description Newest-first page of stage changes (limit/offset, 5b/5c convention).
+         */
+        StageHistoryPage: {
+            /** Items */
+            items: components["schemas"]["StageHistoryRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * StageHistoryRead
+         * @description One recorded stage change.
+         */
+        StageHistoryRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            from_stage: components["schemas"]["StartupStage"] | null;
+            to_stage: components["schemas"]["StartupStage"];
+            /** Changed By */
+            changed_by: string | null;
+            /**
+             * Changed At
+             * Format: date-time
+             */
+            changed_at: string;
+            /** Note */
+            note: string | null;
+        };
+        /**
+         * StageSummary
+         * @description The /startup/stage header: current stage, since when, and the split
+         *     of this stage's exit criteria by status.
+         */
+        StageSummary: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            stage: components["schemas"]["StartupStage"];
+            /** In Stage Since */
+            in_stage_since: string | null;
+            /** Exit Criteria Total */
+            exit_criteria_total: number;
+            /** Exit Criteria Signed Off */
+            exit_criteria_signed_off: number;
+            /** Readiness Pct */
+            readiness_pct: number | null;
+        };
+        /**
+         * StageToolBoard
+         * @description All tools for one stage (the /startup/stage tool grid).
+         */
+        StageToolBoard: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            stage: components["schemas"]["StartupStage"];
+            /** Items */
+            items: components["schemas"]["StageToolRead"][];
+            /** Completed */
+            completed: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * StageToolRead
+         * @description One tool for the current stage, merged with this org's progress.
+         */
+        StageToolRead: {
+            /** Tool Key */
+            tool_key: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Is Optional */
+            is_optional: boolean;
+            status: components["schemas"]["ToolStatus"];
+            /** Progress */
+            progress: number;
+            /** Notes */
+            notes: string | null;
+        };
+        /**
+         * StageToolUpdate
+         * @description Tool progress patch. ``status``/``progress`` are reconciled server
+         *     side; ``notes`` is cleared by an explicit null.
+         */
+        StageToolUpdate: {
+            status?: components["schemas"]["ToolStatus"] | null;
+            /** Progress */
+            progress?: number | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /**
+         * StartupDiscoveryItem
+         * @description One discovery result: public identity fields + gated sections.
+         */
+        StartupDiscoveryItem: {
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Tagline */
+            tagline?: string | null;
+            stage?: components["schemas"]["StartupStage"] | null;
+            /** Sector */
+            sector?: string | null;
+            /** City */
+            city?: string | null;
+            /** Founded Year */
+            founded_year?: number | null;
+            /** Website */
+            website?: string | null;
+            /**
+             * Mentor Verified
+             * @default false
+             */
+            mentor_verified?: boolean;
+            /** Readiness Score */
+            readiness_score?: number | null;
+            /** Summary */
+            summary?: string | null;
+            /** Traction Summary */
+            traction_summary?: string | null;
+        };
+        /**
+         * StartupDiscoveryPage
+         * @description Paginated discovery envelope (limit/offset, same shape as 5b/5c).
+         */
+        StartupDiscoveryPage: {
+            /** Items */
+            items: components["schemas"]["StartupDiscoveryItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
         };
         /**
          * StartupProfilePublicRead
@@ -2436,6 +3254,13 @@ export interface components {
             /** Expires In */
             expires_in: number;
         };
+        /**
+         * ToolStatus
+         * @description Stage tool status (5j D6). Mirrors the readiness vocabulary shape
+         *     without borrowing it: a tool is personal progress, not a review item.
+         * @enum {string}
+         */
+        ToolStatus: "not_started" | "in_progress" | "done";
         /** TransferOwnership */
         TransferOwnership: {
             /**
@@ -2672,6 +3497,8 @@ export interface components {
             stage: components["schemas"]["StartupStage"] | null;
             /** Display Order */
             display_order: number;
+            /** Is Exit Criterion */
+            is_exit_criterion: boolean;
             status: components["schemas"]["ReadinessStatus"];
             /** Evidence */
             evidence: string | null;
@@ -5008,6 +5835,610 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MentorPublicRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discover_public_startups_api_v1_public_startups_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                sort?: "recent" | "name" | "stage";
+                order?: "asc" | "desc";
+                stage?: components["schemas"]["StartupStage"] | null;
+                sector?: string | null;
+                city?: string | null;
+                q?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupDiscoveryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discover_startups_api_v1_startups_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                sort?: "recent" | "name" | "stage";
+                order?: "asc" | "desc";
+                stage?: components["schemas"]["StartupStage"] | null;
+                sector?: string | null;
+                city?: string | null;
+                q?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupDiscoveryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_stage_api_v1_organizations__org_id__stage_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_stage_api_v1_organizations__org_id__stage_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_stage_history_api_v1_organizations__org_id__stage_history_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageHistoryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_stage_criteria_api_v1_organizations__org_id__stage__stage__criteria_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                stage: components["schemas"]["StartupStage"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageCriteriaBoard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_stage_tools_api_v1_organizations__org_id__stage_tools_get: {
+        parameters: {
+            query?: {
+                stage?: components["schemas"]["StartupStage"];
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageToolBoard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_stage_tool_api_v1_organizations__org_id__stage_tools__tool_key__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                tool_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageToolRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_stage_tool_api_v1_organizations__org_id__stage_tools__tool_key__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                tool_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageToolUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageToolRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    business_analytics_api_v1_organizations__org_id__analytics_business_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessAnalytics"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_market_size_api_v1_organizations__org_id__market_size_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketSizeBoard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upsert_market_size_api_v1_organizations__org_id__market_size_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarketSizeUpsert"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketSizeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_market_size_api_v1_organizations__org_id__market_size__entry_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_competitors_api_v1_organizations__org_id__competitors_get: {
+        parameters: {
+            query?: {
+                type?: components["schemas"]["CompetitorType"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompetitorPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_competitor_api_v1_organizations__org_id__competitors_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompetitorCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompetitorRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_competitor_api_v1_organizations__org_id__competitors__competitor_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                competitor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_competitor_api_v1_organizations__org_id__competitors__competitor_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                competitor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompetitorUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompetitorRead"];
                 };
             };
             /** @description Validation Error */
