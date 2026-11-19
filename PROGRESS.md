@@ -88,6 +88,8 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [x] A: `startup_metrics` upsert, latest, history, server-only verified sources
 - [x] B: `/startup/analytics` Overview and Journey tabs wired to real metrics (dashboard metric cards move to 5g, approved)
 
+_Verified against PostgreSQL 16 and the live API, not only SQLite. Screen checks: founder/member can add a month; viewer is read-only (no entry form, no write action); a mentor-verified period returns 409 and is not overwritten; a 422 lands on its own field; empty and failed reads show empty/error states, never a placeholder number. Dashboard metric cards stay on demo data until 5g. Tokens are still in `localStorage` (Step 2's auth design, unchanged here)._
+
 ### 5f Readiness
 - [x] A: criteria bootstrap, evidence, submit, score, admin sign-off only, `tasks.readiness_id` foreign key
 - [x] B: `/startup/readiness` wired (mentor sign-off waits for Step 8)
