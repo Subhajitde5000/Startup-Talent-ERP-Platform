@@ -46,12 +46,17 @@ from app.db.base import Base
 
 
 class MetricKey(enum.StrEnum):
-    """schema.sql CHECK ``startup_metric_key_valid`` — the 8 allowed keys.
+    """schema.sql CHECK ``startup_metric_key_valid`` — the allowed keys.
 
-    Anything else (for example the analytics page's "cash balance",
-    which schema.sql has no key for) is rejected with 422.
+    Step 5e defined the first eight (Overview/Journey tabs). Step 5k (plan
+    K1) extends the vocabulary ADDITIVELY with the Business tab's unit
+    economics, retention and funnel counts; the first eight keep their
+    exact meaning, so every 5e row stays valid and untouched.
+
+    Anything else is rejected with 422 — never an auto-created key.
     """
 
+    # --- 5e: the eight original keys -------------------------------------
     mrr = "mrr"
     arr = "arr"
     customers = "customers"
@@ -60,6 +65,26 @@ class MetricKey(enum.StrEnum):
     growth_mom = "growth_mom"
     headcount = "headcount"
     active_users = "active_users"
+    # --- 5k K1: unit economics + retention (percent-shaped numbers) --------
+    churn_rate = "churn_rate"
+    cac = "cac"
+    ltv = "ltv"
+    nrr = "nrr"
+    arpc = "arpc"
+    gross_margin = "gross_margin"
+    # --- 5k K1: product/customer quality ----------------------------------
+    activation_rate = "activation_rate"
+    nps = "nps"
+    support_response_hours = "support_response_hours"
+    weekly_active_users = "weekly_active_users"
+    # --- 5k K2: the sales funnel is metrics, not a table ------------------
+    # Cumulative counts for one period. Order is significant: the funnel is
+    # rendered top-down in this order and conversions are computed from it.
+    funnel_lead = "funnel_lead"
+    funnel_contacted = "funnel_contacted"
+    funnel_demo = "funnel_demo"
+    funnel_proposal = "funnel_proposal"
+    funnel_won = "funnel_won"
 
 
 class MetricSource(enum.StrEnum):
@@ -83,7 +108,38 @@ VERIFIED_SOURCES = frozenset(
 )
 
 # Keys that may legitimately be negative; everything else is >= 0.
+# ``growth_mom`` is a signed percentage. Every 5k key is a magnitude (a
+# churn rate is reported as a positive number, not minus churn).
 _SIGNED_KEYS = frozenset({MetricKey.growth_mom})
+
+# The funnel, in order. 5k K2 renders it top-down and computes conversion
+# between consecutive steps in the service; the order lives here so the
+# frontend never has to hard-code it.
+FUNNEL_KEYS: tuple[MetricKey, ...] = (
+    MetricKey.funnel_lead,
+    MetricKey.funnel_contacted,
+    MetricKey.funnel_demo,
+    MetricKey.funnel_proposal,
+    MetricKey.funnel_won,
+)
+
+# The 5e keys, kept as a tuple so the Overview/Journey contracts can keep
+# their original, stable ordering after the 5k extension.
+CORE_METRIC_KEYS: tuple[MetricKey, ...] = (
+    MetricKey.mrr,
+    MetricKey.arr,
+    MetricKey.customers,
+    MetricKey.burn,
+    MetricKey.runway_months,
+    MetricKey.growth_mom,
+    MetricKey.headcount,
+    MetricKey.active_users,
+)
+
+# One source of truth for the CHECK text: built from the enum, so adding a
+# key can never leave the database constraint behind (and the migration
+# imports this same constant).
+_KEY_CHECK_SQL = "metric_key IN (" + ",".join(f"'{k.value}'" for k in MetricKey) + ")"
 
 
 class StartupMetric(Base):
@@ -119,11 +175,7 @@ class StartupMetric(Base):
     )
 
     __table_args__ = (
-        CheckConstraint(
-            "metric_key IN ('mrr','arr','customers','burn','runway_months',"
-            "'growth_mom','headcount','active_users')",
-            name="startup_metric_key_valid",
-        ),
+        CheckConstraint(_KEY_CHECK_SQL, name="startup_metric_key_valid"),
         CheckConstraint(
             "source IN ('startup_reported','calculated','mentor_verified',"
             "'admin_verified')",

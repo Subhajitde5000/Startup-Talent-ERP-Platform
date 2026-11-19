@@ -74,6 +74,16 @@ export type ReadinessReject = components["schemas"]["ReadinessReject"];
 // The per-org item shape repeats the global criterion plus this org's state.
 export type ReadinessItem =
   components["schemas"]["app__schemas__readiness__ReadinessRead"];
+// Step 5i/5j: stage summary, exit criteria and stage tools.
+export type StageChange = components["schemas"]["StageChange"];
+export type StageSummary = components["schemas"]["StageSummary"];
+export type StageHistoryRead = components["schemas"]["StageHistoryRead"];
+export type StageHistoryPage = components["schemas"]["StageHistoryPage"];
+export type StageCriteriaBoard = components["schemas"]["StageCriteriaBoard"];
+export type StageToolRead = components["schemas"]["StageToolRead"];
+export type StageToolBoard = components["schemas"]["StageToolBoard"];
+export type StageToolUpdate = components["schemas"]["StageToolUpdate"];
+export type ToolStatus = components["schemas"]["ToolStatus"];
 
 export type MetricKey = components["schemas"]["MetricKey"];
 export type MetricSource = components["schemas"]["MetricSource"];
@@ -83,6 +93,30 @@ export type MetricPoint = components["schemas"]["MetricPoint"];
 export type MetricHistory = components["schemas"]["MetricHistory"];
 export type MetricPage = components["schemas"]["MetricPage"];
 export type MetricLatestRead = components["schemas"]["MetricLatestRead"];
+
+// --- Steps 5k / 5l: analytics Business tab and Market tab -----------------
+export type BusinessAnalytics = components["schemas"]["BusinessAnalytics"];
+export type BusinessKpi = components["schemas"]["BusinessKpi"];
+export type BusinessCompleteness = components["schemas"]["BusinessCompleteness"];
+export type CalculatedValue = components["schemas"]["CalculatedValue"];
+export type FunnelStep = components["schemas"]["FunnelStep"];
+export type RetentionBlock = components["schemas"]["RetentionBlock"];
+export type SourceUsage = components["schemas"]["SourceUsage"];
+
+export type MarketMetric = components["schemas"]["MarketMetric"];
+export type MarketScenario = components["schemas"]["MarketScenario"];
+export type MarketUnit = components["schemas"]["MarketUnit"];
+export type MarketSourceType = components["schemas"]["MarketSourceType"];
+export type Confidence = components["schemas"]["Confidence"];
+export type CompetitorType = components["schemas"]["CompetitorType"];
+
+export type MarketSizeRead = components["schemas"]["MarketSizeRead"];
+export type MarketSizeBoard = components["schemas"]["MarketSizeBoard"];
+export type MarketSizeUpsert = components["schemas"]["MarketSizeUpsert"];
+export type CompetitorRead = components["schemas"]["CompetitorRead"];
+export type CompetitorPage = components["schemas"]["CompetitorPage"];
+export type CompetitorCreate = components["schemas"]["CompetitorCreate"];
+export type CompetitorUpdate = components["schemas"]["CompetitorUpdate"];
 
 /** Whitelisted filters for `metrics.list` (`period_from`/`period_to` inclusive). */
 export type MetricListQuery = {
@@ -695,6 +729,79 @@ export const api = {
       ),
   },
 
+  stage: {
+    /**
+     * Current stage, when it started, and this stage's exit-criteria
+     * roll-up (Step 5i). `readiness_pct` is the cached 5f score and is
+     * null until readiness has scored the org — render it as unknown,
+     * never as zero.
+     */
+    summary: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<StageSummary>(`/organizations/${orgId}/stage`, {
+        method: "GET",
+        signal,
+      }),
+
+    /**
+     * Change the stage (owner/admin/member; viewer -> 403). The backend
+     * records the history row in the same transaction.
+     */
+    change: (orgId: string, body: StageChange) =>
+      apiRequest<StageSummary>(`/organizations/${orgId}/stage`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /** Stage change history, newest first. */
+    history: (
+      orgId: string,
+      query: { limit?: number; offset?: number } = {},
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<StageHistoryPage>(`/organizations/${orgId}/stage/history`, {
+        method: "GET",
+        query: { limit: query.limit, offset: query.offset },
+        signal,
+      }),
+
+    /**
+     * Exit criteria for ONE stage, each with this org's state. The items
+     * are `startup_readiness` rows, so they carry the same evidence and
+     * sign-off fields the readiness page uses (5i D1: one source of truth).
+     */
+    criteria: (orgId: string, stage: StartupStage, signal?: AbortSignal) =>
+      apiRequest<StageCriteriaBoard>(
+        `/organizations/${orgId}/stage/${stage}/criteria`,
+        { method: "GET", signal },
+      ),
+
+    /** Tools for a stage, merged with this org's saved progress. */
+    tools: (orgId: string, stage: StartupStage, signal?: AbortSignal) =>
+      apiRequest<StageToolBoard>(`/organizations/${orgId}/stage/tools`, {
+        method: "GET",
+        query: { stage },
+        signal,
+      }),
+
+    /** One tool. */
+    tool: (orgId: string, toolKey: string, signal?: AbortSignal) =>
+      apiRequest<StageToolRead>(
+        `/organizations/${orgId}/stage/tools/${toolKey}`,
+        { method: "GET", signal },
+      ),
+
+    /**
+     * Save tool progress/notes (owner/admin/member; viewer -> 403). The
+     * backend reconciles status and progress, so `done` always stores 100
+     * and `not_started` always stores 0.
+     */
+    updateTool: (orgId: string, toolKey: string, body: StageToolUpdate) =>
+      apiRequest<StageToolRead>(
+        `/organizations/${orgId}/stage/tools/${toolKey}`,
+        { method: "PATCH", body },
+      ),
+  },
+
   metrics: {
     /**
      * Latest value per key (any active member, viewer included). `missing`
@@ -784,6 +891,92 @@ export const api = {
         auth: false,
         signal,
       }),
+
+    /**
+     * Analytics Business tab (Step 5k).
+     *
+     * One call answers the tab: reported KPIs carry their source, derived
+     * figures (LTV:CAC, payback, net burn) are computed server-side, and
+     * anything uncomputable is absent and named in `missing` — never 0.
+     */
+    analytics: {
+      /**
+       * `GET /organizations/{id}/analytics/business` — any active member
+       * (viewer included). Read-only; values are entered through
+       * `api.metrics.upsert`, which 5e already wired.
+       */
+      business: (orgId: string, signal?: AbortSignal) =>
+        apiRequest<BusinessAnalytics>(
+          `/organizations/${orgId}/analytics/business`,
+          { method: "GET", signal },
+        ),
+    },
+
+    /**
+     * Market tab (Step 5l): market size and competitors.
+     *
+     * Market size is an upsert keyed by (metric, scenario), so saving the
+     * same figure twice edits it. Reads are open to any active member;
+     * writes need owner/admin/member (viewer gets 403).
+     */
+    market: {
+      /** `GET /market-size` — every stored figure plus the pairs missing. */
+      board: (orgId: string, signal?: AbortSignal) =>
+        apiRequest<MarketSizeBoard>(`/organizations/${orgId}/market-size`, {
+          method: "GET",
+          signal,
+        }),
+
+      /** `PUT /market-size` — upsert one (metric, scenario) figure. */
+      upsert: (orgId: string, payload: MarketSizeUpsert) =>
+        apiRequest<MarketSizeRead>(`/organizations/${orgId}/market-size`, {
+          method: "PUT",
+          body: payload,
+        }),
+
+      /** `DELETE /market-size/{entryId}` — remove a figure. */
+      remove: (orgId: string, entryId: string) =>
+        apiRequest<void>(`/organizations/${orgId}/market-size/${entryId}`, {
+          method: "DELETE",
+        }),
+
+      /** `GET /competitors` — paginated, live competitors only. */
+      competitors: (
+        orgId: string,
+        query: { type?: CompetitorType; limit?: number; offset?: number } = {},
+        signal?: AbortSignal,
+      ) =>
+        apiRequest<CompetitorPage>(`/organizations/${orgId}/competitors`, {
+          method: "GET",
+          query,
+          signal,
+        }),
+
+      /** `POST /competitors` — a duplicate name in this org is a 409. */
+      createCompetitor: (orgId: string, payload: CompetitorCreate) =>
+        apiRequest<CompetitorRead>(`/organizations/${orgId}/competitors`, {
+          method: "POST",
+          body: payload,
+        }),
+
+      /** `PATCH /competitors/{id}` — only the fields sent change. */
+      updateCompetitor: (
+        orgId: string,
+        competitorId: string,
+        payload: CompetitorUpdate,
+      ) =>
+        apiRequest<CompetitorRead>(
+          `/organizations/${orgId}/competitors/${competitorId}`,
+          { method: "PATCH", body: payload },
+        ),
+
+      /** `DELETE /competitors/{id}` — soft delete, so it can be re-added. */
+      deleteCompetitor: (orgId: string, competitorId: string) =>
+        apiRequest<void>(
+          `/organizations/${orgId}/competitors/${competitorId}`,
+          { method: "DELETE" },
+        ),
+    },
 
     /** Visibility-gated startup profile; non-public profiles 404 (Step 5a). */
     startup: (slug: string, signal?: AbortSignal) =>

@@ -97,23 +97,23 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [ ] B: `/startup/dashboard` wired, unavailable cards empty or hidden
 
 ### 5h Discovery and public startup page
-- [ ] A: startup list with filters, public read, visibility tests for each value
+- [x] A: startup list with filters, public read, visibility tests for each value
 
 ### 5i Stage criteria and progress
-- [ ] A: stage exit criteria source decided (readiness rows by stage), `startup_stage_history` proposed and built, stage change history written in the same transaction
-- [ ] B: /startup/stage and the five stage pages wired; demo data removed
+- [x] A: stage exit criteria source decided (readiness rows by stage), `startup_stage_history` proposed and built, stage change history written in the same transaction
+- [x] B: /startup/stage and the five stage pages wired; demo data removed
 
 ### 5j Stage tools (GAP)
-- [ ] A: generic `stage_tool_progress` proposed and built; specialized tools listed with a decision for each
-- [ ] B: tool panels on the stage pages wired
+- [x] A: generic `stage_tool_progress` proposed and built; specialized tools listed with a decision for each
+- [x] B: tool panels on the stage pages wired
 
 ### 5k Analytics: business tab (GAP)
-- [ ] A: extra metric keys and funnel model proposed and built; calculated values computed in the service
-- [ ] B: /startup/analytics Business tab wired
+- [x] A: extra metric keys and funnel model proposed and built; calculated values computed in the service
+- [x] B: /startup/analytics Business tab wired
 
 ### 5l Analytics: market tab (GAP)
-- [ ] A: market size and competitors proposed and built, visibility toggles enforced
-- [ ] B: /startup/analytics Market tab (market size, competitors) wired
+- [x] A: market size and competitors proposed and built, visibility toggles enforced
+- [x] B: /startup/analytics Market tab (market size, competitors) wired
 
 ### 5m Analytics: journey tab and leftovers (build after Steps 7, 8, 9)
 - [ ] A: aggregate endpoints, anonymous benchmark rule with a minimum group size

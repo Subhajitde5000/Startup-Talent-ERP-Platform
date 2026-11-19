@@ -16,9 +16,11 @@ from app.core.exceptions import AppException, error_body
 from app.core.logging import RequestIDMiddleware, configure_logging
 from app.db.session import engine
 from app.routers import (
+    analytics,
     auth,
     discovery,
     invites,
+    market,
     mentor,
     metrics,
     milestones,
@@ -117,6 +119,9 @@ def create_app() -> FastAPI:
     app.include_router(discovery.router, prefix=settings.API_V1_PREFIX)
     # Step 5i/5j: stage summary, history, exit criteria and stage tools.
     app.include_router(stage.router, prefix=settings.API_V1_PREFIX)
+    # Steps 5k/5l: business analytics and the market tab.
+    app.include_router(analytics.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(market.router, prefix=settings.API_V1_PREFIX)
     return app
 
 

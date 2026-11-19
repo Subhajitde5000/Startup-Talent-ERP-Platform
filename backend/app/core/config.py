@@ -76,10 +76,18 @@ class Settings(BaseSettings):
     # Step 5f: readiness state transitions, per actor.
     READINESS_ACTION_LIMIT: int = 30
     READINESS_ACTION_WINDOW_SECONDS: int = 300
+    # Step 5i/5j: stage changes and stage-tool writes, per actor.
+    STAGE_WRITE_LIMIT: int = 30
+    STAGE_WRITE_WINDOW_SECONDS: int = 300
     # Step 5e: metric upsert/delete, per actor. A founder entering the
     # eight keys for six months is 48 writes, so the window is comfortable.
     METRICS_WRITE_LIMIT: int = 60
     METRICS_WRITE_WINDOW_SECONDS: int = 300
+    # Step 5l: market-size and competitor writes, per actor. A team filling
+    # in TAM/SAM/SOM across three scenarios plus a dozen competitors is
+    # comfortably under this; a scripted loop is cut off.
+    ANALYTICS_WRITE_LIMIT: int = 60
+    ANALYTICS_WRITE_WINDOW_SECONDS: int = 300
 
     # CORS: explicit allow-list only, never "*" with credentials.
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])
