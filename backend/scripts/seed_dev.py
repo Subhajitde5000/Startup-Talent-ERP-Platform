@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import asyncio
 import calendar
+import hashlib
 import re
+import secrets
 import sys
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -41,6 +43,7 @@ from app.models.milestone import Milestone  # noqa: E402
 from app.models.organization import (  # noqa: E402
     MemberStatus,
     Organization,
+    OrganizationInvite,
     OrganizationMember,
     OrgRole,
 )
@@ -694,6 +697,7 @@ async def seed() -> None:
         # and team cards look populated in development. Fill-only.
         startup_profile_added = 0
         extra_members_added = 0
+        team_state_added = 0
         milestones_added = 0
         tasks_added = 0
         founder_org = (
@@ -783,6 +787,75 @@ async def seed() -> None:
                     )
                     extra_members_added += 1
                     await db.commit()
+
+            # Step 3d: the team page has states that only appear once a
+            # member is deactivated and an invite is pending. Seed one of
+            # each so the wired page shows every state in development.
+            # Fill-only and idempotent, like everything else here.
+            deactivated_user = (
+                await db.execute(
+                    select(User).where(User.primary_email == "jobseeker@forma.dev")
+                )
+            ).scalar_one_or_none()
+            if deactivated_user is not None:
+                deact_exists = (
+                    await db.execute(
+                        select(OrganizationMember.id).where(
+                            OrganizationMember.org_id == founder_org.id,
+                            OrganizationMember.user_id == deactivated_user.id,
+                        )
+                    )
+                ).first()
+                if deact_exists is None:
+                    db.add(
+                        OrganizationMember(
+                            org_id=founder_org.id,
+                            user_id=deactivated_user.id,
+                            role=OrgRole.member,
+                            status=MemberStatus.deactivated,
+                            title="Former design intern",
+                            department=None,
+                            joined_at=now,
+                            last_active_at=now,
+                        )
+                    )
+                    team_state_added += 1
+                    await db.commit()
+
+            founder_user = (
+                await db.execute(
+                    select(User).where(User.primary_email == "founder@forma.dev")
+                )
+            ).scalar_one_or_none()
+            pending_invite = (
+                await db.execute(
+                    select(OrganizationInvite.id).where(
+                        OrganizationInvite.org_id == founder_org.id,
+                        OrganizationInvite.email == "designer@forma.dev",
+                        OrganizationInvite.accepted_at.is_(None),
+                        OrganizationInvite.revoked_at.is_(None),
+                    )
+                )
+            ).first()
+            if pending_invite is None:
+                # The raw token is never printed: only its hash is stored,
+                # exactly as the API does it.
+                seed_token = secrets.token_urlsafe(32)
+                db.add(
+                    OrganizationInvite(
+                        org_id=founder_org.id,
+                        email="designer@forma.dev",
+                        role=OrgRole.member,
+                        title="Product designer",
+                        message="We would love your help shaping the v1 design.",
+                        is_public=True,
+                        token_hash=hashlib.sha256(seed_token.encode()).hexdigest(),
+                        invited_by=founder_user.id if founder_user else None,
+                        expires_at=now + timedelta(days=14),
+                    )
+                )
+                team_state_added += 1
+                await db.commit()
 
             profile_exists = (
                 await db.execute(
@@ -1263,6 +1336,7 @@ async def seed() -> None:
     print(f"  + {orgs_added} organisation(s) with owner memberships")
     print(f"  + startup profile (5a): {startup_profile_added}")
     print(f"  + extra org member (5a): {extra_members_added}")
+    print(f"  + team states (3d deactivated member / pending invite): {team_state_added}")
     print(f"  + milestones (5b): {milestones_added}")
     print(f"  + tasks (5c): {tasks_added}")
     print(f"  + readiness items (5f): {readiness_added}")

@@ -88,6 +88,15 @@ class Settings(BaseSettings):
     # comfortably under this; a scripted loop is cut off.
     ANALYTICS_WRITE_LIMIT: int = 60
     ANALYTICS_WRITE_WINDOW_SECONDS: int = 300
+    # Step 3d: invite resend, per invite and per organization. A resend
+    # mails a third party, so the per-invite cap is deliberately small.
+    INVITE_RESEND_LIMIT: int = 3
+    INVITE_RESEND_WINDOW_SECONDS: int = 3600
+    INVITE_RESEND_ORG_LIMIT: int = 20
+    INVITE_RESEND_ORG_WINDOW_SECONDS: int = 3600
+    # Step 3d: last_active_at is written at most this often per member, so
+    # reading the team page does not mean one UPDATE per member per request.
+    LAST_ACTIVE_THROTTLE_SECONDS: int = 300
 
     # CORS: explicit allow-list only, never "*" with credentials.
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])

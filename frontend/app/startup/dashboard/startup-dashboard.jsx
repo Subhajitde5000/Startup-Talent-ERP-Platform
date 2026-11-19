@@ -1,7 +1,9 @@
 'use client';
-import {useState} from 'react';
+import {useState, useEffect} from 'react';
 import Link from 'next/link';
-import { StartupSidebar, StartupHeader, Card, Button } from '../../../components';
+import { StartupSidebar, StartupHeader, Card, Button, NoStartupOrg } from '../../../components';
+import { useAuth } from '@/lib/auth-context';
+import { api } from '@/lib/api/client';
 import {
   LayoutDashboard,ListTodo,Lightbulb,Briefcase,Users,Settings,CircleHelp,ChevronRight,Check,Plus,ArrowUpRight,CalendarDays,
   Clock,MoreHorizontal,FileText,Presentation,FileSpreadsheet,Menu,Eye,EyeOff,LockKeyhole,
@@ -15,6 +17,7 @@ const initialTasks = [
 ];
 
 export default function StartupDashboard() {
+  const { user } = useAuth();
   const [compact, setCompact] = useState(false);
   const [darkmode, setDarkmode] = useState(false);
   const [mobile, setMobile] = useState(false);
@@ -25,6 +28,31 @@ export default function StartupDashboard() {
   const [toast, setToast] = useState('');
   const [search, setSearch] = useState('');
   const [checked, setChecked] = useState([true, true, false, true, false, false]);
+
+  const [orgChecked, setOrgChecked] = useState(false);
+  const [hasOrg, setHasOrg] = useState(true);
+  const [orgName, setOrgName] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    api.organizations.mine()
+      .then(orgs => {
+        if (!alive) return;
+        const st = orgs.find(o => o.type === 'startup');
+        if (st) {
+          setHasOrg(true);
+          setOrgName(st.name || '');
+        } else {
+          setHasOrg(false);
+        }
+        setOrgChecked(true);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setOrgChecked(true);
+      });
+    return () => { alive = false; };
+  }, []);
 
   const stages = ['Idea', 'Prototype', 'Early revenue', 'Mature'];
   const showToast = t => {
@@ -74,21 +102,28 @@ export default function StartupDashboard() {
 
       {/* Main Content */}
       <main id="main" className={`mx-auto max-w-[1440px] px-4 pb-24 pt-7 sm:px-7 lg:px-8 lg:pb-10 ${compact ? 'lg:ml-[76px]' : 'lg:ml-[240px]'}`}>
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="mb-1 text-sm text-[#4A5568]">
-              Thursday, November 5, 2026 <span className="mx-2 text-[#B8955A]">·</span> Acme Studio
-            </p>
-            <h1 className="serif text-[30px] font-semibold tracking-tight">Good evening, Aarav</h1>
-            <p className="mt-1 text-sm text-[#4A5568]">Here’s your startup’s progress and what’s next.</p>
-          </div>
-          <Link
-            href="/startup/team"
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] bg-ink px-3.5 text-sm font-semibold text-white hover:bg-[#1C2B42]"
-          >
-            <Plus size={17} /> Invite a teammate
-          </Link>
-        </div>
+        {orgChecked && !hasOrg ? (
+          <NoStartupOrg title="No active startup organization" />
+        ) : (
+          <>
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="mb-1 text-sm text-[#4A5568]">
+                  {orgName ? `${orgName} · Workspace` : 'Startup Workspace'}
+                </p>
+                <h1 className="serif text-[30px] font-semibold tracking-tight">
+                  Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}
+                  {user?.display_name ? `, ${user.display_name.split(' ')[0]}` : ''}
+                </h1>
+                <p className="mt-1 text-sm text-[#4A5568]">Here’s your startup’s progress and what’s next.</p>
+              </div>
+              <Link
+                href="/startup/team"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] bg-ink px-3.5 text-sm font-semibold text-white hover:bg-[#1C2B42]"
+              >
+                <Plus size={17} /> Invite a teammate
+              </Link>
+            </div>
 
         {/* Current Stage Card */}
         <section className="mb-6 rounded-xl border border-[#E5E1D8] bg-white p-5 sm:p-6">
@@ -541,6 +576,8 @@ export default function StartupDashboard() {
             </Card>
           </div>
         </div>
+          </>
+        )}
       </main>
 
       {/* Mobile Bottom Navigation */}

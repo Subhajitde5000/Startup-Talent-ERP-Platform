@@ -55,4 +55,5 @@ export { default as MetricStatStrip } from './metric-stat-strip';
 export { default as SearchFilterBar } from './search-filter-bar';
 export { default as Modal } from './modal';
 export { default as NotificationDropdown } from './notification-dropdown';
+export { default as NoStartupOrg } from './NoStartupOrg';
 export { Card, Button, Btn, StatusBadge, Toast } from './ui';

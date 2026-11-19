@@ -57,23 +57,33 @@ export default function AuthScreen({ page }) {
   const [resending, setResending] = useState(false);
   const [resendMsg, setResendMsg] = useState('');
   const [token, setToken] = useState('');
+  const [nextUrl, setNextUrl] = useState('');
 
   const [title, subtitle] = titles[page] || titles.login;
 
-  // Reset link carries ?token=… ; read it on mount (client only).
+  // Read URL query params on mount: reset token (?token=...) or redirect (?next=...).
   useEffect(() => {
-    if (page !== 'reset') return;
     const params = new URLSearchParams(window.location.search);
-    const t = params.get('token') || '';
-    setToken(t);
-    if (!t) setErr('This reset link is invalid or expired. Please request a new one.');
+    const n = params.get('next');
+    if (n && n.startsWith('/')) {
+      setNextUrl(n);
+    }
+    if (page === 'reset') {
+      const t = params.get('token') || '';
+      setToken(t);
+      if (!t) setErr('This reset link is invalid or expired. Please request a new one.');
+    }
   }, [page]);
 
   // Already signed in → don't show the login form again.
   useEffect(() => {
     if (page !== 'login' || authLoading || !user) return;
-    router.replace(landingPath(user));
-  }, [page, authLoading, user, router]);
+    if (nextUrl) {
+      router.replace(nextUrl);
+    } else {
+      router.replace(landingPath(user));
+    }
+  }, [page, authLoading, user, nextUrl, router]);
 
   // Deep links into the multi-step signup need the earlier steps first.
   useEffect(() => {
@@ -99,7 +109,11 @@ export default function AuthScreen({ page }) {
         }
         setBusy(true);
         const me = await login(email, password);
-        router.replace(landingPath(me));
+        if (nextUrl) {
+          router.replace(nextUrl);
+        } else {
+          router.replace(landingPath(me));
+        }
         return;
       }
 
@@ -114,7 +128,7 @@ export default function AuthScreen({ page }) {
         }
         setBusy(true);
         setSignupDraft(email, password);
-        router.push('/register/role');
+        router.push(`/register/role${nextUrl ? `?next=${encodeURIComponent(nextUrl)}` : ''}`);
         return;
       }
 
@@ -138,7 +152,7 @@ export default function AuthScreen({ page }) {
           role: API_ROLE[role],
         });
         setPendingEmail(draft.email);
-        router.push('/verify-email');
+        router.push(`/verify-email${nextUrl ? `?next=${encodeURIComponent(nextUrl)}` : ''}`);
         return;
       }
 
@@ -156,7 +170,11 @@ export default function AuthScreen({ page }) {
         const me = await verifyEmail(pending, code);
         clearPendingEmail();
         clearSignupDraft();
-        router.replace(landingPath(me));
+        if (nextUrl) {
+          router.replace(nextUrl);
+        } else {
+          router.replace(landingPath(me));
+        }
         return;
       }
 
@@ -393,10 +411,10 @@ export default function AuthScreen({ page }) {
                 ) : page === 'login' ? 'Sign in' : page === 'register' ? 'Create account' : page === 'role' ? 'Continue' : page === 'verify' ? 'Verify email' : page === 'forgot' ? 'Send reset link' : page === 'reset' ? 'Update password' : 'Continue'}
               </button>
               {page === 'login' && (
-                <p className="text-center text-sm text-stone-700">New here? <Link href="/register" className="font-semibold">Create an account</Link></p>
+                <p className="text-center text-sm text-stone-700">New here? <Link href={`/register${nextUrl ? `?next=${encodeURIComponent(nextUrl)}` : ''}`} className="font-semibold">Create an account</Link></p>
               )}
               {page === 'register' && (
-                <p className="text-center text-sm text-stone-700">Already have an account? <Link href="/login" className="font-semibold">Sign in</Link></p>
+                <p className="text-center text-sm text-stone-700">Already have an account? <Link href={`/login${nextUrl ? `?next=${encodeURIComponent(nextUrl)}` : ''}`} className="font-semibold">Sign in</Link></p>
               )}
               {page === 'forgot' && (
                 <p className="text-center text-sm"><Link href="/login">Back to sign in</Link></p>
