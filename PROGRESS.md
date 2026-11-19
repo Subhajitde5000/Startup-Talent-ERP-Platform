@@ -53,6 +53,8 @@ _Backend phase (A) complete: 32 tests pass, ruff + mypy clean, migrations up/dow
 - [x] Onboarding flow per role (all 5 flows PATCH users/me onboarding_step on step change and 'completed' on finish — verified live GET round-trip; org/talent/mentor finish data persists through the profile APIs above)
 - [x] Public vs private views (separate Read schemas: public org GET /public/organizations/{slug}, public talent requires is_searchable AND users.profile_public else 404, public mentor respects profile_public — verified live)
 - [x] Notification preferences stub (GET/PATCH /users/me/notification-preferences, PK user+category+channel — wired in investor/mentor notification tables + jobseeker email-alerts toggle)
+- [ ] 3d Team management completion, A: backend (deactivate/reactivate, resend invite and invite email, bulk actions, last_active_at, server-side filters, audit, export, unassign tasks on remove, owner transfer flow, member drawer data)
+- [ ] 3d Team management completion, B: /startup/team wired, no local-only actions left
 
 ## Step 4: Files (deferred, not needed for Step 5)
 - [ ] R2 integration and signed upload URLs
@@ -97,8 +99,28 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 ### 5h Discovery and public startup page
 - [ ] A: startup list with filters, public read, visibility tests for each value
 
-### 5i Step 5 test pass
-- [ ] Click-through as founder, member, viewer, mentor, investor
+### 5i Stage criteria and progress
+- [ ] A: stage exit criteria source decided (readiness rows by stage), `startup_stage_history` proposed and built, stage change history written in the same transaction
+- [ ] B: /startup/stage and the five stage pages wired; demo data removed
+
+### 5j Stage tools (GAP)
+- [ ] A: generic `stage_tool_progress` proposed and built; specialized tools listed with a decision for each
+- [ ] B: tool panels on the stage pages wired
+
+### 5k Analytics: business tab (GAP)
+- [ ] A: extra metric keys and funnel model proposed and built; calculated values computed in the service
+- [ ] B: /startup/analytics Business tab wired
+
+### 5l Analytics: market tab (GAP)
+- [ ] A: market size and competitors proposed and built, visibility toggles enforced
+- [ ] B: /startup/analytics Market tab (market size, competitors) wired
+
+### 5m Analytics: journey tab and leftovers (build after Steps 7, 8, 9)
+- [ ] A: aggregate endpoints, anonymous benchmark rule with a minimum group size
+- [ ] B: /startup/analytics Journey tab and remaining cards wired
+
+### 5n Step 5 test pass
+- [ ] Click-through of 5a to 5l as founder, member, viewer, mentor, investor (repeat for 5m when built)
 - [ ] No leftover demo data on wired pages
 
 ## Step 6: Connections (only if the frontend needs it)
@@ -109,7 +131,7 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 ## Step 7: Hiring (one sub-step at a time; A = backend, B = frontend wired)
 
 ### 7a Jobs (employer)
-- [ ] A: Create, edit, publish, pause, close and archive jobs; salary and equity ranges; job visibility
+- [ ] A: Create, edit, publish, pause, close and archive jobs; salary and equity ranges; job visibility. Jobs belong to an organization of type employer or startup (startups hire too)
 - [ ] B: /employer/jobs/new, /employer/jobs/[jobId]/edit, /employer/jobs/[jobId] (job details), /employer/hiring wired; demo data removed
 
 ### 7b Job search and company pages (job seeker)
@@ -176,19 +198,31 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [ ] A: Scoring against the rubric and the session report
 - [ ] B: /jobseeker/practice/[sessionId]/report, /jobseeker/practice/rubric wired; demo data removed
 
-### 7r Job seeker dashboard and Step 7 test pass
-- [ ] A: Dashboard from 7a to 7q, then a click-through of every employer and job seeker page above
-- [ ] B: /jobseeker/dashboard, then all pages from 7a to 7q wired; demo data removed
+### 7r Startup hiring: jobs and applicants
+- [ ] A: Wire the startup hiring pages to the APIs from 7a and 7d: hiring overview, job editor, job detail with applicants, applicant detail. Mostly frontend; fix small API gaps only
+- [ ] B: /startup/hiring, /startup/hiring/jobs/new, /startup/hiring/[jobId], /startup/hiring/[jobId]/applicants/[applicantId] wired; demo data removed
+
+### 7s Startup hiring: interviews and offers
+- [ ] A: Wire the startup interviews and offers pages to 7f and 7g
+- [ ] B: /startup/hiring/interviews, /startup/hiring/offers wired; demo data removed
+
+### 7t Startup hiring: talent search, requests and employer page
+- [ ] A: Wire talent search (7j), hiring requests (7i) and the startup's public employer page (organization page plus its open jobs)
+- [ ] B: /startup/hiring/talent, /startup/hiring/requests/new, /startup/hiring/employer-page wired; demo data removed
+
+### 7u Job seeker dashboard and Step 7 test pass
+- [ ] A: Job seeker dashboard from 7a to 7q, then a click-through of every employer, startup hiring and job seeker page above
+- [ ] B: /jobseeker/dashboard, then all pages from 7a to 7t wired; demo data removed
 
 ## Step 8: Mentors (one sub-step at a time; A = backend, B = frontend wired)
 
 ### 8a Mentor directory (startup view)
 - [ ] A: Search and filter mentors, public mentor page, mentor suggestions for a startup
-- [ ] B: /startup/mentors (discover), public mentor profile wired; demo data removed
+- [ ] B: /startup/mentors/find, /startup/mentors/find/[mentorId] wired; demo data removed
 
 ### 8b Mentorship requests
 - [ ] A: A startup requests a mentor, the mentor accepts or declines, one active mentorship per pair, end a mentorship
-- [ ] B: /mentor/requests, /mentor/startups (list), /mentor/discover, /startup/mentors (my mentors and requests) wired; demo data removed
+- [ ] B: /mentor/requests, /mentor/startups (list), /mentor/discover, /startup/mentors/requests wired; demo data removed
 
 ### 8c Availability slots (GAP, only if the UI needs it)
 - [ ] A: Mentor weekly availability with timezone, so sessions can be booked into free slots
@@ -196,7 +230,7 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 
 ### 8d Sessions
 - [ ] A: Schedule, confirm, reschedule, cancel, complete with summary and action items, no-show; no double booking
-- [ ] B: /mentor/sessions, /mentor/sessions/[sessionId], /startup/sessions wired; demo data removed
+- [ ] B: /mentor/sessions, /mentor/sessions/[sessionId], /startup/sessions, /startup/sessions/[sessionId] wired; demo data removed
 
 ### 8e Deliverables
 - [ ] A: Create, assign, submit and review deliverables with a status flow; link to readiness items
@@ -204,11 +238,11 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 
 ### 8f Mentor readiness sign-off
 - [ ] A: Switch on mentor sign-off for the readiness items from 5f; only a mentor with an active mentorship; revoke
-- [ ] B: /mentor/startups/[mentorshipId]/readiness wired; demo data removed
+- [ ] B: /mentor/startups/[mentorshipId]/readiness, /startup/readiness (sign-off status) wired; demo data removed
 
 ### 8g Agreements
 - [ ] A: Terms (fee, equity, cadence), send, sign by each side, versions
-- [ ] B: /mentor/agreements, /mentor/agreements/[agreementId], agreement view for the startup wired; demo data removed
+- [ ] B: /mentor/agreements, /mentor/agreements/[agreementId], agreement card in /startup/mentors/[mentorshipId] wired; demo data removed
 
 ### 8h Earnings records
 - [ ] A: Record per completed session (gross, commission, TDS, net) and summaries; payouts are paid in 14f
@@ -220,7 +254,7 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 
 ### 8j Mentor workspace, dashboard and impact
 - [ ] A: Mentorship workspace, health indicator, dashboard and derived impact numbers
-- [ ] B: /mentor/startups/[mentorshipId], /mentor/startups/[mentorshipId]/startup, /mentor/dashboard, /mentor/impact wired; demo data removed
+- [ ] B: /mentor/startups/[mentorshipId], /mentor/startups/[mentorshipId]/startup, /mentor/dashboard, /mentor/impact, /startup/mentors (overview), /startup/mentors/[mentorshipId] (workspace) wired; demo data removed
 
 ### 8k Step 8 test pass
 - [ ] Click-through done, no leftover demo data on wired pages
@@ -231,47 +265,55 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [ ] A: Create and edit a round (target, instrument, valuation, dates), status, progress against target
 - [ ] B: /startup/rounds, /startup/rounds/[roundId] wired; demo data removed
 
-### 9b Investor discovery and startup detail
-- [ ] A: Search startups with filters, startup detail respecting visibility and the round visibility toggles; compare stays client-side
+### 9b Investor directory (startup view)
+- [ ] A: Startup searches and filters investors, public investor page; uses the investor organization profile and, once 9d exists, investor preferences
+- [ ] B: /startup/investors/discover, /startup/investors/[investorId] wired; demo data removed
+
+### 9c Startup discovery (investor view)
+- [ ] A: Search startups with filters, startup detail respecting visibility and round toggles; compare stays client-side
 - [ ] B: /investor/discover, /investor/startups/[startupId], /investor/compare wired; demo data removed
 
-### 9c Preferences, saved searches and shortlist (GAP)
+### 9d Preferences, saved searches and shortlist (GAP)
 - [ ] A: Investor preferences (sectors, stage, ticket size), saved searches, shortlist; propose tables first
 - [ ] B: /investor/searches, /investor/shortlist, preferences in profile edit wired; demo data removed
 
-### 9d Pipeline
-- [ ] A: Investor deal board with stages, probability, ticket size, next step, stage history, private notes; startup side sees its own investor list without private notes
-- [ ] B: /investor/pipeline, /startup/investors wired; demo data removed
+### 9e Pipeline
+- [ ] A: Investor deal board with stages, probability, ticket size, next step, stage history, private notes; the startup sees its own investor list without private notes
+- [ ] B: /investor/pipeline, /startup/investors/pipeline wired; demo data removed
 
-### 9e Requests and introductions (GAP)
+### 9f Requests, introductions and meetings (GAP)
 - [ ] A: Intro, meeting and information requests between investors and startups; propose the model first
-- [ ] B: /investor/requests, /investor/meetings, investor requests in /startup/investors wired; demo data removed
+- [ ] B: /investor/requests, /investor/meetings, /startup/meetings wired; demo data removed
 
-### 9f Data room core (needs Step 4)
+### 9g Data room core (needs Step 4)
 - [ ] A: Folders, documents stored as files, visibility level per document, versions
 - [ ] B: /startup/data-room wired; demo data removed
 
-### 9g Data room access, NDA and audit
+### 9h Data room access, NDA and audit
 - [ ] A: Access requests (approve, deny, revoke, expire), NDA tracking, every view logged
 - [ ] B: /startup/data-room/requests, /investor/data-rooms, /investor/data-rooms/[startupId], /investor/data-rooms/[startupId]/nda wired; demo data removed
 
-### 9h Offers
+### 9i Offers
 - [ ] A: Offers with versions and counters; accept, decline, expire
-- [ ] B: /investor/offers, /investor/offers/new, /investor/offers/[offerId], offers view for the startup wired; demo data removed
+- [ ] B: /investor/offers, /investor/offers/new, /investor/offers/[offerId], offers shown to the startup wired; demo data removed
 
-### 9i Commitments and portfolio
+### 9j Commitments and portfolio
 - [ ] A: Commitments with status and funding progress; portfolio holdings
 - [ ] B: /investor/commitments, /investor/commitments/[commitmentId], /investor/portfolio, /investor/portfolio/[startupId] wired; demo data removed
 
-### 9j Diligence (GAP)
+### 9k Diligence (GAP)
 - [ ] A: Diligence checklist and notes per startup; no table exists, propose first
 - [ ] B: /investor/startups/[startupId]/diligence wired; demo data removed
 
-### 9k Investor dashboard, insights and activity
+### 9l Investor dashboard, insights and activity
 - [ ] A: Read-only aggregates and activity feed
 - [ ] B: /investor/dashboard, /investor/insights, /investor/activity wired; demo data removed
 
-### 9l Step 9 test pass
+### 9m Startup investor hub and visibility settings
+- [ ] A: Startup's investor overview (read-only aggregates from 9a to 9j) and the visibility settings page, which reuses the profile visibility API from 5a
+- [ ] B: /startup/investors (hub), /startup/investors/settings wired; demo data removed
+
+### 9n Step 9 test pass
 - [ ] Click-through done, no leftover demo data on wired pages
 
 ## Step 10: Community and events
@@ -332,7 +374,11 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [ ] A: Match payments to provider settlements, admin billing overview
 - [ ] B: /admin/billing wired; demo data removed
 
-### 14h Step 14 test pass
+### 14h Mentorship payments (startup side, GAP)
+- [ ] A: The startup pays its mentor: agreement summary, payments and receipts, session credits, payment method. `schema.sql` has no link between a payment or invoice and a mentorship or session, so propose one (for example a `mentorship_id` or `session_id` on invoice lines)
+- [ ] B: /startup/mentors/[mentorshipId]/billing wired; demo data removed
+
+### 14i Step 14 test pass
 - [ ] Click-through done, no leftover demo data on wired pages
 
 ## Step 15: Admin console (one sub-step at a time; A = backend, B = frontend wired)
