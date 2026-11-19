@@ -134,22 +134,229 @@ CRITERIA_SPEC: list[dict[str, object]] = [
     },
 ]
 
+# 5i (D1): the 25 stage exit criteria, five per stage, in page order.
+# Titles mirror ``frontend/app/startup/stage/stage-page.jsx`` verbatim so
+# the UI can swap demo copy for these rows without a redesign.
+# ``is_exit_criterion=True`` keeps them OUT of readiness_score; ``code`` is
+# prefixed ``exit_`` so it can never collide with a 5f readiness item.
+_EXIT_CRITERIA_SPEC: list[dict[str, object]] = [
+    # --- idea ---------------------------------------------------------
+    {
+        "code": "exit_idea_problem_statement",
+        "description": 'A written problem statement that a mentor has read and confirmed.',
+        "title": "Problem statement written and reviewed by a mentor",
+        "stage": StartupStage.idea,
+        "display_order": 1,
+    },
+    {
+        "code": "exit_idea_customer_interviews",
+        "description": 'Interview notes from at least ten conversations, with the themes summarized.',
+        "title": "At least 10 customer interviews logged, with insights summarized",
+        "stage": StartupStage.idea,
+        "display_order": 2,
+    },
+    {
+        "code": "exit_idea_customer_profile",
+        "description": 'A description of who the customer is, what they need and how they buy.',
+        "title": "Target customer profile defined",
+        "stage": StartupStage.idea,
+        "display_order": 3,
+    },
+    {
+        "code": "exit_idea_market_size",
+        "description": 'TAM, SAM and SOM with the sources behind each assumption.',
+        "title": "Market size estimated with sources",
+        "stage": StartupStage.idea,
+        "display_order": 4,
+    },
+    {
+        "code": "exit_idea_problem_validated",
+        "description": 'A mentor has reviewed your interviews and agrees the problem is real.',
+        "title": "Mentor confirms the problem is validated",
+        "stage": StartupStage.idea,
+        "display_order": 5,
+    },
+    # --- prototype ----------------------------------------------------
+    {
+        "code": "exit_prototype_mvp_scope",
+        "description": 'The smallest useful version is written down and ranked by what you will build first.',
+        "title": "MVP scope defined and prioritized",
+        "stage": StartupStage.prototype,
+        "display_order": 1,
+    },
+    {
+        "code": "exit_prototype_released",
+        "description": 'Test users can reach the prototype and complete the core flow.',
+        "title": "Working prototype released to test users",
+        "stage": StartupStage.prototype,
+        "display_order": 2,
+    },
+    {
+        "code": "exit_prototype_test_users",
+        "description": 'Feedback from at least five test users, recorded and grouped.',
+        "title": "At least 5 test users have tried it and given feedback",
+        "stage": StartupStage.prototype,
+        "display_order": 3,
+    },
+    {
+        "code": "exit_prototype_feedback_reviewed",
+        "description": 'What you learned is written up and the next iteration is planned.',
+        "title": "Feedback reviewed and next iterations planned",
+        "stage": StartupStage.prototype,
+        "display_order": 4,
+    },
+    {
+        "code": "exit_prototype_mvp_confirmed",
+        "description": 'A mentor has used the prototype and agrees it works as intended.',
+        "title": "Mentor confirms the MVP is functional",
+        "stage": StartupStage.prototype,
+        "display_order": 5,
+    },
+    # --- early revenue -------------------------------------------------
+    {
+        "code": "exit_early_revenue_customers",
+        "description": 'Paying customers onboarded, and the target segment confirmed against them.',
+        "title": "Paying customers onboarded and target confirmed",
+        "stage": StartupStage.early_revenue,
+        "display_order": 1,
+    },
+    {
+        "code": "exit_early_revenue_recurring",
+        "description": 'Three consecutive months of recurring revenue, recorded in your metrics.',
+        "title": "Recurring revenue recorded for 3 consecutive months",
+        "stage": StartupStage.early_revenue,
+        "display_order": 2,
+    },
+    {
+        "code": "exit_early_revenue_sales_process",
+        "description": 'The steps from first contact to signed contract, written down and repeatable.',
+        "title": "Sales process documented and repeatable",
+        "stage": StartupStage.early_revenue,
+        "display_order": 3,
+    },
+    {
+        "code": "exit_early_revenue_unit_economics",
+        "description": 'CAC and payback calculated from your own numbers, not estimates.',
+        "title": "Unit economics (CAC, payback) calculated",
+        "stage": StartupStage.early_revenue,
+        "display_order": 4,
+    },
+    {
+        "code": "exit_early_revenue_traction_confirmed",
+        "description": 'A mentor has reviewed your revenue and agrees traction is real.',
+        "title": "Mentor confirms traction",
+        "stage": StartupStage.early_revenue,
+        "display_order": 5,
+    },
+    # --- growth --------------------------------------------------------
+    {
+        "code": "exit_growth_channels",
+        "description": 'The channels that bring demand, with their cost and volume recorded.',
+        "title": "Growth channels documented and producing steady demand",
+        "stage": StartupStage.growth,
+        "display_order": 1,
+    },
+    {
+        "code": "exit_growth_retention",
+        "description": 'Retention and conversion tracked weekly, with definitions for each metric.',
+        "title": "Retention and conversion tracked week over week",
+        "stage": StartupStage.growth,
+        "display_order": 2,
+    },
+    {
+        "code": "exit_growth_unit_economics",
+        "description": 'CAC, LTV and payback modelled and consistent with the plan.',
+        "title": "Unit economics (CAC, LTV, payback) support the plan",
+        "stage": StartupStage.growth,
+        "display_order": 3,
+    },
+    {
+        "code": "exit_growth_hiring_plan",
+        "description": 'The roles you need over the next twelve months, with timing and budget.',
+        "title": "Hiring plan aligned to the next 12 months",
+        "stage": StartupStage.growth,
+        "display_order": 4,
+    },
+    {
+        "code": "exit_growth_engine_confirmed",
+        "description": 'A mentor has reviewed the channel data and agrees growth is repeatable.',
+        "title": "Mentor confirms the growth engine is repeatable",
+        "stage": StartupStage.growth,
+        "display_order": 5,
+    },
+    # --- mature --------------------------------------------------------
+    {
+        "code": "exit_mature_financials",
+        "description": 'Current financial statements, reviewed and internally consistent.',
+        "title": "Financials reviewed and up to date",
+        "stage": StartupStage.mature,
+        "display_order": 1,
+    },
+    {
+        "code": "exit_mature_cap_table",
+        "description": 'Cap table and option pool kept current, including recent grants.',
+        "title": "Cap table and ESOP plan current",
+        "stage": StartupStage.mature,
+        "display_order": 2,
+    },
+    {
+        "code": "exit_mature_board_reporting",
+        "description": 'A regular board pack and a standing reporting date.',
+        "title": "Board reporting cadence established",
+        "stage": StartupStage.mature,
+        "display_order": 3,
+    },
+    {
+        "code": "exit_mature_data_room",
+        "description": 'The diligence documents are complete and access is reviewed.',
+        "title": "Data room complete and access reviewed",
+        "stage": StartupStage.mature,
+        "display_order": 4,
+    },
+    {
+        "code": "exit_mature_operating_plan",
+        "description": 'A twelve-month hiring and operating plan that matches the budget.',
+        "title": "12-month hiring and operating plan ready",
+        "stage": StartupStage.mature,
+        "display_order": 5,
+    },
+]
+
+# The spec actually bootstrapped: the six 5f items (is_exit_criterion
+# False, which is why they keep feeding readiness_score) + the 25 5i items.
+# Every entry carries the flag explicitly so ``_BOOTSTRAP_FIELDS`` can
+# compare it uniformly.
+ALL_CRITERIA_SPEC: list[dict[str, object]] = [
+    *[{"is_exit_criterion": False, **spec} for spec in CRITERIA_SPEC],
+    *[{"is_exit_criterion": True, **spec} for spec in _EXIT_CRITERIA_SPEC],
+]
+
 # Fields the bootstrap owns. Existing rows are updated in place so wording
 # fixes roll out, while activity/weights stay untouched.
-_BOOTSTRAP_FIELDS = ("title", "description", "stage", "display_order")
+_BOOTSTRAP_FIELDS = (
+    "title",
+    "description",
+    "stage",
+    "display_order",
+    "is_exit_criterion",
+)
 
 
 async def bootstrap_criteria(db: AsyncSession) -> tuple[int, int]:
-    """Idempotent criteria bootstrap (BUILD_PLAN 5f item 1, plan D2).
+    """Idempotent criteria bootstrap (5f item 1 plan D2, extended by 5i).
 
     Keyed by ``code``: missing rows are inserted, existing rows are updated
     in place (and re-activated if someone switched them off). Returns
     ``(inserted, updated)``. Never called from a migration — migrations
     carry schema, not data (AGENTS.md).
+
+    Covers BOTH audiences since 5i: the six readiness items
+    (``is_exit_criterion=False``) and the 25 stage exit criteria
+    (``True``). Re-running is a no-op.
     """
     inserted = 0
     updated = 0
-    for spec in CRITERIA_SPEC:
+    for spec in ALL_CRITERIA_SPEC:
         existing = (
             await db.execute(
                 select(ReadinessCriterion).where(
@@ -163,6 +370,11 @@ async def bootstrap_criteria(db: AsyncSession) -> tuple[int, int]:
             continue
         changed = False
         for field in _BOOTSTRAP_FIELDS:
+            # A spec may omit a field (the 5i exit criteria carry no
+            # description): an omitted key means "leave it alone", never
+            # "set it to null". ``setdefault`` keeps the lookup total.
+            if field not in spec:
+                continue
             if getattr(existing, field) != spec[field]:
                 setattr(existing, field, spec[field])
                 changed = True
@@ -175,9 +387,15 @@ async def bootstrap_criteria(db: AsyncSession) -> tuple[int, int]:
 
 
 async def _active_criteria(db: AsyncSession) -> list[ReadinessCriterion]:
+    """The six readiness items (5f). Exit criteria are excluded here so
+    /startup/readiness keeps showing exactly the checklist it always has;
+    they are read through ``stage_service`` instead (5i D1)."""
     result = await db.execute(
         select(ReadinessCriterion)
-        .where(ReadinessCriterion.is_active.is_(True))
+        .where(
+            ReadinessCriterion.is_active.is_(True),
+            ReadinessCriterion.is_exit_criterion.is_(False),
+        )
         .order_by(ReadinessCriterion.display_order, ReadinessCriterion.code)
     )
     return list(result.scalars().all())
@@ -245,7 +463,7 @@ async def _select_state(
     return result.scalar_one_or_none()
 
 
-async def _state_for(
+async def state_for(
     db: AsyncSession, org_id: uuid.UUID, criterion: ReadinessCriterion
 ) -> StartupReadiness:
     """This org's row for a criterion, created on demand (plan D5).
@@ -275,7 +493,9 @@ async def _state_for(
         return winner
 
 
-def _read(criterion: ReadinessCriterion, state: StartupReadiness) -> ReadinessRead:
+def criterion_read(
+    criterion: ReadinessCriterion, state: StartupReadiness
+) -> ReadinessRead:
     return ReadinessRead(
         # The startup_readiness row id — what ``tasks.readiness_id`` points
         # at (schema.sql FK). ``criterion_id`` is the global reference row.
@@ -286,6 +506,7 @@ def _read(criterion: ReadinessCriterion, state: StartupReadiness) -> ReadinessRe
         description=criterion.description,
         stage=criterion.stage,
         display_order=criterion.display_order,
+        is_exit_criterion=criterion.is_exit_criterion,
         status=state.status,
         evidence=state.evidence,
         notes=state.notes,
@@ -301,10 +522,14 @@ async def _recompute_score(db: AsyncSession, org_id: uuid.UUID) -> ReadinessSumm
     Denominator = active criteria count (never the number of touched rows,
     which is what the schema.sql view would divide by).
     """
+    # 5i D1: the score counts the READINESS items only. Stage exit criteria
+    # are readiness rows too, but adding them must never move a 5f
+    # percentage, so both the denominator and the numerator exclude them.
     total = (
         await db.execute(
             select(func.count(ReadinessCriterion.id)).where(
-                ReadinessCriterion.is_active.is_(True)
+                ReadinessCriterion.is_active.is_(True),
+                ReadinessCriterion.is_exit_criterion.is_(False),
             )
         )
     ).scalar_one()
@@ -319,6 +544,7 @@ async def _recompute_score(db: AsyncSession, org_id: uuid.UUID) -> ReadinessSumm
                 StartupReadiness.org_id == org_id,
                 StartupReadiness.status == ReadinessStatus.signed_off,
                 ReadinessCriterion.is_active.is_(True),
+                ReadinessCriterion.is_exit_criterion.is_(False),
             )
         )
     ).scalar_one()
@@ -377,6 +603,7 @@ async def list_criteria(db: AsyncSession) -> list[ReadinessCriterionRead]:
             stage=row.stage,
             weight=row.weight,
             display_order=row.display_order,
+            is_exit_criterion=row.is_exit_criterion,
         )
         for row in rows
     ]
@@ -409,8 +636,8 @@ async def get_board(
     for criterion in criteria:
         state = existing.get(criterion.id)
         if state is None:
-            state = await _state_for(db, org.id, criterion)
-        items.append(_read(criterion, state))
+            state = await state_for(db, org.id, criterion)
+        items.append(criterion_read(criterion, state))
 
     summary = await _recompute_score(db, org.id)
     # The read persists its own not_started rows (D5); scoring rides the
@@ -425,12 +652,12 @@ async def get_item(
     org = await organization_service.startup_org_or_404(db, org_id)
     await organization_service.require_membership(db, org.id, user)
     criterion = await _criterion_or_404(db, criterion_id)
-    state = await _state_for(db, org.id, criterion)
+    state = await state_for(db, org.id, criterion)
     # This call may have created the profile row; never leave the cached
     # roll-up NULL when a readiness row exists (plan D1: 0 when none).
     await _recompute_score(db, org.id)
     await db.commit()
-    return _read(criterion, state)
+    return criterion_read(criterion, state)
 
 
 async def update_evidence(
@@ -452,7 +679,7 @@ async def update_evidence(
         db, org.id, user, roles=set(_WRITE_ROLES)
     )
     criterion = await _criterion_or_404(db, criterion_id)
-    state = await _state_for(db, org.id, criterion)
+    state = await state_for(db, org.id, criterion)
 
     previously_signed_off = state.status == ReadinessStatus.signed_off
     data = payload.model_dump(exclude_unset=True)
@@ -469,7 +696,7 @@ async def update_evidence(
     await _recompute_score(db, org.id)
     await db.commit()
     await db.refresh(state)
-    return _read(criterion, state)
+    return criterion_read(criterion, state)
 
 
 async def submit(
@@ -482,7 +709,7 @@ async def submit(
     )
     await _enforce_action_limit(user, "submit")
     criterion = await _criterion_or_404(db, criterion_id)
-    state = await _state_for(db, org.id, criterion)
+    state = await state_for(db, org.id, criterion)
 
     _require_transition(state.status, _SUBMITTABLE, "submit")
     if not (state.evidence and state.evidence.strip()):
@@ -500,7 +727,7 @@ async def submit(
     await _recompute_score(db, org.id)
     await db.commit()
     await db.refresh(state)
-    return _read(criterion, state)
+    return criterion_read(criterion, state)
 
 
 async def withdraw(
@@ -513,7 +740,7 @@ async def withdraw(
     )
     await _enforce_action_limit(user, "withdraw")
     criterion = await _criterion_or_404(db, criterion_id)
-    state = await _state_for(db, org.id, criterion)
+    state = await state_for(db, org.id, criterion)
 
     _require_transition(
         state.status, frozenset({ReadinessStatus.submitted}), "withdraw"
@@ -522,7 +749,7 @@ async def withdraw(
     await _recompute_score(db, org.id)
     await db.commit()
     await db.refresh(state)
-    return _read(criterion, state)
+    return criterion_read(criterion, state)
 
 
 async def sign_off(
@@ -532,7 +759,7 @@ async def sign_off(
     org = await organization_service.startup_org_or_404(db, org_id)
     await _enforce_action_limit(user, "sign_off")
     criterion = await _criterion_or_404(db, criterion_id)
-    state = await _state_for(db, org.id, criterion)
+    state = await state_for(db, org.id, criterion)
 
     _require_transition(
         state.status, frozenset({ReadinessStatus.submitted}), "sign off"
@@ -544,7 +771,7 @@ async def sign_off(
     await _recompute_score(db, org.id)
     await db.commit()
     await db.refresh(state)
-    return _read(criterion, state)
+    return criterion_read(criterion, state)
 
 
 async def reject(
@@ -558,7 +785,7 @@ async def reject(
     org = await organization_service.startup_org_or_404(db, org_id)
     await _enforce_action_limit(user, "reject")
     criterion = await _criterion_or_404(db, criterion_id)
-    state = await _state_for(db, org.id, criterion)
+    state = await state_for(db, org.id, criterion)
 
     _require_transition(
         state.status, frozenset({ReadinessStatus.submitted}), "reject"
@@ -570,7 +797,7 @@ async def reject(
     await _recompute_score(db, org.id)
     await db.commit()
     await db.refresh(state)
-    return _read(criterion, state)
+    return criterion_read(criterion, state)
 
 
 async def require_readiness_ref(

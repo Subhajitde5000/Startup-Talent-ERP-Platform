@@ -35,6 +35,7 @@ from sqlalchemy import func, select  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.db.session import async_session_factory, engine  # noqa: E402
+from app.models.analytics import StartupCompetitor, StartupMarketSize  # noqa: E402
 from app.models.metric import MetricKey, MetricSource, StartupMetric  # noqa: E402
 from app.models.milestone import Milestone  # noqa: E402
 from app.models.organization import (  # noqa: E402
@@ -49,6 +50,7 @@ from app.models.readiness import (  # noqa: E402
     ReadinessStatus,
     StartupReadiness,
 )
+from app.models.stage import StageToolProgress, ToolStatus  # noqa: E402
 from app.models.startup import (  # noqa: E402
     ProfileVisibility,
     StartupProfile,
@@ -57,6 +59,7 @@ from app.models.startup import (  # noqa: E402
 from app.models.talent import MentorProfile, TalentProfile, TalentProfileSkill, WorkMode  # noqa: E402
 from app.models.task import Task, TaskPriority, TaskStatus  # noqa: E402
 from app.models.user import AccountStatus, ReviewState, User, UserRole, UserRoleRow  # noqa: E402
+from app.services import stage_service  # noqa: E402
 
 DEV_PASSWORD = "Forma-Dev-2026!"
 
@@ -330,6 +333,58 @@ STEP5F_READINESS: list[dict[str, object]] = [
     },
 ]
 
+# Step 5i/5j demo stage tools (moved out of the stage page's inline demo
+# strings). The founder's org sits at `prototype` (STEP5A_STARTUP_PROFILE),
+# so the tools seeded are that stage's, plus one idea-stage row so the
+# overview grid shows a mix of done / in-progress / not-started. Keyed by
+# (stage, tool_key); the vocabulary itself lives in
+# stage_service.TOOL_SPEC, so a renamed key is simply skipped here rather
+# than breaking the seed. Fill-only: an existing row is never overwritten.
+STEP5IJ_TOOLS: list[dict[str, object]] = [
+    {
+        "stage": StartupStage.prototype,
+        "tool_key": "roadmap_sprint_board",
+        "status": ToolStatus.done,
+        "progress": 100,
+        "notes": "Sprint 14 closed; MVP scope locked with the design team.",
+    },
+    {
+        "stage": StartupStage.prototype,
+        "tool_key": "prototype_feedback_log",
+        "status": ToolStatus.in_progress,
+        "progress": 60,
+        "notes": "Six tester sessions logged; two recurring complaints to fix.",
+    },
+    {
+        "stage": StartupStage.prototype,
+        "tool_key": "user_testing_tracker",
+        "status": ToolStatus.in_progress,
+        "progress": 35,
+        "notes": "Three of eight testers recruited.",
+    },
+    {
+        "stage": StartupStage.prototype,
+        "tool_key": "grants_incubators",
+        "status": ToolStatus.not_started,
+        "progress": 0,
+        "notes": None,
+    },
+    {
+        "stage": StartupStage.idea,
+        "tool_key": "idea_canvas",
+        "status": ToolStatus.done,
+        "progress": 100,
+        "notes": "Canvas v3 reviewed with a mentor.",
+    },
+    {
+        "stage": StartupStage.idea,
+        "tool_key": "interview_tracker",
+        "status": ToolStatus.done,
+        "progress": 100,
+        "notes": "14 customer interviews logged and themed.",
+    },
+]
+
 # Step 5e demo metrics: six months for the founder's org so the analytics
 # Overview/Journey tabs have a real trend in development. (key, months ago,
 # value, unit, currency, source). `months ago` counts back from the current
@@ -357,6 +412,117 @@ STEP5E_METRICS: list[tuple[str, int, str, str | None, str | None, MetricSource]]
     # One verified row so /startup/analytics shows the "Mentor verified"
     # source label without any client being able to set it.
     ("arr", 2, "3840000", "INR", "INR", MetricSource.mentor_verified),
+]
+
+# Step 5k: the Business tab's demo numbers, moved out of the page's inline
+# sample arrays. Same shape as STEP5E_METRICS and the same fill-only rule,
+# so re-running the seed never rewrites a value a person edited.
+# Chosen so the derived figures are all real: LTV:CAC 5.0x, payback ~4.2
+# months, and a funnel that narrows the way a sales pipeline really does.
+STEP5K_METRICS: list[tuple[str, int, str, str | None, str | None]] = [
+    ("churn_rate", 0, "2.4", "%", None),
+    ("cac", 0, "8400", "INR", "INR"),
+    ("ltv", 0, "42000", "INR", "INR"),
+    ("nrr", 0, "108", "%", None),
+    ("arpc", 0, "3810", "INR", "INR"),
+    ("gross_margin", 0, "72", "%", None),
+    ("activation_rate", 0, "64", "%", None),
+    ("weekly_active_users", 0, "312", None, None),
+    ("nps", 0, "42", None, None),
+    ("support_response_hours", 0, "3.2", "hours", None),
+    # Sales funnel counts for the same month, Lead -> Won.
+    ("funnel_lead", 0, "82", None, None),
+    ("funnel_contacted", 0, "59", None, None),
+    ("funnel_demo", 0, "34", None, None),
+    ("funnel_proposal", 0, "19", None, None),
+    ("funnel_won", 0, "14", None, None),
+]
+
+# Step 5l: demo market size and competitors, moved out of the Market tab's
+# inline sample arrays. Keyed by (metric, scenario); fill-only.
+STEP5L_MARKET_SIZE: list[dict[str, object]] = [
+    {
+        "metric": "tam",
+        "scenario": "base",
+        "value": "12000000000",
+        "unit": "currency",
+        "currency": "INR",
+        "estimate_year": 2025,
+        "source_type": "external_report",
+        "source_note": "India fintech SMB software, 2025 industry report",
+        "confidence": "high",
+        "assumptions": "Population x price x adoption, per the cited report.",
+    },
+    {
+        "metric": "sam",
+        "scenario": "base",
+        "value": "3200000000",
+        "unit": "currency",
+        "currency": "INR",
+        "estimate_year": 2025,
+        "source_type": "team_estimate",
+        "source_note": "SMB finance tools, English-first metros",
+        "confidence": "medium",
+        "assumptions": "TAM narrowed to SMBs with digital accounting today.",
+    },
+    {
+        "metric": "som",
+        "scenario": "base",
+        "value": "180000000",
+        "unit": "currency",
+        "currency": "INR",
+        "estimate_year": 2025,
+        "source_type": "team_estimate",
+        "source_note": "Reachable in 24 months at current sales capacity",
+        "confidence": "low",
+        "assumptions": "SAM x share we can win with 2 AEs and the current funnel.",
+    },
+]
+
+STEP5L_COMPETITORS: list[dict[str, object]] = [
+    {
+        "name": "Finly",
+        "type": "direct",
+        "website": "https://finly.example.com",
+        "target_customer": "SMBs",
+        "positioning": "All-in-one finance for small firms",
+        "strengths": "Brand recognition, accounting partnerships",
+        "weaknesses": "Thin reporting for multi-entity teams",
+        "pricing_note": "$$",
+        "last_reviewed_on": "2026-10-30",
+    },
+    {
+        "name": "LedgerLoop",
+        "type": "direct",
+        "website": "https://ledgerloop.example.com",
+        "target_customer": "Startups",
+        "positioning": "Bookkeeping plus runway forecasting",
+        "strengths": "Strong forecasting UI",
+        "weaknesses": "No invoicing",
+        "pricing_note": "$$$",
+        "last_reviewed_on": "2026-11-01",
+    },
+    {
+        "name": "SheetFlow",
+        "type": "substitute",
+        "website": "https://sheetflow.example.com",
+        "target_customer": "SMBs",
+        "positioning": "Spreadsheet templates with light automation",
+        "strengths": "Free, familiar",
+        "weaknesses": "Manual, no audit trail",
+        "pricing_note": "Free",
+        "last_reviewed_on": "2026-10-25",
+    },
+    {
+        "name": "Cashwise",
+        "type": "indirect",
+        "target_customer": "Mid-market",
+        "positioning": "Treasury and cash management for larger firms",
+        "strengths": "Bank integrations, compliance",
+        "weaknesses": "Expensive, slow onboarding",
+        "pricing_note": "$$",
+        "last_reviewed_on": "2026-10-22",
+    },
 ]
 
 # (email, display name, role, verified?)
@@ -787,18 +953,30 @@ async def seed() -> None:
             if readiness_added:
                 await db.commit()
                 # Keep the cached roll-up honest after seeding state.
+                # 5i D1: the score counts readiness items only. Exit
+                # criteria share the table but must never enter this
+                # fraction, or the seeded score would disagree with what
+                # readiness_service computes on the next write.
                 total = (
                     await db.execute(
                         select(func.count(ReadinessCriterion.id)).where(
-                            ReadinessCriterion.is_active.is_(True)
+                            ReadinessCriterion.is_active.is_(True),
+                            ReadinessCriterion.is_exit_criterion.is_(False),
                         )
                     )
                 ).scalar_one()
                 signed = (
                     await db.execute(
-                        select(func.count(StartupReadiness.id)).where(
+                        select(func.count(StartupReadiness.id))
+                        .join(
+                            ReadinessCriterion,
+                            ReadinessCriterion.id
+                            == StartupReadiness.criterion_id,
+                        )
+                        .where(
                             StartupReadiness.org_id == founder_org.id,
                             StartupReadiness.status == ReadinessStatus.signed_off,
+                            ReadinessCriterion.is_exit_criterion.is_(False),
                         )
                     )
                 ).scalar_one()
@@ -811,6 +989,51 @@ async def seed() -> None:
                 ).scalar_one()
                 profile_row.readiness_score = round(100 * signed / total) if total else 0
                 await db.commit()
+
+        # Step 5i/5j: demo stage-tool progress for the founder's org, so
+        # /startup/stage shows real saved state instead of the old inline
+        # "Available in your workspace" strings. Fill-only.
+        tools_added = 0
+        for spec in STEP5IJ_TOOLS:
+            stage = spec["stage"]
+            tool_key = str(spec["tool_key"])
+            assert isinstance(stage, StartupStage)
+            # Validate against the service vocabulary (5j D6): a renamed
+            # key is skipped rather than seeded as an orphan row.
+            if tool_key not in stage_service._TOOL_BY_KEY:
+                continue
+            if stage_service._TOOL_STAGE[tool_key] != stage:
+                continue
+            exists = (
+                await db.execute(
+                    select(StageToolProgress.id).where(
+                        StageToolProgress.org_id == founder_org.id,
+                        StageToolProgress.stage == stage,
+                        StageToolProgress.tool_key == tool_key,
+                    )
+                )
+            ).first()
+            if exists is not None:
+                continue
+            status = spec["status"]
+            assert isinstance(status, ToolStatus)
+            db.add(
+                StageToolProgress(
+                    org_id=founder_org.id,
+                    stage=stage,
+                    tool_key=tool_key,
+                    status=status,
+                    progress=int(spec["progress"]),  # type: ignore[arg-type]
+                    notes=spec["notes"],  # type: ignore[arg-type]
+                    # Attribute the demo write to the platform admin, the
+                    # only actor already in scope here (same as 5f's
+                    # sign-off seeding). Never client-supplied.
+                    updated_by=admin_user.id if admin_user else None,
+                )
+            )
+            tools_added += 1
+        if tools_added:
+            await db.commit()
 
         # Step 5e: demo metrics for the founder's org (fill-only, one row per
         # key and period). Period ends are the last day of each month counted
@@ -850,7 +1073,113 @@ async def seed() -> None:
                 )
             )
             metrics_added += 1
+
+        # Step 5k: the Business tab's demo values, same fill-only rule and
+        # the same current-month period as the 5e rows above.
+        for key, months_ago, value, unit, currency in STEP5K_METRICS:
+            if key not in {k.value for k in MetricKey}:
+                continue
+            year, month = today.year, today.month - months_ago
+            while month <= 0:
+                month += 12
+                year -= 1
+            period_end = date(year, month, calendar.monthrange(year, month)[1])
+            exists = (
+                await db.execute(
+                    select(StartupMetric.id).where(
+                        StartupMetric.org_id == founder_org.id,
+                        StartupMetric.metric_key == key,
+                        StartupMetric.period_end == period_end,
+                    )
+                )
+            ).first()
+            if exists is not None:
+                continue
+            db.add(
+                StartupMetric(
+                    org_id=founder_org.id,
+                    metric_key=key,
+                    value=Decimal(value),
+                    unit=unit,
+                    currency=currency,
+                    # Server-assigned, exactly as the API writes it.
+                    source=MetricSource.startup_reported,
+                    period_end=period_end,
+                )
+            )
+            metrics_added += 1
         if metrics_added:
+            await db.commit()
+
+        # Step 5l: demo market size and competitors (fill-only).
+        market_added = 0
+        for spec in STEP5L_MARKET_SIZE:
+            metric = str(spec["metric"])
+            scenario = str(spec["scenario"])
+            exists = (
+                await db.execute(
+                    select(StartupMarketSize.id).where(
+                        StartupMarketSize.org_id == founder_org.id,
+                        StartupMarketSize.metric == metric,
+                        StartupMarketSize.scenario == scenario,
+                    )
+                )
+            ).first()
+            if exists is not None:
+                continue
+            db.add(
+                StartupMarketSize(
+                    org_id=founder_org.id,
+                    metric=metric,
+                    scenario=scenario,
+                    value=Decimal(str(spec["value"])),
+                    unit=spec["unit"],
+                    currency=spec["currency"],  # type: ignore[arg-type]
+                    estimate_year=int(spec["estimate_year"]),  # type: ignore[arg-type]
+                    source_type=spec["source_type"],
+                    source_note=spec["source_note"],  # type: ignore[arg-type]
+                    confidence=spec["confidence"],
+                    assumptions=spec["assumptions"],  # type: ignore[arg-type]
+                )
+            )
+            market_added += 1
+
+        competitors_added = 0
+        for spec in STEP5L_COMPETITORS:
+            exists = (
+                await db.execute(
+                    select(StartupCompetitor.id).where(
+                        StartupCompetitor.org_id == founder_org.id,
+                        func.lower(StartupCompetitor.name)
+                        == str(spec["name"]).lower(),
+                        StartupCompetitor.deleted_at.is_(None),
+                    )
+                )
+            ).first()
+            if exists is not None:
+                continue
+            db.add(
+                StartupCompetitor(
+                    org_id=founder_org.id,
+                    name=str(spec["name"]),
+                    type=spec["type"],
+                    # Optional columns: .get() so a demo row may omit any
+                    # of them without breaking the whole seed.
+                    website=spec.get("website"),  # type: ignore[arg-type]
+                    target_customer=spec.get("target_customer"),  # type: ignore[arg-type]
+                    positioning=spec.get("positioning"),  # type: ignore[arg-type]
+                    strengths=spec.get("strengths"),  # type: ignore[arg-type]
+                    weaknesses=spec.get("weaknesses"),  # type: ignore[arg-type]
+                    pricing_note=spec.get("pricing_note"),  # type: ignore[arg-type]
+                    last_reviewed_on=(
+                        date.fromisoformat(str(spec["last_reviewed_on"]))
+                        if spec.get("last_reviewed_on")
+                        else None
+                    ),
+                )
+            )
+            competitors_added += 1
+        if market_added or competitors_added:
             await db.commit()
 
         # Step 3c: talent profile for the jobseeker (skills attached by name).
@@ -937,6 +1266,9 @@ async def seed() -> None:
     print(f"  + milestones (5b): {milestones_added}")
     print(f"  + tasks (5c): {tasks_added}")
     print(f"  + readiness items (5f): {readiness_added}")
+    print(f"  + stage tool progress (5i/5j): {tools_added}")
+    print(f"  + market size (5l): {market_added}")
+    print(f"  + competitors (5l): {competitors_added}")
     print(f"  + talent profile: {talent_added}")
     print(f"  + mentor profile: {mentor_added}")
     print(f"\nPassword for all seeded accounts: {DEV_PASSWORD}")

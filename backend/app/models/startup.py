@@ -25,10 +25,12 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     SmallInteger,
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy import (
     Enum as SAEnum,
@@ -146,5 +148,15 @@ class StartupProfile(Base):
         CheckConstraint(
             "readiness_score IS NULL OR (readiness_score >= 0 AND readiness_score <= 100)",
             name="startup_profiles_readiness_check",
+        ),
+        # Step 5h discovery (migration 0012): the anonymous list always
+        # filters on stage/sector under profile_visibility = 'public', so
+        # the index is partial — non-public profiles never enter it.
+        Index(
+            "startup_discovery_public_idx",
+            "stage",
+            "sector",
+            postgresql_where=text("profile_visibility = 'public'"),
+            sqlite_where=text("profile_visibility = 'public'"),
         ),
     )

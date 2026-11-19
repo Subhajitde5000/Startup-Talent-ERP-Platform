@@ -11,11 +11,13 @@ from alembic import context
 from app.core.config import get_settings
 from app.db.base import Base
 from app.models import (  # noqa: F401  (register models for autogenerate)
+    analytics,
     auth,
     metric,
     milestone,
     profile,
     readiness,
+    stage,
     startup,
     task,
     user,

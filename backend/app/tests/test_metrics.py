@@ -29,21 +29,16 @@ from httpx import AsyncClient
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.metric import MetricSource, StartupMetric
+from app.models.metric import MetricKey, MetricSource, StartupMetric
 from app.services import email_service
 
 PASSWORD = "Str0ng!Password99"
 
-ALL_KEYS = [
-    "mrr",
-    "arr",
-    "customers",
-    "burn",
-    "runway_months",
-    "growth_mom",
-    "headcount",
-    "active_users",
-]
+# The full vocabulary. Derived from the enum rather than frozen as a
+# literal: Step 5k extended the allowed keys additively, and a hard-coded
+# list would make these contract tests fail for the wrong reason (the
+# contract is "every allowed key round-trips", not "there are exactly 8").
+ALL_KEYS = [key.value for key in MetricKey]
 
 
 # --- helpers ----------------------------------------------------------------
@@ -209,7 +204,7 @@ async def test_report_one_value_and_read_it_back(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_report_all_eight_keys(client: AsyncClient) -> None:
+async def test_report_every_allowed_key(client: AsyncClient) -> None:
     founder = await _signup_verified(client, "founder@example.com")
     org = await _create_org(client, founder)
     period = _month_end(1)

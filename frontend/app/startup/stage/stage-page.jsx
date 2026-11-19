@@ -6,7 +6,7 @@ import {useAuth} from '@/lib/auth-context';
 import {api, ApiError} from '@/lib/api/client';
 import {
   FolderLock,Users,Briefcase,Search,Bell,ChevronRight,Check,Lock,ArrowRight,ArrowUpRight,FileText,
-  MessageCircle,CheckCircle2,Upload,Target,UsersRound,BarChart3,Kanban,
+  MessageCircle,CheckCircle2,Target,UsersRound,BarChart3,Kanban,
   FlaskConical,Wallet,Building2,ClipboardList,BookOpen,ExternalLink,X,Menu
 } from 'lucide-react';
 
@@ -136,6 +136,48 @@ const API_TO_URL = {
 const ROLE_LABELS = {owner: 'Founder', admin: 'Admin', member: 'Member', viewer: 'Viewer'};
 const EDIT_ROLES = ['owner', 'admin', 'member'];
 
+// Step 5j: icons are presentation only, keyed by the backend's tool_key.
+// A key without an entry falls back to a generic icon, so adding a tool to
+// the backend never breaks this page.
+const TOOL_ICONS = {
+  idea_canvas: Target,
+  interview_tracker: UsersRound,
+  market_sizing: BarChart3,
+  customer_persona: ClipboardList,
+  roadmap_sprint_board: Kanban,
+  prototype_feedback_log: FlaskConical,
+  user_testing_tracker: UsersRound,
+  grants_incubators: Building2,
+  sales_pipeline: Briefcase,
+  revenue_burn: Wallet,
+  kpi_tracker: BarChart3,
+  hiring_requests: Users,
+  growth_dashboard: BarChart3,
+  channel_experiments: Target,
+  hiring_plan: Users,
+  investor_updates: Bell,
+  finance_cap_table: Wallet,
+  hr_payroll: Users,
+  board_investor_reporting: FileText,
+  data_room: FolderLock
+};
+
+// startup_profiles.stage (API) -> the copy the page shows.
+const STAGE_LABEL = {
+  idea: 'Idea',
+  prototype: 'Prototype',
+  early_revenue: 'Early revenue',
+  growth: 'Growth',
+  mature: 'Mature'
+};
+
+// Tool status -> the neutral copy the page shows. No invented progress.
+const TOOL_STATUS_LABEL = {
+  not_started: 'Not started',
+  in_progress: 'In progress',
+  done: 'Complete'
+};
+
 export default function StagePage({stage}) {
   const isOverview = stage === 'overview';
 
@@ -147,11 +189,25 @@ export default function StagePage({stage}) {
   const [compact, setCompact] = useState(false);
   // Exit criteria stay 'Not started' until the readiness step wires mentor
   // sign-off; nothing is pre-approved and nothing fakes a submitted state.
-  const [tool, setTool] = useState(null);
+  const [tool, setTool] = useState(null); // the open tool modal
   const [toast, setToast] = useState('');
   const [request, setRequest] = useState(false);
   const [savingStage, setSavingStage] = useState(false);
   const [note, setNote] = useState('');
+  // Step 5i: stage summary, exit criteria, history. Step 5j: tools.
+  const [summary, setSummary] = useState(null); // StageSummary
+  const [criteria, setCriteria] = useState([]); // ReadinessRead[]
+  const [criteriaPhase, setCriteriaPhase] = useState('loading'); // loading|ready|error
+  const [history, setHistory] = useState([]); // StageHistoryRead[]
+  const [historyPhase, setHistoryPhase] = useState('loading');
+  const [tools, setTools] = useState([]); // StageToolRead[]
+  const [toolsPhase, setToolsPhase] = useState('loading');
+  // Tool modal save state.
+  const [toolStatus, setToolStatus] = useState('not_started');
+  const [toolProgress, setToolProgress] = useState(0);
+  const [toolNotes, setToolNotes] = useState('');
+  const [savingTool, setSavingTool] = useState(false);
+  const [toolError, setToolError] = useState('');
 
   const notify = t => {
     setToast(t);
@@ -171,9 +227,55 @@ export default function StagePage({stage}) {
       setOrg(startup);
       setProfile(prof);
       setLoadStatus('ready');
+      // Step 5i: the summary and history are independent of which stage
+      // page is open; the criteria board follows the page's stage.
+      loadSummary(startup.id);
+      loadHistory(startup.id);
     } catch (err) {
       setLoadStatus('error');
       notify(err instanceof ApiError ? err.message : 'Could not load your stage.');
+    }
+  };
+
+  // Each panel owns its own phase so one failing call cannot blank the page.
+  const loadSummary = async orgId => {
+    try {
+      setSummary(await api.stage.summary(orgId));
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not load the stage summary.');
+    }
+  };
+
+  const loadHistory = async orgId => {
+    setHistoryPhase('loading');
+    try {
+      const page = await api.stage.history(orgId, {limit: 20});
+      setHistory(page.items);
+      setHistoryPhase('ready');
+    } catch {
+      setHistoryPhase('error');
+    }
+  };
+
+  const loadCriteria = async (orgId, apiStage) => {
+    setCriteriaPhase('loading');
+    try {
+      const board = await api.stage.criteria(orgId, apiStage);
+      setCriteria(board.items);
+      setCriteriaPhase('ready');
+    } catch {
+      setCriteriaPhase('error');
+    }
+  };
+
+  const loadTools = async (orgId, apiStage) => {
+    setToolsPhase('loading');
+    try {
+      const board = await api.stage.tools(orgId, apiStage);
+      setTools(board.items);
+      setToolsPhase('ready');
+    } catch {
+      setToolsPhase('error');
     }
   };
 
@@ -190,8 +292,29 @@ export default function StagePage({stage}) {
   const canEdit = !!org && EDIT_ROLES.includes(org.my_role);
   const nextStage = storedIdx >= 0 && storedIdx < stages.length - 1 ? stages[storedIdx + 1] : null;
 
-  const statuses = ['Not started', 'Not started', 'Not started', 'Not started', 'Not started'];
-  const doneCount = statuses.filter(s => s === 'Approved').length;
+  // Step 5i: load THIS page's exit criteria once the profile is known.
+  // The API stage of the page we are on (overview follows the stored stage).
+  const pageStage = isOverview ? storedUrlId : stage;
+  const pageApiStage = pageStage === 'early-revenue' ? 'early_revenue' : pageStage;
+
+  useEffect(() => {
+    if (!org || !pageApiStage) return;
+    loadCriteria(org.id, pageApiStage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [org?.id, pageApiStage]);
+
+  // Step 5j: tools for the page's stage (overview shows the current stage's).
+  useEffect(() => {
+    if (!org || !pageApiStage) return;
+    loadTools(org.id, pageApiStage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [org?.id, pageApiStage]);
+
+  // Real counts, straight from the API. Nothing here is invented: an
+  // unapproved criterion is simply not counted (5i D1 / 5j done-when).
+  const doneCount = criteria.filter(c => c.status === 'signed_off').length;
+  const totalCriteria = criteria.length;
+  const progressPct = totalCriteria ? Math.round((100 * doneCount) / totalCriteria) : 0;
   const locked = i => storedIdx >= 0 && i > storedIdx;
   const completed = i => storedIdx >= 0 && i < storedIdx;
 
@@ -200,9 +323,15 @@ export default function StagePage({stage}) {
     setSavingStage(true);
     try {
       const apiStage = nextStage.id === 'early-revenue' ? 'early_revenue' : nextStage.id;
-      const prof = await api.startupProfile.update(org.id, {stage: apiStage});
-      setProfile(prof);
+      // Step 5i: the dedicated endpoint records history in the same
+      // transaction and returns the fresh summary.
+      const next = await api.stage.change(org.id, {stage: apiStage, note: note || null});
+      setSummary(next);
+      // The profile carries the stage the journey strip reads.
+      setProfile(await api.startupProfile.get(org.id));
       setRequest(false);
+      setNote('');
+      loadHistory(org.id);
       notify(`Stage updated to ${nextStage.title}.`);
     } catch (err) {
       notify(err instanceof ApiError ? err.message : 'Could not update the stage.');
@@ -211,17 +340,49 @@ export default function StagePage({stage}) {
     }
   };
 
-  const criterionRows = current.criteria.map((label, i) => ({
-    label,
-    status: statuses[i] || 'Not started',
-    desc: [
-      'Add a concise summary and supporting evidence.',
-      'Log your work and attach relevant source material.',
-      'Share the latest version for review.',
-      'Include evidence that supports your progress.',
-      'A mentor will review and sign off this item.'
-    ][i]
-  }));
+  // Labels for the readiness statuses the API returns (5f vocabulary).
+  const CRITERION_LABEL = {
+    not_started: 'Not started',
+    in_progress: 'In progress',
+    submitted: 'Submitted for review',
+    signed_off: 'Approved',
+    rejected: 'Changes requested'
+  };
+
+  // Step 5j: open a tool with its SAVED state, never a demo string.
+  const openTool = t => {
+    setTool(t);
+    setToolStatus(t.status);
+    setToolProgress(t.progress);
+    setToolNotes(t.notes || '');
+    setToolError('');
+    setNote(t.notes || '');
+  };
+
+  const saveTool = async () => {
+    if (!org || !tool || savingTool) return;
+    setSavingTool(true);
+    setToolError('');
+    try {
+      const saved = await api.stage.updateTool(org.id, tool.tool_key, {
+        status: toolStatus,
+        progress: toolProgress,
+        notes: toolNotes.trim() === '' ? null : toolNotes
+      });
+      setTools(prev => prev.map(x => (x.tool_key === saved.tool_key ? saved : x)));
+      setTool(saved);
+      notify(`${saved.name} saved.`);
+    } catch (err) {
+      // Server validation lands on the field, not in a toast.
+      if (err instanceof ApiError && err.status === 422) {
+        setToolError(err.message);
+      } else {
+        setToolError(err instanceof ApiError ? err.message : 'Could not save this tool.');
+      }
+    } finally {
+      setSavingTool(false);
+    }
+  };
 
   const updatedLabel = profile
     ? new Date(profile.updated_at).toLocaleDateString('en-GB', {day: 'numeric', month: 'short'})
@@ -381,11 +542,11 @@ export default function StagePage({stage}) {
                 </div>
                 <div className="mt-5 grid grid-cols-3 gap-3 border-t border-[#DCC8A4] pt-4">
                   <div>
-                    <b className="serif text-xl">{doneCount} / 5</b>
+                    <b className="serif text-xl">{doneCount} / {totalCriteria}</b>
                     <small className="block text-xs text-[#4A5568]">criteria approved</small>
                   </div>
                   <div>
-                    <b className="serif text-xl">{current.tools.length}</b>
+                    <b className="serif text-xl">{toolsPhase === 'ready' ? tools.length : '—'}</b>
                     <small className="block text-xs text-[#4A5568]">tools available</small>
                   </div>
                   <div>
@@ -398,70 +559,141 @@ export default function StagePage({stage}) {
 
             <Card
               title={isOverview ? `Exit criteria for ${current.title}` : current.id === 'mature' ? 'Growth readiness' : `Exit criteria for ${current.title}`}
-              action={<span className="text-xs font-semibold text-[#4A5568]">{doneCount} of 5 approved</span>}
+              action={
+                criteriaPhase === 'ready' && totalCriteria > 0 ? (
+                  <span className="text-xs font-semibold text-[#4A5568]">
+                    {doneCount} of {totalCriteria} approved
+                  </span>
+                ) : null
+              }
             >
               <div className="mb-5 h-2 rounded-full bg-[#E5E1D8]">
-                <div className="h-full rounded-full bg-[#B8955A] transition-all" style={{width: `${doneCount * 20}%`}} />
+                <div
+                  className="h-full rounded-full bg-[#B8955A] transition-all"
+                  style={{width: `${progressPct}%`}}
+                />
               </div>
-              <div className="space-y-3">
-                {criterionRows.map(c => (
-                  <article
-                    key={c.label}
-                    className="rounded-lg border border-[#E5E1D8] bg-white p-3 sm:p-4"
+
+              {criteriaPhase === 'loading' && (
+                <p className="text-xs text-[#4A5568]">Loading exit criteria…</p>
+              )}
+
+              {criteriaPhase === 'error' && (
+                <div className="rounded-lg border border-[#F0C9C9] bg-[#FDECEC] p-3 text-xs text-[#A33A3A]" role="alert">
+                  Could not load the exit criteria.
+                  <button
+                    type="button"
+                    onClick={() => org && loadCriteria(org.id, pageApiStage)}
+                    className="ml-2 font-semibold underline"
                   >
-                    <div className="flex items-start gap-3">
-                      <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#F3F4F6] text-[#4A5568]">
-                        <Target size={15} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-sm font-semibold">{c.label}</h3>
-                          <span className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px] font-semibold text-[#4A5568]">
-                            {c.status}
-                          </span>
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {criteriaPhase === 'ready' && totalCriteria === 0 && (
+                <div className="rounded-lg border border-dashed border-[#E5E1D8] bg-[#FAF8F4] p-6 text-center text-sm text-[#4A5568]">
+                  No exit criteria are published for this stage yet.
+                </div>
+              )}
+
+              {criteriaPhase === 'ready' && totalCriteria > 0 && (
+                <div className="space-y-3">
+                  {criteria.map(c => (
+                    <article
+                      key={c.id}
+                      className="rounded-lg border border-[#E5E1D8] bg-white p-3 sm:p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#F3F4F6] text-[#4A5568]">
+                          <Target size={15} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm font-semibold">{c.title}</h3>
+                            <span className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px] font-semibold text-[#4A5568]">
+                              {CRITERION_LABEL[c.status] || c.status}
+                            </span>
+                          </div>
+                          {c.description && (
+                            <p className="mt-1 text-xs leading-5 text-[#4A5568]">{c.description}</p>
+                          )}
                         </div>
-                        <p className="mt-1 text-xs leading-5 text-[#4A5568]">{c.desc}</p>
                       </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+
               <p className="mt-4 text-xs text-[#4A5568]">
                 Mentor sign-off on exit criteria arrives with the readiness workspace.
               </p>
             </Card>
 
             {!isOverview && (
-              <Card title={`Tools for ${current.title}`} action={<span className="text-xs text-[#4A5568]">{current.tools.length} tools</span>}>
+              <Card
+                title={`Tools for ${current.title}`}
+                action={
+                  toolsPhase === 'ready' ? (
+                    <span className="text-xs text-[#4A5568]">{tools.length} tools</span>
+                  ) : null
+                }
+              >
+                {toolsPhase === 'loading' && (
+                  <p className="text-xs text-[#4A5568]">Loading tools…</p>
+                )}
+                {toolsPhase === 'error' && (
+                  <div className="rounded-lg border border-[#F0C9C9] bg-[#FDECEC] p-3 text-xs text-[#A33A3A]" role="alert">
+                    Could not load the tools.
+                    <button
+                      type="button"
+                      onClick={() => org && loadTools(org.id, pageApiStage)}
+                      className="ml-2 font-semibold underline"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+                {toolsPhase === 'ready' && tools.length === 0 && (
+                  <div className="rounded-lg border border-dashed border-[#E5E1D8] bg-[#FAF8F4] p-6 text-center text-sm text-[#4A5568]">
+                    No tools are published for this stage yet.
+                  </div>
+                )}
+                {toolsPhase === 'ready' && tools.length > 0 && (
                 <div className="grid gap-3 md:grid-cols-2">
-                  {current.tools.map(([name, description, progress, Icon], i) => (
-                    <article key={name} className="group rounded-xl border border-[#E5E1D8] p-4 transition hover:border-[#A0A7B4] hover:shadow-[0_4px_16px_rgba(15,27,45,0.06)]">
+                  {tools.map(t => {
+                    const Icon = TOOL_ICONS[t.tool_key] || ClipboardList;
+                    return (
+                    <article key={t.tool_key} className="group rounded-xl border border-[#E5E1D8] p-4 transition hover:border-[#A0A7B4] hover:shadow-[0_4px_16px_rgba(15,27,45,0.06)]">
                       <div className="flex items-start gap-3">
                         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#F3EBDD] text-[#806236]">
                           <Icon size={19} />
                         </span>
                         <div className="min-w-0 flex-1">
                           <h3 className="text-sm font-semibold">
-                            {name}
-                            {i < 3 && <span className="ml-2 inline-block h-2 w-2 rounded-full bg-[#B8955A]" title="Required for exit criteria" />}
+                            {t.name}
+                            {!t.is_optional && <span className="ml-2 inline-block h-2 w-2 rounded-full bg-[#B8955A]" title="Required for exit criteria" />}
                           </h3>
-                          <p className="mt-1 min-h-10 text-xs leading-5 text-[#4A5568]">{description}</p>
+                          <p className="mt-1 min-h-10 text-xs leading-5 text-[#4A5568]">{t.description}</p>
                         </div>
                       </div>
                       <p className="mt-3 flex items-center gap-1.5 text-[11px] text-[#4A5568]">
                         <CheckCircle2 size={13} className="text-[#9A7A45]" />
-                        {progress}
+                        {TOOL_STATUS_LABEL[t.status] || t.status}
+                        {t.progress > 0 && <span className="text-[#A0A7B4]">· {t.progress}%</span>}
                       </p>
                       <button
                         type="button"
-                        onClick={() => setTool({name, description, progress, Icon})}
+                        onClick={() => openTool(t)}
                         className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#E5E1D8] text-xs font-semibold hover:bg-[#FAF8F4]"
                       >
                         Open tool <ArrowUpRight size={14} />
                       </button>
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
+                )}
               </Card>
             )}
 
@@ -474,23 +706,43 @@ export default function StagePage({stage}) {
                   </Link>
                 }
               >
+                {toolsPhase === 'loading' && (
+                  <p className="text-xs text-[#4A5568]">Loading tools…</p>
+                )}
+                {toolsPhase === 'error' && (
+                  <div className="rounded-lg border border-[#F0C9C9] bg-[#FDECEC] p-3 text-xs text-[#A33A3A]" role="alert">
+                    Could not load the tools.
+                  </div>
+                )}
+                {toolsPhase === 'ready' && tools.length === 0 && (
+                  <div className="rounded-lg border border-dashed border-[#E5E1D8] bg-[#FAF8F4] p-6 text-center text-sm text-[#4A5568]">
+                    No tools are published for this stage yet.
+                  </div>
+                )}
+                {toolsPhase === 'ready' && tools.length > 0 && (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {current.tools.slice(0, 4).map(([name, description, progress, Icon]) => (
+                  {tools.slice(0, 4).map(t => {
+                    const Icon = TOOL_ICONS[t.tool_key] || ClipboardList;
+                    return (
                     <button
-                      key={name}
+                      key={t.tool_key}
                       type="button"
-                      onClick={() => setTool({name, description, progress, Icon})}
+                      onClick={() => openTool(t)}
                       className="flex min-h-20 items-center gap-3 rounded-lg border border-[#E5E1D8] p-3 text-left hover:bg-[#FAF8F4]"
                     >
                       <Icon size={20} className="text-[#9A7A45]" />
                       <span className="min-w-0">
-                        <b className="block text-xs">{name}</b>
-                        <small className="text-[11px] text-[#4A5568]">{progress}</small>
+                        <b className="block text-xs">{t.name}</b>
+                        <small className="text-[11px] text-[#4A5568]">
+                          {TOOL_STATUS_LABEL[t.status] || t.status}
+                        </small>
                       </span>
                       <ArrowUpRight size={15} className="ml-auto" />
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
+                )}
               </Card>
             )}
 
@@ -523,9 +775,45 @@ export default function StagePage({stage}) {
             </Card>
 
             <Card title="Stage history">
-              <div className="rounded-lg border border-dashed border-[#E5E1D8] bg-[#FAF8F4] p-6 text-center text-sm text-[#4A5568]">
-                No stage changes yet. Your history will appear here as your startup moves up.
-              </div>
+              {historyPhase === 'loading' && (
+                <p className="text-xs text-[#4A5568]">Loading history…</p>
+              )}
+              {historyPhase === 'error' && (
+                <div className="rounded-lg border border-[#F0C9C9] bg-[#FDECEC] p-3 text-xs text-[#A33A3A]" role="alert">
+                  Could not load the stage history.
+                </div>
+              )}
+              {historyPhase === 'ready' && history.length === 0 && (
+                <div className="rounded-lg border border-dashed border-[#E5E1D8] bg-[#FAF8F4] p-6 text-center text-sm text-[#4A5568]">
+                  No stage changes yet. Your history will appear here as your startup moves up.
+                </div>
+              )}
+              {historyPhase === 'ready' && history.length > 0 && (
+                <ol className="space-y-3">
+                  {history.map(h => (
+                    <li key={h.id} className="flex items-start gap-3">
+                      <span className="mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#F3EBDD] text-[#806236]">
+                        <Check size={13} />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold">
+                          {h.from_stage
+                            ? `${STAGE_LABEL[h.from_stage] || h.from_stage} → ${STAGE_LABEL[h.to_stage] || h.to_stage}`
+                            : `Started at ${STAGE_LABEL[h.to_stage] || h.to_stage}`}
+                        </p>
+                        <p className="text-[11px] text-[#4A5568]">
+                          {new Date(h.changed_at).toLocaleDateString('en-GB', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                          {h.note ? ` · ${h.note}` : ''}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
             </Card>
           </div>
 
@@ -545,11 +833,15 @@ export default function StagePage({stage}) {
             <Card title="Readiness score">
               <div className="flex items-center gap-4">
                 <div className="grid h-20 w-20 place-items-center rounded-full border-2 border-dashed border-[#E5E1D8]">
-                  <span className="serif text-2xl font-semibold text-[#A0A7B4]">—</span>
+                  <span className="serif text-2xl font-semibold text-[#A0A7B4]">
+                    {summary?.readiness_pct ?? '—'}
+                  </span>
                 </div>
                 <div>
                   <p className="text-xs text-[#4A5568]">out of 100</p>
-                  <p className="mt-1 text-xs font-semibold">Not assessed yet</p>
+                  <p className="mt-1 text-xs font-semibold">
+                    {summary?.readiness_pct == null ? 'Not assessed yet' : 'Readiness items signed off'}
+                  </p>
                   <Link href="/startup/readiness" className="mt-2 inline-block text-xs font-semibold text-[#9A7A45]">
                     View breakdown <ArrowRight className="inline" size={13} />
                   </Link>
@@ -586,11 +878,16 @@ export default function StagePage({stage}) {
             <header className="flex items-center justify-between border-b border-[#E5E1D8] bg-white p-5">
               <div className="flex items-center gap-3">
                 <span className="grid h-10 w-10 place-items-center rounded-lg bg-[#F3EBDD] text-[#806236]">
-                  <tool.Icon size={20} />
+                  {(() => {
+                    const Icon = TOOL_ICONS[tool.tool_key] || ClipboardList;
+                    return <Icon size={20} />;
+                  })()}
                 </span>
                 <div>
                   <h2 id="tool-title" className="serif text-xl font-semibold">{tool.name}</h2>
-                  <p className="text-xs text-[#4A5568]">{current.title} toolkit · {tool.progress}</p>
+                  <p className="text-xs text-[#4A5568]">
+                    {current.title} toolkit · {TOOL_STATUS_LABEL[tool.status] || tool.status}
+                  </p>
                 </div>
               </div>
               <button type="button" onClick={() => setTool(null)} aria-label="Close tool" className="grid h-10 w-10 place-items-center rounded-lg hover:bg-[#FAF8F4]">
@@ -601,31 +898,88 @@ export default function StagePage({stage}) {
               <p className="text-sm leading-6 text-[#4A5568]">
                 {tool.description} Use this workspace to make progress and attach evidence to your stage criteria.
               </p>
+
+              {toolError && (
+                <div className="mt-4 rounded-lg border border-[#F0C9C9] bg-[#FDECEC] p-3 text-xs text-[#A33A3A]" role="alert">
+                  {toolError}
+                </div>
+              )}
+
+              {!canEdit && (
+                <p className="mt-4 rounded-lg bg-[#F3F4F6] p-3 text-xs text-[#4A5568]">
+                  Read-only: your workspace role cannot edit tool progress.
+                </p>
+              )}
+
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div className="space-y-4">
+                  <label className="block text-sm font-medium">
+                    Status
+                    <select
+                      value={toolStatus}
+                      onChange={e => setToolStatus(e.target.value)}
+                      disabled={!canEdit || savingTool}
+                      className="mt-2 w-full rounded-xl border border-[#E5E1D8] bg-white p-3 text-sm font-normal outline-none focus:border-[#B8955A] focus:ring-2 focus:ring-[#B8955A]/20 disabled:bg-[#F3F4F6]"
+                    >
+                      <option value="not_started">Not started</option>
+                      <option value="in_progress">In progress</option>
+                      <option value="done">Complete</option>
+                    </select>
+                  </label>
+
+                  <label className="block text-sm font-medium">
+                    Progress · {toolProgress}%
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="5"
+                      value={toolProgress}
+                      onChange={e => setToolProgress(Number(e.target.value))}
+                      disabled={!canEdit || savingTool || toolStatus !== 'in_progress'}
+                      className="mt-3 w-full accent-[#B8955A] disabled:opacity-60"
+                    />
+                    <small className="mt-1 block text-xs font-normal text-[#4A5568]">
+                      {toolStatus === 'done'
+                        ? 'Completed tools are stored at 100%.'
+                        : toolStatus === 'not_started'
+                          ? 'Not-started tools are stored at 0%.'
+                          : 'Drag to record how far along this tool is.'}
+                    </small>
+                  </label>
+                </div>
+
                 <label className="text-sm font-medium">
                   Workspace notes
                   <textarea
-                    value={note}
-                    onChange={e => setNote(e.target.value)}
+                    value={toolNotes}
+                    onChange={e => setToolNotes(e.target.value)}
                     rows={6}
+                    disabled={!canEdit || savingTool}
+                    maxLength={2000}
                     placeholder="Capture your team's progress, decisions or next steps…"
-                    className="mt-2 w-full rounded-xl border border-[#E5E1D8] bg-white p-3 text-sm font-normal outline-none focus:border-[#B8955A] focus:ring-2 focus:ring-[#B8955A]/20"
+                    className="mt-2 w-full rounded-xl border border-[#E5E1D8] bg-white p-3 text-sm font-normal outline-none focus:border-[#B8955A] focus:ring-2 focus:ring-[#B8955A]/20 disabled:bg-[#F3F4F6]"
                   />
-                  <small className="mt-1 block text-xs font-normal text-[#4A5568]">Kept while this page is open · {note.length} characters</small>
+                  <small className="mt-1 block text-xs font-normal text-[#4A5568]">
+                    Saved with the tool · {toolNotes.length} of 2000 characters
+                  </small>
                 </label>
-                <div className="rounded-xl border border-dashed border-[#E5E1D8] bg-white p-5">
-                  <Upload className="mb-3 text-[#9A7A45]" size={20} />
-                  <h3 className="text-sm font-semibold">Add supporting evidence</h3>
-                  <p className="mt-1 text-xs leading-5 text-[#4A5568]">Attach a document, link or relevant tool entry for mentor review.</p>
-                  <button type="button" onClick={() => notify('Evidence upload is ready to connect.')} className="mt-4 min-h-10 rounded-lg border border-[#E5E1D8] px-3 text-xs font-semibold">
-                    Choose evidence
-                  </button>
-                </div>
               </div>
-              <div className="mt-5 flex justify-end">
-                <button type="button" onClick={() => setTool(null)} className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white">
+
+              <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+                <button type="button" onClick={() => setTool(null)} className="min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-4 text-sm font-semibold">
                   Close
                 </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={saveTool}
+                    disabled={savingTool}
+                    className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#E5E1D8] disabled:text-[#A0A7B4]"
+                  >
+                    {savingTool ? 'Saving…' : 'Save tool'}
+                  </button>
+                )}
               </div>
             </div>
           </section>
@@ -642,6 +996,20 @@ export default function StagePage({stage}) {
             <p className="mt-2 text-sm leading-6 text-[#4A5568]">
               Your startup’s stage updates immediately. Mentor review of exit criteria is tracked separately in the readiness workspace.
             </p>
+            <label className="mt-4 block text-sm font-medium">
+              Reason (optional)
+              <textarea
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder="What changed that makes this stage the right one?"
+                className="mt-2 w-full rounded-xl border border-[#E5E1D8] bg-white p-3 text-sm font-normal outline-none focus:border-[#B8955A] focus:ring-2 focus:ring-[#B8955A]/20"
+              />
+              <small className="mt-1 block text-xs font-normal text-[#4A5568]">
+                Saved with the stage history · {note.length} of 500 characters
+              </small>
+            </label>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setRequest(false)} className="px-4 text-sm">
                 Cancel
