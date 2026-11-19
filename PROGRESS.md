@@ -53,6 +53,8 @@ _Backend phase (A) complete: 32 tests pass, ruff + mypy clean, migrations up/dow
 - [x] Onboarding flow per role (all 5 flows PATCH users/me onboarding_step on step change and 'completed' on finish — verified live GET round-trip; org/talent/mentor finish data persists through the profile APIs above)
 - [x] Public vs private views (separate Read schemas: public org GET /public/organizations/{slug}, public talent requires is_searchable AND users.profile_public else 404, public mentor respects profile_public — verified live)
 - [x] Notification preferences stub (GET/PATCH /users/me/notification-preferences, PK user+category+channel — wired in investor/mentor notification tables + jobseeker email-alerts toggle)
+- [ ] 3d Team management completion, A: backend (deactivate/reactivate, resend invite and invite email, bulk actions, last_active_at, server-side filters, audit, export, unassign tasks on remove, owner transfer flow, member drawer data)
+- [ ] 3d Team management completion, B: /startup/team wired, no local-only actions left
 
 ## Step 4: Files (deferred, not needed for Step 5)
 - [ ] R2 integration and signed upload URLs
@@ -83,12 +85,12 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [ ] B: labels and comments wired on the board
 
 ### 5e Metrics
-- [ ] A: `startup_metrics` upsert, latest, history, server-only verified sources
-- [ ] B: `/startup/analytics` Overview and Journey tabs and dashboard metric cards wired
+- [x] A: `startup_metrics` upsert, latest, history, server-only verified sources
+- [x] B: `/startup/analytics` Overview and Journey tabs wired to real metrics (dashboard metric cards move to 5g, approved)
 
 ### 5f Readiness
-- [ ] A: criteria bootstrap, evidence, submit, score, admin sign-off only, `tasks.readiness_id` foreign key
-- [ ] B: `/startup/readiness` wired (mentor sign-off waits for Step 8)
+- [x] A: criteria bootstrap, evidence, submit, score, admin sign-off only, `tasks.readiness_id` foreign key
+- [x] B: `/startup/readiness` wired (mentor sign-off waits for Step 8)
 
 ### 5g Dashboard summary
 - [ ] A: one read-only summary endpoint
@@ -97,8 +99,28 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 ### 5h Discovery and public startup page
 - [ ] A: startup list with filters, public read, visibility tests for each value
 
-### 5i Step 5 test pass
-- [ ] Click-through as founder, member, viewer, mentor, investor
+### 5i Stage criteria and progress
+- [ ] A: stage exit criteria source decided (readiness rows by stage), `startup_stage_history` proposed and built, stage change history written in the same transaction
+- [ ] B: /startup/stage and the five stage pages wired; demo data removed
+
+### 5j Stage tools (GAP)
+- [ ] A: generic `stage_tool_progress` proposed and built; specialized tools listed with a decision for each
+- [ ] B: tool panels on the stage pages wired
+
+### 5k Analytics: business tab (GAP)
+- [ ] A: extra metric keys and funnel model proposed and built; calculated values computed in the service
+- [ ] B: /startup/analytics Business tab wired
+
+### 5l Analytics: market tab (GAP)
+- [ ] A: market size and competitors proposed and built, visibility toggles enforced
+- [ ] B: /startup/analytics Market tab (market size, competitors) wired
+
+### 5m Analytics: journey tab and leftovers (build after Steps 7, 8, 9)
+- [ ] A: aggregate endpoints, anonymous benchmark rule with a minimum group size
+- [ ] B: /startup/analytics Journey tab and remaining cards wired
+
+### 5n Step 5 test pass
+- [ ] Click-through of 5a to 5l as founder, member, viewer, mentor, investor (repeat for 5m when built)
 - [ ] No leftover demo data on wired pages
 
 ## Step 6: Connections (only if the frontend needs it)
@@ -106,31 +128,193 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [ ] Requests, accept, decline
 - [ ] Blocks respected everywhere
 
-## Step 7: Jobs and talent
-- [ ] 7a Jobs and search
-- [ ] 7b Applications and stages
-- [ ] 7c Interviews, scorecards, offers, hires, onboarding
-- [ ] 7d Saved jobs, alerts, resumes, ATS, practice
-- [ ] 7e Hiring requests, shortlists, funnel
-- [ ] Frontend test pass
+## Step 7: Hiring (one sub-step at a time; A = backend, B = frontend wired)
 
-## Step 8: Mentors
-- [ ] Listing and search
-- [ ] Mentorship requests
-- [ ] Sessions without double booking
-- [ ] Deliverables and agreements
-- [ ] Earnings records
-- [ ] Decision on availability slots and reviews (gaps)
+### 7a Jobs (employer)
+- [ ] A: Create, edit, publish, pause, close and archive jobs; salary and equity ranges; job visibility. Jobs belong to an organization of type employer or startup (startups hire too)
+- [ ] B: /employer/jobs/new, /employer/jobs/[jobId]/edit, /employer/jobs/[jobId] (job details), /employer/hiring wired; demo data removed
 
-## Step 9: Investors, rounds, data room
-- [ ] Funding rounds
-- [ ] Investor pipeline and notes
-- [ ] Offers and commitments
-- [ ] Portfolio
-- [ ] Data room and access requests
-- [ ] Document view logging
-- [ ] Investor preferences and watchlist (gap decision)
-- [ ] Frontend test pass
+### 7b Job search and company pages (job seeker)
+- [ ] A: Search with filters and pagination, job detail, company page, startups that are hiring
+- [ ] B: /jobseeker/jobs, /jobseeker/jobs/[jobId], /jobseeker/companies/[companyId], /jobseeker/startups wired; demo data removed
+
+### 7c Apply and my applications
+- [ ] A: Apply with profile, cover note and screening answers; duplicate and deadline checks; withdraw; stage history visible to the applicant
+- [ ] B: /jobseeker/jobs/[jobId]/apply, /jobseeker/applications, /jobseeker/applications/[applicationId] wired; demo data removed
+
+### 7d Applicant pipeline (employer)
+- [ ] A: Applicants per job with filters, applicant detail, stage changes with history, private notes, reject reasons, blind-review mode
+- [ ] B: /employer/jobs/[jobId] (applicants), /employer/jobs/[jobId]/applicants/[applicantId] wired; demo data removed
+
+### 7e Scorecards and compare
+- [ ] A: Scorecard templates and criteria, scores per applicant, side-by-side compare
+- [ ] B: /employer/jobs/[jobId]/compare, scoring panel on the applicant page wired; demo data removed
+
+### 7f Interviews
+- [ ] A: Schedule, participants, feedback, reschedule, cancel; applicant view
+- [ ] B: /employer/interviews, /jobseeker/interviews wired; demo data removed
+
+### 7g Offers
+- [ ] A: Create and send offers, approval, accept, decline, expire, decline reasons, applicant compare
+- [ ] B: /employer/offers, /employer/offers/[offerId], /jobseeker/offers, /jobseeker/offers/[offerId], /jobseeker/offers/compare wired; demo data removed
+
+### 7h Hires and onboarding
+- [ ] A: Turn an accepted offer into a hire; onboarding templates and checklist; hire documents (documents need Step 4)
+- [ ] B: /employer/hires, /employer/hires/[hireId], /employer/templates (onboarding part) wired; demo data removed
+
+### 7i Hiring requests and approvals
+- [ ] A: Request a role, approve or reject, convert an approved request into a job
+- [ ] B: /employer/requests/new, request list in /employer/hiring wired; demo data removed
+
+### 7j Talent search and shortlists
+- [ ] A: Search job seekers who opted in, filters, shortlists, privacy rules, outreach limits
+- [ ] B: /employer/talent wired; demo data removed
+
+### 7k Message templates
+- [ ] A: Reusable messages (rejection, interview invite, offer follow-up)
+- [ ] B: /employer/templates (message part) wired; demo data removed
+
+### 7l Employer dashboard, analytics and activity
+- [ ] A: Read-only: hiring funnel, time to hire, activity feed
+- [ ] B: /employer/dashboard, /employer/analytics, /employer/activity wired; demo data removed
+
+### 7m Saved jobs and alerts (job seeker)
+- [ ] A: Save and unsave jobs, saved searches as alerts (delivery is Step 12)
+- [ ] B: /jobseeker/saved, /jobseeker/alerts wired; demo data removed
+
+### 7n Resume builder
+- [ ] A: Resumes, sections, versions, ordering, duplicate and delete
+- [ ] B: /jobseeker/resumes, /jobseeker/resumes/new, /jobseeker/resumes/[resumeId] wired; demo data removed
+
+### 7o ATS check and tailor
+- [ ] A: Score a resume against a job, tailoring suggestions
+- [ ] B: /jobseeker/resumes/[resumeId]/ats, /jobseeker/resumes/[resumeId]/tailor wired; demo data removed
+
+### 7p Practice interviews (core)
+- [ ] A: Drill catalogue, sessions, transcript turns, history
+- [ ] B: /jobseeker/practice, /new, /drills, /history, /[sessionId] wired; demo data removed
+
+### 7q Practice scoring and report
+- [ ] A: Scoring against the rubric and the session report
+- [ ] B: /jobseeker/practice/[sessionId]/report, /jobseeker/practice/rubric wired; demo data removed
+
+### 7r Startup hiring: jobs and applicants
+- [ ] A: Wire the startup hiring pages to the APIs from 7a and 7d: hiring overview, job editor, job detail with applicants, applicant detail. Mostly frontend; fix small API gaps only
+- [ ] B: /startup/hiring, /startup/hiring/jobs/new, /startup/hiring/[jobId], /startup/hiring/[jobId]/applicants/[applicantId] wired; demo data removed
+
+### 7s Startup hiring: interviews and offers
+- [ ] A: Wire the startup interviews and offers pages to 7f and 7g
+- [ ] B: /startup/hiring/interviews, /startup/hiring/offers wired; demo data removed
+
+### 7t Startup hiring: talent search, requests and employer page
+- [ ] A: Wire talent search (7j), hiring requests (7i) and the startup's public employer page (organization page plus its open jobs)
+- [ ] B: /startup/hiring/talent, /startup/hiring/requests/new, /startup/hiring/employer-page wired; demo data removed
+
+### 7u Job seeker dashboard and Step 7 test pass
+- [ ] A: Job seeker dashboard from 7a to 7q, then a click-through of every employer, startup hiring and job seeker page above
+- [ ] B: /jobseeker/dashboard, then all pages from 7a to 7t wired; demo data removed
+
+## Step 8: Mentors (one sub-step at a time; A = backend, B = frontend wired)
+
+### 8a Mentor directory (startup view)
+- [ ] A: Search and filter mentors, public mentor page, mentor suggestions for a startup
+- [ ] B: /startup/mentors/find, /startup/mentors/find/[mentorId] wired; demo data removed
+
+### 8b Mentorship requests
+- [ ] A: A startup requests a mentor, the mentor accepts or declines, one active mentorship per pair, end a mentorship
+- [ ] B: /mentor/requests, /mentor/startups (list), /mentor/discover, /startup/mentors/requests wired; demo data removed
+
+### 8c Availability slots (GAP, only if the UI needs it)
+- [ ] A: Mentor weekly availability with timezone, so sessions can be booked into free slots
+- [ ] B: availability section in /mentor/profile/edit and the booking step in sessions wired; demo data removed
+
+### 8d Sessions
+- [ ] A: Schedule, confirm, reschedule, cancel, complete with summary and action items, no-show; no double booking
+- [ ] B: /mentor/sessions, /mentor/sessions/[sessionId], /startup/sessions, /startup/sessions/[sessionId] wired; demo data removed
+
+### 8e Deliverables
+- [ ] A: Create, assign, submit and review deliverables with a status flow; link to readiness items
+- [ ] B: /mentor/deliverables, deliverables in /startup/mentors wired; demo data removed
+
+### 8f Mentor readiness sign-off
+- [ ] A: Switch on mentor sign-off for the readiness items from 5f; only a mentor with an active mentorship; revoke
+- [ ] B: /mentor/startups/[mentorshipId]/readiness, /startup/readiness (sign-off status) wired; demo data removed
+
+### 8g Agreements
+- [ ] A: Terms (fee, equity, cadence), send, sign by each side, versions
+- [ ] B: /mentor/agreements, /mentor/agreements/[agreementId], agreement card in /startup/mentors/[mentorshipId] wired; demo data removed
+
+### 8h Earnings records
+- [ ] A: Record per completed session (gross, commission, TDS, net) and summaries; payouts are paid in 14f
+- [ ] B: /mentor/earnings (read-only until 14f) wired; demo data removed
+
+### 8i Reviews and ratings (GAP)
+- [ ] A: Participants review a session once, mentor rating is recomputed; propose the table first
+- [ ] B: review prompt after a session, rating on mentor cards wired; demo data removed
+
+### 8j Mentor workspace, dashboard and impact
+- [ ] A: Mentorship workspace, health indicator, dashboard and derived impact numbers
+- [ ] B: /mentor/startups/[mentorshipId], /mentor/startups/[mentorshipId]/startup, /mentor/dashboard, /mentor/impact, /startup/mentors (overview), /startup/mentors/[mentorshipId] (workspace) wired; demo data removed
+
+### 8k Step 8 test pass
+- [ ] Click-through done, no leftover demo data on wired pages
+
+## Step 9: Investors, rounds, data room (one sub-step at a time; A = backend, B = frontend wired)
+
+### 9a Funding rounds (startup)
+- [ ] A: Create and edit a round (target, instrument, valuation, dates), status, progress against target
+- [ ] B: /startup/rounds, /startup/rounds/[roundId] wired; demo data removed
+
+### 9b Investor directory (startup view)
+- [ ] A: Startup searches and filters investors, public investor page; uses the investor organization profile and, once 9d exists, investor preferences
+- [ ] B: /startup/investors/discover, /startup/investors/[investorId] wired; demo data removed
+
+### 9c Startup discovery (investor view)
+- [ ] A: Search startups with filters, startup detail respecting visibility and round toggles; compare stays client-side
+- [ ] B: /investor/discover, /investor/startups/[startupId], /investor/compare wired; demo data removed
+
+### 9d Preferences, saved searches and shortlist (GAP)
+- [ ] A: Investor preferences (sectors, stage, ticket size), saved searches, shortlist; propose tables first
+- [ ] B: /investor/searches, /investor/shortlist, preferences in profile edit wired; demo data removed
+
+### 9e Pipeline
+- [ ] A: Investor deal board with stages, probability, ticket size, next step, stage history, private notes; the startup sees its own investor list without private notes
+- [ ] B: /investor/pipeline, /startup/investors/pipeline wired; demo data removed
+
+### 9f Requests, introductions and meetings (GAP)
+- [ ] A: Intro, meeting and information requests between investors and startups; propose the model first
+- [ ] B: /investor/requests, /investor/meetings, /startup/meetings wired; demo data removed
+
+### 9g Data room core (needs Step 4)
+- [ ] A: Folders, documents stored as files, visibility level per document, versions
+- [ ] B: /startup/data-room wired; demo data removed
+
+### 9h Data room access, NDA and audit
+- [ ] A: Access requests (approve, deny, revoke, expire), NDA tracking, every view logged
+- [ ] B: /startup/data-room/requests, /investor/data-rooms, /investor/data-rooms/[startupId], /investor/data-rooms/[startupId]/nda wired; demo data removed
+
+### 9i Offers
+- [ ] A: Offers with versions and counters; accept, decline, expire
+- [ ] B: /investor/offers, /investor/offers/new, /investor/offers/[offerId], offers shown to the startup wired; demo data removed
+
+### 9j Commitments and portfolio
+- [ ] A: Commitments with status and funding progress; portfolio holdings
+- [ ] B: /investor/commitments, /investor/commitments/[commitmentId], /investor/portfolio, /investor/portfolio/[startupId] wired; demo data removed
+
+### 9k Diligence (GAP)
+- [ ] A: Diligence checklist and notes per startup; no table exists, propose first
+- [ ] B: /investor/startups/[startupId]/diligence wired; demo data removed
+
+### 9l Investor dashboard, insights and activity
+- [ ] A: Read-only aggregates and activity feed
+- [ ] B: /investor/dashboard, /investor/insights, /investor/activity wired; demo data removed
+
+### 9m Startup investor hub and visibility settings
+- [ ] A: Startup's investor overview (read-only aggregates from 9a to 9j) and the visibility settings page, which reuses the profile visibility API from 5a
+- [ ] B: /startup/investors (hub), /startup/investors/settings wired; demo data removed
+
+### 9n Step 9 test pass
+- [ ] Click-through done, no leftover demo data on wired pages
 
 ## Step 10: Community and events
 - [ ] Spaces and access rules
@@ -160,22 +344,115 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [ ] Autocomplete
 - [ ] Visibility respected in results
 
-## Step 14: Billing and payments
-- [ ] Payment provider confirmed
-- [ ] Plans, entitlements, subscriptions
-- [ ] Invoices and tax math
-- [ ] Payments from verified webhooks
-- [ ] Refunds and dunning
-- [ ] Credits
-- [ ] Mentor payouts with maker/checker
-- [ ] Reconciliation
+## Step 14: Billing and payments (one sub-step at a time; A = backend, B = frontend wired)
 
-## Step 15: Admin console
-- [ ] 15a Admin access, audit log, security alerts
-- [ ] 15b Verifications, moderation, appeals, disputes, fraud
-- [ ] 15c Support tickets and help centre
-- [ ] 15d Data requests and compliance
-- [ ] 15e Feature flags, integrations, system status, content
+### 14a Plans and entitlements (admin catalogue)
+- [ ] A: Plans, entitlements per plan, promotions and billing products, managed by admin
+- [ ] B: /admin/plans, /admin/plans/new, /admin/plans/[id] wired; demo data removed
+
+### 14b Subscriptions and usage gating
+- [ ] A: Subscribe, upgrade, cancel; usage meters; feature gating helper used by other steps
+- [ ] B: plan and usage sections of /employer/billing and /investor/billing wired; demo data removed
+
+### 14c Checkout, invoices and payments
+- [ ] A: Create checkout, invoices with tax math and numbering, payments only from verified provider webhooks, saved payment methods (tokens only)
+- [ ] B: checkout and invoice list in /employer/billing and /investor/billing wired; demo data removed
+
+### 14d Refunds and dunning
+- [ ] A: Refund requests and approval, failed-payment retries
+- [ ] B: refund actions in /admin/billing wired; demo data removed
+
+### 14e Credits and spending controls
+- [ ] A: Credit wallets and transactions, spending limits
+- [ ] B: credits sections in billing pages wired; demo data removed
+
+### 14f Mentor payouts
+- [ ] A: Payout batches and holds with maker/checker approval, linked to mentor earnings
+- [ ] B: /admin/payouts, /admin/payouts/batches/[id], payout status in /mentor/earnings wired; demo data removed
+
+### 14g Reconciliation and admin billing
+- [ ] A: Match payments to provider settlements, admin billing overview
+- [ ] B: /admin/billing wired; demo data removed
+
+### 14h Mentorship payments (startup side, GAP)
+- [ ] A: The startup pays its mentor: agreement summary, payments and receipts, session credits, payment method. `schema.sql` has no link between a payment or invoice and a mentorship or session, so propose one (for example a `mentorship_id` or `session_id` on invoice lines)
+- [ ] B: /startup/mentors/[mentorshipId]/billing wired; demo data removed
+
+### 14i Step 14 test pass
+- [ ] Click-through done, no leftover demo data on wired pages
+
+## Step 15: Admin console (one sub-step at a time; A = backend, B = frontend wired)
+
+### 15a Admin accounts and access
+- [ ] A: Admin login on the separate admin subdomain policy, MFA, IP allow-list, short sessions, permission levels, first-admin bootstrap command (no public sign-up)
+- [ ] B: /admin/login, /admin/profile, /admin/profile/edit, /admin/staff wired; demo data removed
+
+### 15b Audit log
+- [ ] A: One audit helper used by every admin action (who, what, target, before and after, reason); audit list, export, integrity checks
+- [ ] B: /admin/audit wired; demo data removed
+
+### 15c Users and organizations
+- [ ] A: Search, view, suspend, restore, force logout, verify, delete requests; organization list and detail
+- [ ] B: /admin/users, /admin/users/[userId], /admin/organizations/[orgId] wired; demo data removed
+
+### 15d Verifications
+- [ ] A: Verification requests per user or organization, checks, approve, reject, expiry; user-facing submission
+- [ ] B: /admin/verifications, /admin/verifications/[type]/[id], /admin/verifications/expiring, /employer/trust (submission) wired; demo data removed
+
+### 15e Reports and moderation
+- [ ] A: User reports, moderation cases with queue, assignment, SLA and resolution (content scans come from Step 10)
+- [ ] B: /admin/moderation, /admin/moderation/[caseId], /admin/reports wired; demo data removed
+
+### 15f Appeals and disputes
+- [ ] A: User appeals of moderation decisions, disputes between parties
+- [ ] B: /admin/appeals, /admin/disputes, appeal part of /employer/trust wired; demo data removed
+
+### 15g Trust policies and fraud
+- [ ] A: Policies, rules, blocklists, fraud detections, security alerts
+- [ ] B: /admin/policies, /admin/fraud wired; demo data removed
+
+### 15h Support and help centre
+- [ ] A: Help articles, ticket categories, tickets and replies; user-facing ticket creation
+- [ ] B: /admin/support, /admin/support/[ticketId], /admin/help, /help wired; demo data removed
+
+### 15i Data requests and consent
+- [ ] A: Access, correction and erasure requests with deadlines; consent records
+- [ ] B: /admin/data-requests, /admin/data-requests/[id] wired; demo data removed
+
+### 15j Compliance records
+- [ ] A: Records of processing, vendors, DPIA assessments
+- [ ] B: /admin/compliance (records tabs), /admin/compliance/[id] wired; demo data removed
+
+### 15k Compliance operations
+- [ ] A: Incidents, legal holds, trainings, calendar, compliance reports
+- [ ] B: /admin/compliance (operations tabs) wired; demo data removed
+
+### 15l Platform configuration
+- [ ] A: Feature flags, platform limits, settings
+- [ ] B: /admin/config, /admin/config/new, /admin/settings wired; demo data removed
+
+### 15m Integrations, webhooks and system status
+- [ ] A: Integration providers, webhook endpoints and events (admin screens), service status, incidents, alerts
+- [ ] B: /admin/integrations, /admin/system wired; demo data removed
+
+### 15n Opportunities and matching
+- [ ] A: Opportunities (grants, programs), applications, matching rules, fairness metrics
+- [ ] B: /admin/opportunities, /admin/opportunities/new, /admin/opportunities/[id], /admin/matching wired; demo data removed
+
+### 15o AI quality
+- [ ] A: AI models and review queue
+- [ ] B: /admin/ai-quality, /admin/ai-quality/reviews/[id] wired; demo data removed
+
+### 15p Content and templates
+- [ ] A: Platform content with versions, platform templates
+- [ ] B: /admin/content, /admin/templates, /admin/templates/new, /admin/templates/[id] wired; demo data removed
+
+### 15q Admin dashboard, analytics and notifications
+- [ ] A: Read-only aggregates from every earlier step, admin notifications
+- [ ] B: /admin/dashboard, /admin/analytics, /admin/notifications wired; demo data removed
+
+### 15r Step 15 test pass
+- [ ] Click-through done, no leftover demo data on wired pages
 
 ## Step 16: Connect the frontend
 - [ ] Typed API client generated

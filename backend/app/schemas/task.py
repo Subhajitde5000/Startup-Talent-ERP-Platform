@@ -1,9 +1,14 @@
-"""Task schemas (Step 5c).
+"""Task schemas (Step 5c, extended by Step 5f).
 
 Conventions (AGENTS.md section 5): separate Create/Update/Move/Read
 shapes; server-owned fields (id, org_id, created_by, completed_at,
-display_order, readiness_id, timestamps) are ABSENT from every input
-schema — extra="forbid" turns any attempt into a 422 (plan D1/D6).
+display_order, timestamps) are ABSENT from every input schema —
+extra="forbid" turns any attempt into a 422 (plan D1/D6).
+
+Step 5f carries the 5c D1 deferral: ``readiness_id`` is now a real,
+validated reference on PATCH (a same-org ``startup_readiness`` row) and
+is returned by TaskRead. It stays out of TaskCreate — a brand-new task
+is not pre-linked to a criterion.
 
 Create: title required; status is always ``todo`` at creation — only
 the move endpoint writes status/completed_at/display_order (D6).
@@ -65,6 +70,8 @@ class TaskUpdate(BaseModel):
     milestone_id: uuid.UUID | None = None
     assignee_id: uuid.UUID | None = None
     due_on: date | None = None
+    # Step 5f: linked stage criterion (same-organization row).
+    readiness_id: uuid.UUID | None = None
 
     @field_validator("title")
     @classmethod
@@ -105,8 +112,8 @@ class TaskMove(BaseModel):
 
 
 class TaskRead(BaseModel):
-    """Member shape. ``readiness_id`` is intentionally absent until
-    Step 5f adds its foreign key (D1)."""
+    """Member shape. ``readiness_id`` arrived with Step 5f (D1 deferral
+    honoured): the linked readiness item, or null."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -118,6 +125,7 @@ class TaskRead(BaseModel):
     priority: TaskPriority
     milestone_id: uuid.UUID | None
     assignee_id: uuid.UUID | None
+    readiness_id: uuid.UUID | None
     created_by: uuid.UUID | None
     due_on: date | None
     completed_at: datetime | None

@@ -690,6 +690,236 @@ export interface paths {
         patch: operations["move_task_api_v1_organizations__org_id__tasks__task_id__move_patch"];
         trace?: never;
     };
+    "/api/v1/readiness/criteria": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List readiness criteria (reference data)
+         * @description The checklist text itself, without any organization's state.
+         */
+        get: operations["list_criteria_api_v1_readiness_criteria_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Readiness board for a startup
+         * @description Criteria + this organization's state + the score summary.
+         *
+         *     Any active member may read (viewers included).
+         */
+        get: operations["get_board_api_v1_organizations__org_id__readiness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/readiness/{criterion_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read one readiness item */
+        get: operations["get_item_api_v1_organizations__org_id__readiness__criterion_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update evidence and notes
+         * @description Owner/admin/member (viewer 403). ``status`` and ``score`` are not
+         *     accepted here — they belong to the transition routes (422).
+         */
+        patch: operations["update_evidence_api_v1_organizations__org_id__readiness__criterion_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/readiness/{criterion_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit a readiness item for review
+         * @description Evidence is required; an illegal transition is 409.
+         */
+        post: operations["submit_api_v1_organizations__org_id__readiness__criterion_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/readiness/{criterion_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw a submitted readiness item */
+        post: operations["withdraw_api_v1_organizations__org_id__readiness__criterion_id__withdraw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/readiness/{criterion_id}/sign-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign off a submitted readiness item (platform admin)
+         * @description Platform admin only (plan D3). Mentor sign-off is switched on in
+         *     Step 8, once a mentorship relationship exists. No startup member can
+         *     hold the admin role, so self-sign-off is impossible.
+         */
+        post: operations["sign_off_api_v1_organizations__org_id__readiness__criterion_id__sign_off_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/readiness/{criterion_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a submitted readiness item (platform admin)
+         * @description Platform admin only; the reason is stored in ``notes``.
+         */
+        post: operations["reject_api_v1_organizations__org_id__readiness__criterion_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List metric values
+         * @description Any active member. ``period_from``/``period_to`` are inclusive.
+         */
+        get: operations["list_metrics_api_v1_organizations__org_id__metrics_get"];
+        /**
+         * Report a metric value (upsert)
+         * @description Owner/admin/member (viewer 403). One row per (key, period): a second
+         *     report for the same period replaces the value. ``source`` is always
+         *     ``startup_reported``; a verified period is 409, never overwritten.
+         */
+        put: operations["upsert_metric_api_v1_organizations__org_id__metrics_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/metrics/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest value per metric key
+         * @description Any active member (viewer included). Keys with no data are listed in
+         *     ``missing`` rather than reported as 0.
+         */
+        get: operations["latest_metrics_api_v1_organizations__org_id__metrics_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/metrics/{metric_key}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * History for one metric key
+         * @description Newest period first — the trend and revenue-vs-burn charts.
+         */
+        get: operations["metric_history_api_v1_organizations__org_id__metrics__metric_key__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/metrics/{metric_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a metric value
+         * @description Owner/admin/member (viewer 403); a foreign id is 404.
+         */
+        delete: operations["delete_metric_api_v1_organizations__org_id__metrics__metric_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invites/{token}/accept": {
         parameters: {
             query?: never;
@@ -1197,6 +1427,138 @@ export interface components {
             message: string;
         };
         /**
+         * MetricHistory
+         * @description ``GET /metrics/{key}/history`` — a chart window, newest first.
+         */
+        MetricHistory: {
+            metric_key: components["schemas"]["MetricKey"];
+            /** Unit */
+            unit: string | null;
+            /** Currency */
+            currency: string | null;
+            /** Items */
+            items: components["schemas"]["MetricPoint"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * MetricKey
+         * @description schema.sql CHECK ``startup_metric_key_valid`` — the 8 allowed keys.
+         *
+         *     Anything else (for example the analytics page's "cash balance",
+         *     which schema.sql has no key for) is rejected with 422.
+         * @enum {string}
+         */
+        MetricKey: "mrr" | "arr" | "customers" | "burn" | "runway_months" | "growth_mom" | "headcount" | "active_users";
+        /**
+         * MetricLatestRead
+         * @description ``GET /metrics/latest`` — the dashboard/analytics card row.
+         *
+         *     Only keys that actually have a value appear here (plan E2): a missing
+         *     key is absent rather than reported as 0, so the UI can show an honest
+         *     empty card instead of a fake number.
+         */
+        MetricLatestRead: {
+            /** Items */
+            items: components["schemas"]["MetricRead"][];
+            /** Missing */
+            missing: components["schemas"]["MetricKey"][];
+        };
+        /**
+         * MetricPage
+         * @description ``GET /metrics`` — the paginated list envelope (same as 5b/5c).
+         */
+        MetricPage: {
+            /** Items */
+            items: components["schemas"]["MetricRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * MetricPoint
+         * @description One point on a history line (the chart's x/y pair).
+         */
+        MetricPoint: {
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Value */
+            value: string;
+            source: components["schemas"]["MetricSource"];
+        };
+        /**
+         * MetricRead
+         * @description One stored value (the shape every read returns).
+         */
+        MetricRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            metric_key: components["schemas"]["MetricKey"];
+            /** Value */
+            value: string;
+            /** Unit */
+            unit: string | null;
+            /** Currency */
+            currency: string | null;
+            source: components["schemas"]["MetricSource"];
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * MetricSource
+         * @description schema.sql CHECK ``startup_metric_source_valid``.
+         *
+         *     Only ``startup_reported`` is reachable from the API: the rest are
+         *     server-side verification (mentor Step 8, admin Step 15a, calculated
+         *     rollups later).
+         * @enum {string}
+         */
+        MetricSource: "startup_reported" | "calculated" | "mentor_verified" | "admin_verified";
+        /**
+         * MetricUpsert
+         * @description Report one value for one (key, period). Server fields are absent.
+         */
+        MetricUpsert: {
+            metric_key: components["schemas"]["MetricKey"];
+            /** Value */
+            value: number | string;
+            /** Unit */
+            unit?: string | null;
+            /** Currency */
+            currency?: string | null;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+        };
+        /**
          * MilestoneCreate
          * @description Member create. Server-owned fields are structurally absent.
          */
@@ -1469,19 +1831,79 @@ export interface components {
          */
         ProfileVisibility: "private" | "mentors" | "mentors_and_investors" | "public";
         /**
-         * ReadinessRead
-         * @description Computed readiness scores (0-100). resume/practice stay 0 until
-         *     Step 4 (resume scan) and Step 5 (practice) land.
+         * ReadinessBoard
+         * @description The whole /startup/readiness page in one read.
          */
-        ReadinessRead: {
-            /** Profile Complete */
-            profile_complete: number;
-            /** Resume Score */
-            resume_score: number;
-            /** Practice Score */
-            practice_score: number;
-            /** Overall Score */
-            overall_score: number;
+        ReadinessBoard: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            summary: components["schemas"]["ReadinessSummary"];
+            /** Items */
+            items: components["schemas"]["app__schemas__readiness__ReadinessRead"][];
+        };
+        /**
+         * ReadinessCriterionRead
+         * @description Reference data row (no org, no user state).
+         */
+        ReadinessCriterionRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            stage: components["schemas"]["StartupStage"] | null;
+            /** Weight */
+            weight: number;
+            /** Display Order */
+            display_order: number;
+        };
+        /**
+         * ReadinessReject
+         * @description A rejection must say why (stored in ``notes``, plan D6).
+         */
+        ReadinessReject: {
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * ReadinessStatus
+         * @description schema.sql CHECK on ``startup_readiness.status``.
+         * @enum {string}
+         */
+        ReadinessStatus: "not_started" | "in_progress" | "submitted" | "signed_off" | "rejected";
+        /**
+         * ReadinessSummary
+         * @description Plan D1: the score is signed-off / ACTIVE criteria, never the
+         *     schema.sql view (which divides by touched rows only).
+         */
+        ReadinessSummary: {
+            /** Criteria Total */
+            criteria_total: number;
+            /** Criteria Signed Off */
+            criteria_signed_off: number;
+            /** Readiness Pct */
+            readiness_pct: number;
+            /** Is Ready */
+            is_ready: boolean;
+        };
+        /**
+         * ReadinessUpdate
+         * @description Startup-side field patch. Status is not here on purpose.
+         */
+        ReadinessUpdate: {
+            /** Evidence */
+            evidence?: string | null;
+            /** Notes */
+            notes?: string | null;
         };
         /** RefreshRequest */
         RefreshRequest: {
@@ -1924,8 +2346,8 @@ export interface components {
         TaskPriority: "low" | "medium" | "high" | "urgent";
         /**
          * TaskRead
-         * @description Member shape. ``readiness_id`` is intentionally absent until
-         *     Step 5f adds its foreign key (D1).
+         * @description Member shape. ``readiness_id`` arrived with Step 5f (D1 deferral
+         *     honoured): the linked readiness item, or null.
          */
         TaskRead: {
             /**
@@ -1948,6 +2370,8 @@ export interface components {
             milestone_id: string | null;
             /** Assignee Id */
             assignee_id: string | null;
+            /** Readiness Id */
+            readiness_id: string | null;
             /** Created By */
             created_by: string | null;
             /** Due On */
@@ -1995,6 +2419,8 @@ export interface components {
             assignee_id?: string | null;
             /** Due On */
             due_on?: string | null;
+            /** Readiness Id */
+            readiness_id?: string | null;
         };
         /** TokenResponse */
         TokenResponse: {
@@ -2206,6 +2632,57 @@ export interface components {
              * @default Email verified.
              */
             message?: string;
+        };
+        /**
+         * ReadinessRead
+         * @description Computed readiness scores (0-100). resume/practice stay 0 until
+         *     Step 4 (resume scan) and Step 5 (practice) land.
+         */
+        app__schemas__profile__ReadinessRead: {
+            /** Profile Complete */
+            profile_complete: number;
+            /** Resume Score */
+            resume_score: number;
+            /** Practice Score */
+            practice_score: number;
+            /** Overall Score */
+            overall_score: number;
+        };
+        /**
+         * ReadinessRead
+         * @description One criterion joined with this organization's state.
+         */
+        app__schemas__readiness__ReadinessRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Criterion Id
+             * Format: uuid
+             */
+            criterion_id: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            stage: components["schemas"]["StartupStage"] | null;
+            /** Display Order */
+            display_order: number;
+            status: components["schemas"]["ReadinessStatus"];
+            /** Evidence */
+            evidence: string | null;
+            /** Notes */
+            notes: string | null;
+            /** Signed Off By */
+            signed_off_by: string | null;
+            /** Signed Off At */
+            signed_off_at: string | null;
+            /** Updated At */
+            updated_at: string | null;
         };
     };
     responses: never;
@@ -2741,7 +3218,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReadinessRead"];
+                    "application/json": components["schemas"]["app__schemas__profile__ReadinessRead"];
                 };
             };
             /** @description Validation Error */
@@ -3789,6 +4266,460 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TaskRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_criteria_api_v1_readiness_criteria_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessCriterionRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_board_api_v1_organizations__org_id__readiness_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessBoard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_item_api_v1_organizations__org_id__readiness__criterion_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                criterion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__schemas__readiness__ReadinessRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_evidence_api_v1_organizations__org_id__readiness__criterion_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                criterion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadinessUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__schemas__readiness__ReadinessRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_api_v1_organizations__org_id__readiness__criterion_id__submit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                criterion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__schemas__readiness__ReadinessRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdraw_api_v1_organizations__org_id__readiness__criterion_id__withdraw_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                criterion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__schemas__readiness__ReadinessRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sign_off_api_v1_organizations__org_id__readiness__criterion_id__sign_off_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                criterion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__schemas__readiness__ReadinessRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_api_v1_organizations__org_id__readiness__criterion_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                criterion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadinessReject"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__schemas__readiness__ReadinessRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_metrics_api_v1_organizations__org_id__metrics_get: {
+        parameters: {
+            query?: {
+                metric_key?: components["schemas"]["MetricKey"] | null;
+                period_from?: string | null;
+                period_to?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upsert_metric_api_v1_organizations__org_id__metrics_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetricUpsert"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    latest_metrics_api_v1_organizations__org_id__metrics_latest_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricLatestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metric_history_api_v1_organizations__org_id__metrics__metric_key__history_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                metric_key: components["schemas"]["MetricKey"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricHistory"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_metric_api_v1_organizations__org_id__metrics__metric_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                metric_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

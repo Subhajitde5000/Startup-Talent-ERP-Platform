@@ -20,9 +20,11 @@ and settings pages now live here.
 from __future__ import annotations
 
 import asyncio
+import calendar
 import re
 import sys
 from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 # Allow `python scripts/seed_dev.py` from backend/ without installing the pkg.
@@ -33,6 +35,7 @@ from sqlalchemy import func, select  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.db.session import async_session_factory, engine  # noqa: E402
+from app.models.metric import MetricKey, MetricSource, StartupMetric  # noqa: E402
 from app.models.milestone import Milestone  # noqa: E402
 from app.models.organization import (  # noqa: E402
     MemberStatus,
@@ -41,6 +44,11 @@ from app.models.organization import (  # noqa: E402
     OrgRole,
 )
 from app.models.profile import Skill, UserReadiness  # noqa: E402
+from app.models.readiness import (  # noqa: E402
+    ReadinessCriterion,
+    ReadinessStatus,
+    StartupReadiness,
+)
 from app.models.startup import (  # noqa: E402
     ProfileVisibility,
     StartupProfile,
@@ -307,14 +315,64 @@ STEP5C_TASKS: list[dict[str, object]] = [
     },
 ]
 
+# Step 5f demo readiness: the founder's org starts with two signed-off
+# criteria, one awaiting review and one rejected, so /startup/readiness
+# shows every badge state in development. Keyed by criterion code; the
+# criteria themselves come from scripts/bootstrap_readiness.py. Fill-only.
+STEP5F_READINESS: list[dict[str, object]] = [
+    {"code": "pitch_deck_summary", "status": ReadinessStatus.signed_off},
+    {"code": "business_model_economics", "status": ReadinessStatus.signed_off},
+    {"code": "financial_projections", "status": ReadinessStatus.submitted},
+    {
+        "code": "cap_table_legal",
+        "status": ReadinessStatus.rejected,
+        "notes": "Cap table is missing the 2025 advisor grant.",
+    },
+]
+
+# Step 5e demo metrics: six months for the founder's org so the analytics
+# Overview/Journey tabs have a real trend in development. (key, months ago,
+# value, unit, currency, source). `months ago` counts back from the current
+# month's end. Values are the ones the page used to hard-code, now stored
+# where the API can serve them. Fill-only: an existing (key, period) wins.
+STEP5E_METRICS: list[tuple[str, int, str, str | None, str | None, MetricSource]] = [
+    ("mrr", 5, "320000", "INR", "INR", MetricSource.startup_reported),
+    ("mrr", 4, "340000", "INR", "INR", MetricSource.startup_reported),
+    ("mrr", 3, "360000", "INR", "INR", MetricSource.startup_reported),
+    ("mrr", 2, "400000", "INR", "INR", MetricSource.startup_reported),
+    ("mrr", 1, "430000", "INR", "INR", MetricSource.startup_reported),
+    ("mrr", 0, "480000", "INR", "INR", MetricSource.startup_reported),
+    ("burn", 5, "310000", "INR", "INR", MetricSource.startup_reported),
+    ("burn", 4, "305000", "INR", "INR", MetricSource.startup_reported),
+    ("burn", 3, "300000", "INR", "INR", MetricSource.startup_reported),
+    ("burn", 2, "295000", "INR", "INR", MetricSource.startup_reported),
+    ("burn", 1, "290000", "INR", "INR", MetricSource.startup_reported),
+    ("burn", 0, "285000", "INR", "INR", MetricSource.startup_reported),
+    ("customers", 3, "45", None, None, MetricSource.startup_reported),
+    ("customers", 1, "63", None, None, MetricSource.startup_reported),
+    ("customers", 0, "76", None, None, MetricSource.startup_reported),
+    ("runway_months", 0, "9", None, None, MetricSource.startup_reported),
+    ("growth_mom", 0, "11.6", "%", None, MetricSource.startup_reported),
+    ("headcount", 0, "8", None, None, MetricSource.startup_reported),
+    # One verified row so /startup/analytics shows the "Mentor verified"
+    # source label without any client being able to set it.
+    ("arr", 2, "3840000", "INR", "INR", MetricSource.mentor_verified),
+]
+
 # (email, display name, role, verified?)
 SEED_USERS = [
     ("founder@forma.dev", "Aarav Sharma", UserRole.startup, True),
+    # Step 5f (plan D3): the platform admin who signs readiness off.
+    # Step 15a replaces this with the real admin console + bootstrap.
+    ("admin@forma.dev", "Platform Admin", UserRole.admin, True),
     ("mentor@forma.dev", "Meera Iyer", UserRole.mentor, True),
     ("investor@forma.dev", "Rohan Kapoor", UserRole.investor, True),
     ("jobseeker@forma.dev", "Priya Nair", UserRole.jobseeker, True),
     ("employer@forma.dev", "Vikram Singh", UserRole.employer, True),
     ("pending@forma.dev", "Unverified User", UserRole.startup, False),
+    # Step 5e: a read-only workspace member, so the viewer path (reads yes,
+    # writes 403) can be exercised on /startup/analytics in development.
+    ("viewer@forma.dev", "Nisha Rao", UserRole.startup, True),
 ]
 
 
@@ -530,6 +588,36 @@ async def seed() -> None:
                     extra_members_added += 1
                     await db.commit()
 
+            # Step 5e: the read-only teammate for the analytics viewer checks.
+            viewer_user = (
+                await db.execute(
+                    select(User).where(User.primary_email == "viewer@forma.dev")
+                )
+            ).scalar_one_or_none()
+            if viewer_user is not None:
+                viewer_exists = (
+                    await db.execute(
+                        select(OrganizationMember.id).where(
+                            OrganizationMember.org_id == founder_org.id,
+                            OrganizationMember.user_id == viewer_user.id,
+                        )
+                    )
+                ).first()
+                if viewer_exists is None:
+                    db.add(
+                        OrganizationMember(
+                            org_id=founder_org.id,
+                            user_id=viewer_user.id,
+                            role=OrgRole.viewer,
+                            status=MemberStatus.active,
+                            title="Observer",
+                            joined_at=now,
+                            last_active_at=now,
+                        )
+                    )
+                    extra_members_added += 1
+                    await db.commit()
+
             profile_exists = (
                 await db.execute(
                     select(StartupProfile.org_id).where(
@@ -638,6 +726,133 @@ async def seed() -> None:
             if tasks_added:
                 await db.commit()
 
+            # Step 5f: demo readiness state for the founder's org (fill-only,
+            # only where the org has no row for that criterion yet). Criteria
+            # come from scripts/bootstrap_readiness.py; skip if not seeded.
+            readiness_added = 0
+            admin_user = (
+                await db.execute(
+                    select(User).where(User.primary_email == "admin@forma.dev")
+                )
+            ).scalar_one_or_none()
+            profile_row = (
+                await db.execute(
+                    select(StartupProfile).where(StartupProfile.org_id == founder_org.id)
+                )
+            ).scalar_one_or_none()
+            if profile_row is None:
+                db.add(StartupProfile(org_id=founder_org.id))
+                await db.commit()
+            for spec in STEP5F_READINESS:
+                criterion = (
+                    await db.execute(
+                        select(ReadinessCriterion).where(
+                            ReadinessCriterion.code == str(spec["code"])
+                        )
+                    )
+                ).scalar_one_or_none()
+                if criterion is None:
+                    continue
+                exists = (
+                    await db.execute(
+                        select(StartupReadiness.id).where(
+                            StartupReadiness.org_id == founder_org.id,
+                            StartupReadiness.criterion_id == criterion.id,
+                        )
+                    )
+                ).first()
+                if exists is not None:
+                    continue
+                status = spec["status"]
+                assert isinstance(status, ReadinessStatus)
+                signed_off = status == ReadinessStatus.signed_off
+                db.add(
+                    StartupReadiness(
+                        org_id=founder_org.id,
+                        criterion_id=criterion.id,
+                        status=status,
+                        evidence=(
+                            None
+                            if status == ReadinessStatus.signed_off
+                            else "Demo evidence added by the dev seed."
+                        ),
+                        notes=spec.get("notes"),
+                        signed_off_by=(
+                            admin_user.id if signed_off and admin_user else None
+                        ),
+                        signed_off_at=datetime.now(UTC) if signed_off else None,
+                    )
+                )
+                readiness_added += 1
+            if readiness_added:
+                await db.commit()
+                # Keep the cached roll-up honest after seeding state.
+                total = (
+                    await db.execute(
+                        select(func.count(ReadinessCriterion.id)).where(
+                            ReadinessCriterion.is_active.is_(True)
+                        )
+                    )
+                ).scalar_one()
+                signed = (
+                    await db.execute(
+                        select(func.count(StartupReadiness.id)).where(
+                            StartupReadiness.org_id == founder_org.id,
+                            StartupReadiness.status == ReadinessStatus.signed_off,
+                        )
+                    )
+                ).scalar_one()
+                profile_row = (
+                    await db.execute(
+                        select(StartupProfile).where(
+                            StartupProfile.org_id == founder_org.id
+                        )
+                    )
+                ).scalar_one()
+                profile_row.readiness_score = round(100 * signed / total) if total else 0
+                await db.commit()
+
+        # Step 5e: demo metrics for the founder's org (fill-only, one row per
+        # key and period). Period ends are the last day of each month counted
+        # back from the current month, so the trend stays current.
+        metrics_added = 0
+        today = date.today()
+        for key, months_ago, value, unit, currency, source in STEP5E_METRICS:
+            if key not in {k.value for k in MetricKey}:
+                continue
+            year, month = today.year, today.month - months_ago
+            while month <= 0:
+                month += 12
+                year -= 1
+            period_end = date(
+                year, month, calendar.monthrange(year, month)[1]
+            )
+            exists = (
+                await db.execute(
+                    select(StartupMetric.id).where(
+                        StartupMetric.org_id == founder_org.id,
+                        StartupMetric.metric_key == key,
+                        StartupMetric.period_end == period_end,
+                    )
+                )
+            ).first()
+            if exists is not None:
+                continue
+            db.add(
+                StartupMetric(
+                    org_id=founder_org.id,
+                    metric_key=key,
+                    value=Decimal(value),
+                    unit=unit,
+                    currency=currency,
+                    source=source,
+                    period_end=period_end,
+                )
+            )
+            metrics_added += 1
+        if metrics_added:
+            await db.commit()
+
         # Step 3c: talent profile for the jobseeker (skills attached by name).
         talent_added = 0
         talent = (
@@ -715,11 +930,13 @@ async def seed() -> None:
     print(f"  + profile fields on {profile_filled} account(s)")
     print(f"  + {skills_added} skill(s)")
     print(f"  + {readiness_added} readiness row(s)")
+    print(f"  + {metrics_added} metric row(s) (5e)")
     print(f"  + {orgs_added} organisation(s) with owner memberships")
     print(f"  + startup profile (5a): {startup_profile_added}")
     print(f"  + extra org member (5a): {extra_members_added}")
     print(f"  + milestones (5b): {milestones_added}")
     print(f"  + tasks (5c): {tasks_added}")
+    print(f"  + readiness items (5f): {readiness_added}")
     print(f"  + talent profile: {talent_added}")
     print(f"  + mentor profile: {mentor_added}")
     print(f"\nPassword for all seeded accounts: {DEV_PASSWORD}")

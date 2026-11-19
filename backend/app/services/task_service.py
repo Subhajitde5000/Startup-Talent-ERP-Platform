@@ -9,10 +9,11 @@ Object-level rules (BUILD_PLAN Step 5 security):
   never 403 (no existence oracle).
 - Payload references are field-validated with 422 + ``loc``:
   ``milestone_id`` must be an open milestone of this org, ``assignee_id``
-  an active member (same guard as the 5b owner rule), and move anchors
-  must be open tasks of the TARGET column in this org.
+  an active member (same guard as the 5b owner rule), ``readiness_id``
+  (Step 5f) a readiness row of this org, and move anchors must be open
+  tasks of the TARGET column in this org.
 - Server-controlled fields (id, org_id, created_by, completed_at,
-  display_order, readiness_id, timestamps) are absent from every input
+  display_order, timestamps) are absent from every input
   schema (extra=forbid -> 422) — plan D1/D6.
 - Soft delete: DELETE sets ``deleted_at``; reads and lists skip it.
 
@@ -39,7 +40,7 @@ from app.models.organization import OrgRole
 from app.models.task import Task, TaskPriority, TaskStatus
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskMove, TaskPage, TaskRead, TaskUpdate
-from app.services import organization_service, status_notification_service
+from app.services import organization_service, readiness_service, status_notification_service
 
 # Viewer role is deliberately excluded from writes (plan permission table).
 _WRITE_ROLES = frozenset({OrgRole.owner, OrgRole.admin, OrgRole.member})
@@ -356,6 +357,11 @@ async def update_task(
         await _require_milestone(db, org.id, data["milestone_id"])
     if "assignee_id" in data and data["assignee_id"] is not None:
         await _require_assignee(db, org.id, data["assignee_id"])
+    if "readiness_id" in data and data["readiness_id"] is not None:
+        # Step 5f: the linked criterion must be this org's readiness row.
+        await readiness_service.require_readiness_ref(
+            db, org.id, data["readiness_id"]
+        )
     for field, value in data.items():
         setattr(row, field, value)
 

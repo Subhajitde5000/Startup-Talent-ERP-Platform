@@ -1,7 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { StartupSidebar, Card } from '../../../components';
+import { api, ApiError } from '@/lib/api/client';
 import {
   Search,
   Bell,
@@ -32,43 +33,253 @@ import {
 
 const tabs = ['Overview', 'Journey', 'Business', 'Market'];
 
-function LineChart({ values = [26, 35, 30, 48, 44, 60, 68], labels = ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'], compare = false }) {
-  const width = 660, height = 210, pad = 28;
-  const path = values.map((v, i) => `${i ? 'L' : 'M'} ${pad + i * (width - pad * 2) / (values.length - 1)} ${height - pad - v * (height - pad * 2) / 100}`).join(' ');
-  const path2 = values.map((v, i) => `${i ? 'L' : 'M'} ${pad + i * (width - pad * 2) / (values.length - 1)} ${height - pad - (Math.max(8, v - 13)) * (height - pad * 2) / 100}`).join(' ');
+/**
+ * Named metric helpers. The backend stores eight keys; the analytics page
+ * labels them in words, so every label/format lives here rather than being
+ * repeated in each card.
+ */
+const METRIC_META = {
+  mrr: { label: 'MRR', money: true },
+  arr: { label: 'ARR', money: true },
+  customers: { label: 'Customers', money: false },
+  burn: { label: 'Burn', money: true },
+  runway_months: { label: 'Runway', money: false, suffix: ' months' },
+  growth_mom: { label: 'Growth MoM', money: false, suffix: '%' },
+  headcount: { label: 'Headcount', money: false },
+  active_users: { label: 'Active users', money: false },
+};
+
+const METRIC_KEYS = Object.keys(METRIC_META);
+
+/** Rupee-style short form used across the page (₹4.8L, ₹1.2Cr). */
+function formatMoney(value, currency) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  const cur = currency || 'INR';
+  const symbol = cur === 'INR' ? '₹' : `${cur} `;
+  const abs = Math.abs(n);
+  if (abs >= 1e7) return `${symbol}${(n / 1e7).toFixed(2).replace(/\.00$/, '')}Cr`;
+  if (abs >= 1e5) return `${symbol}${(n / 1e5).toFixed(1).replace(/\.0$/, '')}L`;
+  if (abs >= 1e3) return `${symbol}${(n / 1e3).toFixed(1).replace(/\.0$/, '')}K`;
+  return `${symbol}${n.toLocaleString('en-IN')}`;
+}
+
+/** One stored metric value, formatted for its key. `null` renders a dash. */
+function formatMetricValue(item) {
+  if (!item) return '—';
+  const meta = METRIC_META[item.metric_key];
+  if (!meta) return item.value;
+  const n = Number(item.value);
+  if (!Number.isFinite(n)) return '—';
+  if (meta.money) return formatMoney(n, item.currency);
+  const body = Number.isInteger(n) ? n.toLocaleString('en-IN') : String(Number(n.toFixed(2)));
+  return `${body}${meta.suffix || ''}`;
+}
+
+/** "Oct 2026" from an ISO date, never a locale-dependent guess. */
+function periodLabel(iso) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
+function shortMonth(iso) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
+}
+
+/** "2h ago" style age from a server timestamp; '' when unparseable. */
+function timeAgo(iso) {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const mins = Math.max(0, Math.round((Date.now() - then) / 60000));
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+/**
+ * Range options map to a history window. Metrics are reported per month, so
+ * a 30-day window can hold at most one month-end: the short ranges still ask
+ * for enough months to draw a trend rather than a single dot.
+ */
+const RANGE_MONTHS = {
+  'Last 30 days': 6,
+  'Last 90 days': 6,
+  'This quarter': 6,
+  '12 months': 12,
+  Custom: 12,
+};
+
+/** Server `source` value in the words the page already uses. */
+function sourceLabel(source) {
+  if (source === 'startup_reported') return 'Entered by team';
+  if (source === 'calculated') return 'Calculated';
+  if (source === 'mentor_verified') return 'Mentor verified';
+  if (source === 'admin_verified') return 'Admin verified';
+  return source;
+}
+
+function EmptyNote({ children }) {
   return (
-    <div className="w-full overflow-hidden">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Line chart showing upward trend across the last seven months" className="h-[190px] w-full">
-        <title>Monthly trend</title>
-        {[0, 1, 2, 3].map(i => (
-          <g key={i}>
-            <line x1={pad} x2={width - pad} y1={pad + i * (height - pad * 2) / 3} y2={pad + i * (height - pad * 2) / 3} stroke="#E5E1D8" strokeDasharray="3 4" />
-            <text x="2" y={pad + i * (height - pad * 2) / 3 + 4} fontSize="10" fill="#4A5568">{100 - i * 30}</text>
-          </g>
-        ))}
-        {compare && <path d={path2} fill="none" stroke="#A0A7B4" strokeWidth="2" strokeDasharray="5 5" />}
-        <path d={path} fill="none" stroke="#0F1B2D" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        {values.map((v, i) => (
-          <circle key={i} cx={pad + i * (width - pad * 2) / (values.length - 1)} cy={height - pad - v * (height - pad * 2) / 100} r={i === values.length - 1 ? 5 : 2.5} fill={i === values.length - 1 ? '#B8955A' : '#0F1B2D'} />
-        ))}
-        {labels.map((l, i) => (
-          <text key={l} x={pad + i * (width - pad * 2) / (labels.length - 1)} y={height - 5} textAnchor="middle" fontSize="10" fill="#4A5568">{l}</text>
-        ))}
-      </svg>
+    <div className="rounded-lg border border-dashed border-[#E5E1D8] bg-[#FAF8F4] p-4 text-xs leading-5 text-[#4A5568]">
+      {children}
     </div>
   );
 }
 
-function Bars({ values = [43, 58, 51, 70, 62, 82], labels = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'] }) {
+function ChartSkeleton() {
+  return <div className="h-[190px] animate-pulse rounded-lg bg-[#F3F4F6]" />;
+}
+
+/**
+ * Normalises a series to 0..100 for the SVG viewBox. A flat series (all
+ * values equal, e.g. a single month) sits in the middle instead of dividing
+ * by zero; a single point is drawn as a dot.
+ */
+function normalise(values) {
+  if (values.length === 0) return [];
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  if (hi === lo) return values.map(() => 50);
+  return values.map(v => 8 + ((v - lo) / (hi - lo)) * 84);
+}
+
+/** The Business tab's sample series, kept until that tab is wired. */
+const DEMO_LINE = {
+  values: [26, 35, 30, 48, 44, 60, 68],
+  labels: ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'],
+};
+
+/**
+ * Two modes, never mixed: pass `points` for real reported data (Overview
+ * drawer), or omit it for the Business tab's labelled demo series.
+ */
+function LineChart({ points = null, values = null, labels = null, unit = '', compare = false }) {
+  const width = 660, height = 210, pad = 28;
+  const demo = points === null;
+  const demoValues = values || DEMO_LINE.values;
+  const demoLabels = labels || DEMO_LINE.labels;
+  // Chronological order for the line; the API returns newest first.
+  const series = demo ? [] : [...points].reverse();
+  const nums = series.map(p => Number(p.value));
+  const scaled = normalise(nums);
+  const step = series.length > 1 ? (width - pad * 2) / (series.length - 1) : 0;
+  const x = i => (series.length > 1 ? pad + i * step : width / 2);
+  const y = v => height - pad - v * (height - pad * 2) / 100;
+  const path = scaled.map((v, i) => `${i ? 'L' : 'M'} ${x(i)} ${y(v)}`).join(' ');
+  const path2 = scaled.map((v, i) => `${i ? 'L' : 'M'} ${x(i)} ${y(Math.max(8, v - 13))}`).join(' ');
+  const ariaLabel = demo ? 'Sample trend chart' : series.length
+    ? `Line chart of ${series.length} reported period${series.length === 1 ? '' : 's'}, from ${periodLabel(series[0].period_end)} to ${periodLabel(series[series.length - 1].period_end)}`
+    : 'No chart data';
+  return (
+    <div className="w-full overflow-hidden">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={ariaLabel} className="h-[190px] w-full">
+        <title>{demo ? 'Sample trend' : 'Reported trend'}</title>
+        {[0, 1, 2, 3].map(i => (
+          <line key={i} x1={pad} x2={width - pad} y1={pad + i * (height - pad * 2) / 3} y2={pad + i * (height - pad * 2) / 3} stroke="#E5E1D8" strokeDasharray="3 4" />
+        ))}
+        {demo && demoValues.map((v, i) => (
+          <g key={i}>
+            <text x="2" y={pad + i * (height - pad * 2) / 3 + 4} fontSize="10" fill="#4A5568">{100 - i * 30}</text>
+          </g>
+        ))}
+        {demo ? (
+          <>
+            {compare && (
+              <path d={demoValues.map((v, i) => `${i ? 'L' : 'M'} ${pad + i * (width - pad * 2) / (demoValues.length - 1)} ${height - pad - Math.max(8, v - 13) * (height - pad * 2) / 100}`).join(' ')} fill="none" stroke="#A0A7B4" strokeWidth="2" strokeDasharray="5 5" />
+            )}
+            <path d={demoValues.map((v, i) => `${i ? 'L' : 'M'} ${pad + i * (width - pad * 2) / (demoValues.length - 1)} ${height - pad - v * (height - pad * 2) / 100}`).join(' ')} fill="none" stroke="#0F1B2D" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            {demoValues.map((v, i) => (
+              <circle key={i} cx={pad + i * (width - pad * 2) / (demoValues.length - 1)} cy={height - pad - v * (height - pad * 2) / 100} r={i === demoValues.length - 1 ? 5 : 2.5} fill={i === demoValues.length - 1 ? '#B8955A' : '#0F1B2D'} />
+            ))}
+            {demoLabels.map((l, i) => (
+              <text key={l} x={pad + i * (width - pad * 2) / (demoLabels.length - 1)} y={height - 5} textAnchor="middle" fontSize="10" fill="#4A5568">{l}</text>
+            ))}
+          </>
+        ) : (
+          <>
+            {compare && series.length > 1 && <path d={path2} fill="none" stroke="#A0A7B4" strokeWidth="2" strokeDasharray="5 5" />}
+            {series.length > 1 && <path d={path} fill="none" stroke="#0F1B2D" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
+            {scaled.map((v, i) => (
+              <circle key={i} cx={x(i)} cy={y(v)} r={i === scaled.length - 1 ? 5 : 2.5} fill={i === scaled.length - 1 ? '#B8955A' : '#0F1B2D'} />
+            ))}
+            {series.map((p, i) => (
+              <text key={`${p.period_end}-${i}`} x={x(i)} y={height - 5} textAnchor="middle" fontSize="10" fill="#4A5568">{shortMonth(p.period_end)}</text>
+            ))}
+            {series.length === 0 && (
+              <text x={width / 2} y={height / 2} textAnchor="middle" fontSize="11" fill="#4A5568">No reported values yet</text>
+            )}
+          </>
+        )}
+      </svg>
+      {!demo && series.length > 0 && (
+        <p className="mt-1 text-[10px] text-[#4A5568]">
+          {formatMetricValue({ metric_key: 'mrr', value: series[series.length - 1].value, currency: null }).replace(/^₹/, '')}
+          {unit ? ` ${unit}` : ''} in {periodLabel(series[series.length - 1].period_end)}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Two-series bars (revenue vs burn). Real mode takes the reported months;
+ * omitting both series keeps the Business tab's labelled sample values.
+ */
+function Bars({ revenue, burn, loading = false }) {
+  const demo = revenue === undefined && burn === undefined;
+  if (demo) {
+    const values = [43, 58, 51, 70, 62, 82];
+    const labels = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'];
+    return (
+      <div className="flex h-[190px] items-end justify-around gap-3 border-b border-[#E5E1D8] px-2 pt-3">
+        {values.map((v, i) => (
+          <div key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
+            <div className="flex h-[150px] w-full items-end justify-center gap-1">
+              <div title={`Revenue ${v}`} className="w-5 max-w-[35%] rounded-t bg-ink" style={{ height: `${v}%` }} />
+              <div title={`Burn ${Math.max(22, v - 18)}`} className="w-5 max-w-[35%] rounded-t bg-[#A0A7B4]" style={{ height: `${Math.max(22, v - 18)}%` }} />
+            </div>
+            <span className="text-[10px] text-[#4A5568]">{labels[i]}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  const rev = revenue || [];
+  const brn = burn || [];
+  const months = [...new Set([...rev, ...brn].map(p => p.period_end))].sort();
+  const revBy = Object.fromEntries(rev.map(p => [p.period_end, Number(p.value)]));
+  const brnBy = Object.fromEntries(brn.map(p => [p.period_end, Number(p.value)]));
+  const all = months.flatMap(m => [revBy[m], brnBy[m]]).filter(v => Number.isFinite(v));
+  const peak = all.length ? Math.max(...all.map(Math.abs)) : 0;
+  const pct = v => (Number.isFinite(v) && peak > 0 ? Math.max(4, (Math.abs(v) / peak) * 100) : 0);
+
+  if (loading) return <ChartSkeleton />;
+  if (months.length === 0) {
+    return (
+      <div className="grid h-[190px] place-items-center rounded-lg border border-dashed border-[#E5E1D8] bg-[#FAF8F4] text-center text-xs text-[#4A5568]">
+        No revenue or burn reported yet.
+      </div>
+    );
+  }
   return (
     <div className="flex h-[190px] items-end justify-around gap-3 border-b border-[#E5E1D8] px-2 pt-3">
-      {values.map((v, i) => (
-        <div key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
+      {months.map(m => (
+        <div key={m} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
           <div className="flex h-[150px] w-full items-end justify-center gap-1">
-            <div title={`Revenue ${v}`} className="w-5 max-w-[35%] rounded-t bg-ink" style={{ height: `${v}%` }} />
-            <div title={`Burn ${Math.max(22, v - 18)}`} className="w-5 max-w-[35%] rounded-t bg-[#A0A7B4]" style={{ height: `${Math.max(22, v - 18)}%` }} />
+            {Number.isFinite(revBy[m]) && (
+              <div title={`Revenue ${revBy[m]}`} className="w-5 max-w-[35%] rounded-t bg-ink" style={{ height: `${pct(revBy[m])}%` }} />
+            )}
+            {Number.isFinite(brnBy[m]) && (
+              <div title={`Burn ${brnBy[m]}`} className="w-5 max-w-[35%] rounded-t bg-[#A0A7B4]" style={{ height: `${pct(brnBy[m])}%` }} />
+            )}
           </div>
-          <span className="text-[10px] text-[#4A5568]">{labels[i]}</span>
+          <span className="text-[10px] text-[#4A5568]">{shortMonth(m)}</span>
         </div>
       ))}
     </div>
@@ -85,7 +296,6 @@ export default function AnalyticsPage() {
   const [compare, setCompare] = useState('Previous period');
   const [toast, setToast] = useState('');
   const [drawer, setDrawer] = useState('');
-  const [refreshed, setRefreshed] = useState('2 hours ago');
   const [showAll, setShowAll] = useState(false);
   const [share, setShare] = useState(false);
   const [opted, setOpted] = useState(false);
@@ -93,33 +303,272 @@ export default function AnalyticsPage() {
   const [mobileNav, setMobileNav] = useState(false);
   const [compact, setCompact] = useState(false);
 
+  // Step 5e: real metrics. `metricsPhase` gates the Overview/Journey tabs;
+  // Business and Market stay on demo data (their data belongs to later
+  // steps), so they never consult this state.
+  const [metricsPhase, setMetricsPhase] = useState('loading'); // loading|ready|error|none
+  const [metricsError, setMetricsError] = useState('');
+  const [org, setOrg] = useState(null); // OrganizationRead (carries my_role)
+  const [latest, setLatest] = useState(null); // MetricLatestRead
+  const [history, setHistory] = useState({}); // key -> MetricPoint[] (newest first)
+  const [historyLoading, setHistoryLoading] = useState(true);
+  // Readiness is 5f's data, read here only to label the Overview KPI
+  // honestly. A failure leaves the tile empty rather than blocking the page.
+  const [readinessScore, setReadinessScore] = useState(null);
+  const [reload, setReload] = useState(0);
+  const [lastLoaded, setLastLoaded] = useState(null);
+
+  // Entry form (the "Add data" action). Hidden for viewers.
+  const [entryOpen, setEntryOpen] = useState(false);
+  const [entry, setEntry] = useState({ metric_key: 'mrr', value: '', period_end: '', unit: '', currency: 'INR' });
+  const [entryErrs, setEntryErrs] = useState({});
+  const [entryFormErr, setEntryFormErr] = useState('');
+  const [entryBusy, setEntryBusy] = useState(false);
+
+  const alive = useRef(true);
+
   const notify = (s) => {
     setToast(s);
     setTimeout(() => setToast(''), 2800);
   };
 
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
+
+  // Load the startup org, then its latest values, then the history for the
+  // two keys the charts draw (mrr, burn). One function so the Refresh button
+  // and the first paint share the same path.
+  useEffect(() => {
+    (async () => {
+      setMetricsPhase('loading');
+      setMetricsError('');
+      setHistoryLoading(true);
+      let startup = null;
+      try {
+        const orgs = await api.organizations.mine();
+        startup = orgs.find(o => o.type === 'startup') || null;
+      } catch (err) {
+        if (!alive.current) return;
+        setMetricsError(err instanceof ApiError ? err.message : 'Could not load your organization.');
+        setMetricsPhase('error');
+        setHistoryLoading(false);
+        return;
+      }
+      if (!alive.current) return;
+      if (!startup) {
+        setMetricsPhase('none');
+        setHistoryLoading(false);
+        return;
+      }
+      setOrg(startup);
+
+      try {
+        const read = await api.metrics.latest(startup.id);
+        if (!alive.current) return;
+        setLatest(read);
+        setMetricsPhase('ready');
+        setLastLoaded(new Date());
+      } catch (err) {
+        if (!alive.current) return;
+        setMetricsError(err instanceof ApiError ? err.message : 'Could not load your metrics.');
+        setMetricsPhase('error');
+        setHistoryLoading(false);
+        return;
+      }
+
+      // History is per key. The Overview charts need mrr+burn; the Journey KPI
+      // row shows a delta for four more keys. Only keys actually fetched can
+      // claim "no prior period" — an unfetched key shows no delta at all, so
+      // the page never asserts something it did not check.
+      const months = RANGE_MONTHS[range] || 12;
+      setHistoryLoading(true);
+      try {
+        const keys = ['mrr', 'burn', 'customers', 'growth_mom', 'headcount', 'active_users'];
+        const reads = await Promise.all(
+          keys.map(key => api.metrics.history(startup.id, key, { limit: months }).catch(() => null)),
+        );
+        if (!alive.current) return;
+        const next = {};
+        reads.forEach((read, i) => {
+          if (read) next[keys[i]] = read.items;
+        });
+        setHistory(next);
+      } catch {
+        // A chart that cannot load shows its empty state; the KPI row above
+        // is already rendered and must not be replaced by an error.
+        if (alive.current) setHistory({});
+      } finally {
+        if (alive.current) setHistoryLoading(false);
+      }
+
+      // 5f readiness: a bonus label, never a blocker.
+      try {
+        const board = await api.readiness.board(startup.id);
+        if (alive.current) setReadinessScore(board.summary.readiness_pct);
+      } catch {
+        if (alive.current) setReadinessScore(null);
+      }
+    })();
+  }, [reload, range]);
+
+  const METRIC_EDIT_ROLES = ['owner', 'admin', 'member'];
+  const canEdit = !!org && METRIC_EDIT_ROLES.includes(org.my_role);
+  const byKey = Object.fromEntries((latest?.items || []).map(i => [i.metric_key, i]));
+
+  const lastUpdated = (() => {
+    const stamps = (latest?.items || []).map(i => new Date(i.created_at).getTime()).filter(Number.isFinite);
+    if (!stamps.length) return '';
+    return timeAgo(new Date(Math.max(...stamps)).toISOString());
+  })();
+
+  /**
+   * Percentage change between the two newest points, or null when a change
+   * cannot honestly be claimed. `history[key] === undefined` means "we never
+   * loaded this series" and must not be read as "there is no history".
+   */
+  const deltaFor = (key) => {
+    const points = history[key];
+    if (!points || points.length < 2) return null;
+    const [newest, prev] = [Number(points[0].value), Number(points[1].value)];
+    if (!Number.isFinite(newest) || !Number.isFinite(prev) || prev === 0) return null;
+    const pct = ((newest - prev) / Math.abs(prev)) * 100;
+    return Number.isFinite(pct) ? pct : null;
+  };
+
+  /** True only when the series was loaded and genuinely has one point. */
+  const singlePointOnly = (key) => Array.isArray(history[key]) && history[key].length === 1;
+
+  /**
+   * Insight cards are generated from data that exists, never from a template
+   * with numbers filled in. Each entry is only pushed when its inputs are
+   * real; an empty list hides the whole row (no fake insights).
+   */
+  const insightCards = () => {
+    const out = [];
+    if (tab === 'Overview') {
+      const mrrDelta = deltaFor('mrr');
+      const mrr = byKey.mrr;
+      if (mrrDelta !== null && mrr) {
+        out.push([
+          mrrDelta >= 0 ? 'Revenue grew this period' : 'Revenue dipped this period',
+          `MRR is ${formatMoney(Number(mrr.value), mrr.currency)} (${periodLabel(mrr.period_end)}), ${Math.abs(mrrDelta).toFixed(1)}% ${mrrDelta >= 0 ? 'up' : 'down'} on the period before.`,
+        ]);
+      }
+      const runway = byKey.runway_months;
+      if (runway) {
+        out.push([
+          `Runway is ${formatMetricValue(runway).trim()}`,
+          `As reported for ${periodLabel(runway.period_end)}. Runway is your own figure, not calculated here.`,
+        ]);
+      }
+      const burn = byKey.burn;
+      if (burn) {
+        out.push([
+          `Monthly burn ${formatMoney(Number(burn.value), burn.currency)}`,
+          `Reported for ${periodLabel(burn.period_end)}. Add more periods to see a trend.`,
+        ]);
+      }
+    }
+    if (tab === 'Journey') {
+      if (readinessScore !== null) {
+        out.push([
+          `Readiness is ${readinessScore} of 100`,
+          'From the reviewed checklist. Sign-offs, not the score, decide the badge.',
+        ]);
+      }
+      const customers = byKey.customers;
+      if (customers) {
+        out.push([
+          `${formatMetricValue(customers)} customers`,
+          `Reported for ${periodLabel(customers.period_end)}.`,
+        ]);
+      }
+      const headcount = byKey.headcount;
+      if (headcount) {
+        out.push([
+          `Team of ${formatMetricValue(headcount)}`,
+          `Reported for ${periodLabel(headcount.period_end)}.`,
+        ]);
+      }
+    }
+    return out.slice(0, 3);
+  };
+
+  /** The KPI card label → metric key, for the details drawer. */
+  const drawerKey = Object.keys(METRIC_META).find(k => METRIC_META[k].label === drawer) || null;
+
   const exportCsv = () => {
     const rows = [
-      ['Metric', 'Value', 'Source', 'Updated'],
-      ['Readiness score', '72 / 100', 'Calculated', '2 hours ago'],
-      ['MRR', '₹4.8L', 'Entered by team', '2 hours ago'],
-      ['Runway', '9 months', 'Calculated', '2 hours ago'],
-      ['Pipeline', '₹18L', 'Sales pipeline', 'Yesterday']
+      ['Metric', 'Value', 'Source', 'Period', 'Updated'],
+      ...(latest?.items || []).map(i => [
+        METRIC_META[i.metric_key]?.label || i.metric_key,
+        i.value,
+        i.source === 'startup_reported' ? 'Entered by team' : i.source.replace(/_/g, ' '),
+        i.period_end,
+        i.created_at,
+      ]),
     ];
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' }));
-    a.download = 'acme-analytics.csv';
+    a.download = 'analytics-metrics.csv';
     a.click();
-    notify('Analytics CSV exported.');
+    notify(rows.length > 1 ? 'Analytics CSV exported.' : 'No metrics to export yet.');
   };
 
-  const kpis = tab === 'Journey'
-    ? [['Readiness score', '72 / 100', '+5 this month', 'Calculated'], ['Criteria approved', '2 / 5', '+1 this month', 'Stage toolkit'], ['Mentor sessions', '6', '2 this quarter', 'Mentor module'], ['Investor views', '128', '+18%', 'Profile analytics']]
-    : tab === 'Business'
+  /** 422 details → {field: message} for the entry form. */
+  const fieldErrors = (err) => {
+    const out = {};
+    if (err instanceof ApiError && Array.isArray(err.details)) {
+      for (const d of err.details) {
+        const loc = Array.isArray(d.loc) ? d.loc : [];
+        const key = loc[loc.length - 1];
+        if (typeof key === 'string' && !out[key]) out[key] = d.msg || 'Invalid value.';
+      }
+    }
+    return out;
+  };
+
+  const submitEntry = async () => {
+    if (!org) return;
+    setEntryBusy(true);
+    setEntryErrs({});
+    setEntryFormErr('');
+    try {
+      await api.metrics.upsert(org.id, {
+        metric_key: entry.metric_key,
+        value: entry.value,
+        period_end: entry.period_end,
+        unit: entry.unit || null,
+        currency: entry.currency || null,
+      });
+      if (!alive.current) return;
+      setEntryOpen(false);
+      setEntry({ metric_key: 'mrr', value: '', period_end: '', unit: '', currency: 'INR' });
+      notify('Metric saved.');
+      setReload(n => n + 1);
+    } catch (err) {
+      if (!alive.current) return;
+      const fields = fieldErrors(err);
+      if (Object.keys(fields).length) {
+        setEntryErrs(fields);
+      } else {
+        // 409 (verified period) and 403 land here: show the server's words.
+        setEntryFormErr(err instanceof ApiError ? err.message : 'Could not save. Please try again.');
+      }
+    } finally {
+      if (alive.current) setEntryBusy(false);
+    }
+  };
+
+  // Business and Market still render their sample KPI rows unchanged; the
+  // Overview/Journey rows above are built from the metrics API instead.
+  const kpis = tab === 'Business'
     ? [['MRR', '₹4.8L', '▲ 12%', 'Entered by team'], ['Growth MoM', '12%', '▲ 2.1 pts', 'Calculated'], ['Cash balance', '₹28.0L', '▼ 4%', 'Entered by team'], ['Runway', '9 mo', 'No change', 'Calculated']]
     : tab === 'Market'
     ? [['SAM', '₹1,200 Cr', 'Base scenario', 'Team estimate'], ['Market share', '0.04%', 'Estimate', 'Calculated'], ['Market CAGR', '18%', '2024–29', 'External source'], ['Competitors tracked', '8', '2 added this month', 'Entered by team']]
-    : [['Readiness score', '72 / 100', '+5 this month', 'Calculated'], ['MRR', '₹4.8L', '▲ 12%', 'Entered by team'], ['Runway', '9 months', 'Current estimate', 'Calculated'], ['Active pipeline', '₹18L', 'Across 14 deals', 'Sales pipeline']];
+    : [];
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#0F1B2D]">
@@ -176,7 +625,7 @@ export default function AnalyticsPage() {
       <main id="analytics-main" className={`mx-auto max-w-[1440px] px-4 pb-12 pt-7 transition-[margin] duration-200 sm:px-7 lg:px-8 ${compact ? 'lg:ml-[76px]' : 'lg:ml-[240px]'}`}>
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm text-[#4A5568]">Acme Studio <span className="mx-2 text-[#B8955A]">·</span> Workspace</p>
+            <p className="text-sm text-[#4A5568]">{org?.name || 'Your startup'} <span className="mx-2 text-[#B8955A]">·</span> Workspace</p>
             <h1 className="serif mt-1 text-[30px] font-semibold">Analytics</h1>
             <p className="mt-1 text-sm text-[#4A5568]">Understand your progress, your business and your market.</p>
           </div>
@@ -227,23 +676,22 @@ export default function AnalyticsPage() {
           <span className="text-xs text-[#4A5568]">Current stage: <b className="text-ink">Prototype</b></span>
           <button
             type="button"
-            onClick={() => { setRefreshed('just now'); notify('Analytics refreshed.'); }}
+            onClick={() => { setReload(n => n + 1); notify('Analytics refreshed.'); }}
             className="ml-auto inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold text-[#9A7A45] hover:bg-[#FAF8F4]"
           >
             <RefreshCw size={14} /> Refresh
           </button>
-          <small className="text-[10px] text-[#4A5568]">Updated {refreshed}</small>
+          <small className="text-[10px] text-[#4A5568]">
+            {lastUpdated ? `Updated ${lastUpdated}` : 'No data reported yet'}
+          </small>
         </div>
 
+        {/* The Business/Market tabs keep their demo insight cards until
+            their steps land; Overview/Journey show only figures the API can
+            actually support, and nothing at all when it cannot. */}
+        {(tab === 'Overview' || tab === 'Journey') && insightCards().length > 0 && (
         <div className="mb-5 grid gap-3 md:grid-cols-3">
-          {(tab === 'Overview'
-            ? [['Revenue grew 12% this month', 'MRR rose from ₹4.3L to ₹4.8L.'], ['Two criteria still need attention', 'One item is in progress; two are not started.'], ['Runway is steady at 9 months', 'Based on current cash balance and net burn.']]
-            : tab === 'Journey'
-            ? [['Readiness improved by 5 points', 'Checklist completion contributed most.'], ['2 reviews are waiting', 'Mentor sign-off is pending on your stage criteria.'], ['Investor interest is growing', '18% more profile views in this period.']]
-            : tab === 'Business'
-            ? [['MRR grew 12% this month', 'Recurring revenue is entered by your team.'], ['Cash balance changed by 4%', 'Update recent costs to keep runway current.'], ['One customer concentration watch', 'Largest customer contributes 28% of MRR.']]
-            : [['Market sizing needs a source', 'Add a citation to strengthen the confidence label.'], ['8 competitors tracked', 'Two entries were updated this month.'], ['Benchmark data is opt-in', 'At least 10 similar startups are needed.']]
-          ).map(([h, d], i) => (
+          {insightCards().map(([h, d], i) => (
             <section key={h} className="rounded-xl border border-[#E7D4B0] bg-[#F3EBDD] p-4">
               <p className="flex items-center gap-2 text-sm font-semibold">
                 <span className="grid h-7 w-7 place-items-center rounded-full bg-white text-[#9A7A45]">
@@ -256,9 +704,84 @@ export default function AnalyticsPage() {
             </section>
           ))}
         </div>
+        )}
 
         <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {kpis.map(([label, value, change, source]) => (
+          {/* Overview/Journey read the live metric values. A key with no
+              reported value shows "—" and "Not reported yet" — never a 0. */}
+          {(tab === 'Overview' || tab === 'Journey') && metricsPhase === 'loading' && [0, 1, 2, 3].map(k => (
+            <div key={k} className="h-[148px] animate-pulse rounded-xl border border-[#E5E1D8] bg-white" />
+          ))}
+
+          {(tab === 'Overview' || tab === 'Journey') && metricsPhase === 'ready' &&
+            (tab === 'Overview'
+              ? ['readiness', 'mrr', 'runway_months', 'headcount']
+              : ['readiness', 'customers', 'growth_mom', 'active_users']
+            ).map(key => {
+              const item = key === 'readiness' ? null : byKey[key];
+              const label = key === 'readiness' ? 'Readiness score' : METRIC_META[key].label;
+              const value =
+                key === 'readiness'
+                  ? readinessScore === null ? '—' : `${readinessScore} / 100`
+                  : formatMetricValue(item);
+              const delta = key === 'readiness' ? null : deltaFor(key);
+              // Three distinct truths: a real change, a genuinely single
+              // period, or "not loaded" (historyLoading) — never conflated.
+              const change =
+                key === 'readiness'
+                  ? readinessScore === null ? 'Not available yet' : 'Reviewed checklist'
+                  : !item ? 'Not reported yet'
+                  : !history[key] && historyLoading ? 'Loading trend…'
+                  : delta !== null ? `${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta).toFixed(1)}%`
+                  : singlePointOnly(key) ? 'Only one period so far'
+                  : 'No prior period';
+              const source =
+                key === 'readiness' ? 'Readiness checklist' : item ? sourceLabel(item.source) : 'Not reported yet';
+              const hasValue = key === 'readiness' ? readinessScore !== null : !!item;
+              return (
+                <button
+                  type="button"
+                  onClick={() => hasValue && key !== 'readiness' && setDrawer(label)}
+                  key={label}
+                  className="rounded-xl border border-[#E5E1D8] bg-white p-4 text-left transition hover:border-[#A0A7B4] sm:p-5"
+                >
+                  <p className="text-xs text-[#4A5568]">{label}</p>
+                  <p className={`serif mt-2 text-[28px] font-semibold tabular-nums ${hasValue ? '' : 'text-[#A0A7B4]'}`}>{value}</p>
+                  <p className={`mt-1 inline-flex items-center gap-1 text-xs ${
+                    key !== 'readiness' && delta !== null
+                      ? delta < 0 ? 'text-[#B42318]' : 'text-[#2E7D5B]'
+                      : 'text-[#4A5568]'
+                  }`}>
+                    {key !== 'readiness' && delta !== null
+                      ? delta < 0 ? <TrendingDown size={13} /> : <TrendingUp size={13} />
+                      : null} {change}
+                  </p>
+                  <div className="mt-3 flex items-center justify-between">
+                    <Source>{source}</Source>
+                    <span className="text-[10px] text-[#4A5568]">
+                      {item ? timeAgo(item.created_at) : hasValue ? '' : 'Add data'}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+
+          {tab === 'Overview' && metricsPhase === 'error' && (
+            <div className="col-span-2 rounded-xl border border-[#F0C9C9] bg-[#FDECEC] p-4 text-xs text-[#A33A3A] lg:col-span-4" role="alert">
+              {metricsError}{' '}
+              <button type="button" onClick={() => setReload(n => n + 1)} className="ml-2 font-semibold underline">
+                Try again
+              </button>
+            </div>
+          )}
+
+          {tab === 'Overview' && metricsPhase === 'none' && (
+            <div className="col-span-2 rounded-xl border border-[#E5E1D8] bg-white p-4 text-xs text-[#4A5568] lg:col-span-4">
+              Metrics are tracked per startup organization. Set up your startup to start reporting.
+            </div>
+          )}
+
+          {(tab === 'Business' || tab === 'Market') && kpis.map(([label, value, change, source]) => (
             <button
               type="button"
               onClick={() => setDrawer(label)}
@@ -282,196 +805,141 @@ export default function AnalyticsPage() {
           <div className="space-y-5 xl:col-span-2">
             {tab === 'Overview' && (
               <>
-                <Card
-                  title="Stage progress"
-                  action={
-                    <Link href="/startup/stage" className="inline-flex items-center gap-1 text-xs font-semibold text-[#9A7A45]">
-                      Open stage toolkit <ArrowRight size={13} />
-                    </Link>
-                  }
-                >
-                  <p className="mb-4 text-xs text-[#4A5568]">Prototype · 2 of 5 exit criteria approved</p>
-                  <div className="flex items-center">
-                    {['Idea', 'Prototype', 'Early revenue', 'Mature'].map((s, i) => (
-                      <div key={s} className="flex flex-1 items-center last:flex-none">
-                        <div className={`grid h-8 w-8 place-items-center rounded-full text-xs ${
-                          i === 0 ? 'bg-ink text-white' : i === 1 ? 'border-2 border-[#B8955A] bg-[#F3EBDD]' : 'bg-[#F3F4F6] text-[#A0A7B4]'
-                        }`}>
-                          {i === 0 ? <CheckCircle2 size={15} /> : i + 1}
-                        </div>
-                        <span className="ml-2 hidden text-xs sm:block">{s}</span>
-                        {i < 3 && <span className="mx-2 h-px flex-1 bg-[#E5E1D8]" />}
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-
+                {/* Stage, goals and the attention list belong to the stage
+                    toolkit and task board (5a/5c). They are hidden here rather
+                    than filled with numbers this page cannot verify. */}
                 <div className="grid gap-5 md:grid-cols-2">
-                  <Card title="Revenue vs burn" action={<Source>Entered by team</Source>}>
-                    <p className="mb-3 text-xs font-medium">Revenue outpaced burn in 4 of the last 6 months.</p>
-                    <Bars />
+                  <Card
+                    title="Revenue vs burn"
+                    action={`${history.mrr?.length || 0} month${(history.mrr?.length || 0) === 1 ? '' : 's'} of data`}
+                  >
+                    <Bars revenue={history.mrr || []} burn={history.burn || []} loading={historyLoading} />
                     <div className="mt-3 flex gap-4 text-[10px] text-[#4A5568]">
-                      <span>● Revenue</span>
+                      <span>● Revenue (MRR)</span>
                       <span className="text-[#8792A0]">● Burn</span>
                     </div>
-                    <p className="mt-3 text-[10px] text-[#4A5568]">Sample view · last updated 2 hours ago</p>
+                    <p className="mt-3 text-[10px] text-[#4A5568]">
+                      Only months reported by your team. Nothing is estimated.
+                    </p>
                   </Card>
                   <Card
-                    title="Goals tracker"
-                    action={
-                      <button type="button" onClick={() => notify('Goal editor opened.')} className="text-xs font-semibold text-[#9A7A45]">
-                        Edit goals
+                    title="Latest reported"
+                    action={canEdit ? (
+                      <button type="button" onClick={() => setEntryOpen(true)} className="text-xs font-semibold text-[#9A7A45]">
+                        Add data
                       </button>
-                    }
+                    ) : null}
                   >
-                    {[
-                      ['Release MVP to test users', 65, 'Nov 20', 'Aarav'],
-                      ['Complete 10 user interviews', 80, 'Nov 12', 'Priya'],
-                      ['Reach ₹6L MRR', 72, 'Dec 31', 'Aarav'],
-                    ].map(([n, v, d, o]) => (
-                      <div key={n} className="mb-4">
-                        <div className="flex justify-between gap-2 text-xs">
-                          <b>{n}</b>
-                          <span className="text-[#4A5568]">{d}</span>
-                        </div>
-                        <div className="mt-2 h-1.5 rounded-full bg-[#E5E1D8]">
-                          <div className="h-full rounded-full bg-[#B8955A]" style={{ width: `${v}%` }} />
-                        </div>
-                        <p className="mt-1 text-[10px] text-[#4A5568]">{v}% · Owner {o}</p>
+                    {metricsPhase === 'error' ? (
+                      <EmptyNote>
+                        These values could not be loaded. {metricsError}
+                      </EmptyNote>
+                    ) : metricsPhase === 'ready' && (latest?.items || []).length === 0 ? (
+                      <EmptyNote>
+                        No metrics reported yet. {canEdit ? 'Use “Add data” to enter your first month.' : 'Ask a team member to enter them.'}
+                      </EmptyNote>
+                    ) : (
+                      <div className="space-y-2">
+                        {METRIC_KEYS.map(key => {
+                          const item = byKey[key];
+                          return (
+                            <div key={key} className="flex items-center justify-between gap-2 border-b border-[#E5E1D8] pb-2 text-xs last:border-0">
+                              <span className="text-[#4A5568]">{METRIC_META[key].label}</span>
+                              <span className="flex items-center gap-2">
+                                <b className="tabular-nums">{formatMetricValue(item)}</b>
+                                <span className="w-20 text-right text-[10px] text-[#4A5568]">
+                                  {item ? periodLabel(item.period_end) : 'Not reported'}
+                                </span>
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
+                    )}
                   </Card>
                 </div>
 
-                <Card title="Attention list">
-                  <div className="space-y-3">
-                    {[
-                      ['2 mentor reviews waiting', 'Submit your evidence for stage review.', '/startup/stage'],
-                      ['3 overdue tasks', 'Review and update due dates in your task board.', '/startup/tasks'],
-                      ['Profile visibility is on', 'Investor profile has 128 views this month.', '/startup/profile'],
-                    ].map(([h, d, u]) => (
-                      <Link key={h} href={u} className="flex items-center gap-3 rounded-lg border border-[#E5E1D8] p-3 hover:bg-[#FAF8F4]">
-                        <AlertCircle className="shrink-0 text-[#B7791F]" size={17} />
-                        <span className="flex-1">
-                          <b className="block text-xs">{h}</b>
-                          <small className="text-[11px] text-[#4A5568]">{d}</small>
-                        </span>
-                        <ArrowUpRight size={15} />
-                      </Link>
-                    ))}
-                  </div>
+                <Card
+                  title="Reported metrics"
+                  action={
+                    <Link href="/startup/analytics" className="inline-flex items-center gap-1 text-xs font-semibold text-[#9A7A45]">
+                      History per metric <ArrowRight size={13} />
+                    </Link>
+                  }
+                >
+                  <p className="text-xs leading-5 text-[#4A5568]">
+                    Every figure on this tab comes from the {Object.keys(METRIC_META).length} startup metrics your team reports.
+                    Readiness, stage progress and goal tracking live on their own pages.
+                  </p>
                 </Card>
               </>
             )}
 
             {tab === 'Journey' && (
               <>
-                <Card title="Stage progress & time in stage">
-                  <p className="mb-4 text-xs text-[#4A5568]">Your team has spent 54 days in Prototype. Similar startups: median 74 days.</p>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      ['Idea', '42 days', 'Completed'],
-                      ['Prototype', '54 days', 'Current'],
-                      ['Early revenue', '—', 'Locked'],
-                      ['Mature', '—', 'Locked'],
-                    ].map(([s, d, st]) => (
-                      <div key={s} className={`rounded-lg border p-3 ${st === 'Current' ? 'border-[#DCC8A4] bg-[#F3EBDD]' : 'border-[#E5E1D8]'}`}>
-                        <b className="text-xs">{s}</b>
-                        <p className="mt-2 serif text-lg">{d}</p>
-                        <small className="text-[10px] text-[#4A5568]">{st}</small>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 rounded-lg bg-[#F3F4F6] p-3 text-xs">
-                    <Source>Platform benchmark</Source>
-                    <span className="ml-2">Aggregated, anonymized group · n ≥ 10</span>
+                {/* Journey keeps only what the metrics API can support.
+                    Stage timing, mentor sessions and investor/hiring funnels
+                    belong to 5a/8/7 and are replaced by honest empty states. */}
+                <Card title="Growth & traction">
+                  <p className="mb-4 text-xs text-[#4A5568]">
+                    Monthly values reported by your team, newest first.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {['customers', 'growth_mom', 'headcount', 'active_users'].map(key => {
+                      const item = byKey[key];
+                      return (
+                        <div key={key} className="rounded-lg border border-[#E5E1D8] p-3">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="text-xs text-[#4A5568]">{METRIC_META[key].label}</span>
+                            <b className={`serif text-xl tabular-nums ${item ? '' : 'text-[#A0A7B4]'}`}>
+                              {formatMetricValue(item)}
+                            </b>
+                          </div>
+                          <p className="mt-1 text-[10px] text-[#4A5568]">
+                            {item ? `${periodLabel(item.period_end)} · ${sourceLabel(item.source)}` : 'Not reported yet'}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </Card>
 
                 <div className="grid gap-5 md:grid-cols-2">
-                  <Card title="Readiness breakdown">
-                    <p className="mb-4 text-xs text-[#4A5568]">Checklist, traction and mentor feedback combine into your score.</p>
-                    {[
-                      ['Checklist completion', 80],
-                      ['Traction data', 65],
-                      ['Mentor feedback', 70],
-                    ].map(([x, v]) => (
-                      <div key={x} className="mb-4">
-                        <div className="mb-1 flex justify-between text-xs">
-                          <span>{x}</span>
-                          <b>{v}%</b>
+                  <Card title="Readiness">
+                    {readinessScore === null ? (
+                      <EmptyNote>Readiness is not available yet. It comes from the reviewed checklist.</EmptyNote>
+                    ) : (
+                      <>
+                        <div className="flex items-end justify-between">
+                          <span className="serif text-3xl font-semibold">{readinessScore}</span>
+                          <span className="text-xs text-[#4A5568]">out of 100</span>
                         </div>
-                        <div className="h-2 rounded-full bg-[#E5E1D8]">
-                          <div className="h-full rounded-full bg-ink" style={{ width: `${v}%` }} />
+                        <div className="mt-3 h-2 rounded-full bg-[#E5E1D8]">
+                          <div className="h-full rounded-full bg-ink" style={{ width: `${readinessScore}%` }} />
                         </div>
-                      </div>
-                    ))}
+                        <Link href="/startup/readiness" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#9A7A45]">
+                          Open readiness <ArrowRight size={13} />
+                        </Link>
+                      </>
+                    )}
                   </Card>
                   <Card title="Mentor impact">
-                    <p className="text-xs text-[#4A5568]">6 sessions held · 4 of 6 deliverables signed off.</p>
-                    <Bars values={[38, 54, 48, 68, 76, 82]} labels={['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov']} />
-                    <p className="mt-3 text-[10px] leading-4 text-[#4A5568]">Readiness score trend across the same period. Correlation does not prove causation.</p>
+                    <EmptyNote>
+                      Mentor sessions and sign-offs arrive with the mentorship module (Step 8). Nothing is estimated here.
+                    </EmptyNote>
                   </Card>
                 </div>
 
                 <Card title="Investor & hiring funnels">
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <div>
-                      <h3 className="mb-3 text-xs font-semibold">Investor interest · visible profile</h3>
-                      {[
-                        ['Profile views', 128],
-                        ['Shortlisted', 24],
-                        ['Messages', 12],
-                        ['Meetings', 5],
-                        ['Term sheets', 1],
-                      ].map(([n, v], i) => (
-                        <div key={n} className="mb-2 flex items-center gap-2 text-xs">
-                          <span className="w-24">{n}</span>
-                          <div className="h-2 flex-1 rounded bg-[#E5E1D8]">
-                            <div className="h-full rounded bg-ink" style={{ width: `${(v / 128) * 100}%` }} />
-                          </div>
-                          <b>{v}</b>
-                          {i > 0 && <small className="w-10 text-right text-[#4A5568]">{Math.round((v / [1, 128, 24, 12, 5][i - 1]) * 100)}%</small>}
-                        </div>
-                      ))}
-                    </div>
-                    <div>
-                      <h3 className="mb-3 text-xs font-semibold">Hiring funnel</h3>
-                      {[
-                        ['Applied', 36],
-                        ['Shortlisted', 14],
-                        ['Interview', 8],
-                        ['Offer', 3],
-                        ['Hired', 1],
-                      ].map(([n, v]) => (
-                        <div key={n} className="mb-2 flex items-center gap-2 text-xs">
-                          <span className="w-24">{n}</span>
-                          <div className="h-2 flex-1 rounded bg-[#E5E1D8]">
-                            <div className="h-full rounded bg-[#B8955A]" style={{ width: `${(v / 36) * 100}%` }} />
-                          </div>
-                          <b>{v}</b>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <p className="mt-4 text-[10px] text-[#4A5568]">Investor funnel visible only while the profile is shared. Hiring counts from Jobs module.</p>
+                  <EmptyNote>
+                    Investor interest arrives with Step 9 and hiring counts with Step 7. These funnels stay empty until then.
+                  </EmptyNote>
                 </Card>
 
                 <Card title="Workspace usage">
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {[
-                      ['Weekly active members', '6 / 8'],
-                      ['Tasks completed', '42'],
-                      ['Documents added', '18'],
-                      ['Data room views', '31'],
-                    ].map(([n, v]) => (
-                      <div key={n} className="rounded-lg bg-[#FAF8F4] p-3">
-                        <b className="serif text-xl">{v}</b>
-                        <p className="mt-1 text-[11px] text-[#4A5568]">{n}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="mt-3 text-[10px] text-[#4A5568]">Counts only. No individual activity monitoring.</p>
+                  <EmptyNote>
+                    Activity counts are not tracked by the metrics API. This card fills in with the dashboard summary in 5g.
+                  </EmptyNote>
                 </Card>
               </>
             )}
@@ -710,27 +1178,40 @@ export default function AnalyticsPage() {
           </div>
 
           <aside className="space-y-5">
-            <Card title="Data completeness">
-              <div className="flex items-end justify-between">
-                <span className="serif text-3xl font-semibold">78%</span>
-                <span className="text-xs text-[#4A5568]">analytics inputs filled</span>
-              </div>
-              <div className="mt-3 h-2 rounded-full bg-[#E5E1D8]">
-                <div className="h-full w-[78%] rounded-full bg-[#B8955A]" />
-              </div>
-              <div className="mt-4 space-y-3">
-                {[
-                  ['Add November costs', 'Business'],
-                  ['Add March revenue', 'Business'],
-                  ['Cite market sizing source', 'Market'],
-                ].map(([t, tb]) => (
-                  <button key={t} type="button" onClick={() => setTab(tb)} className="flex w-full items-center gap-2 text-left text-xs">
-                    <span className="h-2 w-2 rounded-full bg-[#B7791F]" />{t}
-                    <ArrowRight className="ml-auto" size={13} />
-                  </button>
-                ))}
-              </div>
-            </Card>
+            {(tab === 'Overview' || tab === 'Journey') && metricsPhase === 'ready' && (
+              <Card title="Data completeness">
+                <div className="flex items-end justify-between">
+                  <span className="serif text-3xl font-semibold">{METRIC_KEYS.length - (latest?.missing || []).length} / {METRIC_KEYS.length}</span>
+                  <span className="text-xs text-[#4A5568]">metrics reported</span>
+                </div>
+                <div className="mt-3 h-2 rounded-full bg-[#E5E1D8]">
+                  <div
+                    className="h-full rounded-full bg-[#B8955A]"
+                    style={{ width: `${Math.round(((METRIC_KEYS.length - (latest?.missing || []).length) / METRIC_KEYS.length) * 100)}%` }}
+                  />
+                </div>
+                <div className="mt-4 space-y-3">
+                  {(latest?.missing || []).slice(0, 3).map(key => (
+                    <div key={key} className="flex w-full items-center gap-2 text-left text-xs">
+                      <span className="h-2 w-2 rounded-full bg-[#B7791F]" />
+                      Add {METRIC_META[key].label}
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => { setEntry({ metric_key: key, value: '', period_end: '', unit: '', currency: METRIC_META[key].money ? 'INR' : '' }); setEntryOpen(true); }}
+                          className="ml-auto font-semibold text-[#9A7A45]"
+                        >
+                          Enter
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {(latest?.missing || []).length === 0 && (
+                    <p className="text-xs text-[#4A5568]">All eight metrics have a reported value.</p>
+                  )}
+                </div>
+              </Card>
+            )}
 
             <Card title="Data sources">
               <p className="mb-3 text-xs leading-5 text-[#4A5568]">Every figure should be traceable to its source.</p>
@@ -750,12 +1231,22 @@ export default function AnalyticsPage() {
                   </div>
                 ))}
               </div>
-              <p className="mt-4 text-[10px] text-[#4A5568]">Current sample values are demonstration data, not connected financial records.</p>
+              <p className="mt-4 text-[10px] text-[#4A5568]">
+                {tab === 'Overview' || tab === 'Journey'
+                  ? 'Overview and Journey read reported metrics only; Business and Market still show sample values.'
+                  : 'Current sample values are demonstration data, not connected financial records.'}
+              </p>
             </Card>
 
             <Card title="Quick actions">
               <div className="space-y-2">
-                <button type="button" onClick={() => notify('Data entry form opened.')} className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-[#E5E1D8] px-3 text-xs font-semibold">
+                <button
+                  type="button"
+                  disabled={!canEdit}
+                  title={canEdit ? undefined : 'Viewers cannot add metrics'}
+                  onClick={() => setEntryOpen(true)}
+                  className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-[#E5E1D8] px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                >
                   <PlusIcon />Add data
                 </button>
                 <button type="button" onClick={() => notify('CSV import is ready to connect.')} className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-[#E5E1D8] px-3 text-xs font-semibold">
@@ -794,25 +1285,145 @@ export default function AnalyticsPage() {
             </div>
             <div className="mt-6 rounded-xl border border-[#E5E1D8] bg-white p-5">
               <p className="text-sm font-semibold">Trend detail</p>
-              <LineChart compare />
+              {drawerKey && (history[drawerKey] || []).length > 0 ? (
+                <LineChart points={history[drawerKey]} compare={compare !== 'Target'} />
+              ) : (
+                <EmptyNote>
+                  {drawerKey
+                    ? `No reported values for ${METRIC_META[drawerKey].label} yet. Add a month to start the trend.`
+                    : 'This card belongs to a later step and has no data source yet.'}
+                </EmptyNote>
+              )}
               <p className="mt-3 text-xs leading-5 text-[#4A5568]">
-                Definition: {drawer === 'MRR' ? 'Sum of monthly recurring revenue from active subscriptions.' : drawer === 'Runway' ? 'Cash balance divided by net burn, expressed in months.' : 'Calculated from startup data available for the selected period.'}
+                Definition: {
+                  drawerKey === 'mrr' ? 'Monthly recurring revenue, as reported by your team.'
+                  : drawerKey === 'arr' ? 'Annual recurring revenue, as reported by your team.'
+                  : drawerKey === 'burn' ? 'Net cash burn per month, as reported by your team.'
+                  : drawerKey === 'runway_months' ? 'Months of runway, as reported by your team. The platform does not derive it.'
+                  : drawerKey === 'growth_mom' ? 'Month-on-month growth in percent, as reported by your team.'
+                  : 'Reported by your team for the selected period.'
+                }
               </p>
-              <Source>Entered by team</Source>
-              <p className="mt-4 text-[10px] text-[#4A5568]">Demonstration series · updated {refreshed}</p>
+              {drawerKey && byKey[drawerKey] && <Source>{sourceLabel(byKey[drawerKey].source)}</Source>}
             </div>
-            <div className="mt-4 rounded-xl border border-[#E5E1D8] bg-white p-5">
-              <h3 className="text-sm font-semibold">Underlying values</h3>
-              <div className="mt-3 space-y-2 text-xs">
-                {['Jun · ₹3.2L', 'Jul · ₹3.4L', 'Aug · ₹3.6L', 'Sep · ₹4.0L', 'Oct · ₹4.3L', 'Nov · ₹4.8L'].map(x => (
-                  <p key={x} className="border-b border-[#E5E1D8] pb-2">{x}</p>
-                ))}
+            {drawerKey && (
+              <div className="mt-4 rounded-xl border border-[#E5E1D8] bg-white p-5">
+                <h3 className="text-sm font-semibold">Reported values</h3>
+                {(history[drawerKey] || []).length === 0 ? (
+                  <p className="mt-3 text-xs text-[#4A5568]">Nothing reported yet.</p>
+                ) : (
+                  <div className="mt-3 space-y-2 text-xs">
+                    {(history[drawerKey] || []).map(point => (
+                      <div key={point.period_end} className="flex items-center justify-between gap-2 border-b border-[#E5E1D8] pb-2">
+                        <span>{periodLabel(point.period_end)}</span>
+                        <b className="tabular-nums">{formatMetricValue({ metric_key: drawerKey, value: point.value, currency: byKey[drawerKey]?.currency })}</b>
+                        <span className="text-[10px] text-[#4A5568]">{sourceLabel(point.source)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
+            )}
             <button type="button" onClick={() => notify('Note saved.')} className="mt-4 w-full rounded-lg border border-[#E5E1D8] bg-white p-3 text-xs font-semibold">
               Add team note
             </button>
           </aside>
+        </div>
+      )}
+
+      {/* Add-data modal: the only write path on this page. Styled like the
+          share dialog above; field errors come from the server's 422. */}
+      {entryOpen && (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-[#0F1B2D]/45 p-4">
+          <section role="dialog" aria-modal="true" aria-labelledby="add-data-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <button type="button" onClick={() => setEntryOpen(false)} className="float-right" aria-label="Close">
+              <X size={18} />
+            </button>
+            <h2 id="add-data-title" className="serif text-2xl font-semibold">Add monthly data</h2>
+            <p className="mt-2 text-sm leading-6 text-[#4A5568]">
+              One value per metric and month. Reporting the same month again replaces it, unless a mentor has verified it.
+            </p>
+
+            {entryFormErr && (
+              <div role="alert" className="mt-4 rounded-lg border border-[#F0C9C9] bg-[#FDECEC] p-3 text-xs text-[#A33A3A]">
+                {entryFormErr}
+              </div>
+            )}
+
+            <div className="mt-4 space-y-3">
+              <label className="block text-xs font-semibold">
+                Metric
+                <select
+                  value={entry.metric_key}
+                  onChange={e => setEntry(v => ({ ...v, metric_key: e.target.value }))}
+                  className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-2 text-xs font-normal"
+                >
+                  {METRIC_KEYS.map(key => <option key={key} value={key}>{METRIC_META[key].label}</option>)}
+                </select>
+                {entryErrs.metric_key && <span className="mt-1 block font-normal text-[#A33A3A]">{entryErrs.metric_key}</span>}
+              </label>
+
+              <label className="block text-xs font-semibold">
+                Value
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={entry.value}
+                  onChange={e => setEntry(v => ({ ...v, value: e.target.value }))}
+                  placeholder={METRIC_META[entry.metric_key]?.suffix ? `e.g. 12` : 'e.g. 250000'}
+                  className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs font-normal"
+                />
+                {entryErrs.value && <span className="mt-1 block font-normal text-[#A33A3A]">{entryErrs.value}</span>}
+              </label>
+
+              <label className="block text-xs font-semibold">
+                Period end
+                <input
+                  type="date"
+                  value={entry.period_end}
+                  onChange={e => setEntry(v => ({ ...v, period_end: e.target.value }))}
+                  className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs font-normal"
+                />
+                {entryErrs.period_end && <span className="mt-1 block font-normal text-[#A33A3A]">{entryErrs.period_end}</span>}
+              </label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-xs font-semibold">
+                  Currency
+                  <input
+                    type="text"
+                    maxLength={3}
+                    value={entry.currency}
+                    onChange={e => setEntry(v => ({ ...v, currency: e.target.value.toUpperCase() }))}
+                    placeholder="INR"
+                    className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs font-normal"
+                  />
+                  {entryErrs.currency && <span className="mt-1 block font-normal text-[#A33A3A]">{entryErrs.currency}</span>}
+                </label>
+                <label className="block text-xs font-semibold">
+                  Unit <span className="font-normal text-[#4A5568]">(optional)</span>
+                  <input
+                    type="text"
+                    maxLength={32}
+                    value={entry.unit}
+                    onChange={e => setEntry(v => ({ ...v, unit: e.target.value }))}
+                    placeholder="e.g. active subscriptions"
+                    className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs font-normal"
+                  />
+                  {entryErrs.unit && <span className="mt-1 block font-normal text-[#A33A3A]">{entryErrs.unit}</span>}
+                </label>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={entryBusy}
+              onClick={submitEntry}
+              className="mt-5 min-h-10 w-full rounded-lg bg-ink text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {entryBusy ? 'Saving…' : 'Save metric'}
+            </button>
+          </section>
         </div>
       )}
 
