@@ -125,6 +125,18 @@ export type CompetitorRead = components["schemas"]["CompetitorRead"];
 export type CompetitorPage = components["schemas"]["CompetitorPage"];
 export type CompetitorCreate = components["schemas"]["CompetitorCreate"];
 export type CompetitorUpdate = components["schemas"]["CompetitorUpdate"];
+// Step 5d: task labels and comments.
+export type TaskLabelRead = components["schemas"]["TaskLabelRead"];
+export type TaskLabelPage = components["schemas"]["TaskLabelPage"];
+export type TaskLabelCreate = components["schemas"]["TaskLabelCreate"];
+export type TaskLabelUpdate = components["schemas"]["TaskLabelUpdate"];
+export type TaskLabelSet = components["schemas"]["TaskLabelSet"];
+export type TaskCommentRead = components["schemas"]["TaskCommentRead"];
+export type TaskCommentPage = components["schemas"]["TaskCommentPage"];
+export type TaskCommentCreate = components["schemas"]["TaskCommentCreate"];
+export type TaskCommentUpdate = components["schemas"]["TaskCommentUpdate"];
+// Step 5g: the one read-only dashboard payload.
+export type DashboardSummary = components["schemas"]["DashboardSummary"];
 
 /** Whitelisted filters for `metrics.list` (`period_from`/`period_to` inclusive). */
 export type MetricListQuery = {
@@ -145,6 +157,8 @@ export type TaskListQuery = {
   milestone_id?: string;
   due_this_week?: boolean;
   assigned_to_me?: boolean;
+  /** Step 5d: only tasks carrying this label. */
+  label_id?: string;
 };
 
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "/api/v1").replace(/\/+$/, "");
@@ -813,6 +827,105 @@ export const api = {
     /** Soft delete (owner/admin/member; viewer -> 403). */
     remove: (orgId: string, taskId: string) =>
       apiRequest<void>(`/organizations/${orgId}/tasks/${taskId}`, { method: "DELETE" }),
+  },
+
+  /** Step 5d: the org's label catalogue. Managing it is owner/admin. */
+  taskLabels: {
+    /** Any active member reads the catalogue (viewer included). */
+    list: (
+      orgId: string,
+      query: { limit?: number; offset?: number; sort?: "name" | "created_at"; order?: "asc" | "desc"; q?: string } = {},
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<TaskLabelPage>(`/organizations/${orgId}/task-labels`, {
+        method: "GET",
+        query,
+        signal,
+      }),
+
+    /**
+     * Owner/admin only (viewer and member -> 403). A name already used in
+     * any casing is a 409 `LABEL_NAME_TAKEN` on the name field.
+     */
+    create: (orgId: string, body: TaskLabelCreate) =>
+      apiRequest<TaskLabelRead>(`/organizations/${orgId}/task-labels`, {
+        method: "POST",
+        body,
+      }),
+
+    /** Owner/admin rename or recolour; a foreign label id is 404. */
+    update: (orgId: string, labelId: string, body: TaskLabelUpdate) =>
+      apiRequest<TaskLabelRead>(`/organizations/${orgId}/task-labels/${labelId}`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /** Owner/admin hard delete; links cascade, tasks survive. */
+    remove: (orgId: string, labelId: string) =>
+      apiRequest<void>(`/organizations/${orgId}/task-labels/${labelId}`, {
+        method: "DELETE",
+      }),
+
+    /**
+     * Replace-set for one task: the body is the complete set it should
+     * carry afterwards, so attach and detach are one idempotent call.
+     * Member+ (viewer -> 403); a label from another org is a 422.
+     */
+    setForTask: (orgId: string, taskId: string, body: TaskLabelSet) =>
+      apiRequest<TaskLabelRead[]>(`/organizations/${orgId}/tasks/${taskId}/labels`, {
+        method: "PUT",
+        body,
+      }),
+  },
+
+  /** Step 5d: flat task comments (threading/mentions arrive in Step 11). */
+  taskComments: {
+    /** Any active member reads the task's live comments, oldest first. */
+    list: (
+      orgId: string,
+      taskId: string,
+      query: { limit?: number; offset?: number } = {},
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<TaskCommentPage>(
+        `/organizations/${orgId}/tasks/${taskId}/comments`,
+        { method: "GET", query, signal },
+      ),
+
+    /** Member+ (viewer -> 403); rate-limited per actor (429). */
+    create: (orgId: string, taskId: string, body: TaskCommentCreate) =>
+      apiRequest<TaskCommentRead>(
+        `/organizations/${orgId}/tasks/${taskId}/comments`,
+        { method: "POST", body },
+      ),
+
+    /** The author only; anyone else (owners included) gets 403. */
+    update: (orgId: string, taskId: string, commentId: string, body: TaskCommentUpdate) =>
+      apiRequest<TaskCommentRead>(
+        `/organizations/${orgId}/tasks/${taskId}/comments/${commentId}`,
+        { method: "PATCH", body },
+      ),
+
+    /** The author, or an owner/admin. Soft delete; a repeat delete is 404. */
+    remove: (orgId: string, taskId: string, commentId: string) =>
+      apiRequest<void>(
+        `/organizations/${orgId}/tasks/${taskId}/comments/${commentId}`,
+        { method: "DELETE" },
+      ),
+  },
+
+  /** Step 5g: the whole startup dashboard in one read-only call. */
+  dashboard: {
+    /**
+     * Any active member (viewer included). Cards with no data source are
+     * named in `unavailable`; money is withheld from viewers and named in
+     * `restricted` — render those as absent, never as zero.
+     */
+    summary: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<DashboardSummary>(`/organizations/${orgId}/dashboard-summary`, {
+        method: "GET",
+        signal,
+      }),
   },
 
   readiness: {

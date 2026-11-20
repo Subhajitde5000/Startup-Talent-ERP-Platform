@@ -61,6 +61,7 @@ from app.models.startup import (  # noqa: E402
 )
 from app.models.talent import MentorProfile, TalentProfile, TalentProfileSkill, WorkMode  # noqa: E402
 from app.models.task import Task, TaskPriority, TaskStatus  # noqa: E402
+from app.models.task_label import TaskLabel, TaskLabelLink  # noqa: E402
 from app.models.user import AccountStatus, ReviewState, User, UserRole, UserRoleRow  # noqa: E402
 from app.services import stage_service  # noqa: E402
 
@@ -320,6 +321,26 @@ STEP5C_TASKS: list[dict[str, object]] = [
         "milestone": "MVP test launch",
     },
 ]
+
+# Step 5d demo labels (moved out of the tasks page's inline demo pills).
+# Fill-only by name: a label the dev renamed is never recreated, and the
+# task wiring below only runs for tasks that exist.
+STEP5D_LABELS: list[dict[str, object]] = [
+    {"name": "Backend", "color": "#4A5568"},
+    {"name": "Design", "color": "#B8955A"},
+    {"name": "Customer research", "color": "#2E7D5B"},
+    {"name": "Go-to-market", "color": "#B7791F"},
+    {"name": "Investor", "color": "#0F1B2D"},
+]
+
+# task title -> label names it carries once both exist.
+STEP5D_TASK_LABELS: dict[str, list[str]] = {
+    "Finalize pricing model": ["Go-to-market", "Investor"],
+    "Review customer interview notes": ["Customer research"],
+    "Update pitch deck traction slide": ["Investor"],
+    "Ship onboarding improvements": ["Design"],
+    "Prepare beta release notes": ["Backend"],
+}
 
 # Step 5f demo readiness: the founder's org starts with two signed-off
 # criteria, one awaiting review and one rejected, so /startup/readiness
@@ -700,6 +721,8 @@ async def seed() -> None:
         team_state_added = 0
         milestones_added = 0
         tasks_added = 0
+        labels_added = 0
+        task_label_links_added = 0
         founder_org = (
             (
                 await db.execute(
@@ -963,6 +986,70 @@ async def seed() -> None:
                 )
                 tasks_added += 1
             if tasks_added:
+                await db.commit()
+
+            # Step 5d: demo label catalogue and the label pills on the demo
+            # tasks. Fill-only in both directions so dev edits survive.
+            for spec in STEP5D_LABELS:
+                exists = (
+                    await db.execute(
+                        select(TaskLabel.id).where(
+                            TaskLabel.org_id == founder_org.id,
+                            func.lower(TaskLabel.name) == str(spec["name"]).lower(),
+                        )
+                    )
+                ).first()
+                if exists is not None:
+                    continue
+                db.add(
+                    TaskLabel(
+                        org_id=founder_org.id,
+                        name=str(spec["name"]),
+                        color=(str(spec["color"]) if spec["color"] else None),
+                    )
+                )
+                labels_added += 1
+            if labels_added:
+                await db.commit()
+            labels_by_name = {
+                row.name: row
+                for row in (
+                    await db.execute(
+                        select(TaskLabel).where(TaskLabel.org_id == founder_org.id)
+                    )
+                )
+                .scalars()
+                .all()
+            }
+            for title, label_names in STEP5D_TASK_LABELS.items():
+                task_row = (
+                    await db.execute(
+                        select(Task).where(
+                            Task.org_id == founder_org.id,
+                            Task.title == title,
+                            Task.deleted_at.is_(None),
+                        )
+                    )
+                ).scalar_one_or_none()
+                if task_row is None:
+                    continue
+                for label_name in label_names:
+                    label_row = labels_by_name.get(label_name)
+                    if label_row is None:
+                        continue
+                    linked = (
+                        await db.execute(
+                            select(TaskLabelLink.label_id).where(
+                                TaskLabelLink.task_id == task_row.id,
+                                TaskLabelLink.label_id == label_row.id,
+                            )
+                        )
+                    ).first()
+                    if linked is not None:
+                        continue
+                    db.add(TaskLabelLink(task_id=task_row.id, label_id=label_row.id))
+                    task_label_links_added += 1
+            if task_label_links_added:
                 await db.commit()
 
             # Step 5f: demo readiness state for the founder's org (fill-only,
@@ -1339,6 +1426,8 @@ async def seed() -> None:
     print(f"  + team states (3d deactivated member / pending invite): {team_state_added}")
     print(f"  + milestones (5b): {milestones_added}")
     print(f"  + tasks (5c): {tasks_added}")
+    print(f"  + task labels (5d): {labels_added}")
+    print(f"  + task label links (5d): {task_label_links_added}")
     print(f"  + readiness items (5f): {readiness_added}")
     print(f"  + stage tool progress (5i/5j): {tools_added}")
     print(f"  + market size (5l): {market_added}")

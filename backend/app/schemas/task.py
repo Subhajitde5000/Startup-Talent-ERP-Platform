@@ -1,4 +1,4 @@
-"""Task schemas (Step 5c, extended by Step 5f).
+"""Task schemas (Step 5c, extended by Step 5f and 5d).
 
 Conventions (AGENTS.md section 5): separate Create/Update/Move/Read
 shapes; server-owned fields (id, org_id, created_by, completed_at,
@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from app.models.task import TaskPriority, TaskStatus
 from app.schemas.common import clean_text
+from app.schemas.task_label import TaskLabelRead
 
 _MAX_TITLE = 200
 _MAX_DESCRIPTION = 5000
@@ -130,6 +131,9 @@ class TaskRead(BaseModel):
     due_on: date | None
     completed_at: datetime | None
     display_order: int
+    # Step 5d: the task's labels, loaded in one batched query per request
+    # (never one query per task). Empty list when the task has none.
+    labels: list[TaskLabelRead] = []
     created_at: datetime
     updated_at: datetime
 

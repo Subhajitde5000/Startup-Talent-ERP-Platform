@@ -81,8 +81,8 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [x] B: `/startup/tasks` board wired (board, list, calendar and milestone progress on real tasks; labels, comments and criterion links stay hidden until 5d/5f); team directory shows the real per-member `task_count`
 
 ### 5d Task labels and comments
-- [ ] A: labels, attach/detach, comments
-- [ ] B: labels and comments wired on the board
+- [x] A: `task_labels` / `task_label_links` / `task_comments` (migration 0016). Label CRUD is owner/admin (labels "managed by admins", D-7); attach/detach is one replace-set `PUT /tasks/{id}/labels` (member+), capped at 8 per task and validated same-org (422 on cross-org ids, never a 404 oracle). Names unique per org case-insensitively (functional unique index, D-1); labels hard-deleted so a name can be reused (D-4). Comments: flat, author edits only, author-or-owner/admin soft delete, rate-limited per actor, `author_id` never client-writable. `TaskRead.labels` loaded in ONE batched query per list; `GET /tasks?label_id=` filter. Create/delete comments write audit rows (D-9b) so the 5g feed has real content. 108 new tests; 572 pass on SQLite and PostgreSQL 16.2
+- [x] B: labels and comments wired on the board. `/startup/tasks` gained the org label catalogue (read for every role, managed inline by owner/admin: create/rename/recolour/delete, `LABEL_NAME_TAKEN` and the 422 colour error shown on the field), per-task attach/detach through the replace-set `PUT`, and a flat comment thread with author-only edit plus author-or-owner delete (driven by the API's own `can_edit`/`can_delete`, never guessed from role). Pills render on board cards, in the list view's Labels column and in the task drawer. Errors: `403` for a viewer write, `409 LABEL_LIMIT_REACHED`, `429 RATE_LIMITED` all surface as messages. Eight client methods added to `@/lib/api/client` using the shared `apiRequest`/`ApiError`/auto-refresh path; `schema.d.ts` regenerated (additive, no lines removed)
 
 ### 5e Metrics
 - [x] A: `startup_metrics` upsert, latest, history, server-only verified sources
@@ -93,8 +93,8 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [x] B: `/startup/readiness` wired (mentor sign-off waits for Step 8)
 
 ### 5g Dashboard summary
-- [ ] A: one read-only summary endpoint
-- [ ] B: `/startup/dashboard` wired, unavailable cards empty or hidden
+- [x] A: one read-only `GET /organizations/{id}/dashboard-summary` (any active member). Reuses the 5i stage roll-up, the 5f readiness score and the 5e newest-per-key metrics rather than recomputing them; ~8 constant queries, no N+1. My-tasks counters are scoped to the caller. Absent metrics stay absent (never 0) and cards with no source are named in `unavailable` with the step that supplies them (mentor 8, investors 9, hiring 7, documents 4, readiness breakdown). Viewers get no money: keys withheld and named in `restricted` (D-8). Metric values are decimal strings, never floats
+- [x] B: `/startup/dashboard` wired to the aggregate summary; unavailable cards hidden. KPI row, stage card, task/milestone list, readiness gauge, activity feed and team card all read real data. Stage checklist reads the real 5i exit criteria for the *current* stage (read-only — sign-off is owned by `/startup/stage`), replacing the six invented titles. Mentor (8), investor interest (9), hiring (7) and the document list (4) are hidden rather than stubbed; the server's `unavailable` reasons are still surfaced where they help. Readiness keeps its one real score — the Checklist/Traction/Mentor sub-bars are gone because only one score exists. Task cards are labelled "My open tasks" and the "Team" tab was dropped, because the summary's task section is scoped to the caller
 
 ### 5h Discovery and public startup page
 - [x] A: startup list with filters, public read, visibility tests for each value
