@@ -443,6 +443,23 @@ export default function MentorProfileEditPage() {
                 />
               </div>
             </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-3.5 mt-2">
+              <div>
+                <p className="text-xs font-semibold text-[#0F1B2D]">
+                  Weekly Availability Slots & Schedule Windows
+                </p>
+                <p className="text-[11px] text-[#5A6E85]">
+                  Configure recurring days and time windows (e.g. Mon–Fri 10:00–17:00 IST) for startup session bookings.
+                </p>
+              </div>
+              <Link
+                href="/mentor/sessions"
+                className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#0F1B2D] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1C2B42] transition shadow-xs"
+              >
+                Manage Availability Slots →
+              </Link>
+            </div>
           </div>
 
           {/* SECTION 4: DOMAIN EXPERTISE */}
