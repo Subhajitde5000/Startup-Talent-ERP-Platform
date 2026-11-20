@@ -30,7 +30,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import BackgroundTasks
-from sqlalchemy import case, func, select
+from sqlalchemy import case, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
@@ -38,9 +38,15 @@ from app.core.exceptions import not_found, validation_error
 from app.models.milestone import Milestone
 from app.models.organization import OrgRole
 from app.models.task import Task, TaskPriority, TaskStatus
+from app.models.task_label import TaskLabelLink
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskMove, TaskPage, TaskRead, TaskUpdate
-from app.services import organization_service, readiness_service, status_notification_service
+from app.services import (
+    organization_service,
+    readiness_service,
+    status_notification_service,
+    task_label_service,
+)
 
 # Viewer role is deliberately excluded from writes (plan permission table).
 _WRITE_ROLES = frozenset({OrgRole.owner, OrgRole.admin, OrgRole.member})
@@ -104,8 +110,12 @@ async def _get_task(
     return row
 
 
-def _read(row: Task) -> TaskRead:
-    return TaskRead.model_validate(row, from_attributes=True)
+def _read(row: Task, labels: list | None = None) -> TaskRead:
+    """Serialise one task. ``labels`` (5d) is passed in by the caller so a
+    list read costs one batched query for the whole page, never one per
+    task; single-task reads pass that task's labels explicitly."""
+    read = TaskRead.model_validate(row, from_attributes=True)
+    return read.model_copy(update={"labels": labels or []})
 
 
 async def _max_order(
@@ -255,6 +265,8 @@ async def create_task(
         milestone_name=milestone_name,
     )
 
+    # A task created this instant carries no labels (5d) — attach happens
+    # through PUT /tasks/{id}/labels.
     return _read(task)
 
 
@@ -273,6 +285,7 @@ async def list_tasks(
     milestone_id,  # noqa: ANN001
     due_this_week: bool,
     assigned_to_me: bool,
+    label_id=None,  # noqa: ANN001
 ) -> TaskPage:
     org = await organization_service.startup_org_or_404(db, org_id)
     await organization_service.require_membership(db, org.id, user)
@@ -298,6 +311,15 @@ async def list_tasks(
         ]
     if assigned_to_me:
         filters.append(Task.assignee_id == user.id)
+    if label_id is not None:
+        # Step 5d: EXISTS rather than a join, so a task with several
+        # matching labels still appears once and COUNT(*) stays correct.
+        filters.append(
+            exists().where(
+                TaskLabelLink.task_id == Task.id,
+                TaskLabelLink.label_id == label_id,
+            )
+        )
 
     total = (
         await db.execute(select(func.count()).select_from(Task).where(*filters))
@@ -322,7 +344,10 @@ async def list_tasks(
     result = await db.execute(
         select(Task).where(*filters).order_by(*order_by).limit(limit).offset(offset)
     )
-    items = [_read(row) for row in result.scalars().all()]
+    rows = result.scalars().all()
+    # One query for every label on the page (5d) — never one per task.
+    labels_by_task = await task_label_service.labels_for_tasks(db, [row.id for row in rows])
+    items = [_read(row, labels_by_task.get(row.id)) for row in rows]
     return TaskPage(items=items, total=total, limit=limit, offset=offset)
 
 
@@ -335,7 +360,7 @@ async def get_task(
     org = await organization_service.startup_org_or_404(db, org_id)
     await organization_service.require_membership(db, org.id, user)
     row = await _get_task(db, org.id, task_id)
-    return _read(row)
+    return _read(row, await task_label_service.labels_for_task(db, row.id))
 
 
 async def update_task(
@@ -397,7 +422,7 @@ async def update_task(
         milestone_name=milestone_name,
     )
 
-    return _read(row)
+    return _read(row, await task_label_service.labels_for_task(db, row.id))
 
 
 async def move_task(
@@ -490,7 +515,7 @@ async def move_task(
             due_on=str(task.due_on) if task.due_on else None,
         )
 
-    return _read(task)
+    return _read(task, await task_label_service.labels_for_task(db, task.id))
 
 
 async def delete_task(

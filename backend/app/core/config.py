@@ -97,6 +97,11 @@ class Settings(BaseSettings):
     # Step 3d: last_active_at is written at most this often per member, so
     # reading the team page does not mean one UPDATE per member per request.
     LAST_ACTIVE_THROTTLE_SECONDS: int = 300
+    # Step 5d: comment writes, per actor. A team discussing a task is
+    # comfortably under this; a scripted loop is cut off (BUILD_PLAN 5d:
+    # "Rate-limit comments").
+    TASK_COMMENT_LIMIT: int = 30
+    TASK_COMMENT_WINDOW_SECONDS: int = 300
 
     # CORS: explicit allow-list only, never "*" with credentials.
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])

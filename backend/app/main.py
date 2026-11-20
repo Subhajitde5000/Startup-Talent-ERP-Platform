@@ -18,6 +18,7 @@ from app.db.session import engine
 from app.routers import (
     analytics,
     auth,
+    dashboard,
     discovery,
     invites,
     market,
@@ -31,6 +32,8 @@ from app.routers import (
     stage,
     startup_profile,
     talent,
+    task_comments,
+    task_labels,
     tasks,
     users,
 )
@@ -122,6 +125,12 @@ def create_app() -> FastAPI:
     # Steps 5k/5l: business analytics and the market tab.
     app.include_router(analytics.router, prefix=settings.API_V1_PREFIX)
     app.include_router(market.router, prefix=settings.API_V1_PREFIX)
+    # Step 5d: task labels and comments. Both use the /organizations
+    # prefix, so they sit next to the task routes they extend.
+    app.include_router(task_labels.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(task_comments.router, prefix=settings.API_V1_PREFIX)
+    # Step 5g: the one read-only dashboard summary.
+    app.include_router(dashboard.router, prefix=settings.API_V1_PREFIX)
     return app
 
 

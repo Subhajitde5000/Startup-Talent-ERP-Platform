@@ -8,7 +8,7 @@ import {
   Search,Bell,ChevronDown,ChevronUp,ChevronRight,Check,CheckCircle2,Plus,ArrowRight,CalendarDays,
   Clock,MoreHorizontal,Flag,Filter,List,Columns3,Calendar,
   Target,X,Trash2,Download,Upload,Milestone as MilestoneIcon,
-  Menu,AlertTriangle,AlertCircle
+  Menu,AlertTriangle,AlertCircle,Tag,Send,MessageSquare,Pencil
 } from 'lucide-react';
 
 const columns = ['To do', 'In progress', 'In review', 'Done'];
@@ -61,6 +61,34 @@ const MS_STATUS_LABELS = {
   off_track: 'Off track',
   achieved: 'Achieved',
   missed: 'Missed'
+};
+
+// Step 5d: label pills are neutral by design (§18). The stored colour is a
+// 6-digit hex; render it as a tinted chip that stays readable when the
+// colour is absent or fails contrast.
+const LABEL_TINTS = ['#EFE9DC', '#E8EDF3', '#E9F0EA', '#F3EBE3', '#EDEAE4'];
+const labelTint = label => {
+  if (!label) return '#EFE9DC';
+  const i = (label.name || '').length % LABEL_TINTS.length;
+  return LABEL_TINTS[i];
+};
+
+const labelStyle = label => ({
+  backgroundColor: label?.color ? `${label.color}1A` : labelTint(label),
+  borderColor: label?.color ? `${label.color}55` : '#D9D3C6',
+  color: '#0F1B2D'
+});
+
+const fmtCommentTime = iso => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
 };
 
 function errorsFrom(err) {
@@ -122,8 +150,29 @@ export default function TasksPage() {
   const [editBusy, setEditBusy] = useState(false);
   const [expandedMilestones, setExpandedMilestones] = useState({});
   const [milestoneNewTasks, setMilestoneNewTasks] = useState({});
+  // --- Step 5d: the org's label catalogue and this task's comments ----------
+  const [labels, setLabels] = useState([]); // TaskLabelRead[]
+  const [labelStatus, setLabelStatus] = useState('loading'); // loading | ready | error
+  const [labelError, setLabelError] = useState('');
+  const [labelBusy, setLabelBusy] = useState(null); // task id being re-labelled
+  const [labelManage, setLabelManage] = useState(false); // catalogue editor open
+  const [labelForm, setLabelForm] = useState({name: '', color: '#4A5568'});
+  const [labelErrs, setLabelErrs] = useState({});
+  const [labelFormErr, setLabelFormErr] = useState('');
+  const [labelSaving, setLabelSaving] = useState(false);
+  const [editingLabel, setEditingLabel] = useState(null); // TaskLabelRead under rename
+  const [comments, setComments] = useState([]); // TaskCommentRead[] for the drawer's task
+  const [commentStatus, setCommentStatus] = useState('idle'); // idle | loading | ready | error
+  const [commentError, setCommentError] = useState('');
+  const [commentBody, setCommentBody] = useState('');
+  const [commentErrs, setCommentErrs] = useState({});
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [editingComment, setEditingComment] = useState(null); // {id, body}
 
   const canEdit = !!org && EDIT_ROLES.includes(org.my_role);
+  // Step 5d: only owner/admin may shape the label catalogue (plan D-7);
+  // member+ may attach labels to a task.
+  const canManageLabels = !!org && ['owner', 'admin'].includes(org.my_role);
   const myId = user?.id || null;
   const myName = user?.display_name || '';
   const myInitials = initialsOf(myName);
@@ -186,11 +235,15 @@ export default function TasksPage() {
       // Owner names only — a members failure must not block the panel.
       api.organizations
         .members(startup.id)
-        .then(rows => { if (alive) setMembers(rows); })
+        .then(res => {
+          if (alive) setMembers(Array.isArray(res) ? res : res?.items || []);
+        })
         .catch(() => {});
       // Tasks render independently of milestones: one failing never hides
       // the other (each view has its own loading/error state).
       loadTasksRef.current(startup.id);
+      // Step 5d: a labels failure must not block the board either.
+      loadLabelsRef.current(startup.id);
       await loadMilestones(startup.id);
     })();
     return () => { alive = false; };
@@ -198,7 +251,7 @@ export default function TasksPage() {
   }, [reloadKey]);
 
   const ownerNameOf = id =>
-    (id ? members.find(x => x.user_id === id)?.display_name || null : null);
+    (id && Array.isArray(members) ? members.find(x => x.user_id === id)?.display_name || null : null);
 
   const openCreate = (initialMilestoneId = '') => {
     setNewTitle('');
@@ -315,7 +368,7 @@ export default function TasksPage() {
 
   const assigneeName = t => ownerNameOf(t.assignee_id);
   const assigneeInitials = t => {
-    const m = t.assignee_id ? members.find(x => x.user_id === t.assignee_id) : null;
+    const m = t.assignee_id && Array.isArray(members) ? members.find(x => x.user_id === t.assignee_id) : null;
     if (m) return m.avatar_initials || initialsOf(m.display_name);
     if (t.assignee_id && t.assignee_id === myId) return myInitials;
     return '—';
@@ -437,8 +490,7 @@ export default function TasksPage() {
     try {
       await api.tasks.remove(org.id, task.id);
       setTasks(prev => prev.filter(t => t.id !== task.id));
-      setSelected(null);
-      setDrawer(null);
+      closeTask();
       notify('Task deleted.');
     } catch (err) {
       notify(err instanceof ApiError ? err.message : 'Could not delete the task.');
@@ -463,6 +515,246 @@ export default function TasksPage() {
       return setStatus(task, 'To do');
     }
     return moveTask(task, {status: 'done'}, 'Task completed.');
+  };
+
+  // --- Step 5d: labels ------------------------------------------------------
+  const loadLabels = async id => {
+    setLabelStatus('loading');
+    try {
+      const page = await api.taskLabels.list(id, {limit: 100, sort: 'name', order: 'asc'});
+      setLabels(page.items);
+      setLabelStatus('ready');
+    } catch (err) {
+      setLabelError(err instanceof ApiError ? err.message : 'Could not load labels.');
+      setLabelStatus('error');
+    }
+  };
+  const loadLabelsRef = useRef(loadLabels);
+  loadLabelsRef.current = loadLabels;
+
+  // The replace-set endpoint returns the task's full label list; splice it
+  // into both the board row and the open drawer so nothing needs a refetch.
+  const setTaskLabels = async (task, labelIds) => {
+    if (!org || labelBusy) return;
+    setLabelBusy(task.id);
+    setLabelErrs({});
+    try {
+      const next = await api.taskLabels.setForTask(org.id, task.id, {label_ids: labelIds});
+      const patch = row => (row.id === task.id ? {...row, labels: next} : row);
+      setTasks(prev => prev.map(patch));
+      setSelected(prev => (prev && prev.id === task.id ? {...prev, labels: next} : prev));
+      notify(labelIds.length ? 'Labels updated.' : 'Labels cleared.');
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const errs = errorsFrom(err);
+        setLabelErrs(errs);
+        if (err.code === 'LABEL_LIMIT_REACHED') {
+          notify(err.message);
+        } else {
+          notify(Object.keys(errs).length ? 'Please check the highlighted fields.' : err.message);
+        }
+      } else {
+        notify('Could not update the labels.');
+      }
+    } finally {
+      setLabelBusy(null);
+    }
+  };
+
+  const toggleTaskLabel = (task, labelId) => {
+    const current = (task.labels || []).map(l => l.id);
+    const next = current.includes(labelId)
+      ? current.filter(id => id !== labelId)
+      : [...current, labelId];
+    return setTaskLabels(task, next);
+  };
+
+  const saveLabel = async e => {
+    e.preventDefault();
+    if (!org || labelSaving) return;
+    setLabelErrs({});
+    setLabelFormErr('');
+    const name = labelForm.name.trim();
+    if (!name) {
+      setLabelErrs({name: 'Enter a label name.'});
+      return;
+    }
+    setLabelSaving(true);
+    try {
+      if (editingLabel) {
+        const row = await api.taskLabels.update(org.id, editingLabel.id, {
+          name,
+          color: labelForm.color || null
+        });
+        setLabels(prev => prev.map(l => (l.id === row.id ? row : l)));
+        // The same label is embedded in every task carrying it.
+        setTasks(prev =>
+          prev.map(t => ({
+            ...t,
+            labels: (t.labels || []).map(l => (l.id === row.id ? row : l))
+          }))
+        );
+        notify('Label updated.');
+      } else {
+        const row = await api.taskLabels.create(org.id, {
+          name,
+          color: labelForm.color || null
+        });
+        setLabels(prev => [...prev, row].sort((a, b) => a.name.localeCompare(b.name)));
+        notify('Label created.');
+      }
+      setEditingLabel(null);
+      setLabelForm({name: '', color: '#4A5568'});
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const errs = errorsFrom(err);
+        setLabelErrs(errs);
+        if (err.code === 'LABEL_NAME_TAKEN' && !errs.name) {
+          setLabelErrs({name: err.message});
+        }
+        setLabelFormErr(
+          Object.keys(errs).length || err.code === 'LABEL_NAME_TAKEN' ? '' : err.message
+        );
+      } else {
+        setLabelFormErr('Could not save the label.');
+      }
+    } finally {
+      setLabelSaving(false);
+    }
+  };
+
+  const deleteLabel = async label => {
+    if (!org) return;
+    setLabelFormErr('');
+    try {
+      await api.taskLabels.remove(org.id, label.id);
+      setLabels(prev => prev.filter(l => l.id !== label.id));
+      // Links cascade server-side; mirror that locally.
+      setTasks(prev =>
+        prev.map(t => ({...t, labels: (t.labels || []).filter(l => l.id !== label.id)}))
+      );
+      if (editingLabel?.id === label.id) {
+        setEditingLabel(null);
+        setLabelForm({name: '', color: '#4A5568'});
+      }
+      notify('Label deleted.');
+    } catch (err) {
+      setLabelFormErr(
+        err instanceof ApiError ? err.message : 'Could not delete the label.'
+      );
+    }
+  };
+
+  // --- Step 5d: comments ----------------------------------------------------
+  const loadComments = async taskId => {
+    if (!org) return;
+    setCommentStatus('loading');
+    setCommentError('');
+    try {
+      const page = await api.taskComments.list(org.id, taskId, {limit: 100});
+      setComments(page.items);
+      setCommentStatus('ready');
+    } catch (err) {
+      setCommentError(err instanceof ApiError ? err.message : 'Could not load comments.');
+      setCommentStatus('error');
+    }
+  };
+
+  // Opening a task loads its thread; closing clears it so a stale thread
+  // never flashes into the next task.
+  const openTask = task => {
+    setSelected(task);
+    setDrawer(null);
+    setDrawerErrs({});
+    setCommentBody('');
+    setCommentErrs({});
+    setEditingComment(null);
+    setComments([]);
+    setCommentStatus('idle');
+    if (org) loadComments(task.id);
+  };
+
+  const closeTask = () => {
+    setSelected(null);
+    setDrawer(null);
+    setDrawerErrs({});
+    setComments([]);
+    setCommentBody('');
+    setCommentErrs({});
+    setEditingComment(null);
+    setCommentStatus('idle');
+  };
+
+  const addComment = async e => {
+    e.preventDefault();
+    if (!org || !selected || commentBusy) return;
+    setCommentErrs({});
+    const body = commentBody.trim();
+    if (!body) {
+      setCommentErrs({body: 'Write a comment first.'});
+      return;
+    }
+    setCommentBusy(true);
+    try {
+      const row = await api.taskComments.create(org.id, selected.id, {body});
+      setComments(prev => [...prev, row]);
+      setCommentBody('');
+      setCommentStatus('ready');
+      notify('Comment posted.');
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const errs = errorsFrom(err);
+        setCommentErrs(
+          Object.keys(errs).length
+            ? errs
+            : {body: err.code === 'RATE_LIMITED' ? err.message : err.message}
+        );
+      } else {
+        setCommentErrs({body: 'Could not post the comment.'});
+      }
+    } finally {
+      setCommentBusy(false);
+    }
+  };
+
+  const saveComment = async (comment, body) => {
+    if (!org || !selected || commentBusy) return;
+    const trimmed = (body || '').trim();
+    setCommentErrs({});
+    if (!trimmed) {
+      setCommentErrs({edit: 'A comment cannot be empty.'});
+      return;
+    }
+    setCommentBusy(true);
+    try {
+      const row = await api.taskComments.update(org.id, selected.id, comment.id, {
+        body: trimmed
+      });
+      setComments(prev => prev.map(c => (c.id === row.id ? row : c)));
+      setEditingComment(null);
+      notify('Comment updated.');
+    } catch (err) {
+      setCommentErrs({
+        edit: err instanceof ApiError ? err.message : 'Could not update the comment.'
+      });
+    } finally {
+      setCommentBusy(false);
+    }
+  };
+
+  const deleteComment = async comment => {
+    if (!org || !selected) return;
+    setCommentErrs({});
+    try {
+      await api.taskComments.remove(org.id, selected.id, comment.id);
+      setComments(prev => prev.filter(c => c.id !== comment.id));
+      if (editingComment?.id === comment.id) setEditingComment(null);
+      notify('Comment deleted.');
+    } catch (err) {
+      setCommentErrs({
+        list: err instanceof ApiError ? err.message : 'Could not delete the comment.'
+      });
+    }
   };
 
   // Reorder inside a column: before/after anchor computed from what is on
@@ -550,7 +842,7 @@ export default function TasksPage() {
       draggable
       onDragStart={() => setDragId(t.id)}
       onDragEnd={() => setDragId(null)}
-      onClick={() => setSelected(t)}
+      onClick={() => openTask(t)}
       className={`cursor-pointer rounded-xl border border-[#E5E1D8] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,27,45,.04)] transition hover:border-[#A0A7B4] hover:shadow-sm ${
         t.status === 'done' ? 'opacity-70' : ''
       } ${busyMove === t.id ? 'animate-pulse' : ''}`}
@@ -576,14 +868,26 @@ export default function TasksPage() {
           type="button"
           onClick={e => {
             e.stopPropagation();
-            setSelected(t);
+            openTask(t);
           }}
           aria-label="Task options"
         >
           <MoreHorizontal size={17} className="text-[#4A5568]" />
         </button>
       </div>
-      {/* Labels arrive with Step 5d (task_labels) — hidden until then. */}
+      {(t.labels || []).length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {(t.labels || []).map(l => (
+            <span
+              key={l.id}
+              style={labelStyle(l)}
+              className="rounded-full border px-2 py-0.5 text-[10px] font-medium leading-4"
+            >
+              {l.name}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="mt-3 flex items-center justify-between">
         <span className="flex items-center gap-2">
           <span className="grid h-7 w-7 place-items-center rounded-full bg-[#F3EBDD] text-[10px] font-semibold">
@@ -981,7 +1285,7 @@ export default function TasksPage() {
                   </tr>
                 )}
                 {filtered.map(t => (
-                  <tr key={t.id} onClick={() => setSelected(t)} className="h-12 cursor-pointer hover:bg-[#F4F1EA]">
+                  <tr key={t.id} onClick={() => openTask(t)} className="h-12 cursor-pointer hover:bg-[#F4F1EA]">
                     <td className="px-3">
                       <input
                         type="checkbox"
@@ -1010,7 +1314,23 @@ export default function TasksPage() {
                       </select>
                     </td>
                     <td className="px-3 text-[#9A7A45]">{milestoneName(t) || '—'}</td>
-                    <td className="px-3">{/* Labels arrive with Step 5d. */}—</td>
+                    <td className="px-3">
+                      {(t.labels || []).length ? (
+                        <span className="flex flex-wrap gap-1">
+                          {(t.labels || []).map(l => (
+                            <span
+                              key={l.id}
+                              style={labelStyle(l)}
+                              className="rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-4"
+                            >
+                              {l.name}
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1325,7 +1645,7 @@ export default function TasksPage() {
                                     />
                                     <button
                                       type="button"
-                                      onClick={() => setSelected(t)}
+                                      onClick={() => openTask(t)}
                                       className={`truncate text-left text-xs font-medium hover:underline ${
                                         t.status === 'done' ? 'text-[#A0A7B4] line-through' : 'text-ink'
                                       }`}
@@ -1471,7 +1791,7 @@ export default function TasksPage() {
                           <button
                             type="button"
                             key={t.id}
-                            onClick={() => setSelected(t)}
+                            onClick={() => openTask(t)}
                             className={`mt-1 block w-full truncate rounded px-1 py-1 text-left text-[9px] ${
                               t.status === 'done' ? 'bg-[#E7F3EC] text-[#286749] line-through' : 'bg-[#F3EBDD] text-[#806236]'
                             }`}
@@ -1696,7 +2016,7 @@ export default function TasksPage() {
                         className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
                       >
                         <option value="">Unassigned</option>
-                        {members.filter(x => x.status === 'active').map(x => (
+                        {(Array.isArray(members) ? members : []).filter(x => x.status === 'active').map(x => (
                           <option key={x.user_id} value={x.user_id}>{x.display_name}</option>
                         ))}
                       </select>
@@ -1930,7 +2250,7 @@ export default function TasksPage() {
                     className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
                   >
                     <option value="">No owner</option>
-                    {members.filter(x => x.status === 'active').map(x => (
+                    {(Array.isArray(members) ? members : []).filter(x => x.status === 'active').map(x => (
                       <option key={x.user_id} value={x.user_id}>{x.display_name}</option>
                     ))}
                   </select>
@@ -1963,10 +2283,10 @@ export default function TasksPage() {
 
       {/* Selected Task Details Drawer (Step 5c: real reads and writes) */}
       {selected && (
-        <div className="fixed inset-0 z-40 bg-[#0F1B2D]/35" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}>
+        <div className="fixed inset-0 z-40 bg-[#0F1B2D]/35" onMouseDown={e => { if (e.target === e.currentTarget) closeTask(); }}>
           <aside role="dialog" aria-modal="true" aria-label="Task details" className="absolute inset-y-0 right-0 w-full max-w-[480px] overflow-y-auto bg-[#FAF8F4] p-5 shadow-xl sm:p-7">
             <div className="mb-5 flex justify-end">
-              <button type="button" onClick={() => { setSelected(null); setDrawer(null); setDrawerErrs({}); }} aria-label="Close task details" className="grid h-10 w-10 place-items-center rounded-lg bg-white">
+              <button type="button" onClick={closeTask} aria-label="Close task details" className="grid h-10 w-10 place-items-center rounded-lg bg-white">
                 <X size={18} />
               </button>
             </div>
@@ -2042,7 +2362,7 @@ export default function TasksPage() {
                     className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-2 text-xs disabled:opacity-60"
                   >
                     <option value="">Unassigned</option>
-                    {members.filter(x => x.status === 'active').map(x => (
+                    {(Array.isArray(members) ? members : []).filter(x => x.status === 'active').map(x => (
                       <option key={x.user_id} value={x.user_id}>{x.display_name}</option>
                     ))}
                   </select>
@@ -2134,7 +2454,296 @@ export default function TasksPage() {
                   : 'No milestone. Stage-criterion links arrive with readiness (Step 5f).'}
               </p>
             </div>
-            {/* Comments are Step 5d (task_comments) — hidden until then. */}
+            {/* Step 5d: labels. Members attach; owner/admin also shape the
+                catalogue inline, so no settings page is needed. */}
+            <div className="mt-4 rounded-xl border border-[#E5E1D8] bg-white p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+                  <Tag size={14} /> Labels
+                </h3>
+                {canManageLabels && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLabelManage(m => !m);
+                      setLabelErrs({});
+                      setLabelFormErr('');
+                    }}
+                    className="text-xs font-semibold text-[#9A7A45]"
+                  >
+                    {labelManage ? 'Done' : 'Manage'}
+                  </button>
+                )}
+              </div>
+
+              {labelStatus === 'loading' && (
+                <p className="mt-2 text-xs text-[#4A5568]" role="status">Loading labels…</p>
+              )}
+              {labelStatus === 'error' && (
+                <p className="mt-2 text-xs text-[#9A3A3A]" role="alert">
+                  {labelError}{' '}
+                  <button type="button" onClick={() => org && loadLabels(org.id)} className="underline">
+                    Retry
+                  </button>
+                </p>
+              )}
+              {labelStatus === 'ready' && labels.length === 0 && (
+                <p className="mt-2 text-xs text-[#4A5568]" role="status">
+                  No labels yet.{canManageLabels ? ' Add one with Manage.' : ' An owner or admin can add some.'}
+                </p>
+              )}
+              {labelStatus === 'ready' && labels.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {labels.map(l => {
+                    const on = (selected.labels || []).some(x => x.id === l.id);
+                    return (
+                      <button
+                        key={l.id}
+                        type="button"
+                        disabled={!canEdit || labelBusy === selected.id}
+                        aria-pressed={on}
+                        onClick={() => toggleTaskLabel(selected, l.id)}
+                        style={on ? labelStyle(l) : undefined}
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium disabled:opacity-50 ${
+                          on ? 'border-transparent' : 'border-[#E5E1D8] bg-white text-[#4A5568] hover:border-[#A0A7B4]'
+                        }`}
+                      >
+                        {on && <Check size={11} className="mr-1 inline" />}
+                        {l.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {labelErrs.label_ids && (
+                <span className="mt-2 block text-xs text-[#9A3A3A]" role="alert">{labelErrs.label_ids}</span>
+              )}
+              {!canEdit && (
+                <p className="mt-2 text-[11px] text-[#4A5568]">Viewers cannot change labels.</p>
+              )}
+
+              {labelManage && canManageLabels && (
+                <form onSubmit={saveLabel} className="mt-3 border-t border-[#E5E1D8] pt-3">
+                  <div className="flex items-end gap-2">
+                    <label className="flex-1 text-xs text-[#4A5568]">
+                      {editingLabel ? 'Rename label' : 'New label'}
+                      <input
+                        value={labelForm.name}
+                        maxLength={40}
+                        onChange={e => setLabelForm(f => ({...f, name: e.target.value}))}
+                        placeholder="e.g. Customer research"
+                        className="mt-1 h-9 w-full rounded-lg border border-[#E5E1D8] px-2 text-xs"
+                      />
+                    </label>
+                    <label className="text-xs text-[#4A5568]">
+                      Colour
+                      <input
+                        type="color"
+                        value={labelForm.color || '#4A5568'}
+                        onChange={e => setLabelForm(f => ({...f, color: e.target.value}))}
+                        className="mt-1 block h-9 w-11 cursor-pointer rounded-lg border border-[#E5E1D8] bg-white"
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={labelSaving}
+                      className="h-9 rounded-lg bg-ink px-3 text-xs font-semibold text-white disabled:opacity-50"
+                    >
+                      {labelSaving ? 'Saving…' : editingLabel ? 'Save' : 'Add'}
+                    </button>
+                    {editingLabel && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingLabel(null);
+                          setLabelForm({name: '', color: '#4A5568'});
+                          setLabelErrs({});
+                        }}
+                        className="h-9 text-xs font-semibold text-[#4A5568]"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                  {labelErrs.name && (
+                    <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{labelErrs.name}</span>
+                  )}
+                  {labelErrs.color && (
+                    <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{labelErrs.color}</span>
+                  )}
+                  {labelFormErr && (
+                    <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{labelFormErr}</span>
+                  )}
+                  {labels.length > 0 && (
+                    <ul className="mt-3 space-y-1">
+                      {labels.map(l => (
+                        <li key={l.id} className="flex items-center justify-between gap-2 text-xs">
+                          <span className="flex items-center gap-2">
+                            <span
+                              className="inline-block h-3 w-3 rounded-full border"
+                              style={{backgroundColor: l.color || '#E5E1D8'}}
+                            />
+                            {l.name}
+                          </span>
+                          <span className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingLabel(l);
+                                setLabelForm({name: l.name, color: l.color || '#4A5568'});
+                                setLabelErrs({});
+                              }}
+                              className="text-[#4A5568] underline"
+                            >
+                              Rename
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteLabel(l)}
+                              className="text-[#B42318] underline"
+                            >
+                              Delete
+                            </button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </form>
+              )}
+            </div>
+
+            {/* Step 5d: comments. Flat thread (Step 11 adds threading). */}
+            <div className="mt-4 rounded-xl border border-[#E5E1D8] bg-white p-4">
+              <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+                <MessageSquare size={14} /> Comments
+                {commentStatus === 'ready' && comments.length > 0 && (
+                  <span className="text-xs font-normal text-[#4A5568]">({comments.length})</span>
+                )}
+              </h3>
+
+              {commentStatus === 'loading' && (
+                <p className="mt-2 text-xs text-[#4A5568]" role="status">Loading comments…</p>
+              )}
+              {commentStatus === 'error' && (
+                <p className="mt-2 text-xs text-[#9A3A3A]" role="alert">
+                  {commentError}{' '}
+                  <button type="button" onClick={() => loadComments(selected.id)} className="underline">
+                    Retry
+                  </button>
+                </p>
+              )}
+              {commentStatus === 'ready' && comments.length === 0 && (
+                <p className="mt-2 text-xs text-[#4A5568]" role="status">
+                  No comments yet. {canEdit ? 'Start the discussion below.' : ''}
+                </p>
+              )}
+              {commentStatus === 'ready' && comments.length > 0 && (
+                <ul className="mt-3 space-y-3">
+                  {comments.map(c => (
+                    <li key={c.id} className="border-t border-[#E5E1D8] pt-2 first:border-0 first:pt-0">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-xs font-semibold">
+                          {c.author_id === myId ? myName || 'You' : c.author_name || 'Member'}
+                        </span>
+                        <span className="text-[10px] text-[#4A5568]">{fmtCommentTime(c.created_at)}</span>
+                      </div>
+                      {editingComment?.id === c.id ? (
+                        <div className="mt-1">
+                          <textarea
+                            value={editingComment.body}
+                            rows={3}
+                            onChange={e => setEditingComment({id: c.id, body: e.target.value})}
+                            className="w-full rounded-lg border border-[#E5E1D8] p-2 text-xs"
+                          />
+                          <div className="mt-1 flex gap-2">
+                            <button
+                              type="button"
+                              disabled={commentBusy}
+                              onClick={() => saveComment(c, editingComment.body)}
+                              className="rounded-lg bg-ink px-3 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setEditingComment(null); setCommentErrs({}); }}
+                              className="text-[11px] font-semibold text-[#4A5568]"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-[#2D3748]">{c.body}</p>
+                      )}
+                      {(c.can_edit || c.can_delete) && editingComment?.id !== c.id && (
+                        <div className="mt-1 flex gap-3 text-[10px] text-[#4A5568]">
+                          {c.can_edit && (
+                            <button
+                              type="button"
+                              onClick={() => { setEditingComment({id: c.id, body: c.body}); setCommentErrs({}); }}
+                              className="inline-flex items-center gap-0.5 underline"
+                            >
+                              <Pencil size={10} /> Edit
+                            </button>
+                          )}
+                          {c.can_delete && (
+                            <button
+                              type="button"
+                              onClick={() => deleteComment(c)}
+                              className="inline-flex items-center gap-0.5 text-[#B42318] underline"
+                            >
+                              <Trash2 size={10} /> Delete
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {commentErrs.list && (
+                <span className="mt-2 block text-xs text-[#9A3A3A]" role="alert">{commentErrs.list}</span>
+              )}
+
+              {canEdit ? (
+                <form onSubmit={addComment} className="mt-3 border-t border-[#E5E1D8] pt-3">
+                  <label className="block text-xs text-[#4A5568]">
+                    Add a comment
+                    <textarea
+                      value={commentBody}
+                      rows={3}
+                      maxLength={5000}
+                      onChange={e => { setCommentBody(e.target.value); setCommentErrs({}); }}
+                      placeholder="Share an update or ask a question…"
+                      className="mt-1 w-full rounded-lg border border-[#E5E1D8] p-2 text-xs"
+                    />
+                  </label>
+                  {commentErrs.body && (
+                    <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{commentErrs.body}</span>
+                  )}
+                  {commentErrs.edit && (
+                    <span className="mt-1 block text-xs text-[#9A3A3A]" role="alert">{commentErrs.edit}</span>
+                  )}
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-[10px] text-[#4A5568]">{commentBody.length}/5000</span>
+                    <button
+                      type="submit"
+                      disabled={commentBusy}
+                      className="inline-flex items-center gap-1 rounded-lg bg-ink px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50"
+                    >
+                      <Send size={11} /> {commentBusy ? 'Posting…' : 'Post'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <p className="mt-3 border-t border-[#E5E1D8] pt-3 text-[11px] text-[#4A5568]">
+                  Viewers can read comments but not post them.
+                </p>
+              )}
+            </div>
+
             <div className="mt-4 flex justify-between">
               <button
                 type="button"
@@ -2149,7 +2758,7 @@ export default function TasksPage() {
                 disabled={!canEdit || selected.status === 'done'}
                 onClick={() => {
                   moveTask(selected, {status: 'done'}, 'Task completed.');
-                  setSelected(null);
+                  closeTask();
                 }}
                 className="rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
               >
