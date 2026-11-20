@@ -145,6 +145,17 @@ function SessionStatusChip({ status }) {
   );
 }
 
+const head = (title, sub, action) => (
+  <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <p className="text-sm text-[#4A5568]">Acme Studio <span className="mx-2 text-[#B8955A]">·</span> Mentorship</p>
+      <h1 className="serif mt-1 text-[30px] font-semibold">{title}</h1>
+      {sub && <p className="mt-1 text-sm text-[#4A5568]">{sub}</p>}
+    </div>
+    {action}
+  </div>
+);
+
 function StartupSessionsBlock() {
   const [tab, setTab] = useState('Upcoming');
   const [toast, setToast] = useState('');
@@ -721,6 +732,15 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
   const [overviewError, setOverviewError] = useState('');
   const [overviewReload, setOverviewReload] = useState(0);
 
+  // --- Step 8k: Workspace and Billing page data (/startup/mentors/[mentorshipId]) ---
+  const [workspaceMentorship, setWorkspaceMentorship] = useState(null); // MentorshipRead
+  const [workspaceSessions, setWorkspaceSessions] = useState([]); // SessionRead[]
+  const [workspaceTasks, setWorkspaceTasks] = useState([]); // TaskRead[]
+  const [workspacePhase, setWorkspacePhase] = useState('loading'); // loading|ready|error|notfound
+  const [workspaceError, setWorkspaceError] = useState('');
+  const [workspaceReload, setWorkspaceReload] = useState(0);
+  const [workspaceActionBusy, setWorkspaceActionBusy] = useState(false);
+
   // The detail page reads one mentor by handle (the route param), never the
   // demo `mentor` object.
   const [profile, setProfile] = useState(null); // MentorDirectoryDetail
@@ -1104,6 +1124,85 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
     return () => { alive = false; };
   }, [page, overviewReload]);
 
+  // --- Step 8k: Workspace & Billing loader (/startup/mentors/[mentorshipId]) ---
+  useEffect(() => {
+    if (page !== 'workspace' && page !== 'billing') return undefined;
+    if (!id) {
+      setWorkspacePhase('notfound');
+      return undefined;
+    }
+    let alive = true;
+    setWorkspacePhase('loading');
+    setWorkspaceError('');
+
+    (async () => {
+      try {
+        const m = await api.mentorships.get(id);
+        if (!alive) return;
+        setWorkspaceMentorship(m);
+
+        const [sessionsRes, tasksRes, readinessRes] = await Promise.allSettled([
+          api.sessions.forMentorship(id, { limit: 50 }),
+          m.startup_org_id ? api.tasks.list(m.startup_org_id, { limit: 50 }) : Promise.resolve({ items: [] }),
+          m.startup_org_id ? api.readiness.board(m.startup_org_id) : Promise.resolve(null),
+        ]);
+
+        if (!alive) return;
+
+        if (sessionsRes.status === 'fulfilled') {
+          setWorkspaceSessions(sessionsRes.value.items || []);
+        }
+        if (tasksRes.status === 'fulfilled') {
+          setWorkspaceTasks(tasksRes.value.items || []);
+        }
+        if (readinessRes.status === 'fulfilled' && readinessRes.value) {
+          setReadiness(readinessRes.value);
+        }
+
+        setWorkspacePhase('ready');
+      } catch (err) {
+        if (!alive) return;
+        if (err instanceof ApiError && err.status === 404) {
+          setWorkspacePhase('notfound');
+          setWorkspaceError('Mentorship engagement not found.');
+        } else {
+          setWorkspacePhase('error');
+          setWorkspaceError(err instanceof ApiError ? err.message : 'Could not load mentorship workspace.');
+        }
+      }
+    })();
+
+    return () => { alive = false; };
+  }, [page, id, workspaceReload]);
+
+  const handlePauseMentorship = async () => {
+    if (!workspaceMentorship || workspaceActionBusy) return;
+    setWorkspaceActionBusy(true);
+    try {
+      await api.mentorships.pause(workspaceMentorship.id);
+      notify('Mentorship paused.');
+      setWorkspaceReload(n => n + 1);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not pause mentorship.');
+    } finally {
+      setWorkspaceActionBusy(false);
+    }
+  };
+
+  const handleResumeMentorship = async () => {
+    if (!workspaceMentorship || workspaceActionBusy) return;
+    setWorkspaceActionBusy(true);
+    try {
+      await api.mentorships.resume(workspaceMentorship.id);
+      notify('Mentorship resumed.');
+      setWorkspaceReload(n => n + 1);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not resume mentorship.');
+    } finally {
+      setWorkspaceActionBusy(false);
+    }
+  };
+
   const openRequestModal = (m) => {
     setTargetMentor(m);
     setRequestGoal('');
@@ -1192,17 +1291,6 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
 
   const initialsFor = (name) =>
     (name || '?').split(' ').map(x => x[0]).filter(Boolean).slice(0, 2).join('');
-
-  const head = (title, sub, action) => (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p className="text-sm text-[#4A5568]">Acme Studio <span className="mx-2 text-[#B8955A]">·</span> Mentorship</p>
-        <h1 className="serif mt-1 text-[30px] font-semibold">{title}</h1>
-        <p className="mt-1 text-sm text-[#4A5568]">{sub}</p>
-      </div>
-      {action}
-    </div>
-  );
 
   // Step 8a: a real mentor card. `m` is a MentorDirectoryItem (optionally a
   // MentorSuggestionItem, which adds match_reasons).
@@ -2229,188 +2317,341 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
           );
         })()}
 
-        {page === 'workspace' && (
-          <>
-            {head(
-              `Mentorship with ${mentor.name}`,
-              'Active · Started October 21, 2026 · Fortnightly',
-              <div className="flex gap-2">
-                <Link
-                  href="/startup/sessions"
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] border border-[#E5E1D8] bg-white px-3.5 text-sm font-semibold text-ink hover:bg-[#F4F1EA]"
-                >
-                  <CalendarDays size={15} /> Book session
-                </Link>
-                <Btn onClick={() => notify('Message sent to mentor.')}>
-                  <MessageCircle size={15} /> Message
-                </Btn>
+        {page === 'workspace' && (() => {
+          if (workspacePhase === 'loading') {
+            return (
+              <div className="py-16 text-center text-sm text-[#4A5568]">
+                Loading mentorship workspace...
               </div>
-            )}
-            <div className="mb-5 flex gap-2 overflow-x-auto">
-              {['Overview', 'Plan', 'Sessions', 'Deliverables', 'Notes', 'Files', 'Messages'].map(x => (
-                <button
-                  key={x}
-                  type="button"
-                  onClick={() => setTab(x)}
-                  className={`min-h-10 shrink-0 rounded-lg px-4 text-xs ${tab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
-                >
-                  {x}
-                </button>
-              ))}
-            </div>
+            );
+          }
 
-            <div className="grid items-start gap-5 xl:grid-cols-3">
-              <div className="space-y-5 xl:col-span-2">
-                <Card title={tab === 'Overview' ? 'Mentorship overview' : tab}>
-                  {tab === 'Overview' ? (
-                    <>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="rounded-lg bg-[#F3EBDD] p-4">
-                          <p className="text-xs text-[#806236]">Readiness sign-off</p>
-                          <b className="serif mt-1 block text-2xl">{approved} of 6 items</b>
-                          <Link href="/startup/readiness" className="mt-2 inline-block text-xs font-semibold text-[#9A7A45]">
-                            View checklist <ArrowRight className="inline" size={12} />
+          if (workspacePhase === 'notfound') {
+            return (
+              <Card title="Mentorship not found">
+                <p className="text-xs text-[#4A5568]">
+                  This mentorship engagement does not exist or you do not have permission to access it.
+                </p>
+                <Link href="/startup/mentors" className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-[#9A7A45]">
+                  <ArrowRight className="rotate-180" size={13} /> Back to mentors overview
+                </Link>
+              </Card>
+            );
+          }
+
+          if (workspacePhase === 'error' || !workspaceMentorship) {
+            return (
+              <div className="rounded-xl border border-[#F0C9C9] bg-[#FDECEC] p-4 text-xs text-[#A33A3A]" role="alert">
+                <p className="font-semibold">Could not load mentorship</p>
+                <p className="mt-1">{workspaceError || 'An unexpected error occurred.'}</p>
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceReload(n => n + 1)}
+                  className="mt-3 inline-block rounded-md bg-[#A33A3A] px-3 py-1.5 text-xs font-medium text-white"
+                >
+                  Retry
+                </button>
+              </div>
+            );
+          }
+
+          const m = workspaceMentorship;
+          const mentorName = m.mentor?.display_name || 'Mentor';
+          const mentorInitials = m.mentor?.avatar_initials || mentorName.slice(0, 2).toUpperCase();
+          const startedLabel = m.started_on ? ` · Started ${formatDate(m.started_on)}` : '';
+          const cadenceLabel = m.cadence ? ` · ${m.cadence}` : '';
+          const statusText = MENTORSHIP_STATUS_LABEL[m.status] || m.status;
+
+          const upcoming = workspaceSessions
+            .filter(s => s.status === 'scheduled' && new Date(s.scheduled_at) > new Date())
+            .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+          const nextSession = upcoming[0] || null;
+
+          const readinessSignedOff = readiness?.summary?.criteria_signed_off || 0;
+          const readinessTotal = readiness?.summary?.criteria_total || 6;
+
+          return (
+            <>
+              {head(
+                `Mentorship with ${mentorName}`,
+                `${statusText}${startedLabel}${cadenceLabel}`,
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/startup/sessions?mentorship_id=${m.id}`}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] border border-[#E5E1D8] bg-white px-3.5 text-sm font-semibold text-ink hover:bg-[#F4F1EA]"
+                  >
+                    <CalendarDays size={15} /> Book session
+                  </Link>
+                  <Link
+                    href="/messages"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] bg-ink px-3.5 text-sm font-semibold text-white hover:bg-ink/90"
+                  >
+                    <MessageCircle size={15} /> Message
+                  </Link>
+                </div>
+              )}
+
+              <div className="mb-5 flex gap-2 overflow-x-auto">
+                {['Overview', 'Plan', 'Sessions', 'Deliverables', 'Notes', 'Files'].map(x => (
+                  <button
+                    key={x}
+                    type="button"
+                    onClick={() => setTab(x)}
+                    className={`min-h-10 shrink-0 rounded-lg px-4 text-xs font-medium transition-colors ${
+                      tab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white hover:bg-[#FAF8F4]'
+                    }`}
+                  >
+                    {x}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid items-start gap-5 xl:grid-cols-3">
+                <div className="space-y-5 xl:col-span-2">
+                  <Card title={tab === 'Overview' ? 'Mentorship overview' : tab}>
+                    {tab === 'Overview' ? (
+                      <>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div className="rounded-lg bg-[#F3EBDD] p-4">
+                            <p className="text-xs text-[#806236]">Readiness sign-off</p>
+                            <b className="serif mt-1 block text-2xl">{readinessSignedOff} of {readinessTotal} items</b>
+                            <Link href="/startup/readiness" className="mt-2 inline-block text-xs font-semibold text-[#9A7A45]">
+                              View checklist <ArrowRight className="inline" size={12} />
+                            </Link>
+                          </div>
+                          <div className="rounded-lg bg-[#FAF8F4] p-4">
+                            <p className="text-xs text-[#4A5568]">Next session</p>
+                            {nextSession ? (
+                              <>
+                                <b className="mt-1 block text-sm">
+                                  {new Date(nextSession.scheduled_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(nextSession.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                </b>
+                                <small className="text-xs text-[#4A5568]">{nextSession.topic || 'Mentoring Session'}</small>
+                              </>
+                            ) : (
+                              <>
+                                <b className="mt-1 block text-sm">No session scheduled</b>
+                                <Link href={`/startup/sessions?mentorship_id=${m.id}`} className="mt-1 inline-block text-xs text-[#9A7A45]">
+                                  Schedule session →
+                                </Link>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <h3 className="mt-5 text-sm font-semibold">Shared goals & focus areas</h3>
+                        {m.goal ? (
+                          <div className="mt-3 rounded-lg border border-[#E5E1D8] p-4">
+                            <p className="text-xs font-medium text-[#4A5568]">Primary Goal</p>
+                            <p className="mt-1 text-sm font-semibold">{m.goal}</p>
+                          </div>
+                        ) : null}
+
+                        {m.needs && m.needs.length > 0 ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {m.needs.map(need => (
+                              <span key={need} className="rounded-full bg-[#FAF8F4] border border-[#E5E1D8] px-3 py-1 text-xs text-[#4A5568]">
+                                {need}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        {!m.goal && (!m.needs || m.needs.length === 0) && (
+                          <p className="mt-2 text-xs text-[#4A5568]">No goals or needs listed for this mentorship yet.</p>
+                        )}
+                      </>
+                    ) : tab === 'Plan' ? (
+                      <div className="space-y-4">
+                        <div className="rounded-lg border border-[#E5E1D8] p-4">
+                          <h4 className="text-xs font-medium text-[#4A5568]">Cadence & Meeting Format</h4>
+                          <p className="mt-1 text-sm font-semibold">{m.cadence || 'Flexible'}</p>
+                          <p className="mt-2 text-xs text-[#4A5568]">
+                            Session fee: {m.fee_amount ? `${m.currency} ${m.fee_amount} per session` : 'Unpaid / standard terms'}
+                          </p>
+                          {m.equity_pct ? (
+                            <p className="text-xs text-[#4A5568]">Equity advisory: {m.equity_pct}%</p>
+                          ) : null}
+                        </div>
+
+                        {m.terms && (
+                          <div className="rounded-lg border border-[#E5E1D8] p-4">
+                            <h4 className="text-xs font-medium text-[#4A5568]">Engagement Terms</h4>
+                            <p className="mt-1 text-xs whitespace-pre-wrap text-[#4A5568]">{m.terms}</p>
+                          </div>
+                        )}
+
+                        {m.needs && m.needs.length > 0 && (
+                          <div className="rounded-lg border border-[#E5E1D8] p-4">
+                            <h4 className="text-xs font-medium text-[#4A5568]">Focus Areas</h4>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {m.needs.map(n => (
+                                <span key={n} className="rounded-md bg-[#FAF8F4] border border-[#E5E1D8] px-2.5 py-1 text-xs">
+                                  {n}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : tab === 'Sessions' ? (
+                      <div>
+                        <div className="mb-4 flex items-center justify-between">
+                          <p className="text-xs text-[#4A5568]">{workspaceSessions.length} total session{workspaceSessions.length === 1 ? '' : 's'}</p>
+                          <Link href={`/startup/sessions?mentorship_id=${m.id}`} className="text-xs font-semibold text-[#9A7A45]">
+                            Manage all sessions <ArrowRight className="inline" size={13} />
                           </Link>
                         </div>
-                        <div className="rounded-lg bg-[#FAF8F4] p-4">
-                          <p className="text-xs text-[#4A5568]">Next session</p>
-                          <b className="mt-1 block text-sm">Thu, Nov 12 · 4:00 PM</b>
-                          <small className="text-xs text-[#4A5568]">Go-to-market and pricing</small>
-                        </div>
+                        {workspaceSessions.length === 0 ? (
+                          <div className="py-8 text-center text-xs text-[#4A5568]">
+                            <p>No sessions recorded for this mentorship yet.</p>
+                            <Link href={`/startup/sessions?mentorship_id=${m.id}`} className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-ink px-3.5 py-2 text-xs font-semibold text-white">
+                              <CalendarDays size={14} /> Schedule first session
+                            </Link>
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-[#E5E1D8]">
+                            {workspaceSessions.map(s => (
+                              <div key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                                <div>
+                                  <b className="text-xs font-semibold">{s.topic || 'Mentoring Session'}</b>
+                                  <p className="text-[11px] text-[#4A5568]">
+                                    {new Date(s.scheduled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · {s.duration_min} mins
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] ${SESSION_STATUS_CHIP[s.status] || 'bg-gray-100'}`}>
+                                    {SESSION_STATUS_LABEL[s.status] || s.status}
+                                  </span>
+                                  <Link href={`/startup/sessions/${s.id}`} className="text-xs font-semibold text-[#9A7A45]">
+                                    Details
+                                  </Link>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <h3 className="mt-5 text-sm font-semibold">Shared goals</h3>
-                      {[
-                        ['Validate pricing with 10 customers', 'Nov 30', 65],
-                        ['Prepare fundraising narrative', 'Dec 15', 30],
-                      ].map(([g, d, v]) => (
-                        <div key={g} className="mt-3 rounded-lg border border-[#E5E1D8] p-3">
-                          <div className="flex justify-between text-xs">
-                            <b>{g}</b>
-                            <span>{d}</span>
-                          </div>
-                          <div className="mt-2 h-1.5 rounded-full bg-[#E5E1D8]">
-                            <div className="h-full rounded-full bg-[#B8955A]" style={{ width: `${v}%` }} />
-                          </div>
-                          <small className="mt-1 block text-[#4A5568]">{v}% complete</small>
+                    ) : tab === 'Deliverables' ? (
+                      <div>
+                        <div className="mb-4 flex items-center justify-between">
+                          <p className="text-xs text-[#4A5568]">Deliverables & Tasks</p>
+                          <Link href="/startup/tasks" className="text-xs font-semibold text-[#9A7A45]">
+                            Open task board <ArrowRight className="inline" size={13} />
+                          </Link>
                         </div>
-                      ))}
-                    </>
-                  ) : tab === 'Plan' ? (
-                    <>
-                      <p className="mb-4 text-xs text-[#4A5568]">Cadence: Fortnightly · 45 minutes · Plan changes require both sides to accept.</p>
+                        {workspaceTasks.length === 0 ? (
+                          <div className="py-8 text-center text-xs text-[#4A5568]">
+                            No tasks created for this startup yet.
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-[#E5E1D8]">
+                            {workspaceTasks.slice(0, 8).map(t => (
+                              <div key={t.id} className="flex items-center gap-3 py-2.5">
+                                <ClipboardCheck size={16} className="text-[#9A7A45]" />
+                                <span className="flex-1 text-xs font-medium truncate">
+                                  {t.title}
+                                  {t.due_on ? <small className="ml-2 text-[#4A5568]">Due {t.due_on}</small> : null}
+                                </span>
+                                <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[10px] capitalize">
+                                  {t.status.replace('_', ' ')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : tab === 'Notes' ? (
                       <div className="space-y-3">
-                        {[
-                          ['Validate pricing and unit economics', 'Nov 30', 'Aarav Kapoor', 'In progress'],
-                          ['Prepare fundraising narrative', 'Dec 15', 'Rhea Mukherjee', 'Proposed'],
-                        ].map(([g, d, o, s]) => (
-                          <div key={g} className="rounded-lg border border-[#E5E1D8] p-4">
-                            <div className="flex justify-between text-sm">
-                              <b>{g}</b>
-                              <span className="text-xs">{d}</span>
-                            </div>
-                            <p className="mt-1 text-xs text-[#4A5568]">Success measure: share a reviewed, documented plan · Owner {o}</p>
-                            <span className="mt-2 inline-block rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px]">{s}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <button type="button" onClick={() => notify('Goal proposed to mentor.')} className="mt-4 text-xs font-semibold text-[#9A7A45]">
-                        + Add goal
-                      </button>
-                    </>
-                  ) : tab === 'Sessions' ? (
-                    <Link href="/startup/sessions" className="text-xs font-semibold text-[#9A7A45]">
-                      View all sessions <ArrowRight className="inline" size={13} />
-                    </Link>
-                  ) : tab === 'Deliverables' ? (
-                    <div className="space-y-3">
-                      {[
-                        ['Review interview themes', 'Nov 08', 'In progress'],
-                        ['Pricing model feedback', 'Nov 12', 'To do'],
-                        ['Fundraising narrative', 'Nov 15', 'To do'],
-                      ].map(([n, d, s]) => (
-                        <div key={n} className="flex items-center gap-3 border-b border-[#E5E1D8] py-3">
-                          <ClipboardCheck size={16} className="text-[#9A7A45]" />
-                          <span className="flex-1 text-xs">
-                            {n}<small className="ml-2 text-[#4A5568]">Due {d}</small>
-                          </span>
-                          <span className="text-[10px]">{s}</span>
-                          <button type="button" onClick={() => notify('Deliverable submitted for mentor review.')} className="text-xs font-semibold text-[#9A7A45]">
-                            Submit
-                          </button>
+                        <p className="text-xs leading-5 text-[#4A5568]">
+                          Session summaries, notes, and action items are captured directly on each session.
+                        </p>
+                        <div className="rounded-lg bg-[#FAF8F4] p-4 text-xs">
+                          <p className="font-semibold text-ink">Access session notes</p>
+                          <p className="mt-1 text-[#4A5568]">
+                            Open any completed or past session to view notes, agreed action items, and attendance records.
+                          </p>
+                          <Link href={`/startup/sessions?mentorship_id=${m.id}`} className="mt-3 inline-block font-semibold text-[#9A7A45]">
+                            View session notes <ArrowRight className="inline" size={12} />
+                          </Link>
                         </div>
-                      ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-[#E5E1D8] p-7 text-center">
+                        <FileText className="mx-auto mb-2 text-[#9A7A45]" />
+                        <p className="text-sm font-semibold">Shared Documents</p>
+                        <p className="mt-1 text-xs text-[#4A5568]">
+                          Access decks, pitch materials, and documents in your Startup Profile and Data Vault.
+                        </p>
+                        <Link href="/startup/profile" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
+                          Open Startup Profile & Documents <ArrowRight className="inline" size={12} />
+                        </Link>
+                      </div>
+                    )}
+                  </Card>
+                </div>
+
+                <aside className="space-y-5">
+                  <Card title="Mentor">
+                    <div className="flex items-center gap-3">
+                      <span className="grid h-12 w-12 place-items-center rounded-full bg-[#F3EBDD] font-semibold text-[#806236]">
+                        {mentorInitials}
+                      </span>
+                      <div>
+                        <b className="text-sm">{mentorName}</b>
+                        <p className="mt-0.5 text-xs text-[#4A5568]">
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${MENTORSHIP_STATUS_CHIP[m.status] || 'bg-gray-100'}`}>
+                            {statusText}
+                          </span>
+                        </p>
+                      </div>
                     </div>
-                  ) : tab === 'Notes' ? (
-                    <>
-                      <textarea
-                        value={notes}
-                        onChange={e => setNotes(e.target.value)}
-                        rows={8}
-                        placeholder="Add shared notes, decisions or action items…"
-                        className="w-full rounded-lg border border-[#E5E1D8] bg-white p-3 text-sm"
-                      />
-                      <div className="mt-3 flex justify-between text-xs">
-                        <label>
-                          <input type="checkbox" className="mr-2 accent-ink" />Private notes
-                        </label>
-                        <button type="button" onClick={() => notify('Notes saved · just now.')} className="font-semibold text-[#9A7A45]">
-                          Save notes
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <Link href={`/startup/mentors/${m.id}/billing`} className="rounded-lg border border-[#E5E1D8] py-2 text-center text-xs font-semibold hover:bg-[#FAF8F4]">
+                        Agreement & billing
+                      </Link>
+                      {m.status === 'active' ? (
+                        <button
+                          type="button"
+                          disabled={workspaceActionBusy}
+                          onClick={handlePauseMentorship}
+                          className="rounded-lg border border-[#E5E1D8] py-2 text-xs font-semibold hover:bg-[#FAF8F4] disabled:opacity-50"
+                        >
+                          Pause mentorship
                         </button>
-                      </div>
-                    </>
-                  ) : tab === 'Files' ? (
-                    <div className="rounded-lg border border-dashed border-[#E5E1D8] p-7 text-center">
-                      <FileText className="mx-auto mb-2 text-[#9A7A45]" />
-                      <p className="text-sm font-semibold">Shared files</p>
-                      <p className="mt-1 text-xs text-[#4A5568]">Pitch deck v3.pdf · Shared Oct 25 · Access logged</p>
-                      <button type="button" onClick={() => notify('Vault picker opened.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
-                        Share from vault <Plus className="inline" size={12} />
-                      </button>
+                      ) : m.status === 'paused' ? (
+                        <button
+                          type="button"
+                          disabled={workspaceActionBusy}
+                          onClick={handleResumeMentorship}
+                          className="rounded-lg border border-[#E5E1D8] py-2 text-xs font-semibold hover:bg-[#FAF8F4] disabled:opacity-50"
+                        >
+                          Resume mentorship
+                        </button>
+                      ) : (
+                        <span className="grid place-items-center rounded-lg bg-gray-50 text-[11px] text-[#718096]">
+                          {statusText}
+                        </span>
+                      )}
                     </div>
-                  ) : (
-                    <>
-                      <div className="max-h-64 space-y-3 overflow-y-auto rounded-lg bg-[#FAF8F4] p-4">
-                        <p className="text-xs"><b>Rhea</b> · Great progress on the interviews. Let’s look at pricing next.</p>
-                        <p className="text-right text-xs"><b>You</b> · I’ll bring the revised model to our session.</p>
-                      </div>
-                      <div className="mt-3 flex gap-2">
-                        <input placeholder="Write a secure message…" className="h-10 flex-1 rounded-lg border border-[#E5E1D8] px-3 text-xs" />
-                        <button type="button" onClick={() => notify('Message sent.')} className="grid h-10 w-10 place-items-center rounded-lg bg-ink text-white">
-                          <Send size={14} />
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </Card>
+                  </Card>
+
+                  <Card title="Recent activity">
+                    <p className="text-xs text-[#4A5568]">
+                      Created on {formatDate(m.created_at)}
+                    </p>
+                    <p className="mt-2 text-xs text-[#4A5568]">
+                      Last session: {m.last_session_at ? formatInstant(m.last_session_at) : 'None held yet'}
+                    </p>
+                    <p className="mt-2 text-xs text-[#4A5568]">
+                      Updated: {formatDate(m.updated_at)}
+                    </p>
+                  </Card>
+                </aside>
               </div>
-
-              <aside className="space-y-5">
-                <Card title="Mentor">
-                  <div className="flex items-center gap-3">
-                    <span className="grid h-12 w-12 place-items-center rounded-full bg-[#F3EBDD] font-semibold">RM</span>
-                    <div>
-                      <b className="text-sm">{mentor.name}</b>
-                      <p className="text-xs text-[#4A5568]">Verified · Go-to-market</p>
-                    </div>
-                  </div>
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <Link href={`/startup/mentors/${id}/billing`} className="rounded-lg border border-[#E5E1D8] py-2 text-center text-xs font-semibold hover:bg-[#FAF8F4]">
-                      Agreement & billing
-                    </Link>
-                    <button type="button" onClick={() => notify('Mentorship paused.')} className="rounded-lg border border-[#E5E1D8] py-2 text-xs">
-                      Pause mentorship
-                    </button>
-                  </div>
-                </Card>
-
-                <Card title="Recent activity">
-                  <p className="text-xs text-[#4A5568]">Rhea reviewed interview themes · 2 days ago</p>
-                  <p className="mt-3 text-xs text-[#4A5568]">Session notes added · Oct 28</p>
-                </Card>
-              </aside>
-            </div>
-          </>
-        )}
+            </>
+          );
+        })()}
 
         {page === 'sessions' && <StartupSessionsBlock />}
 
@@ -2676,93 +2917,144 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
           </>
         )}
 
-        {page === 'billing' && (
-          <>
-            {head(
-              'Agreement & payments',
-              'Review fees, terms and session invoices for this mentorship.',
-              <Link href={`/startup/mentors/${id}`} className="text-sm text-[#9A7A45]">
-                ← Workspace
-              </Link>
-            )}
-            <div className="grid items-start gap-5 lg:grid-cols-3">
-              <div className="space-y-5 lg:col-span-2">
-                <Card title="Mentorship agreement">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {[
-                      ['Mentor', 'Rhea Mukherjee'],
-                      ['Fee model', '₹3,000 per 45-minute session'],
-                      ['Cadence', 'Fortnightly'],
-                      ['Advisory / equity', 'None requested'],
-                      ['Start date', 'Oct 21, 2026'],
-                      ['Status', 'Accepted by both sides'],
-                    ].map(([a, b]) => (
-                      <div key={a} className="rounded-lg bg-[#FAF8F4] p-3">
-                        <small className="text-xs text-[#4A5568]">{a}</small>
-                        <b className="mt-1 block text-sm">{b}</b>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="mt-4 rounded-lg bg-[#FFF8E8] p-3 text-xs leading-5 text-[#806236]">
-                    Review equity or advisory terms with a lawyer. The platform records terms but does not give legal advice.
-                  </p>
-                  <button type="button" onClick={() => notify('Agreement change proposed to mentor.')} className="mt-4 rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs font-semibold">
-                    Propose change
-                  </button>
-                </Card>
-
-                <Card title="Payments">
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[500px] text-left text-xs">
-                      <thead className="border-b text-[#4A5568]">
-                        <tr>
-                          {['Date', 'Session', 'Fee', 'Platform fee', 'Status', 'Receipt'].map(x => (
-                            <th key={x} className="py-3">{x}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          ['Oct 28', 'Customer interviews', '₹3,000', '₹300', 'Paid'],
-                          ['Oct 14', 'Prototype test plan', '₹3,000', '₹300', 'Paid'],
-                        ].map(r => (
-                          <tr key={r[0]} className="border-b">
-                            <td className="py-3">{r[0]}</td>
-                            {r.slice(1).map((x, i) => (
-                              <td key={i}>{x}</td>
-                            ))}
-                            <td>
-                              <button type="button" onClick={() => notify('Receipt downloaded.')} aria-label="Download receipt">
-                                <Download size={14} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
+        {page === 'billing' && (() => {
+          if (workspacePhase === 'loading') {
+            return (
+              <div className="py-16 text-center text-sm text-[#4A5568]">
+                Loading agreement & payments...
               </div>
+            );
+          }
 
-              <aside className="space-y-5">
-                <Card title="Session credits">
-                  <p className="serif text-3xl">0 <small className="font-sans text-sm">credits</small></p>
-                  <p className="mt-1 text-xs text-[#4A5568]">No package purchased</p>
-                  <button type="button" onClick={() => notify('Packages are not available yet.')} className="mt-3 w-full rounded-lg bg-ink py-2.5 text-xs font-semibold text-white">
-                    Buy a package
-                  </button>
-                </Card>
+          if (workspacePhase === 'notfound') {
+            return (
+              <Card title="Agreement not found">
+                <p className="text-xs text-[#4A5568]">
+                  This mentorship agreement does not exist or you do not have permission to access it.
+                </p>
+                <Link href="/startup/mentors" className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-[#9A7A45]">
+                  <ArrowRight className="rotate-180" size={13} /> Back to mentors overview
+                </Link>
+              </Card>
+            );
+          }
 
-                <Card title="Payment method">
-                  <p className="text-xs">UPI · ending in 42</p>
-                  <button type="button" onClick={() => notify('Billing settings opened.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
-                    Manage payment method
-                  </button>
-                </Card>
-              </aside>
-            </div>
-          </>
-        )}
+          if (workspacePhase === 'error' || !workspaceMentorship) {
+            return (
+              <div className="rounded-xl border border-[#F0C9C9] bg-[#FDECEC] p-4 text-xs text-[#A33A3A]" role="alert">
+                <p className="font-semibold">Could not load agreement</p>
+                <p className="mt-1">{workspaceError || 'An unexpected error occurred.'}</p>
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceReload(n => n + 1)}
+                  className="mt-3 inline-block rounded-md bg-[#A33A3A] px-3 py-1.5 text-xs font-medium text-white"
+                >
+                  Retry
+                </button>
+              </div>
+            );
+          }
+
+          const m = workspaceMentorship;
+          const mentorName = m.mentor?.display_name || 'Mentor';
+          const billedSessions = workspaceSessions.filter(s => s.fee_amount && Number(s.fee_amount) > 0);
+
+          return (
+            <>
+              {head(
+                'Agreement & payments',
+                'Review fees, terms and session invoices for this mentorship.',
+                <Link href={`/startup/mentors/${m.id}`} className="text-sm font-semibold text-[#9A7A45]">
+                  ← Back to Workspace
+                </Link>
+              )}
+
+              <div className="grid items-start gap-5 lg:grid-cols-3">
+                <div className="space-y-5 lg:col-span-2">
+                  <Card title="Mentorship agreement">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {[
+                        ['Mentor', mentorName],
+                        ['Fee model', m.fee_amount ? `${m.currency} ${m.fee_amount} per session` : 'Standard / No session fee recorded'],
+                        ['Cadence', m.cadence || 'Flexible'],
+                        ['Advisory / equity', m.equity_pct ? `${m.equity_pct}% equity` : 'None requested'],
+                        ['Start date', m.started_on ? formatDate(m.started_on) : formatDate(m.created_at)],
+                        ['Status', MENTORSHIP_STATUS_LABEL[m.status] || m.status],
+                      ].map(([a, b]) => (
+                        <div key={a} className="rounded-lg bg-[#FAF8F4] p-3">
+                          <small className="text-xs text-[#4A5568]">{a}</small>
+                          <b className="mt-1 block text-sm">{b}</b>
+                        </div>
+                      ))}
+                    </div>
+                    {m.terms && (
+                      <div className="mt-4 rounded-lg border border-[#E5E1D8] bg-white p-3 text-xs">
+                        <small className="font-medium text-[#4A5568]">Terms & Notes</small>
+                        <p className="mt-1 whitespace-pre-wrap text-[#4A5568]">{m.terms}</p>
+                      </div>
+                    )}
+                    <p className="mt-4 rounded-lg bg-[#FFF8E8] p-3 text-xs leading-5 text-[#806236]">
+                      Review equity or advisory terms with a lawyer. The platform records terms but does not give legal advice.
+                    </p>
+                  </Card>
+
+                  <Card title="Session Payments">
+                    {billedSessions.length === 0 ? (
+                      <div className="py-8 text-center text-xs text-[#4A5568]">
+                        No billed sessions for this mentorship yet.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[500px] text-left text-xs">
+                          <thead className="border-b text-[#4A5568]">
+                            <tr>
+                              {['Date', 'Session', 'Fee', 'Status'].map(x => (
+                                <th key={x} className="py-3">{x}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {billedSessions.map(s => (
+                              <tr key={s.id} className="border-b last:border-b-0">
+                                <td className="py-3">{formatDate(s.scheduled_at)}</td>
+                                <td>{s.topic || 'Mentoring Session'}</td>
+                                <td>{s.currency} {s.fee_amount}</td>
+                                <td>
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] ${SESSION_STATUS_CHIP[s.status] || 'bg-gray-100'}`}>
+                                    {SESSION_STATUS_LABEL[s.status] || s.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Card>
+                </div>
+
+                <aside className="space-y-5">
+                  <Card title="Billing Details">
+                    <p className="text-xs text-[#4A5568]">Currency</p>
+                    <b className="serif mt-1 block text-2xl">{m.currency || 'INR'}</b>
+                    <p className="mt-3 text-xs text-[#4A5568]">
+                      Invoices and session confirmations are generated automatically upon completion of each mentoring session.
+                    </p>
+                  </Card>
+
+                  <Card title="Payment method">
+                    <p className="text-xs text-[#4A5568]">
+                      Payments are processed securely via platform checkout upon session confirmation.
+                    </p>
+                    <Link href="/startup/sessions" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
+                      Review sessions <ArrowRight className="inline" size={12} />
+                    </Link>
+                  </Card>
+                </aside>
+              </div>
+            </>
+          );
+        })()}
       </main>
 
       {/* Modals */}
