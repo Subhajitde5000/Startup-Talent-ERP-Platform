@@ -115,6 +115,10 @@ def create_app() -> FastAPI:
     app.include_router(invites.router, prefix=settings.API_V1_PREFIX)
     app.include_router(talent.router, prefix=settings.API_V1_PREFIX)
     app.include_router(mentor.router, prefix=settings.API_V1_PREFIX)
+    # Step 8a: the read-only mentor directory (/mentors) and per-startup
+    # suggestions. Same service as /mentor-profile, separate path space.
+    app.include_router(mentor.directory_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(mentor.org_router, prefix=settings.API_V1_PREFIX)
     app.include_router(public.router, prefix=settings.API_V1_PREFIX)
     # Step 5h: the startup discovery list. /public/startups (list) and
     # /public/startups/{slug} (detail, in public.py) differ in segment
