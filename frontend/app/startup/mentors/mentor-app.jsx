@@ -15,6 +15,7 @@ import {
   MENTORSHIP_STATUS_CHIP,
   SESSION_STATUS_CHIP,
   SESSION_STATUS_LABEL,
+  STAGE_LABEL,
   formatDate,
   formatInstant
 } from '@/lib/mentorship-labels';
@@ -712,6 +713,14 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [requestFormError, setRequestFormError] = useState('');
 
+  // --- Step 8j: Overview page data (startup side) ---------------------------
+  const [overviewMentorships, setOverviewMentorships] = useState([]);
+  const [overviewSessions, setOverviewSessions] = useState([]);
+  const [overviewTasks, setOverviewTasks] = useState([]);
+  const [overviewPhase, setOverviewPhase] = useState('loading'); // loading|ready|error
+  const [overviewError, setOverviewError] = useState('');
+  const [overviewReload, setOverviewReload] = useState(0);
+
   // The detail page reads one mentor by handle (the route param), never the
   // demo `mentor` object.
   const [profile, setProfile] = useState(null); // MentorDirectoryDetail
@@ -1047,6 +1056,54 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
     return () => { alive = false; };
   }, []);
 
+  // --- Step 8j: Overview page loader ---------------------------------------
+  useEffect(() => {
+    if (page !== 'overview') return undefined;
+    let alive = true;
+    setOverviewPhase('loading');
+    setOverviewError('');
+    (async () => {
+      try {
+        const orgs = await api.organizations.mine();
+        const startup = orgs.find(o => o.type === 'startup') || orgs[0] || null;
+        if (!alive) return;
+        if (startup) {
+          setReadinessOrg(startup);
+          setMentorOrgId(startup.id);
+        }
+
+        const [mentorshipsRes, sessionsRes, tasksRes, readinessRes] = await Promise.allSettled([
+          api.mentorships.list({ side: 'startup', limit: 50 }),
+          api.sessions.list({ limit: 50 }),
+          startup ? api.tasks.list(startup.id, { limit: 20 }) : Promise.resolve({ items: [] }),
+          startup ? api.readiness.board(startup.id) : Promise.resolve(null),
+        ]);
+
+        if (!alive) return;
+
+        if (mentorshipsRes.status === 'fulfilled') {
+          setOverviewMentorships(mentorshipsRes.value.items || []);
+        }
+        if (sessionsRes.status === 'fulfilled') {
+          setOverviewSessions(sessionsRes.value.items || []);
+        }
+        if (tasksRes.status === 'fulfilled') {
+          setOverviewTasks(tasksRes.value.items || []);
+        }
+        if (readinessRes.status === 'fulfilled' && readinessRes.value) {
+          setReadiness(readinessRes.value);
+        }
+
+        setOverviewPhase('ready');
+      } catch (err) {
+        if (!alive) return;
+        setOverviewError(err instanceof ApiError ? err.message : 'Could not load overview data.');
+        setOverviewPhase('error');
+      }
+    })();
+    return () => { alive = false; };
+  }, [page, overviewReload]);
+
   const openRequestModal = (m) => {
     setTargetMentor(m);
     setRequestGoal('');
@@ -1282,140 +1339,276 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
             ['Readiness', '/startup/readiness', page === 'readiness'],
           ]}
         />
-        {page === 'overview' && (
-          <>
-            {head(
-              'Mentors',
-              'Find the right guidance and make meaningful progress toward readiness.',
-              <Link href="/startup/mentors/find" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white">
-                <Search size={15} /> Find a mentor
-              </Link>
-            )}
-
-            {requestSent && (
-              <div className="mb-5 rounded-lg border border-[#E7D4B0] bg-[#F3EBDD] p-3 text-sm">
-                Waiting for Rhea Mukherjee to respond. Usually within 3 days.
-              </div>
-            )}
-
-            <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                ['Active mentors', '1'],
-                ['Sessions held', '9'],
-                ['Deliverables due', '3'],
-                ['Readiness', `${approved} / 6`],
-              ].map(([n, v]) => (
-                <div key={n} className="rounded-xl border border-[#E5E1D8] bg-white p-4">
-                  <p className="text-xs text-[#4A5568]">{n}</p>
-                  <b className="serif mt-1 block text-2xl">{v}</b>
+        {page === 'overview' && (() => {
+          if (overviewPhase === 'loading') {
+            return (
+              <>
+                {head(
+                  'Mentors',
+                  'Find the right guidance and make meaningful progress toward readiness.',
+                  <Link href="/startup/mentors/find" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white">
+                    <Search size={15} /> Find a mentor
+                  </Link>
+                )}
+                <div className="py-16 text-center text-sm text-[#4A5568]">
+                  Loading mentor overview...
                 </div>
-              ))}
-            </div>
+              </>
+            );
+          }
 
-            <div className="grid items-start gap-5 xl:grid-cols-3">
-              <div className="space-y-5 xl:col-span-2">
-                <Card title="My mentors" action={<Link href="/startup/mentors/find" className="text-xs font-semibold text-[#9A7A45]">Find another <ArrowRight className="inline" size={13} /></Link>}>
-                  <div className="flex flex-wrap items-center gap-4">
-                    <span className="grid h-14 w-14 place-items-center rounded-full bg-[#F3EBDD] font-semibold">RM</span>
-                    <div className="min-w-[160px] flex-1">
-                      <h3 className="font-semibold">
-                        Rhea Mukherjee <span className="ml-1 rounded-full bg-[#F3EBDD] px-2 py-1 text-[10px] text-[#806236]">Verified</span>
-                      </h3>
-                      <p className="mt-1 text-xs text-[#4A5568]">Go-to-market · SaaS · 6 sessions held</p>
-                      <p className="mt-1 text-xs text-[#4A5568]">Next session: Thu, Nov 12 at 4:00 PM</p>
-                    </div>
-                    <Link href="/startup/mentors/mentorship-01" className="rounded-lg bg-ink px-3 py-2.5 text-xs font-semibold text-white">
-                      Open workspace
-                    </Link>
-                  </div>
-                </Card>
+          if (overviewPhase === 'error') {
+            return (
+              <>
+                {head(
+                  'Mentors',
+                  'Find the right guidance and make meaningful progress toward readiness.',
+                  <Link href="/startup/mentors/find" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white">
+                    <Search size={15} /> Find a mentor
+                  </Link>
+                )}
+                <div className="rounded-xl border border-[#F0C9C9] bg-[#FDECEC] p-4 text-xs text-[#A33A3A]" role="alert">
+                  <p className="font-semibold">Could not load overview</p>
+                  <p className="mt-1">{overviewError || 'An unexpected error occurred.'}</p>
+                  <button
+                    type="button"
+                    onClick={() => setOverviewReload(n => n + 1)}
+                    className="mt-3 inline-block rounded-md bg-[#A33A3A] px-3 py-1.5 text-xs font-medium text-white"
+                  >
+                    Retry
+                  </button>
+                </div>
+              </>
+            );
+          }
 
-                <Card title="Readiness sign-off progress" action={<Link href="/startup/readiness" className="text-xs font-semibold text-[#9A7A45]">Open readiness <ArrowRight className="inline" size={13} /></Link>}>
-                  <div className="mb-4 flex items-center justify-between text-xs">
-                    <span>{approved} of 6 items signed off</span>
-                    <b>{Math.round((approved / 6) * 100)}%</b>
-                  </div>
-                  <div className="mb-4 h-2 rounded-full bg-[#E5E1D8]">
-                    <div className="h-full rounded-full bg-[#B8955A]" style={{ width: `${(approved / 6) * 100}%` }} />
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {criteria.map((c, i) => (
-                      <div key={c} className="flex items-center gap-2 rounded-lg bg-[#FAF8F4] p-2.5 text-xs">
-                        <span className={status[i] === 'Signed off' ? 'text-[#2E7D5B]' : 'text-[#B7791F]'}>
-                          {status[i] === 'Signed off' ? <CheckCircle2 size={15} /> : <Clock size={15} />}
-                        </span>
-                        <span className="flex-1">{c}</span>
-                        <small className="text-[#4A5568]">{status[i]}</small>
-                      </div>
-                    ))}
-                  </div>
-                  {approved === 6 && (
-                    <div className="mt-4 rounded-lg bg-[#F3EBDD] p-4 text-sm font-semibold text-[#806236]">
-                      <ShieldCheck className="mr-2 inline" size={17} />Investment Ready · Make your profile visible to investors
-                    </div>
-                  )}
-                </Card>
+          const activeMentorships = overviewMentorships.filter(m => m.status === 'active');
+          const pendingRequests = overviewMentorships.filter(m => m.status === 'requested');
+          const completedSessionsCount = overviewSessions.filter(s => s.status === 'completed').length;
+          const dueTasks = overviewTasks.filter(t => t.status === 'todo' || t.status === 'in_progress');
 
-                <Card title="Deliverables due" action={<Link href="/startup/tasks" className="text-xs font-semibold text-[#9A7A45]">Open tasks</Link>}>
-                  <div className="divide-y divide-[#E5E1D8]">
-                    {[
-                      ['Review customer interview themes', 'Nov 08', 'In progress'],
-                      ['Update unit economics assumptions', 'Nov 12', 'To do'],
-                      ['Prepare pitch story outline', 'Nov 15', 'To do'],
-                    ].map(([a, d, s]) => (
-                      <div key={a} className="flex flex-wrap items-center gap-3 py-3">
-                        <ClipboardCheck size={16} className="text-[#9A7A45]" />
-                        <span className="flex-1 text-xs font-medium">
-                          {a}<small className="ml-2 text-[#4A5568]">Mentor</small>
-                        </span>
-                        <span className="text-[10px] text-[#4A5568]">Due {d}</span>
-                        <span className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px]">{s}</span>
-                        <button type="button" onClick={() => notify('Deliverable submitted for mentor review.')} className="text-xs font-semibold text-[#9A7A45]">
-                          Submit
-                        </button>
-                      </div>
-                    ))}
+          const readinessSummary = readiness?.summary;
+          const readinessSignedOff = readinessSummary ? readinessSummary.criteria_signed_off : 0;
+          const readinessTotal = readinessSummary ? readinessSummary.criteria_total : 6;
+          const readinessPct = readinessSummary ? readinessSummary.readiness_pct : 0;
+          const readinessItems = readiness?.items || [];
+
+          const upcomingSessions = overviewSessions
+            .filter(s => s.status === 'scheduled' && new Date(s.scheduled_at) > new Date())
+            .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+          const nextSession = upcomingSessions[0] || null;
+
+          const stageName = readinessOrg?.stage ? (STAGE_LABEL[readinessOrg.stage] || readinessOrg.stage) : 'Prototype';
+
+          return (
+            <>
+              {head(
+                'Mentors',
+                'Find the right guidance and make meaningful progress toward readiness.',
+                <Link href="/startup/mentors/find" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white">
+                  <Search size={15} /> Find a mentor
+                </Link>
+              )}
+
+              <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {[
+                  ['Active mentors', String(activeMentorships.length)],
+                  ['Sessions held', String(completedSessionsCount)],
+                  ['Deliverables due', String(dueTasks.length)],
+                  ['Readiness', `${readinessSignedOff} / ${readinessTotal}`],
+                ].map(([n, v]) => (
+                  <div key={n} className="rounded-xl border border-[#E5E1D8] bg-white p-4">
+                    <p className="text-xs text-[#4A5568]">{n}</p>
+                    <b className="serif mt-1 block text-2xl">{v}</b>
                   </div>
-                </Card>
+                ))}
               </div>
 
-              <aside className="space-y-5">
-                <Card title="Next session">
-                  <p className="text-xs text-[#4A5568]">Thursday, November 12 · 4:00 PM</p>
-                  <h3 className="mt-2 font-semibold">Go-to-market and pricing</h3>
-                  <p className="mt-1 text-xs text-[#4A5568]">Rhea Mukherjee · 45 minutes · Asia/Kolkata</p>
-                  <div className="mt-4 flex gap-2">
-                    <button type="button" onClick={() => notify('Join button becomes available 10 minutes before start.')} className="flex-1 rounded-lg bg-ink py-2.5 text-xs font-semibold text-white">
-                      Join session
-                    </button>
-                    <button type="button" onClick={() => notify('Reschedule request sent.')} className="rounded-lg border border-[#E5E1D8] px-3 text-xs">
-                      Reschedule
-                    </button>
-                  </div>
-                </Card>
+              <div className="grid items-start gap-5 xl:grid-cols-3">
+                <div className="space-y-5 xl:col-span-2">
+                  <Card title="My mentors" action={<Link href="/startup/mentors/find" className="text-xs font-semibold text-[#9A7A45]">Find another <ArrowRight className="inline" size={13} /></Link>}>
+                    {activeMentorships.length === 0 ? (
+                      <div className="py-6 text-center">
+                        <p className="text-sm font-medium text-[#4A5568]">No active mentors yet.</p>
+                        <p className="mt-1 text-xs text-[#718096]">Browse our directory of verified advisors to request mentorship.</p>
+                        <Link href="/startup/mentors/find" className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white">
+                          Find a mentor <ArrowRight size={13} />
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-[#E5E1D8]">
+                        {activeMentorships.map(m => (
+                          <div key={m.id} className="flex flex-wrap items-center gap-4 py-3 first:pt-0 last:pb-0">
+                            <span className="grid h-14 w-14 place-items-center rounded-full bg-[#F3EBDD] font-semibold text-[#806236]">
+                              {m.mentor?.avatar_initials || (m.mentor?.display_name ? m.mentor.display_name.slice(0, 2).toUpperCase() : 'M')}
+                            </span>
+                            <div className="min-w-[160px] flex-1">
+                              <h3 className="font-semibold">
+                                {m.mentor?.display_name || 'Mentor'}
+                                <span className="ml-1.5 rounded-full bg-[#E7F3EC] px-2 py-0.5 text-[10px] font-medium text-[#286749]">Active</span>
+                              </h3>
+                              <p className="mt-1 text-xs text-[#4A5568]">
+                                {m.cadence || 'Flexible cadence'}{m.goal ? ` · ${m.goal}` : ''}
+                              </p>
+                              {m.next_session_at ? (
+                                <p className="mt-1 text-xs text-[#4A5568]">
+                                  Next session: {new Date(m.next_session_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                                </p>
+                              ) : null}
+                            </div>
+                            <Link href={`/startup/mentors/${m.id}`} className="rounded-lg bg-ink px-3 py-2.5 text-xs font-semibold text-white">
+                              Open workspace
+                            </Link>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
 
-                <Card title="Open requests">
-                  <p className="text-xs text-[#4A5568]">Your request to Arjun Mehta is awaiting a response.</p>
-                  <span className="mt-2 inline-block rounded-full bg-[#FFF3D6] px-2 py-1 text-[10px] text-[#8A5700]">
-                    Requested · 2 days ago
-                  </span>
-                  <Link href="/startup/mentors/requests" className="mt-3 block text-xs font-semibold text-[#9A7A45]">
-                    View requests <ArrowRight className="inline" size={13} />
-                  </Link>
-                </Card>
+                  <Card title="Readiness sign-off progress" action={<Link href="/startup/readiness" className="text-xs font-semibold text-[#9A7A45]">Open readiness <ArrowRight className="inline" size={13} /></Link>}>
+                    <div className="mb-4 flex items-center justify-between text-xs">
+                      <span>{readinessSignedOff} of {readinessTotal} items signed off</span>
+                      <b>{readinessPct}%</b>
+                    </div>
+                    <div className="mb-4 h-2 rounded-full bg-[#E5E1D8]">
+                      <div className="h-full rounded-full bg-[#B8955A] transition-all" style={{ width: `${readinessPct}%` }} />
+                    </div>
+                    {readinessItems.length === 0 ? (
+                      <p className="text-xs text-[#4A5568]">No readiness criteria configured yet.</p>
+                    ) : (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {readinessItems.map(c => {
+                          const isSignedOff = c.status === 'signed_off';
+                          return (
+                            <div key={c.id || c.title} className="flex items-center gap-2 rounded-lg bg-[#FAF8F4] p-2.5 text-xs">
+                              <span className={isSignedOff ? 'text-[#2E7D5B]' : 'text-[#B7791F]'}>
+                                {isSignedOff ? <CheckCircle2 size={15} /> : <Clock size={15} />}
+                              </span>
+                              <span className="flex-1 truncate">{c.title}</span>
+                              <small className="text-[#4A5568]">{READINESS_LABEL[c.status] || c.status}</small>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {readinessSummary?.is_ready && (
+                      <div className="mt-4 rounded-lg bg-[#F3EBDD] p-4 text-sm font-semibold text-[#806236]">
+                        <ShieldCheck className="mr-2 inline" size={17} />Investment Ready · Make your profile visible to investors
+                      </div>
+                    )}
+                  </Card>
 
-                <Card title="A tip for Prototype">
-                  <p className="text-xs leading-5 text-[#4A5568]">
-                    Mentors at this stage often focus on user feedback, defining the first repeatable use case and preparing a revenue plan.
-                  </p>
-                  <Link href="/startup/stage" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
-                    Review stage goals <ArrowRight className="inline" size={13} />
-                  </Link>
-                </Card>
-              </aside>
-            </div>
-          </>
-        )}
+                  <Card title="Deliverables due" action={<Link href="/startup/tasks" className="text-xs font-semibold text-[#9A7A45]">Open tasks</Link>}>
+                    {dueTasks.length === 0 ? (
+                      <div className="py-6 text-center text-xs text-[#4A5568]">
+                        No pending deliverables due.
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-[#E5E1D8]">
+                        {dueTasks.slice(0, 5).map(t => (
+                          <div key={t.id} className="flex flex-wrap items-center gap-3 py-3">
+                            <ClipboardCheck size={16} className="text-[#9A7A45]" />
+                            <span className="flex-1 text-xs font-medium">
+                              {t.title}
+                            </span>
+                            {t.due_on ? (
+                              <span className="text-[10px] text-[#4A5568]">Due {t.due_on}</span>
+                            ) : null}
+                            <span className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px] capitalize">
+                              {t.status.replace('_', ' ')}
+                            </span>
+                            <Link href="/startup/tasks" className="text-xs font-semibold text-[#9A7A45]">
+                              View
+                            </Link>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
+                </div>
+
+                <aside className="space-y-5">
+                  <Card title="Next session">
+                    {nextSession ? (
+                      <>
+                        <p className="text-xs text-[#4A5568]">
+                          {new Date(nextSession.scheduled_at).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} · {new Date(nextSession.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                        </p>
+                        <h3 className="mt-2 font-semibold">{nextSession.topic || 'Mentoring Session'}</h3>
+                        <p className="mt-1 text-xs text-[#4A5568]">
+                          {nextSession.duration_min} minutes
+                          {nextSession.attendees?.length ? ` · ${nextSession.attendees.map(a => a.display_name).join(', ')}` : ''}
+                        </p>
+                        <div className="mt-4 flex gap-2">
+                          {nextSession.meeting_url ? (
+                            <a
+                              href={nextSession.meeting_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 rounded-lg bg-ink py-2.5 text-center text-xs font-semibold text-white"
+                            >
+                              Join session
+                            </a>
+                          ) : (
+                            <Link href="/startup/sessions" className="flex-1 rounded-lg bg-ink py-2.5 text-center text-xs font-semibold text-white">
+                              View session
+                            </Link>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-[#4A5568]">No upcoming sessions scheduled.</p>
+                        <Link href="/startup/sessions" className="mt-3 block text-xs font-semibold text-[#9A7A45]">
+                          Manage sessions <ArrowRight className="inline" size={13} />
+                        </Link>
+                      </>
+                    )}
+                  </Card>
+
+                  <Card title="Open requests">
+                    {pendingRequests.length > 0 ? (
+                      <>
+                        <p className="text-xs text-[#4A5568]">
+                          You have {pendingRequests.length} pending request{pendingRequests.length > 1 ? 's' : ''} awaiting mentor response.
+                        </p>
+                        <div className="mt-2 space-y-1.5">
+                          {pendingRequests.slice(0, 2).map(r => (
+                            <div key={r.id} className="text-xs">
+                              <span className="font-semibold">{r.mentor?.display_name || 'Mentor'}</span>
+                              <span className="ml-2 inline-block rounded-full bg-[#FFF3D6] px-2 py-0.5 text-[10px] text-[#8A5700]">
+                                Requested
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <Link href="/startup/mentors/requests" className="mt-3 block text-xs font-semibold text-[#9A7A45]">
+                          View requests <ArrowRight className="inline" size={13} />
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-[#4A5568]">No pending mentor requests.</p>
+                        <Link href="/startup/mentors/find" className="mt-3 block text-xs font-semibold text-[#9A7A45]">
+                          Find mentors <ArrowRight className="inline" size={13} />
+                        </Link>
+                      </>
+                    )}
+                  </Card>
+
+                  <Card title={`A tip for ${stageName}`}>
+                    <p className="text-xs leading-5 text-[#4A5568]">
+                      Mentors at this stage often focus on user feedback, defining the first repeatable use case and preparing a revenue plan.
+                    </p>
+                    <Link href="/startup/stage" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
+                      Review stage goals <ArrowRight className="inline" size={13} />
+                    </Link>
+                  </Card>
+                </aside>
+              </div>
+            </>
+          );
+        })()}
 
         {page === 'find' && (
           <>
