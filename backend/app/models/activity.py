@@ -48,6 +48,13 @@ class ActivityEventType(enum.StrEnum):
     # (updated_at > created_at) and every edit would double the feed.
     task_commented = "task_commented"
     task_comment_deleted = "task_comment_deleted"
+    # Step 8b: a mentorship request is user content both sides act on, so
+    # creation and the accept/decline answer get an audit row (same
+    # D-9b "create/delete of user content" rule, applied to a new pair).
+    mentorship_requested = "mentorship_requested"
+    mentorship_accepted = "mentorship_accepted"
+    mentorship_declined = "mentorship_declined"
+    mentorship_ended = "mentorship_ended"
 
 
 class ActivityEvent(Base):

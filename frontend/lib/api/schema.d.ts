@@ -1159,6 +1159,462 @@ export interface paths {
         patch: operations["update_my_mentor_profile_api_v1_mentor_profile_me_patch"];
         trace?: never;
     };
+    "/api/v1/mentors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Browse mentors
+         * @description Any signed-in user may browse. Only ``users.profile_public`` mentors
+         *     appear; a hidden profile is absent rather than redacted.
+         *
+         *     ``stage`` is NOT a filter here: mentors have no stage attribute yet
+         *     (8a plan D-1), so the find page's "stage fit" control stays unwired.
+         */
+        get: operations["list_mentors_api_v1_mentors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentors/{handle}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One mentor's directory page
+         * @description A hidden mentor 404s exactly like a missing one (no existence oracle).
+         */
+        get: operations["get_mentor_api_v1_mentors__handle__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/mentor-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggested mentors for a startup
+         * @description Active members of the organization only (viewer included — this is a
+         *     read). A non-member gets 403, never a hint of whether the org exists.
+         *
+         *     Every suggestion carries ``match_reasons`` built from fields that
+         *     actually matched; there is no stored score and no hidden weighting.
+         */
+        get: operations["list_mentor_suggestions_api_v1_organizations__org_id__mentor_suggestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentorships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my mentorships */
+        get: operations["list_mentorships_api_v1_mentorships_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentorships/{mentorship_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one mentorship */
+        get: operations["get_mentorship_api_v1_mentorships__mentorship_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit a pending request (startup side) */
+        patch: operations["update_mentorship_api_v1_mentorships__mentorship_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/mentorships/{mentorship_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept a request (mentor only) */
+        post: operations["accept_mentorship_api_v1_mentorships__mentorship_id__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentorships/{mentorship_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decline a request (mentor only) */
+        post: operations["decline_mentorship_api_v1_mentorships__mentorship_id__decline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentorships/{mentorship_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw a mentorship (either side) */
+        post: operations["cancel_mentorship_api_v1_mentorships__mentorship_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentorships/{mentorship_id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete an engagement (either side) */
+        post: operations["end_mentorship_api_v1_mentorships__mentorship_id__end_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentorships/{mentorship_id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause an engagement (either side) */
+        post: operations["pause_mentorship_api_v1_mentorships__mentorship_id__pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentorships/{mentorship_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume a paused engagement (either side) */
+        post: operations["resume_mentorship_api_v1_mentorships__mentorship_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/mentorships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request mentorship from a mentor
+         * @description Owner/admin/member create (viewer 403). The startup comes from the
+         *     path and is membership-checked; the mentor must be accepting requests.
+         */
+        post: operations["create_mentorship_api_v1_organizations__org_id__mentorships_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentor/startups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The startups I mentor (mentor view) */
+        get: operations["list_mentor_startups_api_v1_mentor_startups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentor/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My availability week */
+        get: operations["get_my_availability_api_v1_mentor_availability_get"];
+        /**
+         * Replace my whole availability week
+         * @description Atomic replace: the overlap and minimum-length checks run before anything is deleted, so a rejected payload leaves the previous week untouched. An empty list clears the week.
+         */
+        put: operations["put_my_availability_api_v1_mentor_availability_put"];
+        /** Add one availability window */
+        post: operations["add_my_availability_api_v1_mentor_availability_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentor/availability/{slot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete one availability window */
+        delete: operations["delete_my_availability_api_v1_mentor_availability__slot_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentors/{handle}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A mentor's published availability */
+        get: operations["get_mentor_availability_api_v1_mentors__handle__availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentors/{handle}/slots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bookable instants for a mentor
+         * @description Concrete free instants computed from the weekly template minus sessions already booked. The same read backs the booking screen and the 8d 'is this instant free?' check, so they cannot disagree.
+         */
+        get: operations["get_mentor_slots_api_v1_mentors__handle__slots_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My sessions */
+        get: operations["list_my_sessions_api_v1_sessions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one session */
+        get: operations["get_session_api_v1_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm a scheduled session */
+        post: operations["confirm_session_api_v1_sessions__session_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move a session to a new time */
+        post: operations["reschedule_session_api_v1_sessions__session_id__reschedule_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a session */
+        post: operations["cancel_session_api_v1_sessions__session_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete a session with a summary (mentor only) */
+        post: operations["complete_session_api_v1_sessions__session_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/no-show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark a session as a no-show (mentor only) */
+        post: operations["no_show_session_api_v1_sessions__session_id__no_show_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentorships/{mentorship_id}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sessions of one mentorship */
+        get: operations["list_mentorship_sessions_api_v1_mentorships__mentorship_id__sessions_get"];
+        put?: never;
+        /** Schedule a session */
+        post: operations["create_session_api_v1_mentorships__mentorship_id__sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/organizations/{slug}": {
         parameters: {
             query?: never;
@@ -1661,6 +2117,144 @@ export interface components {
         /** AddRoleRequest */
         AddRoleRequest: {
             role: components["schemas"]["UserRole"];
+        };
+        /**
+         * AttendeeRole
+         * @description schema.sql CHECK on ``session_attendees.role``.
+         * @enum {string}
+         */
+        AttendeeRole: "mentor" | "startup" | "observer";
+        /** AvailabilitySlotIn */
+        AvailabilitySlotIn: {
+            /**
+             * Weekday
+             * @description 0 = Monday, 6 = Sunday.
+             */
+            weekday: number;
+            /**
+             * Start Time
+             * Format: time
+             */
+            start_time: string;
+            /**
+             * End Time
+             * Format: time
+             */
+            end_time: string;
+            /**
+             * Timezone
+             * @description IANA zone, e.g. Asia/Kolkata.
+             */
+            timezone: string;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active?: boolean;
+        };
+        /** AvailabilitySlotRead */
+        AvailabilitySlotRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Weekday */
+            weekday: number;
+            /**
+             * Start Time
+             * Format: time
+             */
+            start_time: string;
+            /**
+             * End Time
+             * Format: time
+             */
+            end_time: string;
+            /** Timezone */
+            timezone: string;
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * AvailabilityWeekIn
+         * @description Replace my whole week. ``slots=[]`` clears it, which is valid.
+         */
+        AvailabilityWeekIn: {
+            /** Slots */
+            slots: components["schemas"]["AvailabilitySlotIn"][];
+        };
+        /**
+         * AvailabilityWeekRead
+         * @description The mentor's week, ordered by weekday then start.
+         */
+        AvailabilityWeekRead: {
+            /** Slots */
+            slots: components["schemas"]["AvailabilitySlotRead"][];
+            /**
+             * Timezone
+             * @description The zone every slot is expressed in, when they agree; else null.
+             */
+            timezone?: string | null;
+        };
+        /**
+         * BookableSlot
+         * @description One concrete, bookable instant derived from the template.
+         *
+         *     ``start``/``end`` are the UTC instants (8d books against these);
+         *     ``label`` is the same window in the mentor's own zone, which is what
+         *     the UI shows. ``local_date``/``local_start`` are provided so a client
+         *     never has to re-derive the wall clock from the instant.
+         */
+        BookableSlot: {
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /**
+             * Local Date
+             * Format: date
+             */
+            local_date: string;
+            /**
+             * Local Start
+             * Format: time
+             */
+            local_start: string;
+            /**
+             * Local End
+             * Format: time
+             */
+            local_end: string;
+            /** Timezone */
+            timezone: string;
+        };
+        /** BookableSlotsRead */
+        BookableSlotsRead: {
+            /** Mentor Handle */
+            mentor_handle: string;
+            /** Timezone */
+            timezone: string | null;
+            /** Items */
+            items: components["schemas"]["BookableSlot"][];
+            /** Total */
+            total: number;
         };
         /** BulkInviteResult */
         BulkInviteResult: {
@@ -2467,6 +3061,149 @@ export interface components {
             /** Is Public */
             is_public?: boolean | null;
         };
+        /**
+         * MentorDirectoryDetail
+         * @description One mentor's full page: the card plus the long-form fields.
+         */
+        MentorDirectoryDetail: {
+            /** Handle */
+            handle: string;
+            /** Display Name */
+            display_name: string;
+            /** Avatar Initials */
+            avatar_initials?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Headline */
+            headline?: string | null;
+            /**
+             * Expertise
+             * @default []
+             */
+            expertise?: string[];
+            /**
+             * Sectors
+             * @default []
+             */
+            sectors?: string[];
+            /**
+             * Languages
+             * @default []
+             */
+            languages?: string[];
+            /** Years Experience */
+            years_experience?: number | null;
+            /** Hourly Fee */
+            hourly_fee?: number | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Cadence */
+            cadence?: string | null;
+            /** Rating */
+            rating?: number | null;
+            /**
+             * Sessions Completed
+             * @default 0
+             */
+            sessions_completed?: number;
+            /**
+             * Is Verified
+             * @default false
+             */
+            is_verified?: boolean;
+            /**
+             * Accepting Requests
+             * @default true
+             */
+            accepting_requests?: boolean;
+            /** Location */
+            location?: string | null;
+            /** Bio */
+            bio?: string | null;
+            /**
+             * Max Startups
+             * @default 3
+             */
+            max_startups?: number;
+        };
+        /**
+         * MentorDirectoryItem
+         * @description One mentor card: identity + the fields the card renders.
+         */
+        MentorDirectoryItem: {
+            /** Handle */
+            handle: string;
+            /** Display Name */
+            display_name: string;
+            /** Avatar Initials */
+            avatar_initials?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Headline */
+            headline?: string | null;
+            /**
+             * Expertise
+             * @default []
+             */
+            expertise?: string[];
+            /**
+             * Sectors
+             * @default []
+             */
+            sectors?: string[];
+            /**
+             * Languages
+             * @default []
+             */
+            languages?: string[];
+            /** Years Experience */
+            years_experience?: number | null;
+            /** Hourly Fee */
+            hourly_fee?: number | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Cadence */
+            cadence?: string | null;
+            /** Rating */
+            rating?: number | null;
+            /**
+             * Sessions Completed
+             * @default 0
+             */
+            sessions_completed?: number;
+            /**
+             * Is Verified
+             * @default false
+             */
+            is_verified?: boolean;
+            /**
+             * Accepting Requests
+             * @default true
+             */
+            accepting_requests?: boolean;
+            /** Location */
+            location?: string | null;
+        };
+        /**
+         * MentorDirectoryPage
+         * @description Paginated directory envelope (limit/offset, same shape as 5b/5c).
+         */
+        MentorDirectoryPage: {
+            /** Items */
+            items: components["schemas"]["MentorDirectoryItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** MentorProfileRead */
         MentorProfileRead: {
             /**
@@ -2632,6 +3369,279 @@ export interface components {
              * @default false
              */
             is_verified?: boolean;
+        };
+        /**
+         * MentorSuggestionItem
+         * @description A card plus WHY it was suggested (8a plan D-2).
+         *
+         *     ``match_reasons`` entries are generated from fields that actually
+         *     matched, e.g. ``"Expertise: Fundraising"`` or ``"Same sector: fintech"``.
+         *     An empty list means the mentor surfaced on the default ordering only —
+         *     which is stated rather than filled with invented copy.
+         */
+        MentorSuggestionItem: {
+            /** Handle */
+            handle: string;
+            /** Display Name */
+            display_name: string;
+            /** Avatar Initials */
+            avatar_initials?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Headline */
+            headline?: string | null;
+            /**
+             * Expertise
+             * @default []
+             */
+            expertise?: string[];
+            /**
+             * Sectors
+             * @default []
+             */
+            sectors?: string[];
+            /**
+             * Languages
+             * @default []
+             */
+            languages?: string[];
+            /** Years Experience */
+            years_experience?: number | null;
+            /** Hourly Fee */
+            hourly_fee?: number | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Cadence */
+            cadence?: string | null;
+            /** Rating */
+            rating?: number | null;
+            /**
+             * Sessions Completed
+             * @default 0
+             */
+            sessions_completed?: number;
+            /**
+             * Is Verified
+             * @default false
+             */
+            is_verified?: boolean;
+            /**
+             * Accepting Requests
+             * @default true
+             */
+            accepting_requests?: boolean;
+            /** Location */
+            location?: string | null;
+            /**
+             * Match Reasons
+             * @default []
+             */
+            match_reasons?: string[];
+        };
+        /**
+         * MentorSuggestionPage
+         * @description Paginated suggestions envelope. Implies the current stage in ``stage``.
+         */
+        MentorSuggestionPage: {
+            /** Items */
+            items: components["schemas"]["MentorSuggestionItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            stage?: components["schemas"]["StartupStage"] | null;
+            /** Sector */
+            sector?: string | null;
+            /**
+             * Stage Filter Applied
+             * @default false
+             */
+            stage_filter_applied?: boolean;
+        };
+        /**
+         * MentorshipCreate
+         * @description A startup asks a mentor to work with them.
+         */
+        MentorshipCreate: {
+            /**
+             * Mentor Id
+             * Format: uuid
+             * @description The mentor user id to request.
+             */
+            mentor_id: string;
+            /** Goal */
+            goal: string;
+            /** Needs */
+            needs?: string[];
+            /** Cadence */
+            cadence?: string | null;
+            /** Terms */
+            terms?: string | null;
+            /** Equity Pct */
+            equity_pct?: number | string | null;
+            /** Fee Amount */
+            fee_amount?: number | string | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+        };
+        /**
+         * MentorshipEnd
+         * @description Close an engagement. ``reason`` is free text kept in ``terms`` history.
+         */
+        MentorshipEnd: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /** MentorshipPage */
+        MentorshipPage: {
+            /** Items */
+            items: components["schemas"]["MentorshipRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * MentorshipParticipant
+         * @description The minimal identity of the other party on a mentorship.
+         *
+         *     ``stage`` / ``sector`` / ``city`` / ``tagline`` are the startup profile
+         *     facts the mentor's request and startup cards already render. They are
+         *     read-only pass-throughs from ``startup_profiles`` + ``organizations``
+         *     and are null for the mentor side, whose identity is a person, not a
+         *     company. Without them the cards would have to fake the values.
+         */
+        MentorshipParticipant: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Handle */
+            handle?: string | null;
+            /** Avatar Initials */
+            avatar_initials?: string | null;
+            stage?: components["schemas"]["StartupStage"] | null;
+            /** Sector */
+            sector?: string | null;
+            /** City */
+            city?: string | null;
+            /** Tagline */
+            tagline?: string | null;
+        };
+        /**
+         * MentorshipRead
+         * @description One mentorship. ``viewer_side`` tells the UI which buttons to show.
+         */
+        MentorshipRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["MentorshipStatus"];
+            /**
+             * Mentor Id
+             * Format: uuid
+             */
+            mentor_id: string;
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Goal */
+            goal: string | null;
+            /** Needs */
+            needs: string[];
+            /** Cadence */
+            cadence: string | null;
+            /** Terms */
+            terms: string | null;
+            /** Equity Pct */
+            equity_pct: string | null;
+            /** Fee Amount */
+            fee_amount: string | null;
+            /** Currency */
+            currency: string;
+            /** Health */
+            health: string | null;
+            /** Started On */
+            started_on: string | null;
+            /** Ended On */
+            ended_on: string | null;
+            /** Last Session At */
+            last_session_at: string | null;
+            /** Next Session At */
+            next_session_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            mentor: components["schemas"]["MentorshipParticipant"];
+            startup: components["schemas"]["MentorshipParticipant"];
+            /**
+             * Viewer Side
+             * @enum {string}
+             */
+            viewer_side: "mentor" | "startup";
+            /** Viewer Role */
+            viewer_role?: ("owner" | "admin" | "member" | "viewer") | null;
+        };
+        /**
+         * MentorshipStateChange
+         * @description Shared body for the transition endpoints (all optional).
+         */
+        MentorshipStateChange: {
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * MentorshipStatus
+         * @description schema.sql ``mentorship_status``, kept as VARCHAR + CHECK.
+         * @enum {string}
+         */
+        MentorshipStatus: "requested" | "active" | "paused" | "completed" | "declined" | "cancelled";
+        /**
+         * MentorshipUpdate
+         * @description The startup revises its own request before the mentor answers.
+         *
+         *     Deliberately absent: ``status``, ``mentor_id``, ``startup_org_id``,
+         *     ``health``, ``fit_score`` and the session timestamps.
+         */
+        MentorshipUpdate: {
+            /** Goal */
+            goal?: string | null;
+            /** Needs */
+            needs?: string[] | null;
+            /** Cadence */
+            cadence?: string | null;
+            /** Terms */
+            terms?: string | null;
+            /** Equity Pct */
+            equity_pct?: number | string | null;
+            /** Fee Amount */
+            fee_amount?: number | string | null;
+            /** Currency */
+            currency?: string | null;
         };
         /** MessageResponse */
         MessageResponse: {
@@ -3184,6 +4194,166 @@ export interface components {
             arpc: components["schemas"]["BusinessKpi"] | null;
             calculated_arpc: components["schemas"]["CalculatedValue"] | null;
         };
+        /** SessionAttendeeIn */
+        SessionAttendeeIn: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /** SessionAttendeeRead */
+        SessionAttendeeRead: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Display Name */
+            display_name: string;
+            role: components["schemas"]["AttendeeRole"];
+        };
+        /** SessionCancel */
+        SessionCancel: {
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * SessionComplete
+         * @description The mentor closes a session with what was covered and what is next.
+         */
+        SessionComplete: {
+            /** Summary */
+            summary: string;
+            /** Action Items */
+            action_items?: string[];
+        };
+        /** SessionCreate */
+        SessionCreate: {
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /**
+             * Duration Min
+             * @default 45
+             */
+            duration_min?: number;
+            /** Topic */
+            topic?: string | null;
+            /** Session Type */
+            session_type?: string | null;
+            /** Meeting Url */
+            meeting_url?: string | null;
+            /** Fee Amount */
+            fee_amount?: number | string | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Attendees */
+            attendees?: components["schemas"]["SessionAttendeeIn"][];
+        };
+        /** SessionNoShow */
+        SessionNoShow: {
+            /** Note */
+            note?: string | null;
+        };
+        /** SessionPage */
+        SessionPage: {
+            /** Items */
+            items: components["schemas"]["SessionRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * SessionRead
+         * @description One session. ``viewer_side`` tells the UI which actions to offer.
+         */
+        SessionRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Mentorship Id
+             * Format: uuid
+             */
+            mentorship_id: string;
+            status: components["schemas"]["SessionStatus"];
+            /** Topic */
+            topic: string | null;
+            /** Session Type */
+            session_type: string | null;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Meeting Url */
+            meeting_url: string | null;
+            /** Summary */
+            summary: string | null;
+            /** Action Items */
+            action_items: string[];
+            /** Fee Amount */
+            fee_amount: string | null;
+            /** Currency */
+            currency: string;
+            /** Completed At */
+            completed_at: string | null;
+            /** Cancelled Reason */
+            cancelled_reason: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Attendees */
+            attendees: components["schemas"]["SessionAttendeeRead"][];
+            /**
+             * Viewer Side
+             * @enum {string}
+             */
+            viewer_side: "mentor" | "startup";
+            /**
+             * Can Join
+             * @default false
+             */
+            can_join?: boolean;
+        };
+        /** SessionReschedule */
+        SessionReschedule: {
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /** Duration Min */
+            duration_min?: number | null;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * SessionStatus
+         * @description schema.sql ``session_status``.
+         * @enum {string}
+         */
+        SessionStatus: "proposed" | "scheduled" | "confirmed" | "completed" | "cancelled" | "no_show";
         /**
          * SkillRead
          * @description One searchable skill (read-only; creation is admin-only, Step 7).
@@ -6782,6 +7952,1171 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MentorProfileRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_mentors_api_v1_mentors_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                sort?: "relevance" | "rating" | "price" | "experience";
+                order?: "asc" | "desc";
+                expertise?: string | null;
+                sector?: string | null;
+                language?: string | null;
+                verified_only?: boolean;
+                accepting_only?: boolean;
+                free_only?: boolean;
+                max_fee?: number | null;
+                q?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorDirectoryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_mentor_api_v1_mentors__handle__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                handle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorDirectoryDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_mentor_suggestions_api_v1_organizations__org_id__mentor_suggestions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorSuggestionPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_mentorships_api_v1_mentorships_get: {
+        parameters: {
+            query?: {
+                /** @description Which side of the marketplace to list. */
+                side?: "mentor" | "startup";
+                status?: ("requested" | "active" | "paused" | "completed" | "declined" | "cancelled") | null;
+                /** @description Narrow to one startup. */
+                org_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorshipPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_mentorship_api_v1_mentorships__mentorship_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                mentorship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorshipRead"];
+                };
+            };
+            /** @description Not found, or you are not a participant. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_mentorship_api_v1_mentorships__mentorship_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                mentorship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MentorshipUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorshipRead"];
+                };
+            };
+            /** @description The request is no longer pending. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_mentorship_api_v1_mentorships__mentorship_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                mentorship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MentorshipStateChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorshipRead"];
+                };
+            };
+            /** @description Not the mentor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong state. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decline_mentorship_api_v1_mentorships__mentorship_id__decline_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                mentorship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MentorshipStateChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorshipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_mentorship_api_v1_mentorships__mentorship_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                mentorship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MentorshipStateChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorshipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    end_mentorship_api_v1_mentorships__mentorship_id__end_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                mentorship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MentorshipEnd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorshipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_mentorship_api_v1_mentorships__mentorship_id__pause_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                mentorship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MentorshipStateChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorshipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_mentorship_api_v1_mentorships__mentorship_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                mentorship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MentorshipStateChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorshipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_mentorship_api_v1_organizations__org_id__mentorships_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MentorshipCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorshipRead"];
+                };
+            };
+            /** @description Not an active member of that startup, or a viewer. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The mentor is not accepting, or a mentorship already exists. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_mentor_startups_api_v1_mentor_startups_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorshipPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_availability_api_v1_mentor_availability_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityWeekRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_my_availability_api_v1_mentor_availability_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AvailabilityWeekIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityWeekRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_my_availability_api_v1_mentor_availability_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AvailabilitySlotIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilitySlotRead"];
+                };
+            };
+            /** @description Overlaps an existing window. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_my_availability_api_v1_mentor_availability__slot_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found, or not yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_mentor_availability_api_v1_mentors__handle__availability_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                handle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityWeekRead"];
+                };
+            };
+            /** @description No such mentor, or their profile is private. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_mentor_slots_api_v1_mentors__handle__slots_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                days?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                handle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookableSlotsRead"];
+                };
+            };
+            /** @description No such mentor, or their profile is private. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_sessions_api_v1_sessions_get: {
+        parameters: {
+            query?: {
+                /** @description Only sessions that have not happened yet. */
+                upcoming?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_session_api_v1_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRead"];
+                };
+            };
+            /** @description Not found, or not a participant. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_session_api_v1_sessions__session_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reschedule_session_api_v1_sessions__session_id__reschedule_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionReschedule"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRead"];
+                };
+            };
+            /** @description The slot is taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_session_api_v1_sessions__session_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionCancel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_session_api_v1_sessions__session_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionComplete"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRead"];
+                };
+            };
+            /** @description Not the mentor. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    no_show_session_api_v1_sessions__session_id__no_show_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionNoShow"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRead"];
+                };
+            };
+            /** @description The session has not started yet. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_mentorship_sessions_api_v1_mentorships__mentorship_id__sessions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                mentorship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionPage"];
+                };
+            };
+            /** @description Not found, or not a participant. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_session_api_v1_mentorships__mentorship_id__sessions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                mentorship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRead"];
+                };
+            };
+            /** @description A viewer, or not a participant. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found, or not a participant. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The slot is taken, or the mentorship is not active. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

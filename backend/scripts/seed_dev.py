@@ -25,7 +25,7 @@ import hashlib
 import re
 import secrets
 import sys
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -38,6 +38,12 @@ from app.core.config import get_settings  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.db.session import async_session_factory, engine  # noqa: E402
 from app.models.analytics import StartupCompetitor, StartupMarketSize  # noqa: E402
+from app.models.availability import AvailabilitySlot  # noqa: E402
+from app.models.mentorship import (  # noqa: E402
+    BUSY_STATUSES,
+    Mentorship,
+    MentorshipStatus,
+)
 from app.models.metric import MetricKey, MetricSource, StartupMetric  # noqa: E402
 from app.models.milestone import Milestone  # noqa: E402
 from app.models.organization import (  # noqa: E402
@@ -52,6 +58,12 @@ from app.models.readiness import (  # noqa: E402
     ReadinessCriterion,
     ReadinessStatus,
     StartupReadiness,
+)
+from app.models.session import (  # noqa: E402
+    AttendeeRole,
+    MentoringSession,
+    SessionAttendee,
+    SessionStatus,
 )
 from app.models.stage import StageToolProgress, ToolStatus  # noqa: E402
 from app.models.startup import (  # noqa: E402
@@ -200,6 +212,106 @@ STEP3B_MENTOR = {
     "hourly_fee": 6500,
     "cadence": "Next 2 weeks",
 }
+
+# Step 8a demo mentors (moved out of the wired mentor directory's inline
+# `mentors` array). Only the fields the directory card and detail page
+# render: expertise/sectors/languages are JSON lists, and no stage attribute
+# exists yet (8a plan D-1), so none is invented here.
+
+# Steps 8b/8c/8d demo records. One open mentorship for the first two
+# mentors (so the requests page shows both an accepted and a pending row),
+# a weekly availability template for each, and one upcoming session on the
+# active pair. Emails must match STEP8A_MENTORS above.
+STEP8BCD_MENTORSHIPS: list[dict[str, object]] = [
+    {
+        "email": "rhea@forma.dev",
+        "status": "active",
+        "goal": "Sharpen pricing and build a repeatable go-to-market motion.",
+        "needs": ["pricing", "go-to-market"],
+        "cadence": "Fortnightly",
+        "fee_amount": Decimal("3000.00"),
+        "started_days_ago": 40,
+        "availability": [(1, 16, 18), (3, 16, 18)],
+        "next_topic": "Go-to-market and pricing",
+        "next_in_days": 5,
+    },
+    {
+        "email": "arjun@forma.dev",
+        "status": "requested",
+        "goal": "Help us think through hiring our first two engineers.",
+        "needs": ["hiring", "product"],
+        "cadence": "Weekly",
+        "fee_amount": Decimal("4500.00"),
+        "started_days_ago": 0,
+        "availability": [(2, 11, 13)],
+        "next_topic": "",
+        "next_in_days": 0,
+    },
+]
+
+STEP8A_MENTORS: list[dict[str, object]] = [
+    {
+        "email": "rhea@forma.dev",
+        "display_name": "Rhea Mukherjee",
+        "handle": "rhea_mukherjee",
+        "region": "Kolkata, India",
+        "headline": "Go-to-market advisor · 2 exits",
+        "bio": (
+            "I work with early-stage founders to shape a clear go-to-market "
+            "strategy, validate pricing and build an investor-ready story. My "
+            "approach is structured, candid and focused on practical next steps."
+        ),
+        "expertise": ["Go-to-market", "Fundraising", "SaaS"],
+        "sectors": ["Fintech", "B2B SaaS"],
+        "languages": ["English", "Bengali", "Hindi"],
+        "years_experience": 14,
+        "hourly_fee": 3000,
+        "cadence": "Weekly",
+        "rating": 4.9,
+        "sessions_completed": 140,
+        "is_verified": True,
+    },
+    {
+        "email": "arjun@forma.dev",
+        "display_name": "Arjun Mehta",
+        "handle": "arjun_mehta",
+        "region": "Bengaluru, India",
+        "headline": "Former CTO · 1 successful exit",
+        "bio": (
+            "I help technical founders move from prototype to a resilient "
+            "product with a clear engineering roadmap and a high-trust early team."
+        ),
+        "expertise": ["Technology", "Product", "Hiring"],
+        "sectors": ["SaaS", "Marketplace"],
+        "languages": ["English", "Hindi"],
+        "years_experience": 18,
+        "hourly_fee": 4500,
+        "cadence": "Fortnightly",
+        "rating": 4.8,
+        "sessions_completed": 215,
+        "is_verified": True,
+    },
+    {
+        "email": "naina@forma.dev",
+        "display_name": "Naina Roy",
+        "handle": "naina_roy",
+        "region": "Mumbai, India",
+        "headline": "Finance operator · 12 startups advised",
+        "bio": (
+            "I support founders with unit economics, runway planning and "
+            "financial models that are clear to both teams and investors."
+        ),
+        "expertise": ["Finance", "Fundraising", "Operations"],
+        "sectors": ["Fintech", "Climate"],
+        "languages": ["English", "Hindi", "Marathi"],
+        "years_experience": 11,
+        "hourly_fee": 0,
+        "cadence": "Monthly",
+        "rating": 5.0,
+        "sessions_completed": 98,
+        "is_verified": False,
+    },
+]
 
 # Step 5a demo startup profile (moved out of the wired startup-profile
 # page's inline seed data). Visibility is public so /public/startups/{slug}
@@ -563,6 +675,12 @@ SEED_USERS = [
     # Step 5e: a read-only workspace member, so the viewer path (reads yes,
     # writes 403) can be exercised on /startup/analytics in development.
     ("viewer@forma.dev", "Nisha Rao", UserRole.startup, True),
+    # Step 8a: the mentor directory. Three more mentors so
+    # /startup/mentors/find shows a real list with different expertise,
+    # sectors and prices instead of a single row.
+    ("rhea@forma.dev", "Rhea Mukherjee", UserRole.mentor, True),
+    ("arjun@forma.dev", "Arjun Mehta", UserRole.mentor, True),
+    ("naina@forma.dev", "Naina Roy", UserRole.mentor, True),
 ]
 
 
@@ -1409,6 +1527,169 @@ async def seed() -> None:
                 mentor_added = 1
                 await db.commit()
 
+        # Step 8a: the demo mentor directory. Profile fields are only filled
+        # on the rows that do not have a MentorProfile yet, so dev edits are
+        # never clobbered on a re-run (same idempotency rule as 3c above).
+        mentors8a_added = 0
+        for spec in STEP8A_MENTORS:
+            mentor_user = (
+                await db.execute(
+                    select(User).where(User.primary_email == spec["email"])
+                )
+            ).scalar_one_or_none()
+            if mentor_user is None:
+                continue
+            # The directory key is the handle: without one the mentor is
+            # listed but unreachable by /mentors/{handle}. Filled only when
+            # empty so a dev who edited their handle keeps it.
+            if mentor_user.handle is None:
+                mentor_user.handle = spec["handle"]
+            if mentor_user.region is None:
+                mentor_user.region = spec["region"]
+            existing = (
+                await db.execute(
+                    select(MentorProfile).where(
+                        MentorProfile.user_id == mentor_user.id
+                    )
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                continue
+            db.add(
+                MentorProfile(
+                    user_id=mentor_user.id,
+                    headline=spec["headline"],
+                    bio=spec["bio"],
+                    expertise=spec["expertise"],
+                    sectors=spec["sectors"],
+                    languages=spec["languages"],
+                    years_experience=spec["years_experience"],
+                    hourly_fee=spec["hourly_fee"],
+                    cadence=spec["cadence"],
+                    rating=spec["rating"],
+                    sessions_completed=spec["sessions_completed"],
+                    # Server-owned in production (admin verification, 8i
+                    # rating recompute); seeded only so the dev directory
+                    # has a verified/unverified mix to exercise the filter.
+                    is_verified=spec["is_verified"],
+                    accepting_requests=True,
+                )
+            )
+            mentors8a_added += 1
+        # Commit unconditionally: handles/regions above may be the only
+        # change on a re-run where every profile already exists.
+        await db.commit()
+
+        # Steps 8b/8c/8d: demo mentorships, availability and sessions so the
+        # mentor pages have something to render. Idempotent by "does an open
+        # mentorship already exist for this pair", which is the same rule the
+        # partial unique index enforces.
+        mentorships_added = 0
+        availability_added = 0
+        sessions_added = 0
+        if founder_org is not None:
+            for spec in STEP8BCD_MENTORSHIPS:
+                mentor_user = (
+                    await db.execute(
+                        select(User).where(User.primary_email == spec["email"])
+                    )
+                ).scalar_one_or_none()
+                if mentor_user is None:
+                    continue
+
+                existing = (
+                    await db.execute(
+                        select(Mentorship).where(
+                            Mentorship.mentor_id == mentor_user.id,
+                            Mentorship.startup_org_id == founder_org.id,
+                            Mentorship.deleted_at.is_(None),
+                            Mentorship.status.in_(
+                                [s.value for s in BUSY_STATUSES]
+                            ),
+                        )
+                    )
+                ).scalar_one_or_none()
+
+                if existing is None:
+                    row = Mentorship(
+                        mentor_id=mentor_user.id,
+                        startup_org_id=founder_org.id,
+                        status=MentorshipStatus(spec["status"]),
+                        goal=spec["goal"],
+                        needs=spec["needs"],
+                        cadence=spec["cadence"],
+                        fee_amount=spec["fee_amount"],
+                        currency="INR",
+                        started_on=(
+                            date.today() - timedelta(days=spec["started_days_ago"])
+                            if spec["status"] in ("active", "paused")
+                            else None
+                        ),
+                    )
+                    db.add(row)
+                    await db.flush()
+                    mentorships_added += 1
+                else:
+                    row = existing
+
+                # 8c: a weekly window for the mentors that appear on a page.
+                has_week = (
+                    await db.execute(
+                        select(AvailabilitySlot.id)
+                        .where(AvailabilitySlot.mentor_id == mentor_user.id)
+                        .limit(1)
+                    )
+                ).first()
+                if has_week is None:
+                    for weekday, start_h, end_h in spec["availability"]:
+                        db.add(
+                            AvailabilitySlot(
+                                mentor_id=mentor_user.id,
+                                weekday=weekday,
+                                start_time=time(start_h, 0),
+                                end_time=time(end_h, 0),
+                                timezone="Asia/Kolkata",
+                            )
+                        )
+                        availability_added += 1
+
+                # 8d: one upcoming session on the active mentorship.
+                if spec["status"] == "active":
+                    has_session = (
+                        await db.execute(
+                            select(MentoringSession.id)
+                            .where(MentoringSession.mentorship_id == row.id)
+                            .limit(1)
+                        )
+                    ).first()
+                    if has_session is None:
+                        session = MentoringSession(
+                            mentorship_id=row.id,
+                            topic=spec["next_topic"],
+                            session_type="advisory",
+                            status=SessionStatus.scheduled,
+                            # Whole minutes: the API never accepts sub-second
+                            # precision, so seeded rows should not either.
+                            scheduled_at=(
+                                datetime.now(UTC) + timedelta(days=spec["next_in_days"])
+                            ).replace(second=0, microsecond=0),
+                            duration_min=45,
+                            meeting_url="https://meet.forma.example/demo-session",
+                        )
+                        db.add(session)
+                        await db.flush()
+                        # The API always attaches the mentor as an attendee;
+                        # a seeded session must look the same.
+                        db.add(
+                            SessionAttendee(
+                                session_id=session.id,
+                                user_id=mentor_user.id,
+                                role=AttendeeRole.mentor,
+                            )
+                        )
+                        sessions_added += 1
+            await db.commit()
+
     await engine.dispose()
 
     print("Seeded (dev only):")
@@ -1429,6 +1710,10 @@ async def seed() -> None:
     print(f"  + task labels (5d): {labels_added}")
     print(f"  + task label links (5d): {task_label_links_added}")
     print(f"  + readiness items (5f): {readiness_added}")
+    print(f"  + mentor directory profiles (8a): {mentors8a_added}")
+    print(f"  + mentorships (8b): {mentorships_added}")
+    print(f"  + availability windows (8c): {availability_added}")
+    print(f"  + sessions (8d): {sessions_added}")
     print(f"  + stage tool progress (5i/5j): {tools_added}")
     print(f"  + market size (5l): {market_added}")
     print(f"  + competitors (5l): {competitors_added}")

@@ -1,27 +1,76 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import {
-  Search,
-  ShieldCheck,
-  X,
-} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Search, X } from 'lucide-react';
 import MentorPageShell from '../mentor-page-shell';
-import { initialStartups, Btn } from '../mentor-data';
+import { Btn } from '../mentor-data';
+import { api, ApiError } from '@/lib/api/client';
+import { EmptyBlock, ErrorBlock, LoadingBlock, fieldErrorsFrom, FieldError } from '@/components/async-state';
+import { STAGE_LABEL } from '@/lib/mentorship-labels';
 
+/**
+ * `/mentor/discover` reuses Step 5h's `GET /startups` (the signed-in
+ * discovery read), which already returns the startups that opted in to
+ * mentor discovery. Building a mentorships-specific list would have meant a
+ * second source of truth for the same thing.
+ *
+ * "Invite to mentorship" has no endpoint: 8b only lets a STARTUP request a
+ * MENTOR. The button therefore opens the read-only profile and says so,
+ * rather than pretending to send an invitation.
+ */
 export default function MentorDiscoverPage() {
+  const router = useRouter();
   const [toast, setToast] = useState('');
   const [search, setSearch] = useState('');
-  const [saved, setSaved] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [modal, setModal] = useState('');
-  const [mentorships] = useState(initialStartups);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [stage, setStage] = useState('');
+  const [items, setItems] = useState([]);
+  const [phase, setPhase] = useState('loading');
+  const [loadError, setLoadError] = useState('');
+  const [reload, setReload] = useState(0);
 
-  const notify = (x) => {
+  const notify = useCallback((x) => {
     setToast(x);
     setTimeout(() => setToast(''), 2600);
-  };
+  }, []);
+
+  // Debounce the free-text box so typing does not fire a request per key.
+  useEffect(() => {
+    const id = setTimeout(() => setSearchTerm(search.trim()), 300);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setPhase('loading');
+      setLoadError('');
+      try {
+        const page = await api.startups.discover(
+          { limit: 50, stage: stage || undefined, q: searchTerm || undefined },
+          undefined,
+        );
+        if (!alive) return;
+        setItems(page.items);
+        setPhase('ready');
+      } catch (err) {
+        if (!alive) return;
+        setLoadError(
+          err instanceof ApiError ? err.message : 'Could not load startups.',
+        );
+        setPhase('error');
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [searchTerm, stage, reload]);
+
+  const stagesPresent = useMemo(
+    () => Array.from(new Set(items.map((s) => s.stage))).filter(Boolean),
+    [items],
+  );
 
   return (
     <MentorPageShell active="Discover startups" toast={toast} notify={notify}>
@@ -37,7 +86,10 @@ export default function MentorDiscoverPage() {
             Explore startups that chose to be discoverable by mentors.
           </p>
         </div>
-        <Btn secondary onClick={() => notify('Your mentor profile preferences opened.')}>
+        <Btn
+          secondary
+          onClick={() => router.push('/mentor/profile/edit')}
+        >
           Edit mentor preferences
         </Btn>
       </div>
@@ -48,35 +100,42 @@ export default function MentorDiscoverPage() {
       </div>
 
       <div className="grid items-start gap-5 lg:grid-cols-4">
-        {/* Filters Sidebar */}
         <aside className="rounded-xl border border-[#E5E1D8] bg-white p-5">
           <h2 className="font-semibold text-[#0F1B2D]">Filters</h2>
-          {[
-            ['Stage', ['Idea', 'Prototype', 'Early revenue', 'Mature']],
-            ['Need', ['Fundraising', 'Product', 'Go-to-market', 'Finance', 'Hiring']],
-            ['Sector', ['Fintech', 'B2B SaaS', 'Climate', 'EdTech']],
-          ].map(([n, opts]) => (
-            <fieldset key={n} className="mt-4">
-              <legend className="text-xs font-semibold text-[#0F1B2D]">{n}</legend>
-              {opts.map((x) => (
-                <label key={x} className="mt-2 flex items-center gap-2 text-xs text-[#4A5568]">
-                  <input aria-label="Toggle option" type="checkbox" className="accent-[#0F1B2D]" />
-                  {x}
-                </label>
-              ))}
-            </fieldset>
-          ))}
-          <label className="mt-4 flex items-center gap-2 text-xs text-[#0F1B2D]">
-            <input aria-label="Toggle option" type="checkbox" defaultChecked disabled />
-            Verified startups only
-          </label>
-          <label className="mt-3 flex items-center gap-2 text-xs text-[#4A5568]">
-            <input aria-label="Toggle option" type="checkbox" className="accent-[#0F1B2D]" />
-            Needs a mentor
-          </label>
+          <fieldset className="mt-4">
+            <legend className="text-xs font-semibold text-[#0F1B2D]">Stage</legend>
+            {Object.entries(STAGE_LABEL).map(([key, label]) => (
+              <label
+                key={key}
+                className="mt-2 flex items-center gap-2 text-xs text-[#4A5568]"
+              >
+                <input
+                  type="radio"
+                  name="stage"
+                  checked={stage === key}
+                  onChange={() => setStage(key)}
+                  className="accent-[#0F1B2D]"
+                />
+                {label}
+              </label>
+            ))}
+            {stage && (
+              <button
+                type="button"
+                onClick={() => setStage('')}
+                className="mt-2 text-xs font-semibold text-[#9A7A45]"
+              >
+                Clear stage
+              </button>
+            )}
+          </fieldset>
+          <p className="mt-4 text-xs text-[#4A5568]">
+            {phase === 'ready'
+              ? `${items.length} startup${items.length === 1 ? '' : 's'} in this view`
+              : ' '}
+          </p>
         </aside>
 
-        {/* Startups List */}
         <div className="space-y-3 lg:col-span-3">
           <div className="relative">
             <Search size={15} className="absolute left-3 top-3 text-[#A0A7B4]" />
@@ -88,155 +147,65 @@ export default function MentorDiscoverPage() {
               className="h-10 w-full rounded-lg border border-[#E5E1D8] bg-white pl-9 text-sm focus:border-[#0F1B2D] focus:outline-none"
             />
           </div>
-          <p className="text-xs text-[#4A5568]">
-            Recommended for you · based on fintech, stage fit and capacity
-          </p>
-          {mentorships
-            .filter(
-              (s) =>
-                s.status === 'Active' &&
-                (!search || s.name.toLowerCase().includes(search.toLowerCase()))
-            )
-            .map((s) => (
-              <article key={s.id} className="rounded-xl border border-[#E5E1D8] bg-white p-5">
+
+          {phase === 'loading' ? (
+            <LoadingBlock label="Loading startups…" rows={3} />
+          ) : phase === 'error' ? (
+            <ErrorBlock message={loadError} onRetry={() => setReload((n) => n + 1)} />
+          ) : items.length === 0 ? (
+            <EmptyBlock
+              title={
+                searchTerm || stage ? 'No startups match these filters' : 'No startups to show'
+              }
+              hint={
+                searchTerm || stage
+                  ? 'Clear the search or stage filter to see all discoverable startups.'
+                  : 'Startups that opt in to mentor discovery will appear here.'
+              }
+            />
+          ) : (
+            items.map((s) => (
+              <article
+                key={s.slug}
+                className="rounded-xl border border-[#E5E1D8] bg-white p-5"
+              >
                 <div className="flex items-start gap-3">
                   <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#F3EBDD] font-serif text-lg font-semibold text-[#806236]">
-                    {s.logo}
+                    {(s.name || '?').slice(0, 1).toUpperCase()}
                   </span>
                   <div className="flex-1">
-                    <h2 className="font-semibold text-[#0F1B2D]">
-                      {s.name}{' '}
-                      <span className="ml-1 rounded-full bg-[#F3EBDD] px-2 py-1 text-xs text-[#806236]">
-                        <ShieldCheck className="mr-1 inline" size={11} />
-                        Verified
-                      </span>
-                    </h2>
-                    <p className="mt-1 text-xs text-[#4A5568]">{s.one}</p>
+                    <h2 className="font-semibold text-[#0F1B2D]">{s.name}</h2>
+                    <p className="mt-1 text-xs text-[#4A5568]">
+                      {s.tagline || 'No tagline added yet.'}
+                    </p>
                     <p className="mt-2 text-xs text-[#4A5568]">
-                      {s.stage} · {s.sector} · {s.location} · {s.team} team members
+                      {[STAGE_LABEL[s.stage] || s.stage, s.sector, s.city]
+                        .filter(Boolean)
+                        .join(' · ') || 'No profile details yet'}
                     </p>
                   </div>
-                  <span className="rounded-full bg-[#F3EBDD] px-2 py-1 text-xs font-semibold text-[#806236]">
-                    Fit · Strong
-                  </span>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs text-[#4A5568]">{s.fit}</p>
-                  <div className="flex gap-2">
-                    <Link
-                      href={`/mentor/startups/${s.id}/startup`}
-                      className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4]"
-                    >
-                      View
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSaved(
-                          saved.includes(s.id)
-                            ? saved.filter((x) => x !== s.id)
-                            : [...saved, s.id]
-                        )
-                      }
-                      className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4]"
-                    >
-                      {saved.includes(s.id) ? 'Saved' : 'Save'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelected(s);
-                        setModal('invite');
-                      }}
-                      className="rounded-lg bg-[#0F1B2D] px-3 py-2 text-xs font-semibold text-white hover:bg-[#1C2B42]"
-                    >
-                      Invite to mentorship
-                    </button>
-                  </div>
+                  <p className="text-xs text-[#4A5568]">
+                    {s.summary || 'No summary shared.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      notify(
+                        'Only startups can start a mentorship request. Your profile is visible to them here.',
+                      )
+                    }
+                    className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4]"
+                  >
+                    How requests work
+                  </button>
                 </div>
               </article>
-            ))}
+            ))
+          )}
         </div>
       </div>
-
-      {/* Invite Modal */}
-      {modal === 'invite' && (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-[#0F1B2D]/45 p-4">
-          <section
-            role="dialog"
-            aria-modal="true"
-            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
-          >
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="serif text-2xl font-semibold text-[#0F1B2D]">
-                Invite to mentorship
-              </h2>
-              <button
-                type="button"
-                onClick={() => setModal('')}
-                aria-label="Close"
-                className="text-[#4A5568] hover:text-[#0F1B2D]"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <p className="text-sm text-[#4A5568]">
-              Invite {selected?.name} to a mentorship. They decide whether to accept.
-            </p>
-            <label className="mt-4 block text-sm font-medium text-[#0F1B2D]">
-              Message (50–500 characters)
-              <textarea
-                minLength={50}
-                maxLength={500}
-                rows={4}
-                placeholder="Explain how your experience could help this startup…"
-                className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm focus:outline-none"
-              />
-            </label>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <label className="text-sm font-medium text-[#0F1B2D]">
-                Cadence
-                <select className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-2 focus:outline-none">
-                  <option>Fortnightly</option>
-                  <option>Weekly</option>
-                  <option>Monthly</option>
-                </select>
-              </label>
-              <label className="text-sm font-medium text-[#0F1B2D]">
-                Terms
-                <input
-                  aria-label="Input field"
-                  defaultValue="₹3,000 / session"
-                  className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-2 focus:outline-none"
-                />
-              </label>
-            </div>
-            <p className="mt-3 text-xs text-[#4A5568]">
-              3 invitations left today · Optional free intro call available.
-            </p>
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setModal('')}
-                className="min-h-10 px-4 text-sm font-medium text-[#4A5568] hover:text-[#0F1B2D]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  notify('Invitation sent.');
-                  setModal('');
-                }}
-                className="min-h-10 rounded-lg bg-[#0F1B2D] px-4 text-sm font-semibold text-white hover:bg-[#1C2B42]"
-              >
-                Send invitation
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
     </MentorPageShell>
   );
 }
