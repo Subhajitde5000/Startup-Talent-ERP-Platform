@@ -107,6 +107,22 @@ class Settings(BaseSettings):
     # it can walk the whole mentor table.
     MENTOR_SEARCH_LIMIT: int = 60
     MENTOR_SEARCH_WINDOW_SECONDS: int = 300
+    # Step 8b: asking a mentor to work with you. Low on purpose — a startup
+    # sends a handful of requests, a spammer would send hundreds.
+    MENTORSHIP_REQUEST_LIMIT: int = 10
+    MENTORSHIP_REQUEST_WINDOW_SECONDS: int = 300
+    # Step 8b: state transitions (accept/decline/cancel/end/pause/resume).
+    # Higher than requests: these are normal back-and-forth.
+    MENTORSHIP_ACTION_LIMIT: int = 60
+    MENTORSHIP_ACTION_WINDOW_SECONDS: int = 300
+    # Step 8c: the mentor's own availability grid is rewritten whole.
+    AVAILABILITY_WRITE_LIMIT: int = 30
+    AVAILABILITY_WRITE_WINDOW_SECONDS: int = 300
+    # Step 8d: sessions are scheduled far less often than requests.
+    SESSION_WRITE_LIMIT: int = 30
+    SESSION_WRITE_WINDOW_SECONDS: int = 300
+    # Step 8d: how far ahead a session may be booked.
+    SESSION_MAX_DAYS_AHEAD: int = 180
 
     # CORS: explicit allow-list only, never "*" with credentials.
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])

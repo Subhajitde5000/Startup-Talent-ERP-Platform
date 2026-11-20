@@ -3,6 +3,21 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { StartupSidebar, Btn, Card, SubNavTabs } from '../../../components';
 import { api, ApiError } from '@/lib/api/client';
+import { Toast } from '@/components';
+import {
+  EmptyBlock,
+  ErrorBlock,
+  FieldError,
+  LoadingBlock
+} from '@/components/async-state';
+import {
+  MENTORSHIP_STATUS_LABEL,
+  MENTORSHIP_STATUS_CHIP,
+  SESSION_STATUS_CHIP,
+  SESSION_STATUS_LABEL,
+  formatDate,
+  formatInstant
+} from '@/lib/mentorship-labels';
 import {
   Search,
   Bell,
@@ -100,32 +115,6 @@ const criteria = [
   'Data room complete',
 ];
 
-const sessionDetails = {
-  'session-01': {
-    title: 'Go-to-market and pricing',
-    sub: 'Confirmed · Thursday, November 12 · 4:00 PM · 45 minutes',
-    mentor: 'Rhea Mukherjee',
-    readinessItem: 'Business model and unit economics'
-  },
-  'sess-1': {
-    title: 'Go-to-market and pricing',
-    sub: 'Confirmed · Thursday, November 12 · 4:00 PM · 45 minutes',
-    mentor: 'Rhea Mukherjee',
-    readinessItem: 'Business model and unit economics'
-  },
-  'session-02': {
-    title: 'Unit economics review',
-    sub: 'Scheduled · Thursday, November 19 · 4:00 PM · 45 minutes',
-    mentor: 'Rhea Mukherjee',
-    readinessItem: 'Financial projections and runway'
-  },
-  'sess-2': {
-    title: 'Unit economics review',
-    sub: 'Scheduled · Thursday, November 19 · 4:00 PM · 45 minutes',
-    mentor: 'Rhea Mukherjee',
-    readinessItem: 'Financial projections and runway'
-  }
-};
 
 // ---- Step 5f: readiness page (real API) -------------------------------------
 // The only wired page in this shared file. Everything else here (overview,
@@ -137,6 +126,478 @@ const sessionDetails = {
 const EXPERTISE_OPTIONS = ['Fundraising', 'Product', 'Go-to-market', 'Finance', 'Hiring', 'Technology'];
 
 const READINESS_EDIT_ROLES = ['owner', 'admin', 'member'];
+
+// ---- Step 8d: the startup's own sessions -----------------------------------
+// Both blocks read the real API. `viewer_side` and `can_join` come from the
+// server, so the buttons shown here can never disagree with what the API
+// will actually allow.
+
+function SessionStatusChip({ status }) {
+  return (
+    <span
+      className={`inline-block rounded-full px-2 py-1 text-[10px] font-semibold ${
+        SESSION_STATUS_CHIP[status] || 'bg-[#F3F4F6] text-[#4A5568]'
+      }`}
+    >
+      {SESSION_STATUS_LABEL[status] || status}
+    </span>
+  );
+}
+
+function StartupSessionsBlock() {
+  const [tab, setTab] = useState('Upcoming');
+  const [toast, setToast] = useState('');
+  const [sessions, setSessions] = useState([]);
+  const [mentorships, setMentorships] = useState([]);
+  const [phase, setPhase] = useState('loading'); // loading|ready|error
+  const [loadError, setLoadError] = useState('');
+  const [reload, setReload] = useState(0);
+
+  const notify = (m) => {
+    setToast(m);
+    setTimeout(() => setToast(''), 2700);
+  };
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setPhase('loading');
+      setLoadError('');
+      try {
+        const [sessionPage, mentorshipPage] = await Promise.all([
+          api.sessions.list({ limit: 50 }),
+          api.mentorships.list({ side: 'startup', limit: 50 })
+        ]);
+        if (!alive) return;
+        setSessions(sessionPage.items);
+        setMentorships(mentorshipPage.items);
+        setPhase('ready');
+      } catch (err) {
+        if (!alive) return;
+        setLoadError(err instanceof ApiError ? err.message : 'Could not load your sessions.');
+        setPhase('error');
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [reload]);
+
+  const mentorshipById = new Map(mentorships.map(m => [m.id, m]));
+  const mentorOf = (s) => mentorshipById.get(s.mentorship_id)?.mentor;
+
+  const isUpcoming = (s) =>
+    s.status !== 'completed' &&
+    s.status !== 'cancelled' &&
+    s.status !== 'no_show' &&
+    new Date(s.scheduled_at).getTime() >= Date.now() - 60 * 60 * 1000;
+
+  const upcoming = sessions.filter(isUpcoming);
+  const past = sessions.filter(s => !isUpcoming(s));
+
+  const confirm = async (s) => {
+    try {
+      const updated = await api.sessions.confirm(s.id);
+      setSessions(prev => prev.map(x => (x.id === updated.id ? updated : x)));
+      notify('Session confirmed.');
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not confirm the session.');
+    }
+  };
+
+  const join = (s) => {
+    if (!s.can_join) {
+      notify('Join opens 10 minutes before the session.');
+      return;
+    }
+    if (!s.meeting_url) {
+      notify('No meeting link was added to this session.');
+      return;
+    }
+    window.open(s.meeting_url, '_blank', 'noopener,noreferrer');
+  };
+
+  const renderUpcoming = () => {
+    if (upcoming.length === 0) {
+      return (
+        <EmptyBlock
+          title="No upcoming sessions"
+          hint="When your mentor schedules a session, it appears here with a join link."
+        />
+      );
+    }
+    return (
+      <div className="space-y-3">
+        {upcoming.map((s) => {
+          const mentor = mentorOf(s);
+          return (
+            <article key={s.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-[#E5E1D8] bg-white p-5">
+              <div className="rounded-lg bg-[#F3EBDD] p-3 text-center">
+                <CalendarDays className="mx-auto mb-1 text-[#806236]" size={18} />
+                <b className="text-xs">{formatInstant(s.scheduled_at)}</b>
+                <small className="mt-1 block text-[10px] text-[#4A5568]">Asia/Kolkata</small>
+              </div>
+              <div className="min-w-[180px] flex-1">
+                <b className="text-sm">{s.topic || 'Session'}</b>
+                <p className="mt-1 text-xs text-[#4A5568]">
+                  {mentor?.display_name || 'Mentor'} · {s.duration_min} minutes
+                </p>
+                <div className="mt-2">
+                  <SessionStatusChip status={s.status} />
+                </div>
+              </div>
+              <Link href={`/startup/sessions/${s.id}`} className="text-xs font-semibold text-[#9A7A45] hover:underline">
+                Details
+              </Link>
+              {s.status === 'scheduled' ? (
+                <button
+                  type="button"
+                  onClick={() => confirm(s)}
+                  className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white"
+                >
+                  Confirm
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => join(s)}
+                  className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white"
+                >
+                  Join session
+                </button>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderPast = () => (
+    <Card title="Past sessions">
+      {past.length === 0 ? (
+        <EmptyBlock
+          title="No past sessions yet"
+          hint="Completed, cancelled and missed sessions will be listed here."
+        />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[500px] text-left text-xs">
+            <thead>
+              <tr className="border-b text-[#4A5568]">
+                <th className="py-3">Date</th>
+                <th>Mentor</th>
+                <th>Topic</th>
+                <th>Duration</th>
+                <th>Status</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {past.map((s) => (
+                <tr key={s.id} className="border-b">
+                  <td className="py-3">{formatInstant(s.scheduled_at)}</td>
+                  <td>{mentorOf(s)?.display_name || 'Mentor'}</td>
+                  <td>{s.topic || '—'}</td>
+                  <td>{s.duration_min} min</td>
+                  <td>{SESSION_STATUS_LABEL[s.status] || s.status}</td>
+                  <td>
+                    {s.summary ? (
+                      <Link href={`/startup/sessions/${s.id}`} className="font-semibold text-[#9A7A45]">
+                        Available
+                      </Link>
+                    ) : (
+                      'Missing'
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+
+  const body = () => {
+    if (phase === 'loading') return <LoadingBlock label="Loading your sessions…" rows={2} />;
+    if (phase === 'error') return <ErrorBlock message={loadError} onRetry={() => setReload(n => n + 1)} />;
+    if (tab === 'Calendar') return renderUpcoming();
+    return tab === 'Upcoming' ? renderUpcoming() : renderPast();
+  };
+
+  return (
+    <div>
+      {head(
+        'Sessions',
+        'Book, join and review your mentor conversations.',
+        <Link
+          href="/startup/mentors/find"
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white"
+        >
+          <Plus size={15} /> Find a mentor
+        </Link>
+      )}
+      {toast && <Toast message={toast} />}
+
+      <div className="mb-5 flex gap-2">
+        {['Upcoming', 'Past'].map(x => (
+          <button
+            onClick={() => setTab(x)}
+            key={x}
+            type="button"
+            className={`min-h-10 rounded-lg px-4 text-xs ${tab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
+          >
+            {x}
+          </button>
+        ))}
+      </div>
+
+      {body()}
+    </div>
+  );
+}
+
+function StartupSessionDetailBlock({ sessionId }) {
+  const [session, setSession] = useState(null);
+  const [mentorship, setMentorship] = useState(null);
+  const [phase, setPhase] = useState('loading'); // loading|ready|error|notfound
+  const [loadError, setLoadError] = useState('');
+  const [tab, setTab] = useState('Notes');
+  const [toast, setToast] = useState('');
+  const [notes, setNotes] = useState('');
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelErr, setCancelErr] = useState('');
+
+  const notify = (m) => {
+    setToast(m);
+    setTimeout(() => setToast(''), 2700);
+  };
+
+  useEffect(() => {
+    if (!sessionId) return undefined;
+    let alive = true;
+    (async () => {
+      setPhase('loading');
+      try {
+        const data = await api.sessions.get(sessionId);
+        if (!alive) return;
+        setSession(data);
+        try {
+          const m = await api.mentorships.get(data.mentorship_id);
+          if (alive) setMentorship(m);
+        } catch {
+          if (alive) setMentorship(null);
+        }
+        if (alive) setPhase('ready');
+      } catch (err) {
+        if (!alive) return;
+        if (err instanceof ApiError && err.status === 404) {
+          setPhase('notfound');
+          return;
+        }
+        setLoadError(err instanceof ApiError ? err.message : 'Could not load this session.');
+        setPhase('error');
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [sessionId]);
+
+  if (phase === 'loading') {
+    return <LoadingBlock label="Loading session…" rows={2} />;
+  }
+  if (phase === 'notfound') {
+    return (
+      <EmptyBlock title="Session not found" hint="It may have been removed, or you are not part of this mentorship.">
+        <Link href="/startup/sessions" className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
+          Back to sessions
+        </Link>
+      </EmptyBlock>
+    );
+  }
+  if (phase === 'error') {
+    return <ErrorBlock message={loadError} onRetry={() => window.location.reload()} />;
+  }
+
+  const mentor = mentorship?.mentor;
+  const isCancelled = session.status === 'cancelled';
+
+  const doCancel = async () => {
+    setCancelErr('');
+    if (cancelReason.trim().length < 3) {
+      setCancelErr('Please give a reason of at least 3 characters.');
+      return;
+    }
+    try {
+      const updated = await api.sessions.cancel(session.id, { reason: cancelReason.trim() });
+      setSession(updated);
+      setCancelOpen(false);
+      notify('Session cancelled.');
+    } catch (err) {
+      setCancelErr(err instanceof ApiError ? err.message : 'Could not cancel the session.');
+    }
+  };
+
+  return (
+    <div>
+      {head(
+        session.topic || 'Session',
+        `${formatInstant(session.scheduled_at)} IST · ${session.duration_min} minutes · ${session.session_type || 'Session'}`,
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              if (!session.can_join) {
+                notify('Join opens 10 minutes before the session.');
+                return;
+              }
+              if (!session.meeting_url) {
+                notify('No meeting link was added to this session.');
+                return;
+              }
+              window.open(session.meeting_url, '_blank', 'noopener,noreferrer');
+            }}
+            className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white"
+          >
+            <Video className="mr-2 inline" size={15} /> Join session
+          </button>
+          {!isCancelled && session.status !== 'completed' && (
+            <button
+              type="button"
+              onClick={() => setCancelOpen(true)}
+              className="min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
+            >
+              Cancel
+            </button>
+          )}
+        </>
+      )}
+      {toast && <Toast message={toast} />}
+
+      {isCancelled && (
+        <div className="mb-4 rounded-lg border border-[#F1C6C1] bg-[#FEF3F2] p-3 text-xs text-[#7A271A]">
+          This session was cancelled{session.cancelled_reason ? `: ${session.cancelled_reason}` : '.'}
+        </div>
+      )}
+
+      <div className="mb-5 flex gap-2">
+        {['Notes', 'Summary'].map(x => (
+          <button
+            key={x}
+            type="button"
+            onClick={() => setTab(x)}
+            className={`min-h-10 rounded-lg px-4 text-xs ${tab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
+          >
+            {x}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid items-start gap-5 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <Card title={tab}>
+            {tab === 'Notes' ? (
+              <>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  rows={10}
+                  placeholder="Capture decisions and action items…"
+                  className="w-full rounded-lg border border-[#E5E1D8] p-3 text-sm"
+                />
+                <p className="mt-3 text-xs text-[#4A5568]">
+                  Session notes are not stored yet — the notes API lands in a later step, so these
+                  stay on this page only.
+                </p>
+                {session.action_items.length > 0 && (
+                  <div className="mt-4 rounded-lg border border-[#E5E1D8] p-4">
+                    <h3 className="text-sm font-semibold">Action items from your mentor</h3>
+                    {session.action_items.map((item) => (
+                      <p key={item} className="mt-2 flex items-center gap-2 text-xs">
+                        <CheckCircle2 size={14} className="text-[#9A7A45]" />
+                        {item}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : session.summary ? (
+              <p className="whitespace-pre-line text-sm text-[#4A5568]">{session.summary}</p>
+            ) : (
+              <EmptyBlock
+                title="No summary yet"
+                hint="Your mentor records the summary after the session; it will appear here."
+              />
+            )}
+          </Card>
+        </div>
+
+        <aside className="space-y-5">
+          <Card title="Session details">
+            <p className="text-xs"><b>Mentor:</b> {mentor?.display_name || 'Mentor'}</p>
+            <p className="mt-2 text-xs">
+              <b>Attendees:</b>{' '}
+              {session.attendees.map(a => a.display_name).join(', ') || 'none yet'}
+            </p>
+            <p className="mt-2 text-xs"><b>Time zone:</b> Asia/Kolkata</p>
+            <p className="mt-2 text-xs"><b>Status:</b> {SESSION_STATUS_LABEL[session.status] || session.status}</p>
+            <p className="mt-4 rounded-lg bg-[#F3EBDD] p-3 text-xs">
+              Recording is off unless both sides consent before starting.
+            </p>
+          </Card>
+          {mentorship && (
+            <Card title="Mentorship">
+              <p className="text-xs text-[#4A5568]">
+                {MENTORSHIP_STATUS_LABEL[mentorship.status] || mentorship.status}
+                {mentorship.cadence ? ` · ${mentorship.cadence}` : ''}
+              </p>
+              <Link
+                href={`/startup/mentors/${mentorship.id}`}
+                className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]"
+              >
+                Open workspace <ArrowRight className="inline" size={12} />
+              </Link>
+            </Card>
+          )}
+        </aside>
+      </div>
+
+      {cancelOpen && (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-[#0F1B2D]/45 p-4">
+          <section role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="serif text-2xl font-semibold">Cancel session</h2>
+            <p className="mt-2 text-sm text-[#4A5568]">
+              Your mentor is notified. A reason is required.
+            </p>
+            <textarea
+              rows={3}
+              value={cancelReason}
+              onChange={e => setCancelReason(e.target.value)}
+              placeholder="Why is this session being cancelled?"
+              className="mt-3 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm"
+            />
+            {cancelErr && <FieldError>{cancelErr}</FieldError>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setCancelOpen(false)} className="min-h-10 px-4 text-sm">
+                Keep session
+              </button>
+              <button
+                type="button"
+                onClick={doCancel}
+                className="min-h-10 rounded-lg bg-[#B42318] px-4 text-sm font-semibold text-white"
+              >
+                Cancel session
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const READINESS_LABEL = {
   not_started: 'Not started',
@@ -184,7 +645,8 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
   const [status, setStatus] = useState(['Signed off', 'Signed off', 'Submitted for sign-off', 'In progress', 'Not started', 'Not started']);
   const [notes, setNotes] = useState('');
   const [visibility, setVisibility] = useState(false);
-  const [query, setQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [expertise, setExpertise] = useState('All expertise');
   const [saved, setSaved] = useState([]);
   const [profileRating, setProfileRating] = useState(0);
@@ -234,6 +696,22 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
   const [sort, setSort] = useState('relevance');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
 
+  // --- Step 8b: mentorship requests (startup side) ---------------------------
+  const [requests, setRequests] = useState([]); // MentorshipRead[]
+  const [requestsPhase, setRequestsPhase] = useState('loading'); // loading|ready|error
+  const [requestsError, setRequestsError] = useState('');
+  const [requestsReload, setRequestsReload] = useState(0);
+  const [withdrawingId, setWithdrawingId] = useState(null);
+
+  // Request mentorship modal state
+  const [targetMentor, setTargetMentor] = useState(null); // { handle, display_name }
+  const [requestGoal, setRequestGoal] = useState('');
+  const [requestNeeds, setRequestNeeds] = useState('');
+  const [requestCadence, setRequestCadence] = useState('Fortnightly');
+  const [requestTerms, setRequestTerms] = useState('');
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [requestFormError, setRequestFormError] = useState('');
+
   // The detail page reads one mentor by handle (the route param), never the
   // demo `mentor` object.
   const [profile, setProfile] = useState(null); // MentorDirectoryDetail
@@ -250,7 +728,6 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
   const mentor = mentors.find(m => m.id === mentorId || m.id === id) || mentors[0];
   const approved = status.filter(s => s === 'Signed off').length;
 
-  const currentSession = sessionDetails[id] || sessionDetails['session-01'];
 
   // Step 5f: load the readiness board only when this page is open, so no
   // Step 8 page pays for a request it does not use.
@@ -381,6 +858,12 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
 
   useEffect(() => {
     if (page !== 'find') return undefined;
+    const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [page, searchQuery]);
+
+  useEffect(() => {
+    if (page !== 'find') return undefined;
     let alive = true;
     setFindPhase('loading');
     setFindError('');
@@ -390,7 +873,8 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
           limit: 50,
           sort,
           ...(expertise !== 'All expertise' ? { expertise } : {}),
-          ...(industryTerm ? { q: industryTerm } : {}),
+          ...(industryTerm ? { sector: industryTerm } : {}),
+          ...(debouncedQuery ? { q: debouncedQuery } : {}),
           ...(verifiedOnly ? { verified_only: true } : {}),
           ...(price === 'free'
             ? { free_only: true }
@@ -408,7 +892,7 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
       }
     })();
     return () => { alive = false; };
-  }, [page, mentorReload, sort, expertise, industryTerm, verifiedOnly, price]);
+  }, [page, mentorReload, sort, expertise, industryTerm, debouncedQuery, verifiedOnly, price]);
 
   // The suggestions panel needs one of MY startups. A user with none simply
   // gets no panel — not an empty one pretending a match ran.
@@ -509,6 +993,125 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
     return () => { alive = false; };
   }, [page, id, mentorReload]);
 
+  // --- Step 8b: mentorship requests list (startup side) -----------------------
+  useEffect(() => {
+    if (page !== 'requests') return undefined;
+    let alive = true;
+    setRequestsPhase('loading');
+    setRequestsError('');
+    (async () => {
+      try {
+        const pageData = await api.mentorships.list({ side: 'startup', limit: 50 });
+        if (!alive) return;
+        setRequests(pageData.items);
+        setRequestsPhase('ready');
+      } catch (err) {
+        if (!alive) return;
+        setRequestsError(err instanceof ApiError ? err.message : 'Could not load mentorship requests.');
+        setRequestsPhase('error');
+      }
+    })();
+    return () => { alive = false; };
+  }, [page, requestsReload]);
+
+  const handleWithdraw = async (mentorshipId) => {
+    if (!mentorshipId || withdrawingId) return;
+    if (!window.confirm('Are you sure you want to withdraw this mentorship request?')) {
+      return;
+    }
+    setWithdrawingId(mentorshipId);
+    try {
+      await api.mentorships.cancel(mentorshipId, { note: 'Withdrawn by startup' });
+      notify('Mentorship request withdrawn.');
+      setRequestsReload(n => n + 1);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not withdraw request.');
+    } finally {
+      setWithdrawingId(null);
+    }
+  };
+
+  // Always resolve active startup organization so any page can initiate requests
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const orgs = await api.organizations.mine();
+        const org = orgs.find(o => o.type === 'startup') || orgs[0] || null;
+        if (!alive || !org) return;
+        setMentorOrgId(org.id);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const openRequestModal = (m) => {
+    setTargetMentor(m);
+    setRequestGoal('');
+    setRequestNeeds('');
+    setRequestCadence('Fortnightly');
+    setRequestTerms('');
+    setRequestFormError('');
+    setModal('request');
+  };
+
+  const handleSendRequest = async (e) => {
+    if (e) e.preventDefault();
+    if (!targetMentor || requestSubmitting) return;
+
+    const cleanGoal = requestGoal.trim();
+    if (cleanGoal.length < 10) {
+      setRequestFormError('Please describe your mentorship goal in at least 10 characters.');
+      return;
+    }
+
+    let orgId = mentorOrgId;
+    if (!orgId) {
+      try {
+        const orgs = await api.organizations.mine();
+        const org = orgs.find(o => o.type === 'startup') || orgs[0] || null;
+        if (org) {
+          orgId = org.id;
+          setMentorOrgId(org.id);
+        }
+      } catch {
+        // handle below
+      }
+    }
+
+    if (!orgId) {
+      setRequestFormError('You must belong to a startup organization to request mentorship.');
+      return;
+    }
+
+    const needsList = requestNeeds
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    setRequestSubmitting(true);
+    setRequestFormError('');
+    try {
+      await api.mentorships.create(orgId, {
+        mentor_handle: targetMentor.handle,
+        goal: cleanGoal,
+        ...(needsList.length ? { needs: needsList } : {}),
+        ...(requestCadence ? { cadence: requestCadence } : {}),
+        ...(requestTerms.trim() ? { terms: requestTerms.trim() } : {}),
+      });
+      notify(`Mentorship request sent to ${targetMentor.display_name}.`);
+      setModal('');
+      setRequestSent(true);
+      setRequestsReload(n => n + 1);
+    } catch (err) {
+      setRequestFormError(err instanceof ApiError ? err.message : 'Could not send mentorship request.');
+    } finally {
+      setRequestSubmitting(false);
+    }
+  };
+
   /** Money from NUMERIC -> string, with the row's own ISO currency. */
   const feeLabel = (m) => {
     if (!m.hourly_fee) return 'Free / pro bono';
@@ -606,7 +1209,7 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
           </Link>
           <button
             type="button"
-            onClick={() => { setModal('request'); }}
+            onClick={() => openRequestModal(m)}
             disabled={!m.accepting_requests}
             className="min-h-9 rounded-lg bg-ink px-3 text-xs font-semibold text-white disabled:opacity-50"
           >
@@ -918,26 +1521,70 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                 <p className="mt-4 text-[10px] leading-4 text-[#4A5568]">We do not filter by age, gender, religion, caste or nationality.</p>
               </aside>
 
-              <div className="space-y-3 lg:col-span-3">
-                <div className="flex justify-between text-xs text-[#4A5568]">
+              <div className="space-y-4 lg:col-span-3">
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search
+                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7B8CA3]"
+                    size={17}
+                    aria-hidden="true"
+                  />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Escape') {
+                        setSearchQuery('');
+                        setDebouncedQuery('');
+                      } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        setDebouncedQuery(searchQuery.trim());
+                      }
+                    }}
+                    placeholder="Search mentors by name, headline, bio, or skills…"
+                    aria-label="Search mentors"
+                    className="h-11 w-full rounded-xl border border-[#E5E1D8] bg-white pl-10 pr-10 text-sm placeholder-[#94A3B8] shadow-sm transition-colors focus:border-[#B8955A] focus:outline-none focus:ring-1 focus:ring-[#B8955A]"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setDebouncedQuery('');
+                      }}
+                      aria-label="Clear search"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#7B8CA3] transition-colors hover:bg-[#F3EBDD] hover:text-ink"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#4A5568]">
                   <span>
                     {findPhase === 'loading'
                       ? 'Loading mentors…'
                       : findPhase === 'error'
                       ? 'Mentors unavailable'
+                      : debouncedQuery
+                      ? `${visibleMentors.length} mentor${visibleMentors.length === 1 ? '' : 's'} matching "${debouncedQuery}"`
                       : `${visibleMentors.length} mentor${visibleMentors.length === 1 ? '' : 's'} match`}
                   </span>
-                  <select
-                    value={sort}
-                    onChange={e => setSort(e.target.value)}
-                    aria-label="Sort mentors"
-                    className="rounded border border-[#E5E1D8] bg-white px-2 py-1"
-                  >
-                    <option value="relevance">Best match</option>
-                    <option value="rating">Rating</option>
-                    <option value="price">Price</option>
-                    <option value="experience">Experience</option>
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-[#7B8CA3]">Sort by:</span>
+                    <select
+                      value={sort}
+                      onChange={e => setSort(e.target.value)}
+                      aria-label="Sort mentors"
+                      className="rounded-lg border border-[#E5E1D8] bg-white px-2.5 py-1 text-xs text-ink shadow-sm focus:border-[#B8955A] focus:outline-none"
+                    >
+                      <option value="relevance">Best match</option>
+                      <option value="rating">Rating</option>
+                      <option value="price">Price</option>
+                      <option value="experience">Experience</option>
+                    </select>
+                  </div>
                 </div>
 
                 {findPhase === 'loading' && (
@@ -962,8 +1609,28 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                 )}
                 {findPhase === 'ready' && directory.length === 0 && (
                   <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center text-sm text-[#4A5568]" role="status">
-                    No mentors are listed yet. Verified advisors appear here once their
-                    profiles are public.
+                    {debouncedQuery || industry || expertise !== 'All expertise' || price !== 'any' || verifiedOnly ? (
+                      <div className="flex flex-col items-center gap-3">
+                        <p>No mentors match your search and filter criteria.</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery('');
+                            setDebouncedQuery('');
+                            setIndustry('');
+                            setIndustryTerm('');
+                            setExpertise('All expertise');
+                            setPrice('any');
+                            setVerifiedOnly(false);
+                          }}
+                          className="min-h-9 rounded-lg border border-[#E5E1D8] bg-white px-4 text-xs font-semibold text-ink shadow-sm transition-colors hover:bg-[#F4F1EA]"
+                        >
+                          Clear search and filters
+                        </button>
+                      </div>
+                    ) : (
+                      'No mentors are listed yet. Verified advisors appear here once their profiles are public.'
+                    )}
                   </div>
                 )}
                 {findPhase === 'ready' && directory.length > 0 && visibleMentors.length === 0 && (
@@ -1126,7 +1793,7 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                       <p className="mt-3 rounded-lg bg-[#FAF8F4] p-3 text-xs">Platform fee and applicable taxes are shown before you confirm.</p>
                       <button
                         type="button"
-                        onClick={() => setModal('request')}
+                        onClick={() => openRequestModal(profile)}
                         disabled={!profile.accepting_requests}
                         className="mt-4 w-full rounded-lg bg-ink py-3 text-sm font-semibold text-white disabled:opacity-50"
                       >
@@ -1171,61 +1838,203 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
           </>
         )}
 
-        {page === 'requests' && (
-          <>
-            {head('Mentorship requests', 'Track requests and invitations in one place.', null)}
-            <div className="mb-4 flex gap-2">
-              {['Sent', 'Received', 'Past'].map(x => (
-                <button
-                  key={x}
-                  type="button"
-                  onClick={() => setRequestTab(x)}
-                  className={`min-h-10 rounded-lg px-4 text-xs ${requestTab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
-                >
-                  {x}
-                </button>
-              ))}
-            </div>
-            <Card title={`${requestTab} requests`}>
-              {requestTab === 'Sent' ? (
-                <div className="space-y-3">
-                  {[
-                    ['Rhea Mukherjee', 'Help validate our go-to-market and fundraising plan.', 'Active mentorship', 'Oct 21'],
-                    ['Arjun Mehta', 'Support us with product architecture and hiring.', 'Waiting · 2 days', 'Nov 03'],
-                  ].map(([n, g, s, d], i) => (
-                    <div key={n} className="flex flex-wrap items-center gap-3 rounded-lg border border-[#E5E1D8] p-4">
-                      <span className="grid h-11 w-11 place-items-center rounded-full bg-[#F3EBDD] font-semibold">
-                        {n.split(' ').map(x => x[0]).join('')}
+        {page === 'requests' && (() => {
+          const sentRequests = requests.filter(r => r.status === 'requested' || r.status === 'active' || r.status === 'paused');
+          const pastRequests = requests.filter(r => r.status === 'completed' || r.status === 'declined' || r.status === 'cancelled');
+
+          const requestTabs = [
+            { key: 'Sent', label: 'Sent', count: sentRequests.length },
+            { key: 'Received', label: 'Received', count: 0 },
+            { key: 'Past', label: 'Past', count: pastRequests.length },
+          ];
+
+          const renderRequestCard = (m) => {
+            const mentorName = m.mentor?.display_name || 'Mentor';
+            const mentorInitials = m.mentor?.avatar_initials || initialsFor(mentorName);
+            const statusLabel = MENTORSHIP_STATUS_LABEL[m.status] || m.status;
+            const statusChip = MENTORSHIP_STATUS_CHIP[m.status] || 'bg-[#F3F4F6] text-[#4A5568]';
+            const isPending = m.status === 'requested';
+            const isWithdrawing = withdrawingId === m.id;
+            const profileHref = m.mentor?.handle ? `/startup/mentors/find/${m.mentor.handle}` : null;
+            const viewHref = m.status === 'active' || m.status === 'paused'
+              ? `/startup/mentors/${m.id}`
+              : profileHref || `/startup/mentors/${m.id}`;
+
+            return (
+              <div
+                key={m.id}
+                className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#E5E1D8] bg-white p-4 transition-colors hover:border-[#D5C9B3]"
+              >
+                <div className="flex min-w-[240px] flex-1 items-start gap-3">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#F3EBDD] text-sm font-semibold text-ink">
+                    {mentorInitials}
+                  </span>
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {profileHref ? (
+                        <Link href={profileHref} className="text-sm font-semibold text-ink hover:underline">
+                          {mentorName}
+                        </Link>
+                      ) : (
+                        <b className="text-sm text-ink">{mentorName}</b>
+                      )}
+                      <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${statusChip}`}>
+                        {statusLabel}
                       </span>
-                      <span className="min-w-[180px] flex-1">
-                        <b className="block text-sm">{n}</b>
-                        <small className="text-xs text-[#4A5568]">{g}</small>
-                      </span>
-                      <span className={`rounded-full px-2 py-1 text-[10px] ${i ? 'bg-[#FFF3D6] text-[#8A5700]' : 'bg-[#E7F3EC] text-[#286749]'}`}>
-                        {s}
-                      </span>
-                      <small className="text-xs text-[#4A5568]">{d}</small>
-                      <Link href={`/startup/mentors/${i ? 'request-02' : 'mentorship-01'}`} className="text-xs font-semibold text-[#9A7A45]">
-                        View <ArrowRight className="inline" size={12} />
-                      </Link>
-                      <button type="button" onClick={() => notify('Request withdrawn.')} className="text-xs text-[#B42318]">
-                        Withdraw
-                      </button>
                     </div>
-                  ))}
+                    {m.goal && (
+                      <p className="text-xs text-[#4A5568] line-clamp-2">{m.goal}</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-[#7B8CA3]">
+                      {m.cadence && <span>Cadence: {m.cadence}</span>}
+                      {m.cadence && <span>·</span>}
+                      <span>Requested on {formatDate(m.created_at)}</span>
+                      {m.needs && m.needs.length > 0 && (
+                        <>
+                          <span>·</span>
+                          <span>Needs: {m.needs.slice(0, 3).join(', ')}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <div className="py-8 text-center">
-                  <p className="text-sm font-semibold">{requestTab === 'Received' ? 'No invitations received yet.' : 'No past requests.'}</p>
-                  <p className="mt-1 text-xs text-[#4A5568]">Your requests will be listed here.</p>
-                  <Link href="/startup/mentors/find" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
-                    Find a mentor
+
+                <div className="flex items-center gap-3">
+                  <Link
+                    href={viewHref}
+                    className="inline-flex items-center gap-1 rounded-lg border border-[#E5E1D8] bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-[#F4F1EA]"
+                  >
+                    View <ArrowRight size={12} />
                   </Link>
+                  {isPending && (
+                    <button
+                      type="button"
+                      disabled={isWithdrawing}
+                      onClick={() => handleWithdraw(m.id)}
+                      className="text-xs font-semibold text-[#B42318] hover:underline disabled:opacity-50"
+                    >
+                      {isWithdrawing ? 'Withdrawing…' : 'Withdraw'}
+                    </button>
+                  )}
                 </div>
+              </div>
+            );
+          };
+
+          return (
+            <>
+              {head(
+                'Mentorship requests',
+                'Track requests and invitations in one place.',
+                <Link
+                  href="/startup/mentors/find"
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-ink px-4 text-xs font-semibold text-white"
+                >
+                  <Search size={14} /> Find a mentor
+                </Link>
               )}
-            </Card>
-          </>
-        )}
+              <div className="mb-4 flex gap-2">
+                {requestTabs.map(t => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setRequestTab(t.key)}
+                    className={`min-h-10 rounded-lg px-4 text-xs font-medium transition-colors ${
+                      requestTab === t.key
+                        ? 'bg-ink text-white'
+                        : 'border border-[#E5E1D8] bg-white text-[#4A5568] hover:border-[#D5C9B3]'
+                    }`}
+                  >
+                    {t.label}
+                    {requestsPhase === 'ready' && t.key !== 'Received' ? (
+                      <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] ${
+                        requestTab === t.key ? 'bg-white/20 text-white' : 'bg-[#F4F1EA] text-[#4A5568]'
+                      }`}>
+                        {t.count}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+              <Card title={`${requestTab} requests`}>
+                {requestsPhase === 'loading' && (
+                  <div className="space-y-3" aria-busy="true" role="status">
+                    {[0, 1].map(i => (
+                      <div key={i} className="h-24 animate-pulse rounded-xl bg-[#F4F1EA]" />
+                    ))}
+                    <span className="sr-only">Loading mentorship requests…</span>
+                  </div>
+                )}
+                {requestsPhase === 'error' && (
+                  <div className="py-8 text-center" role="alert">
+                    <p className="text-sm text-[#9A3A3A]">{requestsError || 'Could not load mentorship requests.'}</p>
+                    <button
+                      type="button"
+                      onClick={() => setRequestsReload(n => n + 1)}
+                      className="mt-3 min-h-9 rounded-lg bg-ink px-4 text-xs font-semibold text-white"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+                {requestsPhase === 'ready' && (
+                  <>
+                    {requestTab === 'Sent' && (
+                      sentRequests.length > 0 ? (
+                        <div className="space-y-3">
+                          {sentRequests.map(renderRequestCard)}
+                        </div>
+                      ) : (
+                        <div className="py-12 text-center" role="status">
+                          <p className="text-sm font-semibold">No mentorship requests sent yet.</p>
+                          <p className="mt-1 text-xs text-[#4A5568]">
+                            Browse verified advisors and send requests tailored to your startup's needs.
+                          </p>
+                          <Link
+                            href="/startup/mentors/find"
+                            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white"
+                          >
+                            <Search size={13} /> Find a mentor
+                          </Link>
+                        </div>
+                      )
+                    )}
+
+                    {requestTab === 'Received' && (
+                      <div className="py-12 text-center" role="status">
+                        <p className="text-sm font-semibold">No invitations received yet.</p>
+                        <p className="mt-1 text-xs text-[#4A5568]">
+                          Mentors currently do not send inbound invitations; browse the directory to find and request a mentor.
+                        </p>
+                        <Link
+                          href="/startup/mentors/find"
+                          className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white"
+                        >
+                          <Search size={13} /> Find a mentor
+                        </Link>
+                      </div>
+                    )}
+
+                    {requestTab === 'Past' && (
+                      pastRequests.length > 0 ? (
+                        <div className="space-y-3">
+                          {pastRequests.map(renderRequestCard)}
+                        </div>
+                      ) : (
+                        <div className="py-12 text-center" role="status">
+                          <p className="text-sm font-semibold">No past requests.</p>
+                          <p className="mt-1 text-xs text-[#4A5568]">
+                            Completed, declined, and withdrawn mentorships will appear here.
+                          </p>
+                        </div>
+                      )
+                    )}
+                  </>
+                )}
+              </Card>
+            </>
+          );
+        })()}
 
         {page === 'workspace' && (
           <>
@@ -1410,201 +2219,9 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
           </>
         )}
 
-        {page === 'sessions' && (
-          <>
-            {head(
-              'Sessions',
-              'Book, join and review your mentor conversations.',
-              <Btn onClick={() => setModal('book')}><Plus size={15} /> Book session</Btn>
-            )}
-            <div className="mb-5 flex gap-2">
-              {['Upcoming', 'Past', 'Calendar'].map(x => (
-                <button
-                  onClick={() => setSessionTab(x)}
-                  key={x}
-                  type="button"
-                  className={`min-h-10 rounded-lg px-4 text-xs ${sessionTab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
-                >
-                  {x}
-                </button>
-              ))}
-            </div>
+        {page === 'sessions' && <StartupSessionsBlock />}
 
-            {sessionTab === 'Calendar' ? (
-              <Card title="November 2026">
-                <div className="grid grid-cols-7 gap-px bg-[#E5E1D8]">
-                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', ...Array.from({ length: 35 }, (_, i) => String(i + 1))].map((x, i) => (
-                    <div key={i} className={`min-h-16 bg-white p-2 text-xs ${i < 7 ? 'font-semibold text-[#4A5568]' : ''}`}>
-                      {x}{i === 18 && <small className="mt-1 block rounded bg-[#F3EBDD] p-1 text-[9px]">Mentor session</small>}
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            ) : sessionTab === 'Upcoming' ? (
-              <div className="space-y-3">
-                {[
-                  ['Nov 12 · 4:00 PM', 'Rhea Mukherjee', 'Go-to-market and pricing', '45 minutes', 'Confirmed', 'session-01'],
-                  ['Nov 19 · 4:00 PM', 'Rhea Mukherjee', 'Unit economics review', '45 minutes', 'Scheduled', 'session-02'],
-                ].map(([d, n, t, dur, s, sessId], i) => (
-                  <article key={d} className="flex flex-wrap items-center gap-4 rounded-xl border border-[#E5E1D8] bg-white p-5">
-                    <div className="rounded-lg bg-[#F3EBDD] p-3 text-center">
-                      <CalendarDays className="mx-auto mb-1 text-[#806236]" size={18} />
-                      <b className="text-xs">{d}</b>
-                      <small className="mt-1 block text-[10px] text-[#4A5568]">Asia/Kolkata</small>
-                    </div>
-                    <div className="min-w-[180px] flex-1">
-                      <b className="text-sm">{t}</b>
-                      <p className="mt-1 text-xs text-[#4A5568]">{n} · {dur}</p>
-                      <span className="mt-2 inline-block rounded-full bg-[#E7F3EC] px-2 py-1 text-[10px] text-[#286749]">{s}</span>
-                    </div>
-                    <Link href={`/startup/sessions/${sessId}`} className="text-xs font-semibold text-[#9A7A45] hover:underline">
-                      Details
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => notify(i === 0 ? 'Join opens 10 minutes before the session.' : 'Reschedule request sent.')}
-                      className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white"
-                    >
-                      {i === 0 ? 'Join session' : 'Reschedule'}
-                    </button>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <Card title="Past sessions">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[500px] text-left text-xs">
-                    <thead>
-                      <tr className="border-b text-[#4A5568]">
-                        <th className="py-3">Date</th>
-                        <th>Mentor</th>
-                        <th>Topic</th>
-                        <th>Duration</th>
-                        <th>Notes</th>
-                        <th>Rating</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        ['Oct 28', 'Rhea Mukherjee', 'Customer interview synthesis', '45 min', 'Available', '5 stars'],
-                        ['Oct 14', 'Rhea Mukherjee', 'Prototype test plan', '45 min', 'Available', '5 stars'],
-                      ].map(r => (
-                        <tr key={r[0]} className="border-b">
-                          <td className="py-3">{r[0]}</td>
-                          {r.slice(1).map((x, i) => (
-                            <td key={i}>{x}</td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            )}
-          </>
-        )}
-
-        {page === 'session' && (
-          <>
-            {head(
-              currentSession.title,
-              currentSession.sub,
-              <>
-                <button type="button" onClick={() => notify('Join opens 10 minutes before session.')} className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white">
-                  <Video className="mr-2 inline" size={15} /> Join session
-                </button>
-                <button type="button" onClick={() => notify('Reschedule request sent.')} className="min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm">
-                  Reschedule
-                </button>
-              </>
-            )}
-            <div className="mb-5 flex gap-2">
-              {['Agenda', 'Notes', 'Files', 'Recording', 'Feedback'].map(x => (
-                <button
-                  key={x}
-                  type="button"
-                  onClick={() => setTab(x)}
-                  className={`min-h-10 rounded-lg px-4 text-xs ${tab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
-                >
-                  {x}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid items-start gap-5 xl:grid-cols-3">
-              <div className="xl:col-span-2">
-                <Card title={tab}>
-                  {tab === 'Agenda' ? (
-                    <>
-                      <p className="text-sm text-[#4A5568]">Shared agenda · add topics before the meeting.</p>
-                      <ul className="mt-4 space-y-3">
-                        {['Review interview insights', 'Discuss pricing options', 'Agree next experiments'].map((x, i) => (
-                          <li key={x} className="flex items-center gap-3 rounded-lg bg-[#FAF8F4] p-3 text-sm">
-                            <span className="grid h-6 w-6 place-items-center rounded-full bg-[#F3EBDD] text-xs">{i + 1}</span>
-                            {x}
-                          </li>
-                        ))}
-                      </ul>
-                      <button type="button" onClick={() => notify('Agenda item added.')} className="mt-4 text-xs font-semibold text-[#9A7A45]">
-                        + Add agenda item
-                      </button>
-                    </>
-                  ) : tab === 'Notes' ? (
-                    <>
-                      <textarea
-                        value={notes}
-                        onChange={e => setNotes(e.target.value)}
-                        rows={10}
-                        placeholder="Capture decisions and action items…"
-                        className="w-full rounded-lg border border-[#E5E1D8] p-3 text-sm"
-                      />
-                      <button type="button" onClick={() => notify('Session notes saved.')} className="mt-3 rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white">
-                        Save notes
-                      </button>
-                    </>
-                  ) : tab === 'Files' ? (
-                    <button type="button" onClick={() => notify('Vault file picker opened.')} className="rounded-lg border border-dashed border-[#E5E1D8] p-6 text-xs">
-                      Share a document for the session <Upload className="ml-2 inline" size={15} />
-                    </button>
-                  ) : tab === 'Recording' ? (
-                    <p className="rounded-lg bg-[#FAF8F4] p-4 text-sm">Recording was off. No recording is stored.</p>
-                  ) : (
-                    <>
-                      <p className="text-sm">How useful was this session?</p>
-                      <div className="my-3 flex gap-2">
-                        {[1, 2, 3, 4, 5].map(n => (
-                          <button key={n} type="button" aria-label={`${n} stars`} onClick={() => setProfileRating(n)}>
-                            <Star size={24} className={n <= profileRating ? 'fill-[#B8955A] text-[#B8955A]' : 'text-[#A0A7B4]'} />
-                          </button>
-                        ))}
-                      </div>
-                      <textarea rows={4} placeholder="Share optional feedback" className="w-full rounded-lg border border-[#E5E1D8] p-3 text-sm" />
-                      <button type="button" onClick={() => notify('Feedback submitted. Thank you.')} className="mt-3 rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white">
-                        Submit feedback
-                      </button>
-                    </>
-                  )}
-                </Card>
-              </div>
-
-              <aside className="space-y-5">
-                <Card title="Session details">
-                  <p className="text-xs"><b>Mentor:</b> {currentSession.mentor}</p>
-                  <p className="mt-2 text-xs"><b>Attendees:</b> Aarav Kapoor, Priya Menon</p>
-                  <p className="mt-2 text-xs"><b>Time zone:</b> Asia/Kolkata</p>
-                  <p className="mt-4 rounded-lg bg-[#F3EBDD] p-3 text-xs">Recording is off unless both sides consent before starting.</p>
-                </Card>
-
-                <Card title="Readiness items discussed">
-                  <p className="text-xs text-[#4A5568]">{currentSession.readinessItem}</p>
-                  <button type="button" onClick={() => notify('Sign-off request sent to mentor.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
-                    Request sign-off <ArrowRight className="inline" size={12} />
-                  </button>
-                </Card>
-              </aside>
-            </div>
-          </>
-        )}
+        {page === 'session' && <StartupSessionDetailBlock sessionId={id} />}
 
         {page === 'readiness' && (
           <>
@@ -1964,7 +2581,7 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                 {modal === 'match'
                   ? 'Find your mentor match'
                   : modal === 'request'
-                  ? 'Request mentorship'
+                  ? `Request mentorship${targetMentor?.display_name ? ` · ${targetMentor.display_name}` : ''}`
                   : modal === 'book'
                   ? 'Book a mentor session'
                   : 'Book intro call'}
@@ -2032,6 +2649,92 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                   </ul>
                 )}
               </div>
+            ) : modal === 'request' ? (
+              <form onSubmit={handleSendRequest} className="space-y-4">
+                {requestFormError && (
+                  <div className="rounded-lg border border-[#F3C4C4] bg-[#FDECEC] p-3 text-xs text-[#A33A3A]" role="alert">
+                    {requestFormError}
+                  </div>
+                )}
+                {targetMentor && (
+                  <div className="rounded-lg border border-[#E5E1D8] bg-[#FAF8F4] p-3">
+                    <p className="text-xs text-[#7B8CA3]">Advisor</p>
+                    <b className="text-sm text-ink">{targetMentor.display_name}</b>
+                    {targetMentor.headline && (
+                      <p className="mt-0.5 text-xs text-[#4A5568]">{targetMentor.headline}</p>
+                    )}
+                  </div>
+                )}
+                <label className="block text-sm font-medium">
+                  Your mentorship goal <span className="text-[#B42318]">*</span>
+                  <textarea
+                    required
+                    minLength={10}
+                    maxLength={500}
+                    rows={3}
+                    value={requestGoal}
+                    onChange={e => setRequestGoal(e.target.value)}
+                    placeholder="What outcome would you like to work toward? (10–500 characters)"
+                    className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm focus:border-[#B8955A] focus:outline-none"
+                  />
+                  <span className="mt-1 block text-right text-[11px] text-[#7B8CA3]">
+                    {requestGoal.length} / 500 characters
+                  </span>
+                </label>
+                <label className="block text-sm font-medium">
+                  Top needs
+                  <input
+                    value={requestNeeds}
+                    onChange={e => setRequestNeeds(e.target.value)}
+                    placeholder="e.g. pricing, customer research, fundraising (comma-separated)"
+                    className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm focus:border-[#B8955A] focus:outline-none"
+                  />
+                </label>
+                <label className="block text-sm font-medium">
+                  Preferred cadence
+                  <select
+                    value={requestCadence}
+                    onChange={e => setRequestCadence(e.target.value)}
+                    className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm focus:border-[#B8955A] focus:outline-none"
+                  >
+                    <option value="Fortnightly">Fortnightly</option>
+                    <option value="Weekly">Weekly</option>
+                    <option value="Monthly">Monthly</option>
+                  </select>
+                </label>
+                <label className="block text-sm font-medium">
+                  Message / Context (optional)
+                  <textarea
+                    rows={2}
+                    maxLength={2000}
+                    value={requestTerms}
+                    onChange={e => setRequestTerms(e.target.value)}
+                    placeholder="Introduce your startup and provide any context for the mentor"
+                    className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm focus:border-[#B8955A] focus:outline-none"
+                  />
+                </label>
+                <p className="rounded-lg bg-[#FAF8F4] p-3 text-xs text-[#4A5568]">
+                  Session fee and any proposed advisory terms will be confirmed before you accept.
+                </p>
+
+                <div className="mt-6 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    disabled={requestSubmitting}
+                    onClick={() => setModal('')}
+                    className="min-h-10 px-4 text-sm font-medium text-[#4A5568] hover:text-ink disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={requestSubmitting || requestGoal.trim().length < 10}
+                    className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                  >
+                    {requestSubmitting ? 'Sending request…' : 'Send request'}
+                  </button>
+                </div>
+              </form>
             ) : (
               <div className="space-y-4">
                 <label className="block text-sm font-medium">
@@ -2076,39 +2779,41 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
               </div>
             )}
 
-            <div className="mt-6 flex justify-end gap-2">
-              <button type="button" onClick={() => setModal('')} className="min-h-10 px-4 text-sm">
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (modal === 'match') {
-                    if (matchPhase === 'ready') {
-                      setModal('');
-                      setMatchPhase('idle');
+            {modal !== 'request' && (
+              <div className="mt-6 flex justify-end gap-2">
+                <button type="button" onClick={() => setModal('')} className="min-h-10 px-4 text-sm">
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (modal === 'match') {
+                      if (matchPhase === 'ready') {
+                        setModal('');
+                        setMatchPhase('idle');
+                      } else {
+                        runMatch();
+                      }
                     } else {
-                      runMatch();
+                      setRequestSent(true);
+                      setModal('');
+                      notify('Mentorship request sent.');
                     }
-                  } else {
-                    setRequestSent(true);
-                    setModal('');
-                    notify('Mentorship request sent.');
-                  }
-                }}
-                className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white"
-              >
-                {modal === 'match'
-                  ? matchPhase === 'ready'
-                    ? 'Done'
-                    : matchPhase === 'loading'
-                    ? 'Finding…'
-                    : 'See matches'
-                  : modal === 'book'
-                  ? 'Confirm booking'
-                  : 'Send request'}
-              </button>
-            </div>
+                  }}
+                  className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white"
+                >
+                  {modal === 'match'
+                    ? matchPhase === 'ready'
+                      ? 'Done'
+                      : matchPhase === 'loading'
+                      ? 'Finding…'
+                      : 'See matches'
+                    : modal === 'book'
+                    ? 'Confirm booking'
+                    : 'Send request'}
+                </button>
+              </div>
+            )}
           </section>
         </div>
       )}

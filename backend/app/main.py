@@ -18,16 +18,19 @@ from app.db.session import engine
 from app.routers import (
     analytics,
     auth,
+    availability,
     dashboard,
     discovery,
     invites,
     market,
     mentor,
+    mentorship,
     metrics,
     milestones,
     organizations,
     public,
     readiness,
+    session,
     skills,
     stage,
     startup_profile,
@@ -119,6 +122,17 @@ def create_app() -> FastAPI:
     # suggestions. Same service as /mentor-profile, separate path space.
     app.include_router(mentor.directory_router, prefix=settings.API_V1_PREFIX)
     app.include_router(mentor.org_router, prefix=settings.API_V1_PREFIX)
+    # Step 8b: mentorship requests. `org_router` carries the org-scoped
+    # create (POST /organizations/{id}/mentorships) in house style.
+    app.include_router(mentorship.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(mentorship.org_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(mentorship.mentor_router, prefix=settings.API_V1_PREFIX)
+    # Step 8c: mentor weekly availability + the bookable-slot read.
+    app.include_router(availability.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(availability.public_router, prefix=settings.API_V1_PREFIX)
+    # Step 8d: mentoring sessions.
+    app.include_router(session.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(session.mentorship_router, prefix=settings.API_V1_PREFIX)
     app.include_router(public.router, prefix=settings.API_V1_PREFIX)
     # Step 5h: the startup discovery list. /public/startups (list) and
     # /public/startups/{slug} (detail, in public.py) differ in segment
