@@ -13,10 +13,13 @@ from app.db.base import Base
 from app.models import (  # noqa: F401  (register models for autogenerate)
     analytics,
     auth,
+    availability,
+    mentorship,
     metric,
     milestone,
     profile,
     readiness,
+    session,
     stage,
     startup,
     task,

@@ -297,6 +297,27 @@ async def get_mentor(db: AsyncSession, handle: str) -> MentorDirectoryDetail | N
     return _detail(user, profile)
 
 
+async def resolve_visible_mentor_id(
+    db: AsyncSession, handle: str
+) -> uuid.UUID | None:
+    """The user id behind a visible mentor handle, or ``None``.
+
+    Added for Step 8c: availability is keyed by ``users.id``, but the
+    directory deliberately never exposes a mentor's UUID (the handle is the
+    public key). Rather than put a second visibility rule in
+    ``availability_service``, this reuses ``_base_query`` so "visible" means
+    exactly what it means on the mentor page — a hidden profile resolves to
+    ``None`` and the caller turns that into the same 404.
+    """
+    return (
+        await db.execute(
+            select(User.id).join(MentorProfile, MentorProfile.user_id == User.id).where(
+                _is_visible(), User.handle == handle
+            )
+        )
+    ).scalar_one_or_none()
+
+
 @dataclass(frozen=True)
 class _StartupContext:
     """The startup's own declared data — the ONLY inputs to a suggestion.

@@ -143,6 +143,56 @@ export type MentorDirectoryDetail = components["schemas"]["MentorDirectoryDetail
 export type MentorDirectoryPage = components["schemas"]["MentorDirectoryPage"];
 export type MentorSuggestionItem = components["schemas"]["MentorSuggestionItem"];
 export type MentorSuggestionPage = components["schemas"]["MentorSuggestionPage"];
+// Step 5h discovery read, reused by the mentor Discover page (Step 8b).
+export type StartupDiscoveryItem = components["schemas"]["StartupDiscoveryItem"];
+export type StartupDiscoveryPage = components["schemas"]["StartupDiscoveryPage"];
+
+// --- Steps 8b / 8c / 8d: mentorships, availability, sessions --------------
+export type MentorshipStatus = components["schemas"]["MentorshipStatus"];
+export type MentorshipParticipant = components["schemas"]["MentorshipParticipant"];
+export type MentorshipRead = components["schemas"]["MentorshipRead"];
+export type MentorshipPage = components["schemas"]["MentorshipPage"];
+export type MentorshipCreate = components["schemas"]["MentorshipCreate"];
+export type MentorshipUpdate = components["schemas"]["MentorshipUpdate"];
+export type MentorshipEnd = components["schemas"]["MentorshipEnd"];
+export type MentorshipStateChange = components["schemas"]["MentorshipStateChange"];
+export type AvailabilitySlotIn = components["schemas"]["AvailabilitySlotIn"];
+export type AvailabilitySlotRead = components["schemas"]["AvailabilitySlotRead"];
+export type AvailabilityWeekIn = components["schemas"]["AvailabilityWeekIn"];
+export type AvailabilityWeekRead = components["schemas"]["AvailabilityWeekRead"];
+export type BookableSlot = components["schemas"]["BookableSlot"];
+export type BookableSlotsRead = components["schemas"]["BookableSlotsRead"];
+export type SessionStatus = components["schemas"]["SessionStatus"];
+export type SessionAttendeeIn = components["schemas"]["SessionAttendeeIn"];
+export type SessionAttendeeRead = components["schemas"]["SessionAttendeeRead"];
+export type SessionCreate = components["schemas"]["SessionCreate"];
+export type SessionReschedule = components["schemas"]["SessionReschedule"];
+export type SessionCancel = components["schemas"]["SessionCancel"];
+export type SessionComplete = components["schemas"]["SessionComplete"];
+export type SessionNoShow = components["schemas"]["SessionNoShow"];
+export type SessionRead = components["schemas"]["SessionRead"];
+export type SessionPage = components["schemas"]["SessionPage"];
+
+/** Whitelisted filters for `startups.discover` (Step 5h). */
+export type StartupDiscoveryQuery = {
+  limit?: number;
+  offset?: number;
+  sort?: "recent" | "name" | "stage";
+  order?: "asc" | "desc";
+  stage?: StartupStage;
+  sector?: string;
+  city?: string;
+  q?: string;
+};
+
+/** Whitelisted filters for `mentorships.list` (Step 8b). */
+export type MentorshipListQuery = {
+  side?: "mentor" | "startup";
+  status?: MentorshipStatus;
+  org_id?: string;
+  limit?: number;
+  offset?: number;
+};
 
 /** Whitelisted filters for `metrics.list` (`period_from`/`period_to` inclusive). */
 export type MetricListQuery = {
@@ -740,6 +790,26 @@ export const api = {
       ),
   },
 
+  /**
+   * Step 5h discovery: the signed-in startup directory. A mentor's roles
+   * widen what they see, which is exactly the audience `/mentor/discover`
+   * needs, so it reuses this read instead of growing a second one.
+   */
+  startups: {
+    /** `GET /startups` — filters/sorts are whitelisted server-side. */
+    discover: (query: StartupDiscoveryQuery = {}, signal?: AbortSignal) =>
+      apiRequest<StartupDiscoveryPage>("/startups", { method: "GET", query, signal }),
+
+    /** `GET /public/startups` — the same read, anonymously, public rows only. */
+    discoverPublic: (query: StartupDiscoveryQuery = {}, signal?: AbortSignal) =>
+      apiRequest<StartupDiscoveryPage>("/public/startups", {
+        method: "GET",
+        query,
+        signal,
+        auth: false,
+      }),
+  },
+
   startupProfile: {
     /** Member shape; created on demand for a startup org (Step 5a). */
     get: (orgId: string, signal?: AbortSignal) =>
@@ -1305,5 +1375,229 @@ export const api = {
         `/organizations/${orgId}/competitors/${competitorId}`,
         { method: "DELETE" },
       ),
+  },
+
+  /**
+   * Step 8b: mentorship requests and engagements.
+   *
+   * One resource, two sides. `viewer_side` on every row says which side the
+   * caller is on, so the UI never has to compare user ids. An outsider gets
+   * 404 (not 403) — the API will not confirm a mentorship exists.
+   */
+  mentorships: {
+    /**
+     * `GET /mentorships` — my mentorships on one side. A mentor lists with
+     * `side: "mentor"`; a startup member with `side: "startup"`.
+     */
+    list: (query: MentorshipListQuery = {}, signal?: AbortSignal) =>
+      apiRequest<MentorshipPage>("/mentorships", { method: "GET", query, signal }),
+
+    /** `GET /mentorships/{id}` — participant only; otherwise 404. */
+    get: (mentorshipId: string, signal?: AbortSignal) =>
+      apiRequest<MentorshipRead>(`/mentorships/${mentorshipId}`, {
+        method: "GET",
+        signal,
+      }),
+
+    /**
+     * `POST /organizations/{orgId}/mentorships` — a startup asks a mentor.
+     * Owner/admin/member (viewer 403). 409 when the mentor is not accepting
+     * or a mentorship already exists.
+     */
+    create: (orgId: string, body: MentorshipCreate) =>
+      apiRequest<MentorshipRead>(`/organizations/${orgId}/mentorships`, {
+        method: "POST",
+        body,
+      }),
+
+    /** `PATCH /mentorships/{id}` — the startup revises a pending request. */
+    update: (mentorshipId: string, body: MentorshipUpdate) =>
+      apiRequest<MentorshipRead>(`/mentorships/${mentorshipId}`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /** `POST …/accept` — mentor only; 409 unless the row is `requested`. */
+    accept: (mentorshipId: string, body: MentorshipStateChange = {}) =>
+      apiRequest<MentorshipRead>(`/mentorships/${mentorshipId}/accept`, {
+        method: "POST",
+        body,
+      }),
+
+    /** `POST …/decline` — mentor only. */
+    decline: (mentorshipId: string, body: MentorshipStateChange = {}) =>
+      apiRequest<MentorshipRead>(`/mentorships/${mentorshipId}/decline`, {
+        method: "POST",
+        body,
+      }),
+
+    /** `POST …/cancel` — either side withdraws. */
+    cancel: (mentorshipId: string, body: MentorshipStateChange = {}) =>
+      apiRequest<MentorshipRead>(`/mentorships/${mentorshipId}/cancel`, {
+        method: "POST",
+        body,
+      }),
+
+    /** `POST …/end` — either side completes the engagement. */
+    end: (mentorshipId: string, body: MentorshipEnd = {}) =>
+      apiRequest<MentorshipRead>(`/mentorships/${mentorshipId}/end`, {
+        method: "POST",
+        body,
+      }),
+
+    /** `POST …/pause` — either side; 409 unless `active`. */
+    pause: (mentorshipId: string, body: MentorshipStateChange = {}) =>
+      apiRequest<MentorshipRead>(`/mentorships/${mentorshipId}/pause`, {
+        method: "POST",
+        body,
+      }),
+
+    /** `POST …/resume` — either side; 409 unless `paused`. */
+    resume: (mentorshipId: string, body: MentorshipStateChange = {}) =>
+      apiRequest<MentorshipRead>(`/mentorships/${mentorshipId}/resume`, {
+        method: "POST",
+        body,
+      }),
+
+    /**
+     * `GET /mentor/startups` — the mentor's own startups, every status.
+     * Mentors only; the mentor workspace's "My startups" page reads this.
+     */
+    mentorStartups: (
+      query: { limit?: number; offset?: number } = {},
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<MentorshipPage>("/mentor/startups", { method: "GET", query, signal }),
+  },
+
+  /**
+   * Step 8c: a mentor's weekly availability.
+   *
+   * The read returns local wall-clock windows plus the IANA zone; only
+   * `slots` returns concrete bookable instants, and those are the only thing
+   * a session may be booked against.
+   */
+  availability: {
+    /** `GET /mentor/availability` — my week. */
+    mine: (signal?: AbortSignal) =>
+      apiRequest<AvailabilityWeekRead>("/mentor/availability", {
+        method: "GET",
+        signal,
+      }),
+
+    /**
+     * `PUT /mentor/availability` — atomic weekly replace. `slots: []` clears
+     * the week; the overlap checks run before anything is deleted.
+     */
+    replaceWeek: (body: AvailabilityWeekIn) =>
+      apiRequest<AvailabilityWeekRead>("/mentor/availability", {
+        method: "PUT",
+        body,
+      }),
+
+    /** `POST /mentor/availability` — add one window; 409 on overlap. */
+    addSlot: (body: AvailabilitySlotIn) =>
+      apiRequest<AvailabilitySlotRead>("/mentor/availability", {
+        method: "POST",
+        body,
+      }),
+
+    /** `DELETE /mentor/availability/{slotId}` — 404 if not mine. */
+    removeSlot: (slotId: string) =>
+      apiRequest<void>(`/mentor/availability/${slotId}`, { method: "DELETE" }),
+
+    /**
+     * `GET /mentors/{handle}/slots` — concrete free instants, computed from
+     * the weekly template minus booked sessions. This is the ONLY source the
+     * scheduling picker may offer, so a client can never book a taken slot.
+     */
+    slots: (
+      handle: string,
+      query: { from?: string; days?: number } = {},
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<BookableSlotsRead>(
+        `/mentors/${encodeURIComponent(handle)}/slots`,
+        { method: "GET", query, signal },
+      ),
+
+    /** `GET /mentors/{handle}/availability` — another mentor's published week. */
+    mentorWeek: (handle: string, signal?: AbortSignal) =>
+      apiRequest<AvailabilityWeekRead>(
+        `/mentors/${encodeURIComponent(handle)}/availability`,
+        { method: "GET", signal },
+      ),
+  },
+
+  /**
+   * Step 8d: mentoring sessions.
+   *
+   * `viewer_side` decides which actions to offer and `can_join` is computed
+   * server-side, so the client never guesses whether a join link is live.
+   */
+  sessions: {
+    /** `GET /sessions` — mine, newest scheduled first. */
+    list: (
+      query: { upcoming?: boolean; limit?: number; offset?: number } = {},
+      signal?: AbortSignal,
+    ) => apiRequest<SessionPage>("/sessions", { method: "GET", query, signal }),
+
+    /** `GET /sessions/{id}` — participant only; otherwise 404. */
+    get: (sessionId: string, signal?: AbortSignal) =>
+      apiRequest<SessionRead>(`/sessions/${sessionId}`, { method: "GET", signal }),
+
+    /** `GET /mentorships/{id}/sessions` — one engagement's sessions. */
+    forMentorship: (
+      mentorshipId: string,
+      query: { limit?: number; offset?: number } = {},
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<SessionPage>(`/mentorships/${mentorshipId}/sessions`, {
+        method: "GET",
+        query,
+        signal,
+      }),
+
+    /**
+     * `POST /mentorships/{id}/sessions` — schedule. `scheduled_at` must carry
+     * a timezone offset; 409 `SLOT_TAKEN` when the instant is double-booked.
+     */
+    create: (mentorshipId: string, body: SessionCreate) =>
+      apiRequest<SessionRead>(`/mentorships/${mentorshipId}/sessions`, {
+        method: "POST",
+        body,
+      }),
+
+    /** `POST …/confirm` — either side confirms a scheduled session. */
+    confirm: (sessionId: string) =>
+      apiRequest<SessionRead>(`/sessions/${sessionId}/confirm`, { method: "POST" }),
+
+    /** `POST …/reschedule` — 409 when the new instant is taken. */
+    reschedule: (sessionId: string, body: SessionReschedule) =>
+      apiRequest<SessionRead>(`/sessions/${sessionId}/reschedule`, {
+        method: "POST",
+        body,
+      }),
+
+    /** `POST …/cancel` — reason is required (min 3 chars). */
+    cancel: (sessionId: string, body: SessionCancel) =>
+      apiRequest<SessionRead>(`/sessions/${sessionId}/cancel`, {
+        method: "POST",
+        body,
+      }),
+
+    /** `POST …/complete` — mentor only; writes the summary + action items. */
+    complete: (sessionId: string, body: SessionComplete) =>
+      apiRequest<SessionRead>(`/sessions/${sessionId}/complete`, {
+        method: "POST",
+        body,
+      }),
+
+    /** `POST …/no-show` — mentor only; 409 before the session starts. */
+    noShow: (sessionId: string, body: SessionNoShow = {}) =>
+      apiRequest<SessionRead>(`/sessions/${sessionId}/no-show`, {
+        method: "POST",
+        body,
+      }),
   },
 };
