@@ -201,6 +201,74 @@ STEP3B_MENTOR = {
     "cadence": "Next 2 weeks",
 }
 
+# Step 8a demo mentors (moved out of the wired mentor directory's inline
+# `mentors` array). Only the fields the directory card and detail page
+# render: expertise/sectors/languages are JSON lists, and no stage attribute
+# exists yet (8a plan D-1), so none is invented here.
+STEP8A_MENTORS: list[dict[str, object]] = [
+    {
+        "email": "rhea@forma.dev",
+        "display_name": "Rhea Mukherjee",
+        "handle": "rhea_mukherjee",
+        "region": "Kolkata, India",
+        "headline": "Go-to-market advisor · 2 exits",
+        "bio": (
+            "I work with early-stage founders to shape a clear go-to-market "
+            "strategy, validate pricing and build an investor-ready story. My "
+            "approach is structured, candid and focused on practical next steps."
+        ),
+        "expertise": ["Go-to-market", "Fundraising", "SaaS"],
+        "sectors": ["Fintech", "B2B SaaS"],
+        "languages": ["English", "Bengali", "Hindi"],
+        "years_experience": 14,
+        "hourly_fee": 3000,
+        "cadence": "Weekly",
+        "rating": 4.9,
+        "sessions_completed": 140,
+        "is_verified": True,
+    },
+    {
+        "email": "arjun@forma.dev",
+        "display_name": "Arjun Mehta",
+        "handle": "arjun_mehta",
+        "region": "Bengaluru, India",
+        "headline": "Former CTO · 1 successful exit",
+        "bio": (
+            "I help technical founders move from prototype to a resilient "
+            "product with a clear engineering roadmap and a high-trust early team."
+        ),
+        "expertise": ["Technology", "Product", "Hiring"],
+        "sectors": ["SaaS", "Marketplace"],
+        "languages": ["English", "Hindi"],
+        "years_experience": 18,
+        "hourly_fee": 4500,
+        "cadence": "Fortnightly",
+        "rating": 4.8,
+        "sessions_completed": 215,
+        "is_verified": True,
+    },
+    {
+        "email": "naina@forma.dev",
+        "display_name": "Naina Roy",
+        "handle": "naina_roy",
+        "region": "Mumbai, India",
+        "headline": "Finance operator · 12 startups advised",
+        "bio": (
+            "I support founders with unit economics, runway planning and "
+            "financial models that are clear to both teams and investors."
+        ),
+        "expertise": ["Finance", "Fundraising", "Operations"],
+        "sectors": ["Fintech", "Climate"],
+        "languages": ["English", "Hindi", "Marathi"],
+        "years_experience": 11,
+        "hourly_fee": 0,
+        "cadence": "Monthly",
+        "rating": 5.0,
+        "sessions_completed": 98,
+        "is_verified": False,
+    },
+]
+
 # Step 5a demo startup profile (moved out of the wired startup-profile
 # page's inline seed data). Visibility is public so /public/startups/{slug}
 # serves it in development. Fill-only: never overwrites an existing row.
@@ -563,6 +631,12 @@ SEED_USERS = [
     # Step 5e: a read-only workspace member, so the viewer path (reads yes,
     # writes 403) can be exercised on /startup/analytics in development.
     ("viewer@forma.dev", "Nisha Rao", UserRole.startup, True),
+    # Step 8a: the mentor directory. Three more mentors so
+    # /startup/mentors/find shows a real list with different expertise,
+    # sectors and prices instead of a single row.
+    ("rhea@forma.dev", "Rhea Mukherjee", UserRole.mentor, True),
+    ("arjun@forma.dev", "Arjun Mehta", UserRole.mentor, True),
+    ("naina@forma.dev", "Naina Roy", UserRole.mentor, True),
 ]
 
 
@@ -1409,6 +1483,59 @@ async def seed() -> None:
                 mentor_added = 1
                 await db.commit()
 
+        # Step 8a: the demo mentor directory. Profile fields are only filled
+        # on the rows that do not have a MentorProfile yet, so dev edits are
+        # never clobbered on a re-run (same idempotency rule as 3c above).
+        mentors8a_added = 0
+        for spec in STEP8A_MENTORS:
+            mentor_user = (
+                await db.execute(
+                    select(User).where(User.primary_email == spec["email"])
+                )
+            ).scalar_one_or_none()
+            if mentor_user is None:
+                continue
+            # The directory key is the handle: without one the mentor is
+            # listed but unreachable by /mentors/{handle}. Filled only when
+            # empty so a dev who edited their handle keeps it.
+            if mentor_user.handle is None:
+                mentor_user.handle = spec["handle"]
+            if mentor_user.region is None:
+                mentor_user.region = spec["region"]
+            existing = (
+                await db.execute(
+                    select(MentorProfile).where(
+                        MentorProfile.user_id == mentor_user.id
+                    )
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                continue
+            db.add(
+                MentorProfile(
+                    user_id=mentor_user.id,
+                    headline=spec["headline"],
+                    bio=spec["bio"],
+                    expertise=spec["expertise"],
+                    sectors=spec["sectors"],
+                    languages=spec["languages"],
+                    years_experience=spec["years_experience"],
+                    hourly_fee=spec["hourly_fee"],
+                    cadence=spec["cadence"],
+                    rating=spec["rating"],
+                    sessions_completed=spec["sessions_completed"],
+                    # Server-owned in production (admin verification, 8i
+                    # rating recompute); seeded only so the dev directory
+                    # has a verified/unverified mix to exercise the filter.
+                    is_verified=spec["is_verified"],
+                    accepting_requests=True,
+                )
+            )
+            mentors8a_added += 1
+        # Commit unconditionally: handles/regions above may be the only
+        # change on a re-run where every profile already exists.
+        await db.commit()
+
     await engine.dispose()
 
     print("Seeded (dev only):")
@@ -1429,6 +1556,7 @@ async def seed() -> None:
     print(f"  + task labels (5d): {labels_added}")
     print(f"  + task label links (5d): {task_label_links_added}")
     print(f"  + readiness items (5f): {readiness_added}")
+    print(f"  + mentor directory profiles (8a): {mentors8a_added}")
     print(f"  + stage tool progress (5i/5j): {tools_added}")
     print(f"  + market size (5l): {market_added}")
     print(f"  + competitors (5l): {competitors_added}")

@@ -131,6 +131,11 @@ const sessionDetails = {
 // The only wired page in this shared file. Everything else here (overview,
 // find, requests, sessions, workspace, billing) is Step 8 and stays on demo
 // data until then.
+// Step 8a: the expertise facets the directory offers. The API matches these
+// exactly against mentor_profiles.expertise, so the list is the demo page's
+// original set — the ones the seeded mentors actually carry.
+const EXPERTISE_OPTIONS = ['Fundraising', 'Product', 'Go-to-market', 'Finance', 'Hiring', 'Technology'];
+
 const READINESS_EDIT_ROLES = ['owner', 'admin', 'member'];
 
 const READINESS_LABEL = {
@@ -201,6 +206,39 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
   const [readinessFormErr, setReadinessFormErr] = useState('');
   const [readinessBusy, setReadinessBusy] = useState(false); // any in-flight write
   const readinessAlive = useRef(true);
+
+  // --- Step 8a: the mentor directory (read-only) ---------------------------
+  // `findPhase` starts 'loading' for the same reason as readinessPhase: the
+  // effect runs after first paint, and an 'idle' start would flash an empty
+  // grid under the page header.
+  const [directory, setDirectory] = useState([]); // MentorDirectoryItem[]
+  const [findPhase, setFindPhase] = useState('loading'); // loading|ready|error
+  const [findError, setFindError] = useState('');
+  // The org the suggestions panel belongs to; '' means "no startup yet".
+  const [mentorOrgId, setMentorOrgId] = useState('');
+  const [suggestions, setSuggestions] = useState([]); // MentorSuggestionItem[]
+  const [suggestPhase, setSuggestPhase] = useState('idle'); // idle|loading|ready|error
+  // The "Auto-match me" dialog re-runs the same ranked call so its results and
+  // the banner can never disagree.
+  const [matchPhase, setMatchPhase] = useState('idle'); // idle|loading|ready|error|no-org
+  const [matchError, setMatchError] = useState('');
+  const [suggestError, setSuggestError] = useState('');
+  const [mentorReload, setMentorReload] = useState(0);
+  // The filter sidebar's own controls (Step 8a). Filtering happens through
+  // the API, so these drive a refetch rather than a client-side .filter().
+  const [industry, setIndustry] = useState('');
+  // The Industry box is free text but the list call is rate-limited
+  // (60 / 5 min per user), so keystrokes must not each fire a request.
+  const [industryTerm, setIndustryTerm] = useState('');
+  const [price, setPrice] = useState('any');
+  const [sort, setSort] = useState('relevance');
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+
+  // The detail page reads one mentor by handle (the route param), never the
+  // demo `mentor` object.
+  const [profile, setProfile] = useState(null); // MentorDirectoryDetail
+  const [profilePhase, setProfilePhase] = useState('loading'); // loading|ready|error|notfound
+  const [profileError, setProfileError] = useState('');
 
   const notify = (s) => {
     setToast(s);
@@ -334,6 +372,167 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
       fieldFor: item.criterion_id
     });
 
+  // --- Step 8a: directory, detail and suggestions ---------------------------
+  useEffect(() => {
+    if (page !== 'find') return undefined;
+    const t = setTimeout(() => setIndustryTerm(industry.trim()), 350);
+    return () => clearTimeout(t);
+  }, [page, industry]);
+
+  useEffect(() => {
+    if (page !== 'find') return undefined;
+    let alive = true;
+    setFindPhase('loading');
+    setFindError('');
+    (async () => {
+      try {
+        const pageData = await api.mentors.list({
+          limit: 50,
+          sort,
+          ...(expertise !== 'All expertise' ? { expertise } : {}),
+          ...(industryTerm ? { q: industryTerm } : {}),
+          ...(verifiedOnly ? { verified_only: true } : {}),
+          ...(price === 'free'
+            ? { free_only: true }
+            : price !== 'any'
+            ? { max_fee: Number(price) }
+            : {})
+        });
+        if (!alive) return;
+        setDirectory(pageData.items);
+        setFindPhase('ready');
+      } catch (err) {
+        if (!alive) return;
+        setFindError(err instanceof ApiError ? err.message : 'Could not load mentors.');
+        setFindPhase('error');
+      }
+    })();
+    return () => { alive = false; };
+  }, [page, mentorReload, sort, expertise, industryTerm, verifiedOnly, price]);
+
+  // The suggestions panel needs one of MY startups. A user with none simply
+  // gets no panel — not an empty one pretending a match ran.
+  useEffect(() => {
+    if (page !== 'find') return undefined;
+    let alive = true;
+    setSuggestPhase('loading');
+    setSuggestError('');
+    (async () => {
+      let org = null;
+      try {
+        const orgs = await api.organizations.mine();
+        org = orgs.find(o => o.type === 'startup') || null;
+      } catch (err) {
+        if (!alive) return;
+        setSuggestError(err instanceof ApiError ? err.message : 'Could not load your startup.');
+        setSuggestPhase('error');
+        return;
+      }
+      if (!alive) return;
+      if (!org) {
+        setMentorOrgId('');
+        setSuggestions([]);
+        setSuggestPhase('idle');
+        return;
+      }
+      setMentorOrgId(org.id);
+      try {
+        const data = await api.mentors.suggestions(org.id, { limit: 6 });
+        if (!alive) return;
+        setSuggestions(data.items);
+        setSuggestPhase('ready');
+      } catch (err) {
+        if (!alive) return;
+        // 403 = the caller is not an active member of that startup (a
+        // jobseeker, say). Suggestions are a bonus, not the page, so the
+        // panel is simply absent for them rather than an error banner.
+        if (err instanceof ApiError && err.status === 403) {
+          setSuggestions([]);
+          setSuggestPhase('idle');
+          return;
+        }
+        setSuggestError(err instanceof ApiError ? err.message : 'Could not load suggestions.');
+        setSuggestPhase('error');
+      }
+    })();
+    return () => { alive = false; };
+  }, [page, mentorReload]);
+
+  /**
+   * "See matches" — the only write-free action the directory owns. Refetches
+   * the ranked list and mirrors it into the banner state, then renders the
+   * server's own match_reasons. No count is invented: if the list is empty the
+   * dialog says so.
+   */
+  const runMatch = async () => {
+    if (!mentorOrgId) {
+      setMatchPhase('no-org');
+      return;
+    }
+    setMatchPhase('loading');
+    setMatchError('');
+    try {
+      const data = await api.mentors.suggestions(mentorOrgId, { limit: 6 });
+      setSuggestions(data.items);
+      setSuggestPhase('ready');
+      setMatchPhase('ready');
+    } catch (err) {
+      setMatchError(err instanceof ApiError ? err.message : 'Could not load suggestions.');
+      setMatchPhase('error');
+    }
+  };
+
+  // The detail page: one mentor by the route handle.
+  useEffect(() => {
+    if (page !== 'mentor-profile') return undefined;
+    let alive = true;
+    setProfilePhase('loading');
+    setProfileError('');
+    (async () => {
+      try {
+        const data = await api.mentors.get(id);
+        if (!alive) return;
+        setProfile(data);
+        setProfilePhase('ready');
+      } catch (err) {
+        if (!alive) return;
+        // 404 covers both "no such mentor" and "hidden by profile_public" —
+        // the API does not distinguish them, so neither do we.
+        if (err instanceof ApiError && err.status === 404) {
+          setProfilePhase('notfound');
+          return;
+        }
+        setProfileError(err instanceof ApiError ? err.message : 'Could not load this mentor.');
+        setProfilePhase('error');
+      }
+    })();
+    return () => { alive = false; };
+  }, [page, id, mentorReload]);
+
+  /** Money from NUMERIC -> string, with the row's own ISO currency. */
+  const feeLabel = (m) => {
+    if (!m.hourly_fee) return 'Free / pro bono';
+    try {
+      return `${new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: m.currency || 'INR',
+        maximumFractionDigits: 0
+      }).format(Number(m.hourly_fee))} / hour`;
+    } catch {
+      return `${m.hourly_fee} / hour`;
+    }
+  };
+
+  /**
+   * The server already filtered, so this is only the "nothing matched these
+   * filters" guard — it must not re-filter, or the count and the cards could
+   * disagree with the API.
+   */
+  const visibleMentors = directory;
+
+  const initialsFor = (name) =>
+    (name || '?').split(' ').map(x => x[0]).filter(Boolean).slice(0, 2).join('');
+
   const head = (title, sub, action) => (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
@@ -345,47 +544,73 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
     </div>
   );
 
+  // Step 8a: a real mentor card. `m` is a MentorDirectoryItem (optionally a
+  // MentorSuggestionItem, which adds match_reasons).
+  // Deliberately ABSENT: the review count (8i has no table yet) and the next
+  // free slot (8c has no availability table) — both are hidden rather than
+  // filled with plausible-looking numbers.
   const mentorCard = (m) => (
-    <article key={m.id} className="rounded-xl border border-[#E5E1D8] bg-white p-5 transition hover:border-[#A0A7B4]">
+    <article key={m.handle} className="rounded-xl border border-[#E5E1D8] bg-white p-5 transition hover:border-[#A0A7B4]">
       <div className="flex items-start gap-4">
         <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[#F3EBDD] font-serif text-xl font-semibold text-[#806236]">
-          {m.name.split(' ').map(x => x[0]).join('')}
+          {initialsFor(m.display_name)}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-semibold">{m.name}</h2>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#F3EBDD] px-2 py-1 text-[10px] font-semibold text-[#806236]">
-              <CheckCircle2 size={12} /> Verified mentor
-            </span>
+            <h2 className="font-semibold">{m.display_name}</h2>
+            {m.is_verified && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#F3EBDD] px-2 py-1 text-[10px] font-semibold text-[#806236]">
+                <CheckCircle2 size={12} /> Verified mentor
+              </span>
+            )}
           </div>
           <p className="mt-1 text-xs text-[#4A5568]">{m.headline}</p>
           <p className="mt-1 text-xs">
-            <Star className="mr-1 inline fill-[#B8955A] text-[#B8955A]" size={13} />
-            {m.rating} <span className="text-[#4A5568]">({m.reviews} verified reviews)</span>
+            {m.rating != null ? (
+              <>
+                <Star className="mr-1 inline fill-[#B8955A] text-[#B8955A]" size={13} />
+                {m.rating}
+                <span className="text-[#4A5568]">
+                  {m.sessions_completed > 0 ? ` · ${m.sessions_completed} sessions` : ''}
+                </span>
+              </>
+            ) : (
+              <span className="text-[#4A5568]">Not yet rated</span>
+            )}
           </p>
+          {m.location && (
+            <p className="mt-1 text-xs text-[#4A5568]">
+              <MapPin className="mr-1 inline" size={12} />{m.location}
+            </p>
+          )}
         </div>
       </div>
-      <p className="mt-3 text-xs leading-5 text-[#4A5568]">{m.why}</p>
+      {/* Why this mentor surfaced. On the suggestions list these are real
+          server-computed reasons; the plain directory has none, so the line
+          is omitted rather than filled with invented copy. */}
+      {(m.match_reasons || []).length > 0 && (
+        <p className="mt-3 text-xs leading-5 text-[#4A5568]">{m.match_reasons.join(' · ')}</p>
+      )}
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {m.expertise.map(t => (
+        {(m.expertise || []).map(t => (
           <span key={t} className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[10px]">{t}</span>
         ))}
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E1D8] pt-3">
         <span className="text-xs">
-          <b>{m.price}</b>
-          <small className="ml-2 text-[#4A5568]">Next free: {m.next}</small>
+          <b>{feeLabel(m)}</b>
         </span>
         <div className="flex gap-2">
-          <Link href={`/startup/mentors/find/${m.id}`} className="inline-flex min-h-9 items-center rounded-lg border border-[#E5E1D8] px-3 text-xs font-semibold">
+          <Link href={`/startup/mentors/find/${m.handle}`} className="inline-flex min-h-9 items-center rounded-lg border border-[#E5E1D8] px-3 text-xs font-semibold">
             View profile
           </Link>
           <button
             type="button"
-            onClick={() => { setModal('request'); setTab(m.id); }}
-            className="min-h-9 rounded-lg bg-ink px-3 text-xs font-semibold text-white"
+            onClick={() => { setModal('request'); }}
+            disabled={!m.accepting_requests}
+            className="min-h-9 rounded-lg bg-ink px-3 text-xs font-semibold text-white disabled:opacity-50"
           >
-            Request mentorship
+            {m.accepting_requests ? 'Request mentorship' : 'Not accepting'}
           </button>
         </div>
       </div>
@@ -604,70 +829,149 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
               </>
             )}
 
-            <div className="mb-5 rounded-xl border border-[#E7D4B0] bg-[#F3EBDD] p-4 text-sm">
-              <b>Recommended for Acme Studio</b>
-              <p className="mt-1 text-xs text-[#4A5568]">Matched by stage, industry and your fundraising readiness goals. You choose whether to contact anyone.</p>
-            </div>
+            {/* Step 8a: real suggestions for THIS startup. The panel states
+                plainly that stage is not a matching attribute yet (the API
+                returns stage_filter_applied:false) instead of implying one. */}
+            {suggestPhase === 'ready' && suggestions.length > 0 && (
+              <div className="mb-5 rounded-xl border border-[#E7D4B0] bg-[#F3EBDD] p-4 text-sm">
+                <b>Recommended for your startup</b>
+                <p className="mt-1 text-xs text-[#4A5568]">
+                  Ranked by what you told us you need. You choose whether to contact anyone.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {suggestions.slice(0, 3).map(s => (
+                    <Link
+                      key={s.handle}
+                      href={`/startup/mentors/find/${s.handle}`}
+                      className="rounded-full border border-[#E7D4B0] bg-white px-3 py-1 text-xs font-semibold"
+                    >
+                      {s.display_name}
+                      {s.match_reasons?.length ? <span className="ml-1 font-normal text-[#4A5568]">· {s.match_reasons[0]}</span> : null}
+                    </Link>
+                  ))}
+                </div>
+                {suggestions[0]?.match_reasons?.length ? null : (
+                  <p className="mt-2 text-[11px] text-[#4A5568]">
+                    No specific matches yet — these are mentors open to requests.
+                  </p>
+                )}
+              </div>
+            )}
+            {suggestPhase === 'error' && (
+              <div className="mb-5 rounded-xl border border-[#E5E1D8] bg-white p-3 text-xs text-[#9A3A3A]" role="alert">
+                {suggestError}
+              </div>
+            )}
 
             <div className="grid items-start gap-5 lg:grid-cols-4">
               <aside className="rounded-xl border border-[#E5E1D8] bg-white p-5">
                 <h2 className="font-semibold">Filters</h2>
                 <label className="mt-4 block text-xs font-medium">
                   Expertise
-                  <select value={expertise} onChange={e => setExpertise(e.target.value)} className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3">
+                  <select
+                    value={expertise}
+                    onChange={e => setExpertise(e.target.value)}
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3"
+                  >
                     <option>All expertise</option>
-                    {['Fundraising', 'Product', 'Go-to-market', 'Finance', 'Hiring', 'Technology'].map(x => (
+                    {EXPERTISE_OPTIONS.map(x => (
                       <option key={x}>{x}</option>
                     ))}
                   </select>
                 </label>
                 <label className="mt-4 block text-xs font-medium">
                   Industry
-                  <input placeholder="Fintech, SaaS…" className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3" />
+                  <input
+                    value={industry}
+                    onChange={e => setIndustry(e.target.value)}
+                    placeholder="Fintech, SaaS…"
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3"
+                  />
                 </label>
-                <label className="mt-4 block text-xs font-medium">
-                  Stage fit
-                  <select className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3">
-                    <option>Prototype</option>
-                    <option>Idea</option>
-                    <option>Early revenue</option>
-                  </select>
-                </label>
-                <label className="mt-4 block text-xs font-medium">
-                  Availability
-                  <select className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3">
-                    <option>This month</option>
-                    <option>This week</option>
-                    <option>Any time</option>
-                  </select>
-                </label>
+                {/* "Stage fit" and "Availability" are hidden (Step 8a plan):
+                    mentors have no stage attribute yet (8a D-1) and no
+                    availability table until 8c, so both controls had nothing
+                    to filter on. Showing them would be a control that
+                    silently does nothing. */}
                 <label className="mt-4 block text-xs font-medium">
                   Price
-                  <select className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3">
-                    <option>Any price</option>
-                    <option>Free / pro bono</option>
-                    <option>Under ₹3,000 / hour</option>
+                  <select
+                    value={price}
+                    onChange={e => setPrice(e.target.value)}
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3"
+                  >
+                    <option value="any">Any price</option>
+                    <option value="free">Free / pro bono</option>
+                    <option value="3000">Under ₹3,000 / hour</option>
+                    <option value="6000">Under ₹6,000 / hour</option>
                   </select>
                 </label>
                 <label className="mt-4 flex gap-2 text-xs">
-                  <input type="checkbox" defaultChecked className="accent-ink" />Verified mentors only
+                  <input
+                    type="checkbox"
+                    checked={verifiedOnly}
+                    onChange={e => setVerifiedOnly(e.target.checked)}
+                    className="accent-ink"
+                  />
+                  Verified mentors only
                 </label>
                 <p className="mt-4 text-[10px] leading-4 text-[#4A5568]">We do not filter by age, gender, religion, caste or nationality.</p>
               </aside>
 
               <div className="space-y-3 lg:col-span-3">
                 <div className="flex justify-between text-xs text-[#4A5568]">
-                  <span>{mentors.filter(m => expertise === 'All expertise' || m.expertise.includes(expertise)).length} verified mentors match</span>
-                  <select className="rounded border border-[#E5E1D8] bg-white px-2 py-1">
-                    <option>Best match</option>
-                    <option>Rating</option>
-                    <option>Price</option>
-                    <option>Soonest available</option>
+                  <span>
+                    {findPhase === 'loading'
+                      ? 'Loading mentors…'
+                      : findPhase === 'error'
+                      ? 'Mentors unavailable'
+                      : `${visibleMentors.length} mentor${visibleMentors.length === 1 ? '' : 's'} match`}
+                  </span>
+                  <select
+                    value={sort}
+                    onChange={e => setSort(e.target.value)}
+                    aria-label="Sort mentors"
+                    className="rounded border border-[#E5E1D8] bg-white px-2 py-1"
+                  >
+                    <option value="relevance">Best match</option>
+                    <option value="rating">Rating</option>
+                    <option value="price">Price</option>
+                    <option value="experience">Experience</option>
                   </select>
                 </div>
-                {mentors
-                  .filter(m => expertise === 'All expertise' || m.expertise.includes(expertise))
-                  .map(mentorCard)}
+
+                {findPhase === 'loading' && (
+                  <div className="space-y-3" aria-busy="true" role="status">
+                    {[0, 1].map(i => (
+                      <div key={i} className="h-40 animate-pulse rounded-xl bg-[#F4F1EA]" />
+                    ))}
+                    <span className="sr-only">Loading mentors…</span>
+                  </div>
+                )}
+                {findPhase === 'error' && (
+                  <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center" role="alert">
+                    <p className="text-sm text-[#4A5568]">{findError}</p>
+                    <button
+                      type="button"
+                      onClick={() => setMentorReload(n => n + 1)}
+                      className="mt-3 min-h-9 rounded-lg bg-ink px-4 text-sm font-semibold text-white"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+                {findPhase === 'ready' && directory.length === 0 && (
+                  <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center text-sm text-[#4A5568]" role="status">
+                    No mentors are listed yet. Verified advisors appear here once their
+                    profiles are public.
+                  </div>
+                )}
+                {findPhase === 'ready' && directory.length > 0 && visibleMentors.length === 0 && (
+                  <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center text-sm text-[#4A5568]" role="status">
+                    No mentors match these filters. Try widening them.
+                  </div>
+                )}
+                {findPhase === 'ready' && visibleMentors.map(mentorCard)}
               </div>
             </div>
           </>
@@ -675,110 +979,195 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
 
         {page === 'mentor-profile' && (
           <>
-            {head(
-              mentor.name,
-              mentor.headline,
-              <Link href="/startup/mentors/find" className="text-sm text-[#9A7A45]">
-                ← Back to mentors
-              </Link>
-            )}
-            <div className="grid items-start gap-5 xl:grid-cols-3">
-              <div className="space-y-5 xl:col-span-2">
-                <Card title="About">
-                  <div className="flex items-start gap-4">
-                    <span className="grid h-16 w-16 place-items-center rounded-full bg-[#F3EBDD] font-serif text-xl font-semibold">
-                      {mentor.name.split(' ').map(x => x[0]).join('')}
-                    </span>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <b>{mentor.name}</b>
-                        <span className="rounded-full bg-[#F3EBDD] px-2 py-1 text-[10px] text-[#806236]">
-                          <ShieldCheck className="mr-1 inline" size={12} />Verified mentor
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-[#4A5568]">{mentor.headline}</p>
-                      <p className="mt-2 text-xs">
-                        <MapPin className="mr-1 inline" size={12} />{mentor.location} · English, Bengali, Hindi
-                      </p>
-                      <p className="mt-2 text-xs">
-                        <Star className="mr-1 inline fill-[#B8955A] text-[#B8955A]" size={13} />
-                        {mentor.rating} ({mentor.reviews} reviews) · {mentor.sessions} sessions delivered
-                      </p>
-                    </div>
-                  </div>
-                  <p className="mt-5 text-sm leading-7 text-[#4A5568]">{mentor.bio}</p>
-                </Card>
-
-                <Card title="How I can help">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {mentor.expertise.map(x => (
-                      <div key={x} className="rounded-lg bg-[#FAF8F4] p-3">
-                        <b className="text-sm">{x}</b>
-                        <p className="mt-1 text-xs text-[#4A5568]">Practical working sessions and clear next steps tailored to your stage.</p>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-
-                <Card title="Experience">
-                  <p className="text-sm font-medium">Operator and advisor · Verified experience</p>
-                  <p className="mt-1 text-xs text-[#4A5568]">Built and advised early-stage teams across fintech and B2B software.</p>
-                  <p className="mt-3 text-xs text-[#4A5568]">Previous roles and company details verified by Forma.</p>
-                </Card>
-
-                <Card title="Reviews">
-                  <p className="text-sm">
-                    <Star className="mr-1 inline fill-[#B8955A] text-[#B8955A]" size={14} />{mentor.rating} average · verified sessions only
-                  </p>
-                  {[
-                    ['Thoughtful and direct. We left every session with a clear plan.', 'Founder, fintech startup'],
-                    ['Helped us focus our customer discovery on the right questions.', 'CEO, B2B SaaS'],
-                  ].map(([x, y]) => (
-                    <blockquote key={x} className="mt-4 border-t border-[#E5E1D8] pt-3 text-sm">
-                      “{x}”<small className="mt-1 block text-xs text-[#4A5568]">{y}</small>
-                    </blockquote>
-                  ))}
-                </Card>
+            {profilePhase === 'loading' && (
+              <div className="mb-6 space-y-3" aria-busy="true" role="status">
+                <div className="h-4 w-40 animate-pulse rounded bg-[#F4F1EA]" />
+                <div className="h-9 w-72 animate-pulse rounded bg-[#F4F1EA]" />
+                <span className="sr-only">Loading mentor…</span>
               </div>
+            )}
+            {profilePhase === 'loading' && (
+              <div className="grid items-start gap-5 xl:grid-cols-3">
+                <div className="h-72 animate-pulse rounded-xl bg-[#F4F1EA] xl:col-span-2" />
+                <div className="h-56 animate-pulse rounded-xl bg-[#F4F1EA]" />
+              </div>
+            )}
 
-              <aside className="space-y-5 xl:sticky xl:top-24">
-                <Card title="Pricing & terms">
-                  <b className="serif text-2xl">{mentor.price}</b>
-                  <p className="mt-2 text-xs text-[#4A5568]">45-minute session · package options available</p>
-                  <p className="mt-3 rounded-lg bg-[#FAF8F4] p-3 text-xs">Platform fee and applicable taxes are shown before you confirm.</p>
-                  <p className="mt-3 text-xs text-[#4A5568]">Advisory equity: none requested</p>
-                  <button type="button" onClick={() => setModal('request')} className="mt-4 w-full rounded-lg bg-ink py-3 text-sm font-semibold text-white">
-                    Request mentorship
-                  </button>
-                  <button type="button" onClick={() => setModal('intro')} className="mt-2 w-full rounded-lg border border-[#E5E1D8] py-3 text-sm font-semibold">
-                    Book intro call
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSaved(saved.includes(mentor.id) ? saved.filter(x => x !== mentor.id) : [...saved, mentor.id])}
-                    className="mt-3 w-full text-xs font-semibold text-[#9A7A45]"
-                  >
-                    <Bookmark className="mr-1 inline" size={13} />
-                    {saved.includes(mentor.id) ? 'Saved' : 'Save mentor'}
-                  </button>
-                  <button type="button" onClick={() => notify('Report submitted to support for review.')} className="mt-2 w-full text-xs text-[#4A5568]">
-                    Report mentor
-                  </button>
-                </Card>
+            {profilePhase === 'notfound' && (
+              <>
+                {head('Mentor not found', 'This profile is not available.', <Link href="/startup/mentors/find" className="text-sm text-[#9A7A45]">← Back to mentors</Link>)}
+                <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center text-sm text-[#4A5568]" role="status">
+                  This mentor may no longer be listed, or their profile is not public.
+                </div>
+              </>
+            )}
 
-                <Card title="Availability">
-                  <p className="text-xs text-[#4A5568]">Next available: <b>{mentor.next}</b></p>
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    {['Thu 4:00', 'Fri 11:00', 'Mon 2:00'].map(x => (
-                      <button key={x} type="button" onClick={() => setModal('intro')} className="rounded-lg border border-[#E5E1D8] p-2 text-[10px]">
-                        {x}
-                      </button>
-                    ))}
+            {profilePhase === 'error' && (
+              <>
+                {head('Mentor unavailable', 'We could not load this profile.', <Link href="/startup/mentors/find" className="text-sm text-[#9A7A45]">← Back to mentors</Link>)}
+                <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center" role="alert">
+                  <p className="text-sm text-[#4A5568]">{profileError}</p>
+                  <button type="button" onClick={() => setMentorReload(n => n + 1)} className="mt-3 min-h-9 rounded-lg bg-ink px-4 text-sm font-semibold text-white">
+                    Retry
+                  </button>
+                </div>
+              </>
+            )}
+
+            {profilePhase === 'ready' && profile && (
+              <>
+                {head(
+                  profile.display_name,
+                  profile.headline,
+                  <Link href="/startup/mentors/find" className="text-sm text-[#9A7A45]">
+                    ← Back to mentors
+                  </Link>
+                )}
+                <div className="grid items-start gap-5 xl:grid-cols-3">
+                  <div className="space-y-5 xl:col-span-2">
+                    <Card title="About">
+                      <div className="flex items-start gap-4">
+                        <span className="grid h-16 w-16 place-items-center rounded-full bg-[#F3EBDD] font-serif text-xl font-semibold">
+                          {initialsFor(profile.display_name)}
+                        </span>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <b>{profile.display_name}</b>
+                            {profile.is_verified && (
+                              <span className="rounded-full bg-[#F3EBDD] px-2 py-1 text-[10px] text-[#806236]">
+                                <ShieldCheck className="mr-1 inline" size={12} />Verified mentor
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs text-[#4A5568]">{profile.headline}</p>
+                          <p className="mt-2 text-xs">
+                            {profile.location && (
+                              <>
+                                <MapPin className="mr-1 inline" size={12} />{profile.location}
+                              </>
+                            )}
+                            {profile.location && profile.languages?.length ? ' · ' : null}
+                            {profile.languages?.join(', ')}
+                          </p>
+                          <p className="mt-2 text-xs">
+                            {profile.rating != null ? (
+                              <>
+                                <Star className="mr-1 inline fill-[#B8955A] text-[#B8955A]" size={13} />
+                                {profile.rating}
+                                {profile.sessions_completed > 0 ? ` · ${profile.sessions_completed} sessions delivered` : ''}
+                              </>
+                            ) : (
+                              <span className="text-[#4A5568]">Not yet rated</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      {profile.bio && (
+                        <p className="mt-5 text-sm leading-7 text-[#4A5568]">{profile.bio}</p>
+                      )}
+                    </Card>
+
+                    <Card title="How I can help">
+                      {profile.expertise?.length ? (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {profile.expertise.map(x => (
+                            <div key={x} className="rounded-lg bg-[#FAF8F4] p-3">
+                              <b className="text-sm">{x}</b>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-[#4A5568]">No expertise areas listed yet.</p>
+                      )}
+                      {profile.sectors?.length ? (
+                        <p className="mt-3 text-xs text-[#4A5568]">
+                          Works with: {profile.sectors.join(', ')}
+                        </p>
+                      ) : null}
+                    </Card>
+
+                    {/* Step 8a: the demo page's prose here (career history,
+                        "verified by Forma") had no backing table. The only
+                        real signal is years of experience, so the card shows
+                        that and nothing else. */}
+                    <Card title="Experience">
+                      {profile.years_experience != null ? (
+                        <p className="text-sm font-medium">{profile.years_experience} years of experience</p>
+                      ) : (
+                        <p className="text-sm text-[#4A5568]">No experience details listed yet.</p>
+                      )}
+                    </Card>
+
+                    {/* Reviews arrive with step 8i (no reviews table exists).
+                        An empty state, never invented quotes. */}
+                    <Card title="Reviews">
+                      <p className="text-sm">
+                        {profile.rating != null ? (
+                          <>
+                            <Star className="mr-1 inline fill-[#B8955A] text-[#B8955A]" size={14} />
+                            {profile.rating} average · verified sessions only
+                          </>
+                        ) : (
+                          'Not yet rated'
+                        )}
+                      </p>
+                      <p className="mt-3 border-t border-[#E5E1D8] pt-3 text-sm text-[#4A5568]">
+                        Written reviews are not available yet.
+                      </p>
+                    </Card>
                   </div>
-                  <p className="mt-3 text-[10px] text-[#4A5568]">Times shown in Asia/Kolkata.</p>
-                </Card>
-              </aside>
-            </div>
+
+                  <aside className="space-y-5 xl:sticky xl:top-24">
+                    <Card title="Pricing & terms">
+                      <b className="serif text-2xl">{feeLabel(profile)}</b>
+                      <p className="mt-2 text-xs text-[#4A5568]">
+                        {profile.max_startups ? `Takes up to ${profile.max_startups} startups at a time.` : 'Session length confirmed on request.'}
+                      </p>
+                      <p className="mt-3 rounded-lg bg-[#FAF8F4] p-3 text-xs">Platform fee and applicable taxes are shown before you confirm.</p>
+                      <button
+                        type="button"
+                        onClick={() => setModal('request')}
+                        disabled={!profile.accepting_requests}
+                        className="mt-4 w-full rounded-lg bg-ink py-3 text-sm font-semibold text-white disabled:opacity-50"
+                      >
+                        {profile.accepting_requests ? 'Request mentorship' : 'Not accepting requests'}
+                      </button>
+                      <button type="button" onClick={() => setModal('intro')} className="mt-2 w-full rounded-lg border border-[#E5E1D8] py-3 text-sm font-semibold">
+                        Book intro call
+                      </button>
+                      {/* Step 8b owns saved-mentor persistence; until then the
+                          toggle is memory-only, exactly as before. */}
+                      <button
+                        type="button"
+                        onClick={() => setSaved(saved.includes(profile.handle) ? saved.filter(x => x !== profile.handle) : [...saved, profile.handle])}
+                        className="mt-3 w-full text-xs font-semibold text-[#9A7A45]"
+                      >
+                        <Bookmark className="mr-1 inline" size={13} />
+                        {saved.includes(profile.handle) ? 'Saved' : 'Save mentor'}
+                      </button>
+                      <button type="button" onClick={() => notify('Report submitted to support for review.')} className="mt-2 w-full text-xs text-[#4A5568]">
+                        Report mentor
+                      </button>
+                    </Card>
+
+                    {/* Step 8c owns real availability. Until then: the real
+                        cadence is shown, and the slot grid is an empty state
+                        rather than invented times. */}
+                    <Card title="Availability">
+                      <p className="text-xs text-[#4A5568]">
+                        Session cadence: <b>{profile.cadence || 'Not specified'}</b>
+                      </p>
+                      <p className="mt-3 rounded-lg border border-dashed border-[#E5E1D8] p-4 text-center text-xs text-[#4A5568]">
+                        Bookable time slots open once scheduling is available. Ask for a time instead.
+                      </p>
+                      <button type="button" onClick={() => setModal('intro')} className="mt-3 w-full rounded-lg border border-[#E5E1D8] py-2 text-xs font-semibold">
+                        Book intro call
+                      </button>
+                    </Card>
+                  </aside>
+                </div>
+              </>
+            )}
           </>
         )}
 
@@ -1588,23 +1977,60 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
             {modal === 'match' ? (
               <div className="space-y-4">
                 <p className="text-sm text-[#4A5568]">
-                  Tell us what you need. We’ll suggest mentors based on your stage and goals; you choose whether to contact them.
+                  We rank mentors using your startup’s own profile — its stage, sector and what
+                  it needs help with. You choose whether to contact anyone.
                 </p>
-                <label className="block text-sm">
-                  Top needs
-                  <select className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3">
-                    <option>Go-to-market and fundraising</option>
-                    <option>Product and technology</option>
-                    <option>Finance and operations</option>
-                  </select>
-                </label>
-                <label className="block text-sm">
-                  Budget
-                  <select className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3">
-                    <option>Up to ₹5,000 per session</option>
-                    <option>Free / pro bono</option>
-                  </select>
-                </label>
+                {/* The demo dialog had "Top needs" and "Budget" pickers, but the
+                    suggestions endpoint takes no such input: ranking comes from
+                    the startup profile and the mentor's own attributes. Rather
+                    than leave two controls that change nothing, the dialog says
+                    what actually drives the match. */}
+                {matchPhase === 'idle' && (
+                  <p className="rounded-lg bg-[#FAF8F4] p-3 text-xs text-[#4A5568]">
+                    To change the inputs, update your startup’s stage and sector in your profile.
+                  </p>
+                )}
+                {matchPhase === 'loading' && (
+                  <p className="text-sm text-[#4A5568]" role="status">Finding matches…</p>
+                )}
+                {matchPhase === 'no-org' && (
+                  <p className="rounded-lg bg-[#FAF8F4] p-3 text-xs text-[#4A5568]" role="status">
+                    Matching needs a startup you belong to. Create or join one first.
+                  </p>
+                )}
+                {matchPhase === 'error' && (
+                  <p className="rounded-lg border border-[#E5E1D8] p-3 text-xs text-[#9A3A3A]" role="alert">
+                    {matchError}
+                  </p>
+                )}
+                {matchPhase === 'ready' && suggestions.length === 0 && (
+                  <p className="rounded-lg bg-[#FAF8F4] p-3 text-xs text-[#4A5568]" role="status">
+                    No matches yet. As your startup profile fills in, suggestions appear here.
+                  </p>
+                )}
+                {matchPhase === 'ready' && suggestions.length > 0 && (
+                  <ul className="space-y-2">
+                    {suggestions.map(m => (
+                      <li key={m.handle} className="rounded-lg border border-[#E5E1D8] p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <b className="text-sm">{m.display_name}</b>
+                          <span className="text-xs text-[#4A5568]">{feeLabel(m)}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-[#4A5568]">{m.headline}</p>
+                        {m.match_reasons?.length ? (
+                          <p className="mt-1 text-[11px] text-[#9A7A45]">{m.match_reasons.join(' · ')}</p>
+                        ) : null}
+                        <Link
+                          href={`/startup/mentors/find/${m.handle}`}
+                          onClick={() => setModal('')}
+                          className="mt-2 inline-block text-xs font-semibold text-[#9A7A45]"
+                        >
+                          View profile
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
@@ -1658,8 +2084,12 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                 type="button"
                 onClick={() => {
                   if (modal === 'match') {
-                    setModal('');
-                    notify('Three recommended mentors found.');
+                    if (matchPhase === 'ready') {
+                      setModal('');
+                      setMatchPhase('idle');
+                    } else {
+                      runMatch();
+                    }
                   } else {
                     setRequestSent(true);
                     setModal('');
@@ -1668,7 +2098,15 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                 }}
                 className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white"
               >
-                {modal === 'match' ? 'See matches' : modal === 'book' ? 'Confirm booking' : 'Send request'}
+                {modal === 'match'
+                  ? matchPhase === 'ready'
+                    ? 'Done'
+                    : matchPhase === 'loading'
+                    ? 'Finding…'
+                    : 'See matches'
+                  : modal === 'book'
+                  ? 'Confirm booking'
+                  : 'Send request'}
               </button>
             </div>
           </section>

@@ -137,6 +137,12 @@ export type TaskCommentCreate = components["schemas"]["TaskCommentCreate"];
 export type TaskCommentUpdate = components["schemas"]["TaskCommentUpdate"];
 // Step 5g: the one read-only dashboard payload.
 export type DashboardSummary = components["schemas"]["DashboardSummary"];
+// Step 8a: the read-only mentor directory.
+export type MentorDirectoryItem = components["schemas"]["MentorDirectoryItem"];
+export type MentorDirectoryDetail = components["schemas"]["MentorDirectoryDetail"];
+export type MentorDirectoryPage = components["schemas"]["MentorDirectoryPage"];
+export type MentorSuggestionItem = components["schemas"]["MentorSuggestionItem"];
+export type MentorSuggestionPage = components["schemas"]["MentorSuggestionPage"];
 
 /** Whitelisted filters for `metrics.list` (`period_from`/`period_to` inclusive). */
 export type MetricListQuery = {
@@ -159,6 +165,22 @@ export type TaskListQuery = {
   assigned_to_me?: boolean;
   /** Step 5d: only tasks carrying this label. */
   label_id?: string;
+};
+
+/** Whitelisted filters/sorts for `mentors.list` (Step 8a). */
+export type MentorListQuery = {
+  limit?: number;
+  offset?: number;
+  sort?: "relevance" | "rating" | "price" | "experience";
+  order?: "asc" | "desc";
+  expertise?: string;
+  sector?: string;
+  language?: string;
+  verified_only?: boolean;
+  accepting_only?: boolean;
+  free_only?: boolean;
+  max_fee?: number;
+  q?: string;
 };
 
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "/api/v1").replace(/\/+$/, "");
@@ -684,6 +706,38 @@ export const api = {
 
     updateMe: (body: MentorProfileUpdate) =>
       apiRequest<MentorProfileRead>("/mentor-profile/me", { method: "PATCH", body }),
+  },
+
+  /**
+   * Step 8a: the read-only mentor directory. Any signed-in user may browse;
+   * `suggestions` additionally needs an organization the caller belongs to.
+   */
+  mentors: {
+    /** Filters/sorts are whitelisted server-side; unknown values are a 422. */
+    list: (query: MentorListQuery = {}, signal?: AbortSignal) =>
+      apiRequest<MentorDirectoryPage>("/mentors", { method: "GET", query, signal }),
+
+    /** By public handle, never the user UUID. A hidden mentor is a 404. */
+    get: (handle: string, signal?: AbortSignal) =>
+      apiRequest<MentorDirectoryDetail>(`/mentors/${encodeURIComponent(handle)}`, {
+        method: "GET",
+        signal,
+      }),
+
+    /**
+     * Ranked suggestions for one startup (active members only; 403 otherwise).
+     * Each item carries `match_reasons` built from fields that actually
+     * matched — there is no stored match score.
+     */
+    suggestions: (
+      orgId: string,
+      query: { limit?: number; offset?: number } = {},
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<MentorSuggestionPage>(
+        `/organizations/${orgId}/mentor-suggestions`,
+        { method: "GET", query, signal },
+      ),
   },
 
   startupProfile: {

@@ -1159,6 +1159,74 @@ export interface paths {
         patch: operations["update_my_mentor_profile_api_v1_mentor_profile_me_patch"];
         trace?: never;
     };
+    "/api/v1/mentors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Browse mentors
+         * @description Any signed-in user may browse. Only ``users.profile_public`` mentors
+         *     appear; a hidden profile is absent rather than redacted.
+         *
+         *     ``stage`` is NOT a filter here: mentors have no stage attribute yet
+         *     (8a plan D-1), so the find page's "stage fit" control stays unwired.
+         */
+        get: operations["list_mentors_api_v1_mentors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentors/{handle}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One mentor's directory page
+         * @description A hidden mentor 404s exactly like a missing one (no existence oracle).
+         */
+        get: operations["get_mentor_api_v1_mentors__handle__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/mentor-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggested mentors for a startup
+         * @description Active members of the organization only (viewer included — this is a
+         *     read). A non-member gets 403, never a hint of whether the org exists.
+         *
+         *     Every suggestion carries ``match_reasons`` built from fields that
+         *     actually matched; there is no stored score and no hidden weighting.
+         */
+        get: operations["list_mentor_suggestions_api_v1_organizations__org_id__mentor_suggestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/organizations/{slug}": {
         parameters: {
             query?: never;
@@ -2467,6 +2535,149 @@ export interface components {
             /** Is Public */
             is_public?: boolean | null;
         };
+        /**
+         * MentorDirectoryDetail
+         * @description One mentor's full page: the card plus the long-form fields.
+         */
+        MentorDirectoryDetail: {
+            /** Handle */
+            handle: string;
+            /** Display Name */
+            display_name: string;
+            /** Avatar Initials */
+            avatar_initials?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Headline */
+            headline?: string | null;
+            /**
+             * Expertise
+             * @default []
+             */
+            expertise?: string[];
+            /**
+             * Sectors
+             * @default []
+             */
+            sectors?: string[];
+            /**
+             * Languages
+             * @default []
+             */
+            languages?: string[];
+            /** Years Experience */
+            years_experience?: number | null;
+            /** Hourly Fee */
+            hourly_fee?: number | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Cadence */
+            cadence?: string | null;
+            /** Rating */
+            rating?: number | null;
+            /**
+             * Sessions Completed
+             * @default 0
+             */
+            sessions_completed?: number;
+            /**
+             * Is Verified
+             * @default false
+             */
+            is_verified?: boolean;
+            /**
+             * Accepting Requests
+             * @default true
+             */
+            accepting_requests?: boolean;
+            /** Location */
+            location?: string | null;
+            /** Bio */
+            bio?: string | null;
+            /**
+             * Max Startups
+             * @default 3
+             */
+            max_startups?: number;
+        };
+        /**
+         * MentorDirectoryItem
+         * @description One mentor card: identity + the fields the card renders.
+         */
+        MentorDirectoryItem: {
+            /** Handle */
+            handle: string;
+            /** Display Name */
+            display_name: string;
+            /** Avatar Initials */
+            avatar_initials?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Headline */
+            headline?: string | null;
+            /**
+             * Expertise
+             * @default []
+             */
+            expertise?: string[];
+            /**
+             * Sectors
+             * @default []
+             */
+            sectors?: string[];
+            /**
+             * Languages
+             * @default []
+             */
+            languages?: string[];
+            /** Years Experience */
+            years_experience?: number | null;
+            /** Hourly Fee */
+            hourly_fee?: number | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Cadence */
+            cadence?: string | null;
+            /** Rating */
+            rating?: number | null;
+            /**
+             * Sessions Completed
+             * @default 0
+             */
+            sessions_completed?: number;
+            /**
+             * Is Verified
+             * @default false
+             */
+            is_verified?: boolean;
+            /**
+             * Accepting Requests
+             * @default true
+             */
+            accepting_requests?: boolean;
+            /** Location */
+            location?: string | null;
+        };
+        /**
+         * MentorDirectoryPage
+         * @description Paginated directory envelope (limit/offset, same shape as 5b/5c).
+         */
+        MentorDirectoryPage: {
+            /** Items */
+            items: components["schemas"]["MentorDirectoryItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** MentorProfileRead */
         MentorProfileRead: {
             /**
@@ -2632,6 +2843,99 @@ export interface components {
              * @default false
              */
             is_verified?: boolean;
+        };
+        /**
+         * MentorSuggestionItem
+         * @description A card plus WHY it was suggested (8a plan D-2).
+         *
+         *     ``match_reasons`` entries are generated from fields that actually
+         *     matched, e.g. ``"Expertise: Fundraising"`` or ``"Same sector: fintech"``.
+         *     An empty list means the mentor surfaced on the default ordering only —
+         *     which is stated rather than filled with invented copy.
+         */
+        MentorSuggestionItem: {
+            /** Handle */
+            handle: string;
+            /** Display Name */
+            display_name: string;
+            /** Avatar Initials */
+            avatar_initials?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Headline */
+            headline?: string | null;
+            /**
+             * Expertise
+             * @default []
+             */
+            expertise?: string[];
+            /**
+             * Sectors
+             * @default []
+             */
+            sectors?: string[];
+            /**
+             * Languages
+             * @default []
+             */
+            languages?: string[];
+            /** Years Experience */
+            years_experience?: number | null;
+            /** Hourly Fee */
+            hourly_fee?: number | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Cadence */
+            cadence?: string | null;
+            /** Rating */
+            rating?: number | null;
+            /**
+             * Sessions Completed
+             * @default 0
+             */
+            sessions_completed?: number;
+            /**
+             * Is Verified
+             * @default false
+             */
+            is_verified?: boolean;
+            /**
+             * Accepting Requests
+             * @default true
+             */
+            accepting_requests?: boolean;
+            /** Location */
+            location?: string | null;
+            /**
+             * Match Reasons
+             * @default []
+             */
+            match_reasons?: string[];
+        };
+        /**
+         * MentorSuggestionPage
+         * @description Paginated suggestions envelope. Implies the current stage in ``stage``.
+         */
+        MentorSuggestionPage: {
+            /** Items */
+            items: components["schemas"]["MentorSuggestionItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            stage?: components["schemas"]["StartupStage"] | null;
+            /** Sector */
+            sector?: string | null;
+            /**
+             * Stage Filter Applied
+             * @default false
+             */
+            stage_filter_applied?: boolean;
         };
         /** MessageResponse */
         MessageResponse: {
@@ -6781,6 +7085,119 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MentorProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_mentors_api_v1_mentors_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                sort?: "relevance" | "rating" | "price" | "experience";
+                order?: "asc" | "desc";
+                expertise?: string | null;
+                sector?: string | null;
+                language?: string | null;
+                verified_only?: boolean;
+                accepting_only?: boolean;
+                free_only?: boolean;
+                max_fee?: number | null;
+                q?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorDirectoryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_mentor_api_v1_mentors__handle__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                handle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorDirectoryDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_mentor_suggestions_api_v1_organizations__org_id__mentor_suggestions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorSuggestionPage"];
                 };
             };
             /** @description Validation Error */

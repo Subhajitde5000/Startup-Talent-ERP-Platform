@@ -102,6 +102,11 @@ class Settings(BaseSettings):
     # "Rate-limit comments").
     TASK_COMMENT_LIMIT: int = 30
     TASK_COMMENT_WINDOW_SECONDS: int = 300
+    # Step 8a: mentor directory searches, per user. Browsing a directory is
+    # a handful of requests per session; a scraper is cut off well before
+    # it can walk the whole mentor table.
+    MENTOR_SEARCH_LIMIT: int = 60
+    MENTOR_SEARCH_WINDOW_SECONDS: int = 300
 
     # CORS: explicit allow-list only, never "*" with credentials.
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])
