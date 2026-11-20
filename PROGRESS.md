@@ -217,8 +217,8 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 ## Step 8: Mentors (one sub-step at a time; A = backend, B = frontend wired)
 
 ### 8a Mentor directory (startup view)
-- [ ] A: Search and filter mentors, public mentor page, mentor suggestions for a startup
-- [ ] B: /startup/mentors/find, /startup/mentors/find/[mentorId] wired; demo data removed
+- [x] A: read-only mentor directory, NO new table and NO migration (reads the Step 3c `mentor_profiles`). Three endpoints on the existing mentor router: `GET /mentors` (search, filters, pagination) and `GET /mentors/{handle}` for any signed-in user, plus `GET /organizations/{id}/mentor-suggestions` for active members of that startup. Visibility is `users.profile_public` because `mentor_profiles` has no visibility column; a hidden mentor is ABSENT from the list and 404 on detail, never 403 (no existence oracle). Filters: expertise/sector/language (exact, case-insensitive), `verified_only`, `accepting_only`, `free_only`, `max_fee`, multi-term `q` with LIKE escaping; sorts relevance/rating/price/experience with stable tiebreaks. Suggestions are ranked only by what the startup DECLARED (goals vs expertise, sector) and every item carries `match_reasons` built from fields that actually matched — no stored score, no hidden weights. `stage_filter_applied: false` is returned because mentors have no stage attribute (plan D-1), so the page cannot imply a stage match it did not make. Search is rate limited per user (60 / 5 min). 18 new tests; 590 pass on SQLite and PostgreSQL 16.2
+- [x] B: /startup/mentors/find, /startup/mentors/find/[mentorId] wired; demo data removed
 
 ### 8b Mentorship requests
 - [ ] A: A startup requests a mentor, the mentor accepts or declines, one active mentorship per pair, end a mentorship
