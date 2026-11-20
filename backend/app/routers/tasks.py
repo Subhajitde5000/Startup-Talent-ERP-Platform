@@ -61,9 +61,11 @@ async def list_tasks(
     milestone_id: Annotated[uuid.UUID | None, Query()] = None,
     due_this_week: bool = False,
     assigned_to_me: bool = False,
+    label_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> TaskPage:
     """Active members (including viewers) list the org's open tasks,
-    paginated with whitelisted sort/filter fields (plan D4 filters)."""
+    paginated with whitelisted sort/filter fields (plan D4 filters).
+    ``label_id`` (Step 5d) filters to tasks carrying one label."""
     return await task_service.list_tasks(
         db,
         user,
@@ -78,6 +80,7 @@ async def list_tasks(
         milestone_id=milestone_id,
         due_this_week=due_this_week,
         assigned_to_me=assigned_to_me,
+        label_id=label_id,
     )
 
 

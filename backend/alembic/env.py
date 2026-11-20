@@ -20,6 +20,8 @@ from app.models import (  # noqa: F401  (register models for autogenerate)
     stage,
     startup,
     task,
+    task_comment,
+    task_label,
     user,
 )
 

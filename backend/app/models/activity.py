@@ -42,6 +42,12 @@ class ActivityEventType(enum.StrEnum):
     invite_created = "invite_created"
     invite_resent = "invite_resent"
     invite_revoked = "invite_revoked"
+    # Step 5d (approved D-9b): comments are user content an admin may
+    # delete, so creation and deletion get an audit row. Editing is left
+    # out deliberately — the edited flag is visible on the comment itself
+    # (updated_at > created_at) and every edit would double the feed.
+    task_commented = "task_commented"
+    task_comment_deleted = "task_comment_deleted"
 
 
 class ActivityEvent(Base):

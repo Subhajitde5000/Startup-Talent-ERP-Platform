@@ -795,6 +795,7 @@ export interface paths {
          * List tasks
          * @description Active members (including viewers) list the org's open tasks,
          *     paginated with whitelisted sort/filter fields (plan D4 filters).
+         *     ``label_id`` (Step 5d) filters to tasks carrying one label.
          */
         get: operations["list_tasks_api_v1_organizations__org_id__tasks_get"];
         put?: never;
@@ -1502,6 +1503,157 @@ export interface paths {
         patch: operations["update_competitor_api_v1_organizations__org_id__competitors__competitor_id__patch"];
         trace?: never;
     };
+    "/api/v1/organizations/{org_id}/task-labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List task labels
+         * @description Any active member (viewer included) lists the org's labels,
+         *     paginated with a whitelisted sort and an optional name search.
+         */
+        get: operations["list_labels_api_v1_organizations__org_id__task_labels_get"];
+        put?: never;
+        /**
+         * Create task label
+         * @description Owner/admin only (viewer and member 403). A name that already
+         *     exists in any casing is 409 ``LABEL_NAME_TAKEN``.
+         */
+        post: operations["create_label_api_v1_organizations__org_id__task_labels_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/task-labels/{label_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete task label
+         * @description Owner/admin hard delete. Links cascade; tasks are untouched.
+         */
+        delete: operations["delete_label_api_v1_organizations__org_id__task_labels__label_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update task label
+         * @description Owner/admin rename or recolour; a label from another organization
+         *     is 404 (no existence oracle).
+         */
+        patch: operations["update_label_api_v1_organizations__org_id__task_labels__label_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/tasks/{task_id}/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a task's labels (replace-set)
+         * @description Attach and detach in one idempotent call: the body is the complete
+         *     set the task should carry afterwards. Owner/admin/member (viewer 403);
+         *     every label must belong to this organization (422 on ``label_ids``),
+         *     and a task from another org is 404.
+         */
+        put: operations["set_task_labels_api_v1_organizations__org_id__tasks__task_id__labels_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/tasks/{task_id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List task comments
+         * @description Any active member (viewer included) reads the task's live comments,
+         *     oldest first. A task from another organization is 404.
+         */
+        get: operations["list_comments_api_v1_organizations__org_id__tasks__task_id__comments_get"];
+        put?: never;
+        /**
+         * Create task comment
+         * @description Owner/admin/member (viewer 403). The author is always the caller.
+         *     Rate-limited per actor; the attempt is not retried server-side.
+         */
+        post: operations["create_comment_api_v1_organizations__org_id__tasks__task_id__comments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/tasks/{task_id}/comments/{comment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete comment (soft)
+         * @description The author, or an owner/admin. Soft delete: the row stays for audit
+         *     and every read path skips it; a repeat delete is 404.
+         */
+        delete: operations["delete_comment_api_v1_organizations__org_id__tasks__task_id__comments__comment_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit own comment
+         * @description The author only; anyone else — owners included — gets 403.
+         *     A comment on another task or in another org is 404.
+         */
+        patch: operations["update_comment_api_v1_organizations__org_id__tasks__task_id__comments__comment_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/dashboard-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Startup dashboard summary
+         * @description Everything ``/startup/dashboard`` needs, in one request.
+         *
+         *     Any active member may read it (viewer included). Cards with no source
+         *     yet are named in ``unavailable`` (with the step that supplies them)
+         *     rather than returned as zero; money is withheld from viewers and named
+         *     in ``restricted``. Metric values are decimal strings, never floats.
+         */
+        get: operations["dashboard_summary_api_v1_organizations__org_id__dashboard_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1757,6 +1909,202 @@ export interface components {
          * @enum {string}
          */
         Confidence: "high" | "medium" | "low";
+        /**
+         * DashboardActivityItem
+         * @description One row of the recent-activity feed (newest first).
+         */
+        DashboardActivityItem: {
+            /** Event Type */
+            event_type: string;
+            /** Summary */
+            summary: string;
+            /** Actor Name */
+            actor_name: string | null;
+            /** Link Url */
+            link_url: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * DashboardMetric
+         * @description One KPI card value. ``value`` is a decimal STRING, never a float.
+         */
+        DashboardMetric: {
+            /** Metric Key */
+            metric_key: string;
+            /** Value */
+            value: string;
+            /** Unit */
+            unit: string | null;
+            /** Currency */
+            currency: string | null;
+            /** Source */
+            source: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+        };
+        /**
+         * DashboardMilestoneItem
+         * @description The next milestone (the one highlighted on the dashboard timeline).
+         */
+        DashboardMilestoneItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Target Date */
+            target_date: string | null;
+            /** Status */
+            status: string;
+            /** Progress */
+            progress: number;
+        };
+        /** DashboardMilestoneSummary */
+        DashboardMilestoneSummary: {
+            /** Total */
+            total: number;
+            /** Achieved */
+            achieved: number;
+            /** At Risk */
+            at_risk: number;
+            next: components["schemas"]["DashboardMilestoneItem"] | null;
+        };
+        /**
+         * DashboardReadiness
+         * @description Readiness gauge. ``readiness_pct`` is the 5f cached score.
+         *
+         *     ``signed_off_remaining`` is what the gauge's "N items left" line reads;
+         *     the design doc's per-component breakdown (checklist/traction/mentor) is
+         *     named in ``unavailable`` because traction and mentor feedback have no
+         *     source yet.
+         */
+        DashboardReadiness: {
+            /** Readiness Pct */
+            readiness_pct: number;
+            /** Criteria Total */
+            criteria_total: number;
+            /** Criteria Signed Off */
+            criteria_signed_off: number;
+            /** Signed Off Remaining */
+            signed_off_remaining: number;
+            /** Is Ready */
+            is_ready: boolean;
+        };
+        /**
+         * DashboardStage
+         * @description Stage banner: current stage plus this stage's exit-criteria roll-up.
+         */
+        DashboardStage: {
+            stage: components["schemas"]["StartupStage"];
+            /** In Stage Since */
+            in_stage_since: string | null;
+            /** Exit Criteria Total */
+            exit_criteria_total: number;
+            /** Exit Criteria Signed Off */
+            exit_criteria_signed_off: number;
+        };
+        /**
+         * DashboardSummary
+         * @description The whole dashboard in one response.
+         */
+        DashboardSummary: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Org Name */
+            org_name: string;
+            /** Org Slug */
+            org_slug: string;
+            my_role: components["schemas"]["OrgRole"];
+            /** My Display Name */
+            my_display_name: string | null;
+            stage: components["schemas"]["DashboardStage"];
+            readiness: components["schemas"]["DashboardReadiness"];
+            tasks: components["schemas"]["DashboardTaskSummary"];
+            milestones: components["schemas"]["DashboardMilestoneSummary"];
+            /** Metrics */
+            metrics: components["schemas"]["DashboardMetric"][];
+            team: components["schemas"]["DashboardTeam"];
+            /** Recent Activity */
+            recent_activity: components["schemas"]["DashboardActivityItem"][];
+            /** Unavailable */
+            unavailable: components["schemas"]["UnavailableCard"][];
+            /** Restricted */
+            restricted: string[];
+        };
+        /**
+         * DashboardTaskItem
+         * @description A row in the "My tasks" list (open tasks assigned to the caller).
+         */
+        DashboardTaskItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Priority */
+            priority: string;
+            /** Due On */
+            due_on: string | null;
+            /** Is Overdue */
+            is_overdue: boolean;
+            /** Is Due Today */
+            is_due_today: boolean;
+        };
+        /**
+         * DashboardTaskSummary
+         * @description My-tasks counters. ``total_open`` is never a board-wide number.
+         */
+        DashboardTaskSummary: {
+            /** Total Open */
+            total_open: number;
+            /** Overdue */
+            overdue: number;
+            /** Due Today */
+            due_today: number;
+            /** Due This Week */
+            due_this_week: number;
+            /** Items */
+            items: components["schemas"]["DashboardTaskItem"][];
+        };
+        /** DashboardTeam */
+        DashboardTeam: {
+            /** Active Members */
+            active_members: number;
+            /** Pending Invites */
+            pending_invites: number;
+            /** Members */
+            members: components["schemas"]["DashboardTeamMember"][];
+        };
+        /**
+         * DashboardTeamMember
+         * @description Avatar-stack entry.
+         */
+        DashboardTeamMember: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Display Name */
+            display_name: string | null;
+            role: components["schemas"]["OrgRole"];
+        };
         /**
          * DataRequestStatus
          * @enum {string}
@@ -3366,6 +3714,79 @@ export interface components {
             skills?: string[];
         };
         /**
+         * TaskCommentCreate
+         * @description Member create. Author is the caller (never supplied).
+         */
+        TaskCommentCreate: {
+            /** Body */
+            body: string;
+        };
+        /**
+         * TaskCommentPage
+         * @description Paginated comment list (oldest first, limit/offset).
+         */
+        TaskCommentPage: {
+            /** Items */
+            items: components["schemas"]["TaskCommentRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * TaskCommentRead
+         * @description Comment shape. ``can_edit`` / ``can_delete`` are computed per caller
+         *     so the page can disable the controls without re-deriving the rule.
+         */
+        TaskCommentRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /**
+             * Author Id
+             * Format: uuid
+             */
+            author_id: string;
+            /** Author Name */
+            author_name: string | null;
+            /** Body */
+            body: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Can Edit */
+            can_edit: boolean;
+            /** Can Delete */
+            can_delete: boolean;
+        };
+        /**
+         * TaskCommentUpdate
+         * @description Author edit. Same bounds as create; omitted keys are unchanged.
+         */
+        TaskCommentUpdate: {
+            /**
+             * Body
+             * @default
+             */
+            body?: string;
+        };
+        /**
          * TaskCreate
          * @description Member create. Server-owned fields are structurally absent.
          */
@@ -3382,6 +3803,85 @@ export interface components {
             assignee_id?: string | null;
             /** Due On */
             due_on?: string | null;
+        };
+        /**
+         * TaskLabelCreate
+         * @description Owner/admin create. ``name`` is unique per organization (case-insensitive).
+         */
+        TaskLabelCreate: {
+            /** Name */
+            name: string;
+            /** Color */
+            color?: string | null;
+        };
+        /**
+         * TaskLabelPage
+         * @description Paginated label list (limit/offset, 5b/5c convention).
+         */
+        TaskLabelPage: {
+            /** Items */
+            items: components["schemas"]["TaskLabelRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * TaskLabelRead
+         * @description Label shape (also the shape embedded in ``TaskRead.labels``).
+         */
+        TaskLabelRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Name */
+            name: string;
+            /** Color */
+            color: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * TaskLabelSet
+         * @description Replace-set for one task: the label ids it should carry afterwards.
+         *
+         *     Ids are validated as same-org labels by the service (422 with
+         *     ``loc: [body, label_ids]``), duplicates are collapsed, and the design
+         *     cap of 8 labels per task is enforced here and in the service.
+         */
+        TaskLabelSet: {
+            /** Label Ids */
+            label_ids?: string[];
+        };
+        /**
+         * TaskLabelUpdate
+         * @description Owner/admin patch. Omitted keys are unchanged (``exclude_unset``).
+         */
+        TaskLabelUpdate: {
+            /**
+             * Name
+             * @default
+             */
+            name?: string;
+            /** Color */
+            color?: string | null;
         };
         /**
          * TaskMove
@@ -3455,6 +3955,11 @@ export interface components {
             completed_at: string | null;
             /** Display Order */
             display_order: number;
+            /**
+             * Labels
+             * @default []
+             */
+            labels?: components["schemas"]["TaskLabelRead"][];
             /**
              * Created At
              * Format: date-time
@@ -3545,6 +4050,21 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /**
+         * UnavailableCard
+         * @description A card the page must render as empty/hidden, with the reason.
+         *
+         *     ``step`` names the BUILD_PLAN sub-step that will supply the data, so
+         *     the frontend can say "arrives in Step 8" instead of showing zeroes.
+         */
+        UnavailableCard: {
+            /** Key */
+            key: string;
+            /** Reason */
+            reason: string;
+            /** Step */
+            step: string | null;
         };
         /**
          * UserMeRead
@@ -5444,6 +5964,7 @@ export interface operations {
                 milestone_id?: string | null;
                 due_this_week?: boolean;
                 assigned_to_me?: boolean;
+                label_id?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -6988,6 +7509,370 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CompetitorRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_labels_api_v1_organizations__org_id__task_labels_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                sort?: "name" | "created_at";
+                order?: "asc" | "desc";
+                q?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskLabelPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_label_api_v1_organizations__org_id__task_labels_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskLabelCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskLabelRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_label_api_v1_organizations__org_id__task_labels__label_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                label_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_label_api_v1_organizations__org_id__task_labels__label_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                label_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskLabelUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskLabelRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_task_labels_api_v1_organizations__org_id__tasks__task_id__labels_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskLabelSet"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskLabelRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_comments_api_v1_organizations__org_id__tasks__task_id__comments_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskCommentPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_comment_api_v1_organizations__org_id__tasks__task_id__comments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskCommentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskCommentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_comment_api_v1_organizations__org_id__tasks__task_id__comments__comment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                task_id: string;
+                comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_comment_api_v1_organizations__org_id__tasks__task_id__comments__comment_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                task_id: string;
+                comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskCommentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskCommentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dashboard_summary_api_v1_organizations__org_id__dashboard_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardSummary"];
                 };
             };
             /** @description Validation Error */
