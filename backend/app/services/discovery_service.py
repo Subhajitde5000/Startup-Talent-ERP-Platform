@@ -33,9 +33,9 @@ Sorting follows the 5b/5c list convention: whitelisted columns, explicit
 skips a row.
 """
 
+import uuid
 from dataclasses import dataclass
 from typing import Any
-import uuid
 
 from sqlalchemy import ColumnElement, Select, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession

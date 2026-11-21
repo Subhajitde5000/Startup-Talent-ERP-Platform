@@ -19,10 +19,13 @@ from app.routers import (
     analytics,
     auth,
     availability,
+    browser_auth,
     dashboard,
     deliverable,
     discovery,
     earning,
+    funding_rounds,
+    investor_directory,
     invites,
     market,
     mentor,
@@ -71,7 +74,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+        allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-Forma-Client"],
     )
 
     @app.exception_handler(AppException)
@@ -110,6 +113,7 @@ def create_app() -> FastAPI:
             await conn.execute(text("SELECT 1"))
         return {"status": "ready"}
 
+    app.include_router(browser_auth.router, prefix=settings.API_V1_PREFIX)
     app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
     app.include_router(users.router, prefix=settings.API_V1_PREFIX)
     app.include_router(skills.router, prefix=settings.API_V1_PREFIX)
@@ -120,7 +124,9 @@ def create_app() -> FastAPI:
     app.include_router(readiness.router, prefix=settings.API_V1_PREFIX)
     # Step 8f: mentor sign-off through the mentorship it comes from.
     app.include_router(readiness.mentorship_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(funding_rounds.router, prefix=settings.API_V1_PREFIX)
     app.include_router(metrics.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(investor_directory.router, prefix=settings.API_V1_PREFIX)
     app.include_router(invites.router, prefix=settings.API_V1_PREFIX)
     app.include_router(talent.router, prefix=settings.API_V1_PREFIX)
     app.include_router(mentor_workspace.router, prefix=settings.API_V1_PREFIX)
