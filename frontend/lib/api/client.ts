@@ -217,6 +217,20 @@ export type EarningRead = components["schemas"]["EarningRead"];
 export type EarningPage = components["schemas"]["EarningPage"];
 export type EarningSummary = components["schemas"]["EarningSummary"];
 
+// Step 9a: startup funding rounds. Money fields are decimal strings (the
+// backend serialises NUMERIC as strings); `committed_amount` is server-only
+// in 9a (starts at 0, only 9i/9j write it) and `status` changes only through
+// the transition endpoint, so neither appears on the Create/Update inputs.
+export type FundingRoundType = components["schemas"]["FundingRoundType"];
+export type RoundStatus = components["schemas"]["RoundStatus"];
+export type InstrumentType = components["schemas"]["InstrumentType"];
+export type FundingRoundCreate = components["schemas"]["FundingRoundCreate"];
+export type FundingRoundUpdate = components["schemas"]["FundingRoundUpdate"];
+export type FundingRoundRead = components["schemas"]["FundingRoundRead"];
+export type FundingRoundPage = components["schemas"]["FundingRoundPage"];
+export type FundingRoundSummary = components["schemas"]["FundingRoundSummary"];
+export type StatusTransition = components["schemas"]["StatusTransition"];
+
 /** Whitelisted filters for `startups.discover` (Step 5h). */
 export type StartupDiscoveryQuery = {
   limit?: number;
@@ -272,6 +286,14 @@ export type DeliverableListQuery = {
 /** Whitelisted filters for `earnings.list` (Step 8h). */
 export type EarningListQuery = {
   status?: EarningStatus;
+  limit?: number;
+  offset?: number;
+};
+
+/** Whitelisted filters/sort for `fundingRounds.list` (Step 9a). */
+export type FundingRoundListQuery = {
+  status?: RoundStatus;
+  sort?: "created_at" | "closes_on" | "name";
   limit?: number;
   offset?: number;
 };
@@ -1697,6 +1719,75 @@ export const api = {
       apiRequest<EarningSummary>("/mentor/earnings/summary", {
         method: "GET",
         signal,
+      }),
+  },
+
+  /**
+   * Step 9a: a startup's fundraising rounds.
+   *
+   * Reads are open to any active member (viewer included); writes need
+   * owner/admin/member (viewer gets 403). A foreign round id is a 404 (the
+   * API will not confirm another org's round exists). `committed_amount`
+   * is server-only in 9a and `status` changes only through `changeStatus`.
+   */
+  fundingRounds: {
+    /** `GET /organizations/{orgId}/funding-rounds` — newest first. */
+    list: (
+      orgId: string,
+      query?: FundingRoundListQuery,
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<FundingRoundPage>(`/organizations/${orgId}/funding-rounds`, {
+        method: "GET",
+        query: query as Record<string, string | number | boolean | undefined>,
+        signal,
+      }),
+
+    /** `GET /organizations/{orgId}/funding-rounds/summary` — header roll-up. */
+    summary: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<FundingRoundSummary>(`/organizations/${orgId}/funding-rounds/summary`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** `GET /organizations/{orgId}/funding-rounds/{roundId}` — one round. */
+    get: (orgId: string, roundId: string, signal?: AbortSignal) =>
+      apiRequest<FundingRoundRead>(
+        `/organizations/${orgId}/funding-rounds/${roundId}`,
+        { method: "GET", signal },
+      ),
+
+    /** `POST /organizations/{orgId}/funding-rounds` — create (member+). */
+    create: (orgId: string, body: FundingRoundCreate) =>
+      apiRequest<FundingRoundRead>(`/organizations/${orgId}/funding-rounds`, {
+        method: "POST",
+        body,
+      }),
+
+    /**
+     * `PATCH /organizations/{orgId}/funding-rounds/{roundId}` — edit fields
+     * (member+). `status`/`committed_amount` are not editable here.
+     */
+    update: (orgId: string, roundId: string, body: FundingRoundUpdate) =>
+      apiRequest<FundingRoundRead>(
+        `/organizations/${orgId}/funding-rounds/${roundId}`,
+        { method: "PATCH", body },
+      ),
+
+    /**
+     * `POST /organizations/{orgId}/funding-rounds/{roundId}/status` — the
+     * only way to change status (member+). An illegal move is a 409.
+     */
+    changeStatus: (orgId: string, roundId: string, status: RoundStatus) =>
+      apiRequest<FundingRoundRead>(
+        `/organizations/${orgId}/funding-rounds/${roundId}/status`,
+        { method: "POST", body: { status } },
+      ),
+
+    /** `DELETE /organizations/{orgId}/funding-rounds/{roundId}` — soft delete. */
+    remove: (orgId: string, roundId: string) =>
+      apiRequest<void>(`/organizations/${orgId}/funding-rounds/${roundId}`, {
+        method: "DELETE",
       }),
   },
 
