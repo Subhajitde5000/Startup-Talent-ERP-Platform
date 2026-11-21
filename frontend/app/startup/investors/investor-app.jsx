@@ -1,7 +1,16 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { StartupSidebar, Btn, Card, SubNavTabs } from '../../../components';
+import { useAuth } from '@/lib/auth-context';
+import { api, ApiError } from '@/lib/api/client';
+import {
+  LoadingBlock,
+  EmptyBlock,
+  ErrorBlock,
+  FieldError,
+  fieldErrorsFrom,
+} from '@/components/async-state';
 import {
   Search,
   Bell,
@@ -117,6 +126,25 @@ const investors = [
 
 const columns = ['Interested', 'Intro / Talking', 'Meeting held', 'Data room', 'Offer', 'Committed'];
 
+// Step 9a: render the API's decimal-string money as ₹ Cr/L (matching the
+// demo's Indian numbering). Purely presentational — the value is the real
+// server figure, never an invented number.
+function formatMoney(value, currency = 'INR') {
+  if (value === null || value === undefined || value === '') return '—';
+  const num = Number(value);
+  if (Number.isNaN(num)) return '—';
+  const sym = currency === 'INR' ? '₹' : currency + ' ';
+  if (num >= 1e7) return sym + (num / 1e7).toFixed(2).replace(/\.?0+$/, '') + ' Cr';
+  if (num >= 1e5) return sym + (num / 1e5).toFixed(2).replace(/\.?0+$/, '') + ' L';
+  return sym + num.toLocaleString('en-IN');
+}
+
+function progressNum(value) {
+  if (value === null || value === undefined || value === '') return 0;
+  const n = Number(value);
+  return Number.isNaN(n) ? 0 : n;
+}
+
 export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const [toast, setToast] = useState('');
   const [visible, setVisible] = useState(false);
@@ -140,13 +168,132 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   ]);
   const [vis, setVis] = useState('Mentors and verified investors');
   const [toggles, setToggles] = useState({ summary: true, traction: true, team: true, funding: false, round: false, readiness: true });
-  const [roundStatus, setRoundStatus] = useState('Open');
   const [mobileNav, setMobileNav] = useState(false);
   const [compact, setCompact] = useState(false);
+
+  // Step 9a: real rounds data (only loaded for the rounds/round-detail pages).
+  const { user } = useAuth();
+  const [org, setOrg] = useState(null); // the startup org (Startup org row)
+  const [canEditRounds, setCanEditRounds] = useState(false); // owner/admin/member
+  const [rounds, setRounds] = useState([]); // FundingRoundRead[]
+  const [roundsPhase, setRoundsPhase] = useState('loading'); // loading|ready|error|none
+  const [round, setRound] = useState(null); // the round being viewed (detail)
+  const [roundPhase, setRoundPhase] = useState('loading'); // loading|ready|error|none
+  const [roundLoadError, setRoundLoadError] = useState('');
+  // New-round modal form + server validation errors.
+  const [roundForm, setRoundForm] = useState({
+    name: '',
+    round_type: 'pre_seed',
+    target_amount: '',
+    min_raise: '',
+    instrument: 'equity',
+    min_ticket: '',
+    closes_on: '',
+  });
+  const [roundFormErrors, setRoundFormErrors] = useState({});
+  const [savingRound, setSavingRound] = useState(false);
 
   const notify = (s) => {
     setToast(s);
     setTimeout(() => setToast(''), 2800);
+  };
+
+  const loadRounds = async (orgId) => {
+    setRoundsPhase('loading');
+    try {
+      const result = await api.fundingRounds.list(orgId, { sort: 'created_at' });
+      setRounds(result.items);
+      setRoundsPhase('ready');
+    } catch {
+      setRoundsPhase('error');
+    }
+  };
+
+  const loadRound = async (orgId, roundId) => {
+    setRoundPhase('loading');
+    setRoundLoadError('');
+    try {
+      setRound(await api.fundingRounds.get(orgId, roundId));
+      setRoundPhase('ready');
+    } catch (err) {
+      setRoundPhase('error');
+      setRoundLoadError(err instanceof ApiError ? err.message : 'Could not load this round.');
+    }
+  };
+
+  // Resolve the startup org and load this page's rounds. Gated to the two
+  // Step 9a pages; every other page in this shared component keeps its demo data.
+  useEffect(() => {
+    if (page !== 'rounds' && page !== 'round-detail') return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const orgs = await api.organizations.mine();
+        const startup = orgs.find((o) => o.type === 'startup') || null;
+        if (cancelled) return;
+        if (!startup) {
+          setOrg(null);
+          setRoundsPhase('none');
+          setRoundPhase('none');
+          return;
+        }
+        setOrg(startup);
+        setCanEditRounds(['owner', 'admin', 'member'].includes(startup.my_role));
+        if (page === 'rounds') {
+          await loadRounds(startup.id);
+        } else {
+          await loadRound(startup.id, id);
+        }
+      } catch {
+        if (!cancelled) {
+          setRoundsPhase('error');
+          setRoundPhase('error');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, id, user?.id]);
+
+  const handleCreateRound = async () => {
+    setSavingRound(true);
+    setRoundFormErrors({});
+    try {
+      await api.fundingRounds.create(org.id, {
+        name: roundForm.name.trim(),
+        round_type: roundForm.round_type,
+        target_amount: roundForm.target_amount || null,
+        min_raise: roundForm.min_raise || null,
+        instrument: roundForm.instrument || null,
+        min_ticket: roundForm.min_ticket || null,
+        closes_on: roundForm.closes_on || null,
+      });
+      setModal('');
+      notify('Round created.');
+      if (org) await loadRounds(org.id);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 422) {
+        setRoundFormErrors(fieldErrorsFrom(err));
+      } else {
+        notify(err instanceof ApiError ? err.message : 'Could not create the round.');
+      }
+    } finally {
+      setSavingRound(false);
+    }
+  };
+
+  const handleToggleRoundStatus = async () => {
+    if (!org || !round) return;
+    const next = round.status === 'closed' ? 'open' : 'closed';
+    try {
+      const updated = await api.fundingRounds.changeStatus(org.id, round.id, next);
+      setRound(updated);
+      notify(next === 'closed' ? 'Round closed.' : 'Round reopened.');
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not change the round status.');
+    }
   };
 
   // Dynamic ID resolution supporting test IDs and semantic IDs
@@ -181,12 +328,19 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     settings: 'Control who can discover your startup and what they can see.',
   }[page] || '';
 
+  // The round-detail title/sub follow the loaded round, not a hardcoded name.
+  const pageTitle = page === 'round-detail' && round ? round.name : title;
+  const pageSub =
+    page === 'round-detail' && round
+      ? round.round_type + ' · ' + (round.instrument || 'No instrument set') + ' · closes ' + (round.closes_on || '—')
+      : sub;
+
   const head = (actions) => (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
         <p className="text-sm text-[#4A5568]">Acme Studio <span className="mx-2 text-[#B8955A]">·</span> Investors</p>
-        <h1 className="serif mt-1 text-[30px] font-semibold">{title}</h1>
-        <p className="mt-1 text-sm text-[#4A5568]">{sub}</p>
+        <h1 className="serif mt-1 text-[30px] font-semibold">{pageTitle}</h1>
+        <p className="mt-1 text-sm text-[#4A5568]">{pageSub}</p>
       </div>
       <div className="flex flex-wrap gap-2">{actions}</div>
     </div>
@@ -1169,65 +1323,92 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
         {page === 'rounds' && (
           <>
             {head(
-              <Btn onClick={() => setModal('round')}><Plus size={15} /> New round</Btn>
+              canEditRounds && (
+                <Btn onClick={() => setModal('round')}><Plus size={15} /> New round</Btn>
+              )
             )}
-            <div className="grid gap-5 lg:grid-cols-3">
-              <div className="space-y-3 lg:col-span-2">
-                <Card title="Pre-seed round" action={<span className="rounded-full bg-[#E7F3EC] px-2 py-1 text-[10px] font-semibold text-[#286749]">{roundStatus}</span>}>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {[
-                      ['Target', '₹2.5 Cr'],
-                      ['Committed', '₹0.8 Cr'],
-                      ['Remaining', '₹1.7 Cr'],
-                      ['Investors', '3'],
-                    ].map(([n, v]) => (
-                      <div key={n} className="rounded-lg bg-[#FAF8F4] p-3">
-                        <small className="text-xs text-[#4A5568]">{n}</small>
-                        <b className="serif mt-1 block text-xl">{v}</b>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 h-2 rounded-full bg-[#E5E1D8]">
-                    <div className="h-full w-[32%] rounded-full bg-[#B8955A]" />
-                  </div>
-                  <div className="mt-4 flex flex-wrap justify-between gap-3">
-                    <span className="text-xs text-[#4A5568]">Pre-seed · Equity · Closing target Mar 31, 2027</span>
-                    <Link href="/startup/rounds/round-preseed" className="text-xs font-semibold text-[#9A7A45]">
-                      Open round <ArrowRight className="inline" size={12} />
-                    </Link>
-                  </div>
-                </Card>
+            {roundsPhase === 'loading' && <LoadingBlock label="Loading your rounds…" rows={2} />}
+            {roundsPhase === 'error' && (
+              <ErrorBlock
+                message="Could not load your rounds."
+                onRetry={() => org && loadRounds(org.id)}
+              />
+            )}
+            {roundsPhase === 'none' && (
+              <EmptyBlock
+                title="No startup workspace yet"
+                hint="Create or join a startup to start tracking fundraising rounds."
+              />
+            )}
+            {roundsPhase === 'ready' && rounds.length === 0 && (
+              <EmptyBlock
+                title="No fundraising rounds yet"
+                hint="Set up your first round to start tracking your raise."
+              >
+                {canEditRounds && (
+                  <Btn onClick={() => setModal('round')}><Plus size={15} /> New round</Btn>
+                )}
+              </EmptyBlock>
+            )}
+            {roundsPhase === 'ready' && rounds.length > 0 && (
+              <div className="grid gap-5 lg:grid-cols-3">
+                <div className="space-y-3 lg:col-span-2">
+                  {rounds.map((r) => {
+                    const pct = progressNum(r.progress_pct);
+                    return (
+                      <Card
+                        key={r.id}
+                        title={r.name}
+                        action={<span className="rounded-full bg-[#E7F3EC] px-2 py-1 text-[10px] font-semibold text-[#286749]">{r.status}</span>}
+                      >
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                          {[
+                            ['Target', formatMoney(r.target_amount, r.currency)],
+                            ['Committed', formatMoney(r.committed_amount, r.currency)],
+                            ['Remaining', formatMoney(r.remaining_amount, r.currency)],
+                            ['Progress', pct + '%'],
+                          ].map(([n, v]) => (
+                            <div key={n} className="rounded-lg bg-[#FAF8F4] p-3">
+                              <small className="text-xs text-[#4A5568]">{n}</small>
+                              <b className="serif mt-1 block text-xl">{v}</b>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-4 h-2 rounded-full bg-[#E5E1D8]">
+                          <div
+                            className="h-full rounded-full bg-[#B8955A]"
+                            style={{ width: Math.min(100, Math.max(0, pct)) + '%' }}
+                          />
+                        </div>
+                        <div className="mt-4 flex flex-wrap justify-between gap-3">
+                          <span className="text-xs text-[#4A5568]">
+                            {r.round_type} · {r.instrument || 'No instrument'} · Closing target {r.closes_on || '—'}
+                          </span>
+                          <Link href={'/startup/rounds/' + r.id} className="text-xs font-semibold text-[#9A7A45]">
+                            Open round <ArrowRight className="inline" size={12} />
+                          </Link>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                  <Card title="Round milestones">
+                    <EmptyBlock
+                      title="Round milestones arrive later"
+                      hint="Milestones such as first commitment and term-sheet signing are recorded with offers and commitments (a later step)."
+                    />
+                  </Card>
+                </div>
 
-                <Card title="Round milestones">
-                  <div className="space-y-4">
-                    {[
-                      ['Round opened', 'Oct 10 · Complete'],
-                      ['First commitment', 'Oct 28 · Complete'],
-                      ['Lead investor', 'In progress'],
-                      ['Term sheet signed', 'Upcoming'],
-                      ['Closing', 'Mar 31, 2027'],
-                    ].map(([x, y], i) => (
-                      <p key={x} className="flex items-center gap-3 text-xs">
-                        <span className={`grid h-6 w-6 place-items-center rounded-full ${i < 2 ? 'bg-ink text-white' : 'bg-[#F3F4F6] text-[#4A5568]'}`}>
-                          {i < 2 ? <Check size={13} /> : i + 1}
-                        </span>
-                        <b>{x}</b>
-                        <span className="ml-auto text-[#4A5568]">{y}</span>
-                      </p>
-                    ))}
-                  </div>
-                </Card>
+                <aside>
+                  <Card title="Getting started">
+                    <p className="text-xs leading-5 text-[#4A5568]">Set round terms, prepare your data room, connect with investors, record offers and close with your counsel.</p>
+                    <button type="button" onClick={() => notify('Round guide opened.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
+                      Read round guide <ArrowRight className="inline" size={12} />
+                    </button>
+                  </Card>
+                </aside>
               </div>
-
-              <aside>
-                <Card title="Getting started">
-                  <p className="text-xs leading-5 text-[#4A5568]">Set round terms, prepare your data room, connect with investors, record offers and close with your counsel.</p>
-                  <button type="button" onClick={() => notify('Round guide opened.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
-                    Read round guide <ArrowRight className="inline" size={12} />
-                  </button>
-                </Card>
-              </aside>
-            </div>
+            )}
             {disclaimer}
           </>
         )}
@@ -1236,101 +1417,103 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
           <>
             {head(
               <div className="flex gap-2">
-                <Btn secondary onClick={() => notify('Round summary exported.')}><Download size={14} /> Export summary</Btn>
-                <Btn onClick={() => setRoundStatus(roundStatus === 'Closed' ? 'Open' : 'Closed')}>
-                  {roundStatus === 'Closed' ? 'Reopen' : 'Close round'}
-                </Btn>
+                {canEditRounds && round && (
+                  <Btn onClick={handleToggleRoundStatus}>
+                    {round.status === 'closed' ? 'Reopen' : 'Close round'}
+                  </Btn>
+                )}
               </div>
             )}
-            <div className="mb-5 rounded-xl border border-[#E5E1D8] bg-white p-5">
-              <div className="flex justify-between text-sm">
-                <b>Raised ₹0.8 Cr of ₹2.5 Cr</b>
-                <span>Closes Mar 31, 2027</span>
-              </div>
-              <div className="mt-3 h-3 rounded-full bg-[#E5E1D8]">
-                <div className="h-full w-[32%] rounded-full bg-[#B8955A]" />
-              </div>
-              <p className="mt-2 text-xs text-[#4A5568]">32% committed · 3 investors · Average ticket ₹26.7L</p>
-            </div>
-
-            <div className="mb-4 flex gap-2 overflow-x-auto">
-              {['Overview', 'Offers and commitments', 'Term sheets', 'Cap table impact', 'Documents', 'Activity'].map(x => (
-                <button
-                  key={x}
-                  type="button"
-                  onClick={() => setRoundTab(x)}
-                  className={`min-h-10 shrink-0 rounded-lg px-3 text-xs ${roundTab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
-                >
-                  {x}
-                </button>
-              ))}
-            </div>
-
-            <Card title={roundTab}>
-              {roundTab === 'Overview' ? (
-                <>
-                  <div className="grid gap-3 sm:grid-cols-4">
-                    {[
-                      ['Committed', '₹0.8 Cr'],
-                      ['Remaining', '₹1.7 Cr'],
-                      ['Investors', '3'],
-                      ['Average ticket', '₹26.7L'],
-                    ].map(([a, b]) => (
-                      <div key={a} className="rounded-lg bg-[#FAF8F4] p-4">
-                        <small className="text-xs text-[#4A5568]">{a}</small>
-                        <b className="serif mt-1 block text-xl">{b}</b>
-                      </div>
-                    ))}
+            {roundPhase === 'loading' && <LoadingBlock label="Loading round…" rows={2} />}
+            {roundPhase === 'error' && (
+              <ErrorBlock
+                message={roundLoadError || 'Could not load this round.'}
+                onRetry={() => org && loadRound(org.id, id)}
+              />
+            )}
+            {roundPhase === 'none' && (
+              <EmptyBlock title="No startup workspace yet" hint="Create or join a startup to view this round." />
+            )}
+            {roundPhase === 'ready' && round && (
+              <>
+                <div className="mb-5 rounded-xl border border-[#E5E1D8] bg-white p-5">
+                  <div className="flex justify-between text-sm">
+                    <b>Raised {formatMoney(round.committed_amount, round.currency)} of {formatMoney(round.target_amount, round.currency)}</b>
+                    <span>Closes {round.closes_on || '—'}</span>
                   </div>
-                  <p className="mt-5 text-xs text-[#4A5568]">
-                    Round activity · Opened Oct 10 · First commitment Oct 28 · Lead investor in progress
+                  <div className="mt-3 h-3 rounded-full bg-[#E5E1D8]">
+                    <div
+                      className="h-full rounded-full bg-[#B8955A]"
+                      style={{ width: Math.min(100, Math.max(0, progressNum(round.progress_pct))) + '%' }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-[#4A5568]">
+                    {progressNum(round.progress_pct) + '% committed' + (round.target_amount ? ' · target ' + formatMoney(round.target_amount, round.currency) : '')}
                   </p>
-                </>
-              ) : roundTab === 'Offers and commitments' ? (
-                <>
-                  <button type="button" onClick={() => setModal('offer')} className="mb-4 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
-                    + Record offer
-                  </button>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[650px] text-left text-xs">
-                      <thead className="border-b text-[#4A5568]">
-                        <tr>
-                          {['Investor', 'Offer type', 'Amount', 'Instrument', 'Status', 'Date'].map(x => (
-                            <th key={x} className="py-3">{x}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
+                </div>
+
+                <div className="mb-4 flex gap-2 overflow-x-auto">
+                  {['Overview', 'Offers and commitments', 'Term sheets', 'Cap table impact', 'Documents', 'Activity'].map((x) => (
+                    <button
+                      key={x}
+                      type="button"
+                      onClick={() => setRoundTab(x)}
+                      className={roundTab === x ? 'min-h-10 shrink-0 rounded-lg px-3 text-xs bg-ink text-white' : 'min-h-10 shrink-0 rounded-lg px-3 text-xs border border-[#E5E1D8] bg-white'}
+                    >
+                      {x}
+                    </button>
+                  ))}
+                </div>
+
+                <Card title={roundTab}>
+                  {roundTab === 'Overview' ? (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-4">
                         {[
-                          ['Northstar Capital', 'Equity', '₹50L', 'Equity', 'Under review', 'Nov 02'],
-                          ['Mira Shah', 'Equity', '₹25L', 'SAFE', 'Offer received', 'Nov 03'],
-                          ['SeedSpring Fund', 'Equity', '₹25L', 'Equity', 'Committed', 'Oct 28'],
-                        ].map(r => (
-                          <tr key={r[0]} className="border-b">
-                            <td className="py-3">{r[0]}</td>
-                            {r.slice(1).map((v, i) => (
-                              <td key={i}>{v}</td>
-                            ))}
-                          </tr>
+                          ['Committed', formatMoney(round.committed_amount, round.currency)],
+                          ['Remaining', formatMoney(round.remaining_amount, round.currency)],
+                          ['Target', formatMoney(round.target_amount, round.currency)],
+                          ['Progress', progressNum(round.progress_pct) + '%'],
+                        ].map(([a, b]) => (
+                          <div key={a} className="rounded-lg bg-[#FAF8F4] p-4">
+                            <small className="text-xs text-[#4A5568]">{a}</small>
+                            <b className="serif mt-1 block text-xl">{b}</b>
+                          </div>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ) : roundTab === 'Cap table impact' ? (
-                <>
-                  <div className="flex h-5 overflow-hidden rounded-full">
-                    <span className="w-[62%] bg-ink" />
-                    <span className="w-[18%] bg-[#B8955A]" />
-                    <span className="w-[20%] bg-[#A0A7B4]" />
-                  </div>
-                  <p className="mt-3 text-xs">Founders 62% · ESOP 18% · New investors 20% (illustrative target scenario)</p>
-                  <p className="mt-3 rounded-lg bg-[#FFF8E8] p-3 text-xs text-[#806236]">Estimate only. Confirm dilution and terms with your legal and finance advisers.</p>
-                </>
-              ) : (
-                <div className="py-5 text-sm text-[#4A5568]">{roundTab} entries will appear here as the round progresses.</div>
-              )}
-            </Card>
+                      </div>
+                      <p className="mt-5 text-xs text-[#4A5568]">
+                        Round opened {round.opens_on || '—'} · closes {round.closes_on || '—'} · status {round.status}
+                      </p>
+                    </>
+                  ) : roundTab === 'Offers and commitments' ? (
+                    <EmptyBlock
+                      title="Offers and commitments arrive later"
+                      hint="Offers are recorded with the offers step (a later step); none exist yet for this round."
+                    />
+                  ) : roundTab === 'Term sheets' ? (
+                    <EmptyBlock
+                      title="Term sheets arrive later"
+                      hint="Term sheets are tracked with the offers step (a later step)."
+                    />
+                  ) : roundTab === 'Cap table impact' ? (
+                    <EmptyBlock
+                      title="Cap table impact arrives later"
+                      hint="Dilution and cap-table impact are computed with the commitments step (a later step)."
+                    />
+                  ) : roundTab === 'Documents' ? (
+                    <EmptyBlock
+                      title="Documents arrive later"
+                      hint="Data-room documents are managed with the data-room step (a later step)."
+                    />
+                  ) : (
+                    <EmptyBlock
+                      title="Activity arrives later"
+                      hint="Round activity is recorded as offers and commitments are added (a later step)."
+                    />
+                  )}
+                </Card>
+              </>
+            )}
             {disclaimer}
           </>
         )}
@@ -1539,19 +1722,90 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
               </div>
             ) : modal === 'round' ? (
               <div className="space-y-3">
-                {[
-                  ['Round name', 'Pre-seed'],
-                  ['Target raise', '₹2.5 Cr'],
-                  ['Minimum raise', '₹1.5 Cr'],
-                  ['Instrument', 'Equity / SAFE'],
-                  ['Minimum ticket', '₹10L'],
-                  ['Closing date', '2027-03-31'],
-                ].map(([l, p]) => (
-                  <label key={l} className="block text-sm">
-                    {l}
-                    <input placeholder={p} className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm" />
-                  </label>
-                ))}
+                <label className="block text-sm">
+                  Round name
+                  <input
+                    value={roundForm.name}
+                    onChange={(e) => setRoundForm({ ...roundForm, name: e.target.value })}
+                    placeholder="Pre-seed"
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
+                  />
+                  <FieldError>{roundFormErrors.name}</FieldError>
+                </label>
+                <label className="block text-sm">
+                  Round type
+                  <select
+                    value={roundForm.round_type}
+                    onChange={(e) => setRoundForm({ ...roundForm, round_type: e.target.value })}
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
+                  >
+                    <option value="pre_seed">Pre-seed</option>
+                    <option value="seed">Seed</option>
+                    <option value="series_a">Series A</option>
+                    <option value="series_b">Series B</option>
+                    <option value="bridge">Bridge</option>
+                    <option value="safe">SAFE</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <FieldError>{roundFormErrors.round_type}</FieldError>
+                </label>
+                <label className="block text-sm">
+                  Target raise
+                  <input
+                    value={roundForm.target_amount}
+                    onChange={(e) => setRoundForm({ ...roundForm, target_amount: e.target.value })}
+                    placeholder="25000000"
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
+                  />
+                  <FieldError>{roundFormErrors.target_amount}</FieldError>
+                </label>
+                <label className="block text-sm">
+                  Minimum raise
+                  <input
+                    value={roundForm.min_raise}
+                    onChange={(e) => setRoundForm({ ...roundForm, min_raise: e.target.value })}
+                    placeholder="15000000"
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
+                  />
+                  <FieldError>{roundFormErrors.min_raise}</FieldError>
+                </label>
+                <label className="block text-sm">
+                  Instrument
+                  <select
+                    value={roundForm.instrument}
+                    onChange={(e) => setRoundForm({ ...roundForm, instrument: e.target.value })}
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
+                  >
+                    <option value="equity">Equity</option>
+                    <option value="safe">SAFE</option>
+                    <option value="convertible_note">Convertible note</option>
+                    <option value="ccd">CCD</option>
+                    <option value="ccps">CCPS</option>
+                    <option value="debt">Debt</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <FieldError>{roundFormErrors.instrument}</FieldError>
+                </label>
+                <label className="block text-sm">
+                  Minimum ticket
+                  <input
+                    value={roundForm.min_ticket}
+                    onChange={(e) => setRoundForm({ ...roundForm, min_ticket: e.target.value })}
+                    placeholder="1000000"
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
+                  />
+                  <FieldError>{roundFormErrors.min_ticket}</FieldError>
+                </label>
+                <label className="block text-sm">
+                  Closing date
+                  <input
+                    type="date"
+                    value={roundForm.closes_on}
+                    onChange={(e) => setRoundForm({ ...roundForm, closes_on: e.target.value })}
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
+                  />
+                  <FieldError>{roundFormErrors.closes_on}</FieldError>
+                </label>
                 <p className="rounded-lg bg-[#FFF8E8] p-3 text-xs text-[#806236]">Round terms and instruments have legal consequences. Review with a lawyer.</p>
               </div>
             ) : modal === 'offer' ? (
@@ -1613,6 +1867,10 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
               <button
                 type="button"
                 onClick={() => {
+                  if (modal === 'round') {
+                    handleCreateRound();
+                    return;
+                  }
                   setModal('');
                   notify(
                     modal.startsWith('intro')
@@ -1625,6 +1883,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   );
                 }}
                 className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white"
+                disabled={modal === 'round' && savingRound}
               >
                 {modal.startsWith('intro')
                   ? 'Send request'
@@ -1634,6 +1893,8 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   ? 'Approve scope'
                   : modal === 'offer'
                   ? 'Save offer'
+                  : modal === 'round'
+                  ? 'Create round'
                   : 'Save'}
               </button>
             </div>

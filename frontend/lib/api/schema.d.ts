@@ -784,6 +784,103 @@ export interface paths {
         patch: operations["update_milestone_api_v1_organizations__org_id__milestones__milestone_id__patch"];
         trace?: never;
     };
+    "/api/v1/organizations/{org_id}/funding-rounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a startup's funding rounds
+         * @description Any active member may read (viewer included).
+         *
+         *     Sort keys are whitelisted by the service; an unknown key is a 422
+         *     (the ``Literal``-style guard happens in the service dict lookup).
+         */
+        get: operations["list_funding_rounds_api_v1_organizations__org_id__funding_rounds_get"];
+        put?: never;
+        /**
+         * Create a funding round
+         * @description Owner/admin/member of the startup; viewer gets 403.
+         *
+         *     ``committed_amount`` starts at 0 (server-only in 9a).
+         */
+        post: operations["create_funding_round_api_v1_organizations__org_id__funding_rounds_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/funding-rounds/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Startup rounds summary
+         * @description Total target / committed / open-round counts in one aggregate query.
+         */
+        get: operations["funding_rounds_summary_api_v1_organizations__org_id__funding_rounds_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/funding-rounds/{round_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a funding round
+         * @description A foreign or deleted round is a 404 (no existence oracle).
+         */
+        get: operations["get_funding_round_api_v1_organizations__org_id__funding_rounds__round_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Soft-delete a funding round
+         * @description Sets ``deleted_at``; a repeat delete is a 404.
+         */
+        delete: operations["delete_funding_round_api_v1_organizations__org_id__funding_rounds__round_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit a funding round
+         * @description Owner/admin/member; ``status``/``committed_amount`` are not editable.
+         */
+        patch: operations["update_funding_round_api_v1_organizations__org_id__funding_rounds__round_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/funding-rounds/{round_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a round's status
+         * @description Only through the defined lifecycle; an invalid move is a 409.
+         */
+        post: operations["change_funding_round_status_api_v1_organizations__org_id__funding_rounds__round_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{org_id}/tasks": {
         parameters: {
             query?: never;
@@ -1998,6 +2095,30 @@ export interface paths {
          *     job-seeker stays on ``public`` rows like an anonymous caller.
          */
         get: operations["discover_startups_api_v1_startups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/startups/{identifier}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get discoverable startup profile (signed in)
+         * @description Retrieve full startup profile for discoverers (mentors, investors, etc.).
+         *
+         *     Only returns startups that have allowed the viewer's audience. Startups
+         *     outside the viewer's audience or non-existent startups 404 with STARTUP_NOT_FOUND
+         *     without existence leakage.
+         */
+        get: operations["get_discoverable_startup_api_v1_startups__identifier__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3231,6 +3352,148 @@ export interface components {
             email: string;
         };
         /**
+         * FundingRoundCreate
+         * @description A new round. ``committed_amount`` starts at 0 (server-set).
+         */
+        FundingRoundCreate: {
+            /** Name */
+            name: string;
+            round_type: components["schemas"]["FundingRoundType"];
+            /** Target Amount */
+            target_amount?: number | string | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Pre Money Valuation */
+            pre_money_valuation?: number | string | null;
+            instrument?: components["schemas"]["InstrumentType"] | null;
+            /** Opens On */
+            opens_on?: string | null;
+            /** Closes On */
+            closes_on?: string | null;
+            /** Min Raise */
+            min_raise?: number | string | null;
+            /** Min Ticket */
+            min_ticket?: number | string | null;
+        };
+        /** FundingRoundPage */
+        FundingRoundPage: {
+            /** Items */
+            items: components["schemas"]["FundingRoundRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /**
+         * FundingRoundRead
+         * @description A round as returned by the API. Derived fields are read-only.
+         */
+        FundingRoundRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Name */
+            name: string;
+            round_type: components["schemas"]["FundingRoundType"];
+            /** Target Amount */
+            target_amount: string | null;
+            /** Committed Amount */
+            committed_amount: string;
+            /** Currency */
+            currency: string;
+            /** Pre Money Valuation */
+            pre_money_valuation: string | null;
+            instrument: components["schemas"]["InstrumentType"] | null;
+            status: components["schemas"]["RoundStatus"];
+            /** Opens On */
+            opens_on: string | null;
+            /** Closes On */
+            closes_on: string | null;
+            /** Min Raise */
+            min_raise: string | null;
+            /** Min Ticket */
+            min_ticket: string | null;
+            /** Remaining Amount */
+            remaining_amount: string | null;
+            /** Progress Pct */
+            progress_pct: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * FundingRoundSummary
+         * @description Org-level roll-up for the ``/startup/rounds`` header.
+         *
+         *     One aggregate query in the service — no N+1. Money is a decimal
+         *     string; a total with no rounds is 0 (the list is simply empty).
+         */
+        FundingRoundSummary: {
+            /** Total Target */
+            total_target: string;
+            /** Total Committed */
+            total_committed: string;
+            /** Currency */
+            currency: string;
+            /** Open Rounds */
+            open_rounds: number;
+            /** By Status */
+            by_status: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * FundingRoundType
+         * @description schema.sql ``funding_round_type``.
+         * @enum {string}
+         */
+        FundingRoundType: "pre_seed" | "seed" | "series_a" | "series_b" | "bridge" | "safe" | "other";
+        /**
+         * FundingRoundUpdate
+         * @description Editable fields. ``status`` and ``committed_amount`` stay out.
+         */
+        FundingRoundUpdate: {
+            /** Name */
+            name?: string | null;
+            round_type?: components["schemas"]["FundingRoundType"] | null;
+            /** Target Amount */
+            target_amount?: number | string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Pre Money Valuation */
+            pre_money_valuation?: number | string | null;
+            instrument?: components["schemas"]["InstrumentType"] | null;
+            /** Opens On */
+            opens_on?: string | null;
+            /** Closes On */
+            closes_on?: string | null;
+            /** Min Raise */
+            min_raise?: number | string | null;
+            /** Min Ticket */
+            min_ticket?: number | string | null;
+        };
+        /**
          * FunnelStep
          * @description One bar of the sales funnel.
          *
@@ -3273,6 +3536,12 @@ export interface components {
             /** Badges Attributed */
             badges_attributed?: null;
         };
+        /**
+         * InstrumentType
+         * @description schema.sql ``instrument_type``.
+         * @enum {string}
+         */
+        InstrumentType: "equity" | "safe" | "convertible_note" | "ccd" | "ccps" | "debt" | "other";
         /** InviteCreate */
         InviteCreate: {
             /**
@@ -4837,6 +5106,12 @@ export interface components {
              */
             created_at: string;
         };
+        /**
+         * RoundStatus
+         * @description schema.sql ``round_status``.
+         * @enum {string}
+         */
+        RoundStatus: "draft" | "open" | "paused" | "closed" | "cancelled";
         /** ScopedReadinessBoard */
         ScopedReadinessBoard: {
             /**
@@ -5214,6 +5489,72 @@ export interface components {
             notes?: string | null;
         };
         /**
+         * StartupDiscoveryDetail
+         * @description Full discovery detail view for signed-in viewers (mentors, investors, etc.).
+         */
+        StartupDiscoveryDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Logo Url */
+            logo_url?: string | null;
+            /** Tagline */
+            tagline?: string | null;
+            stage?: components["schemas"]["StartupStage"] | null;
+            /** Sector */
+            sector?: string | null;
+            /** City */
+            city?: string | null;
+            /** Region */
+            region?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Founded Year */
+            founded_year?: number | null;
+            /** Website */
+            website?: string | null;
+            /**
+             * Mentor Verified
+             * @default false
+             */
+            mentor_verified?: boolean;
+            /** Readiness Score */
+            readiness_score?: number | null;
+            /** Summary */
+            summary?: string | null;
+            /** Business Model */
+            business_model?: string | null;
+            /** Problem */
+            problem?: string | null;
+            /** Solution */
+            solution?: string | null;
+            /** Market */
+            market?: string | null;
+            /** Traction Summary */
+            traction_summary?: string | null;
+            /** Ecosystem Goals */
+            ecosystem_goals?: string[];
+            /** Demo Url */
+            demo_url?: string | null;
+            /** Pitch Deck Url */
+            pitch_deck_url?: string | null;
+            /** Existing Mentorship Id */
+            existing_mentorship_id?: string | null;
+            /** Existing Mentorship Status */
+            existing_mentorship_status?: string | null;
+            /**
+             * Is Member
+             * @default false
+             */
+            is_member?: boolean;
+        };
+        /**
          * StartupDiscoveryItem
          * @description One discovery result: public identity fields + gated sections.
          */
@@ -5459,6 +5800,13 @@ export interface components {
          * @enum {string}
          */
         StartupStage: "idea" | "prototype" | "early_revenue" | "growth" | "mature";
+        /**
+         * StatusTransition
+         * @description ``POST …/status``: the only way ``status`` changes (plan D1).
+         */
+        StatusTransition: {
+            status: components["schemas"]["RoundStatus"];
+        };
         /** TalentProfileRead */
         TalentProfileRead: {
             /**
@@ -7828,6 +8176,258 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MilestoneRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_funding_rounds_api_v1_organizations__org_id__funding_rounds_get: {
+        parameters: {
+            query?: {
+                /** @description Filter by round status */
+                status?: components["schemas"]["RoundStatus"] | null;
+                /** @description created_at | closes_on | name */
+                sort?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundingRoundPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_funding_round_api_v1_organizations__org_id__funding_rounds_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FundingRoundCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundingRoundRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    funding_rounds_summary_api_v1_organizations__org_id__funding_rounds_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundingRoundSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_funding_round_api_v1_organizations__org_id__funding_rounds__round_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                round_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundingRoundRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_funding_round_api_v1_organizations__org_id__funding_rounds__round_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                round_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_funding_round_api_v1_organizations__org_id__funding_rounds__round_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                round_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FundingRoundUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundingRoundRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_funding_round_status_api_v1_organizations__org_id__funding_rounds__round_id__status_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                round_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusTransition"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundingRoundRead"];
                 };
             };
             /** @description Validation Error */
@@ -10790,6 +11390,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StartupDiscoveryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_discoverable_startup_api_v1_startups__identifier__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupDiscoveryDetail"];
                 };
             };
             /** @description Validation Error */
