@@ -4,6 +4,7 @@ All secrets come from environment variables. Never hard-code secrets.
 See backend/.env.example for the full list.
 """
 
+from decimal import Decimal
 from functools import lru_cache
 from typing import Literal
 
@@ -113,6 +114,9 @@ class Settings(BaseSettings):
     MENTORSHIP_REQUEST_WINDOW_SECONDS: int = 300
     # Step 8b: state transitions (accept/decline/cancel/end/pause/resume).
     # Higher than requests: these are normal back-and-forth.
+    SESSION_REVIEW_WRITE_LIMIT: int = 30
+    SESSION_REVIEW_WRITE_WINDOW_SECONDS: int = 300
+
     MENTORSHIP_ACTION_LIMIT: int = 60
     MENTORSHIP_ACTION_WINDOW_SECONDS: int = 300
     # Step 8c: the mentor's own availability grid is rewritten whole.
@@ -123,6 +127,22 @@ class Settings(BaseSettings):
     SESSION_WRITE_WINDOW_SECONDS: int = 300
     # Step 8d: how far ahead a session may be booked.
     SESSION_MAX_DAYS_AHEAD: int = 180
+    # Step 8e: deliverables are edited in bursts while a startup works on
+    # one, so the cap is higher than a request or a slot write.
+    DELIVERABLE_WRITE_LIMIT: int = 60
+    DELIVERABLE_WRITE_WINDOW_SECONDS: int = 300
+    # Step 8h: the mentor reading their own earnings.
+    EARNING_READ_LIMIT: int = 120
+    EARNING_READ_WINDOW_SECONDS: int = 60
+    # Step 8h: commission and TDS withheld from a mentor's fee.
+    #
+    # BOTH DEFAULT TO 0 ON PURPOSE. BUILD_PLAN.md, schema.sql and this
+    # codebase define no rate anywhere, and inventing a percentage would
+    # put a wrong number into money that 14f eventually pays out. At 0 the
+    # columns and the arithmetic are correct and honest (net == gross);
+    # finance/legal supply the real rates before 14f releases a payout.
+    MENTOR_COMMISSION_PCT: Decimal = Decimal("0")
+    MENTOR_TDS_PCT: Decimal = Decimal("0")
 
     # CORS: explicit allow-list only, never "*" with credentials.
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])

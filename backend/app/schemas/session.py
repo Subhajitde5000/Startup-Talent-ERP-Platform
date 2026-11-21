@@ -157,6 +157,8 @@ class SessionRead(BaseModel):
     # True when the session is close enough to start that a join link is
     # useful. Computed server-side so the client never guesses.
     can_join: bool = False
+    # True only for a recorded eligible startup attendee with no prior review.
+    can_review: bool = False
 
 
 class SessionPage(BaseModel):

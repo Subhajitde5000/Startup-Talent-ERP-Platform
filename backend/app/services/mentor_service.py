@@ -36,9 +36,7 @@ def _read(profile: MentorProfile) -> MentorProfileRead:
 
 
 async def get_me(db: AsyncSession, user: User) -> MentorProfileRead | None:
-    result = await db.execute(
-        select(MentorProfile).where(MentorProfile.user_id == user.id)
-    )
+    result = await db.execute(select(MentorProfile).where(MentorProfile.user_id == user.id))
     profile = result.scalar_one_or_none()
     if profile is None:
         return None
@@ -48,9 +46,7 @@ async def get_me(db: AsyncSession, user: User) -> MentorProfileRead | None:
 async def update_me(
     db: AsyncSession, user: User, payload: MentorProfileUpdate
 ) -> MentorProfileRead:
-    result = await db.execute(
-        select(MentorProfile).where(MentorProfile.user_id == user.id)
-    )
+    result = await db.execute(select(MentorProfile).where(MentorProfile.user_id == user.id))
     profile = result.scalar_one_or_none()
     if profile is None:
         profile = MentorProfile(user_id=user.id)
@@ -61,9 +57,7 @@ async def update_me(
         setattr(profile, field, value)
     await db.commit()
 
-    refreshed = await db.execute(
-        select(MentorProfile).where(MentorProfile.user_id == user.id)
-    )
+    refreshed = await db.execute(select(MentorProfile).where(MentorProfile.user_id == user.id))
     return _read(refreshed.scalar_one())
 
 
@@ -82,6 +76,9 @@ async def get_public(db: AsyncSession, handle: str) -> MentorPublicRead | None:
     if row is None:
         return None
     user, profile = row
+    from app.services.mentor_directory_service import _review_stats
+
+    counts = await _review_stats(db, [user.id])
     return MentorPublicRead(
         handle=user.handle or "",
         display_name=user.display_name or "",
@@ -98,7 +95,7 @@ async def get_public(db: AsyncSession, handle: str) -> MentorPublicRead | None:
         cadence=profile.cadence,
         max_startups=profile.max_startups,
         accepting_requests=profile.accepting_requests,
-        rating=float(profile.rating) if profile.rating is not None else None,
+        rating=counts.get(user.id, (0, None))[1],
         sessions_completed=profile.sessions_completed,
         is_verified=profile.is_verified,
     )

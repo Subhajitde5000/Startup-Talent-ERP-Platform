@@ -233,11 +233,11 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [x] B: /mentor/sessions, /mentor/sessions/[sessionId], /startup/sessions, /startup/sessions/[sessionId] wired; `initialSessions` and the inline arrays + `sessionDetails` map removed. The startup routes stay on the shared `mentor-app.jsx` shell (the two route families render different chrome), so the block was replaced in place instead of forking a 2,100-line file. Notes/agenda/files/recording stay local to the page and say so — 8d stores no notes, so nothing is written to a fake store.
 
 ### 8e Deliverables
-- [ ] A: Create, assign, submit and review deliverables with a status flow; link to readiness items
+- [x] A: `mentor_deliverables` (0020). `POST/GET /mentorships/{id}/deliverables`, `GET/PATCH/DELETE /deliverables/{id}`. Only the mentor on the row creates, retitles, reassigns or deletes; the assignee may only move `status`/`evidence` through the assignee half of the state machine (`not_started -> in_progress -> submitted`, `changes_requested -> in_progress`); accept/request-changes are mentor-only, so nobody reviews their own work. Any active member reads (viewer included, `can_edit=false`); an outsider gets 404, never 403. `overdue` is never written — `is_overdue` is derived from `due_on` and the status (Q4). Deviations: `file_id` dropped (Step 4 `files` does not exist; evidence is text), `status` is `String(24)` + named CHECK (a 16 silently truncates `changes_requested`, caught by the PostgreSQL run), and `reviewed_by` is ADDED because schema.sql records when but not who reviewed. `owner_id` is restricted to active members of that startup (422 on the field). 40 tests.
 - [ ] B: /mentor/deliverables, deliverables in /startup/mentors wired; demo data removed
 
 ### 8f Mentor readiness sign-off
-- [ ] A: Switch on mentor sign-off for the readiness items from 5f; only a mentor with an active mentorship; revoke
+- [x] A: `POST /mentorships/{id}/readiness/{criterion_id}/sign-off` and `.../revoke`. Additive migration 0021 adds nullable `startup_readiness.signed_off_mentorship_id -> mentorships` (Q1a), so a sign-off records WHICH engagement it came through; `signed_off_by` already held the user. The mentor must be the one on that row AND the mentorship must still be `active` (409 otherwise). Every startup member — the owner included — gets 403, which is what makes self-sign-off structurally impossible; an outsider or another mentor's row is 404. Revoke is limited to the sign-off that came through that same mentorship (409 otherwise), so one mentor cannot undo another's judgement and 8f cannot undo an admin sign-off. The 5f admin route is unchanged and stamps no mentorship. 12 tests.
 - [ ] B: /mentor/startups/[mentorshipId]/readiness, /startup/readiness (sign-off status) wired; demo data removed
 
 ### 8g Agreements
@@ -245,16 +245,16 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [ ] B: /mentor/agreements, /mentor/agreements/[agreementId], agreement card in /startup/mentors/[mentorshipId] wired; demo data removed
 
 ### 8h Earnings records
-- [ ] A: Record per completed session (gross, commission, TDS, net) and summaries; payouts are paid in 14f
+- [x] A: `mentor_earnings` (0022) with the `mentor_earning_math` CHECK, so the database itself guarantees `net = gross - commission - tds`. Rows are created in ONE place — `earning_service.record_for_session`, called by `session_service.complete` inside the completing transaction — from the session's own fee; there is no write endpoint. Idempotent on `session_id`, and a free/zero-fee session creates nothing. `GET /mentor/earnings` (filter + pagination) and `GET /mentor/earnings/summary` are mentor-only and scoped to the caller's own rows. **Rates default to 0** (Q2a): BUILD_PLAN and schema.sql define no commission or TDS anywhere, so none was invented — `net == gross` until finance/legal supply real rates, and they must be set before 14f releases a payout. `payout_batch_id` is a plain UUID with no FK until 14f creates `payout_batches`. 19 tests.
 - [ ] B: /mentor/earnings (read-only until 14f) wired; demo data removed
 
 ### 8i Reviews and ratings (GAP)
-- [ ] A: Participants review a session once, mentor rating is recomputed; propose the table first
-- [ ] B: review prompt after a session, rating on mentor cards wired; demo data removed
+- [ ] A: In progress — session review table and endpoints added; PostgreSQL Docker Compose verification and remaining edge-case coverage are still open.
+- [ ] B: In progress — review prompt and consented reviews wired; role-by-role browser testing remains open.
 
 ### 8j Mentor workspace, dashboard and impact
-- [ ] A: Mentorship workspace, health indicator, dashboard and derived impact numbers
-- [ ] B: /mentor/startups/[mentorshipId], /mentor/startups/[mentorshipId]/startup, /mentor/dashboard, /mentor/impact, /startup/mentors (overview), /startup/mentors/[mentorshipId] (workspace) wired; demo data removed
+- [ ] A: In progress — workspace/readiness and aggregate endpoints added; Docker Compose verification and complete dashboard/impact coverage are still open.
+- [ ] B: In progress — workspace, overview, dashboard and impact wired; role-by-role browser testing, complete seed coverage and full frontend lint remain open.
 
 ### 8k Step 8 test pass
 - [ ] Click-through done, no leftover demo data on wired pages

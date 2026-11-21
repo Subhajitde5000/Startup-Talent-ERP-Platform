@@ -5,8 +5,13 @@ dependency; path params are uuid.UUID so malformed ids 422 before any
 service code runs. Membership, org scoping (IDOR), the status state
 machine and the score roll-up live in readiness_service.
 
-Sign-off and reject are the only routes that require the platform
-``admin`` role (plan D3); mentor sign-off arrives with Step 8.
+Admin sign-off and reject require the platform ``admin`` role (plan D3).
+
+Step 8f adds a SECOND, independent sign-off path under
+``/mentorships/{id}/readiness/{criterion_id}/sign-off``: a mentor on an
+ACTIVE mentorship may sign off the same state machine. The admin routes are
+unchanged. ``_require_signing_mentor`` in the service refuses every startup
+member, owner included, which is what makes self-sign-off impossible.
 """
 
 import uuid
@@ -28,6 +33,8 @@ from app.schemas.readiness import (
 from app.services import readiness_service
 
 router = APIRouter(tags=["readiness"])
+# Step 8f: mentor sign-off, addressed through the engagement it comes from.
+mentorship_router = APIRouter(prefix="/mentorships", tags=["readiness"])
 
 
 @router.get(
@@ -152,3 +159,48 @@ async def reject(
 ) -> ReadinessRead:
     """Platform admin only; the reason is stored in ``notes``."""
     return await readiness_service.reject(db, user, org_id, criterion_id, payload)
+
+
+# ------------------------------------------------- Step 8f: mentor sign-off
+
+
+@mentorship_router.post(
+    "/{mentorship_id}/readiness/{criterion_id}/sign-off",
+    response_model=ReadinessRead,
+    summary="Sign off a readiness item as the startup's mentor",
+    responses={
+        403: {"description": "A startup member, or not the mentor on this row."},
+        404: {"description": "Not found, or not a participant."},
+        409: {"description": "The mentorship is not active, or the item is not submitted."},
+    },
+)
+async def mentor_sign_off(
+    mentorship_id: uuid.UUID,
+    criterion_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> ReadinessRead:
+    return await readiness_service.mentor_sign_off(
+        db, user, mentorship_id, criterion_id
+    )
+
+
+@mentorship_router.post(
+    "/{mentorship_id}/readiness/{criterion_id}/revoke",
+    response_model=ReadinessRead,
+    summary="Withdraw a mentor sign-off",
+    responses={
+        403: {"description": "A startup member, or not the mentor on this row."},
+        404: {"description": "Not found, or not a participant."},
+        409: {"description": "The sign-off did not come from this mentorship."},
+    },
+)
+async def mentor_revoke_sign_off(
+    mentorship_id: uuid.UUID,
+    criterion_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> ReadinessRead:
+    return await readiness_service.mentor_revoke_sign_off(
+        db, user, mentorship_id, criterion_id
+    )

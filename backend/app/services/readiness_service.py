@@ -34,8 +34,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.exceptions import conflict, not_found, rate_limited, validation_error
-from app.models.organization import OrgRole
+from app.core.exceptions import (
+    conflict,
+    forbidden,
+    not_found,
+    rate_limited,
+    validation_error,
+)
+from app.models.activity import ActivityEventType
+from app.models.mentorship import Mentorship, MentorshipStatus
+from app.models.organization import OrganizationMember, OrgRole
 from app.models.readiness import (
     ReadinessCriterion,
     ReadinessStatus,
@@ -51,7 +59,7 @@ from app.schemas.readiness import (
     ReadinessSummary,
     ReadinessUpdate,
 )
-from app.services import organization_service
+from app.services import activity_service, organization_service
 from app.services.rate_limiter import rate_limiter
 
 # Viewer role is deliberately excluded from startup-side writes.
@@ -494,7 +502,9 @@ async def state_for(
 
 
 def criterion_read(
-    criterion: ReadinessCriterion, state: StartupReadiness
+    criterion: ReadinessCriterion,
+    state: StartupReadiness,
+    signed_off_by_name: str | None = None,
 ) -> ReadinessRead:
     return ReadinessRead(
         # The startup_readiness row id — what ``tasks.readiness_id`` points
@@ -511,9 +521,28 @@ def criterion_read(
         evidence=state.evidence,
         notes=state.notes,
         signed_off_by=state.signed_off_by,
+        signed_off_mentorship_id=state.signed_off_mentorship_id,
+        signed_off_by_name=signed_off_by_name,
         signed_off_at=state.signed_off_at,
         updated_at=state.updated_at,
     )
+
+
+async def _signer_names(
+    db: AsyncSession, states: list[StartupReadiness]
+) -> dict[uuid.UUID, str]:
+    """Resolve signed_off_by ids to display names in ONE query.
+
+    Without this the board would either show a bare UUID or force the
+    client to call /users/{id} once per item.
+    """
+    ids = {st.signed_off_by for st in states if st.signed_off_by is not None}
+    if not ids:
+        return {}
+    rows = await db.execute(
+        select(User.id, User.display_name).where(User.id.in_(ids))
+    )
+    return {uid: name for uid, name in rows.all()}
 
 
 async def _recompute_score(db: AsyncSession, org_id: uuid.UUID) -> ReadinessSummary:
@@ -621,29 +650,43 @@ async def get_board(
     org = await organization_service.startup_org_or_404(db, org_id)
     await organization_service.require_membership(db, org.id, user)
 
+    return await _board_for_org(db, org.id)
+
+
+async def _board_for_org(db: AsyncSession, org_id: uuid.UUID) -> ReadinessBoard:
+    """Read a board after the caller's access has been checked."""
     criteria = await _active_criteria(db)
     existing = {
         row.criterion_id: row
         for row in (
             await db.execute(
-                select(StartupReadiness).where(StartupReadiness.org_id == org.id)
+                select(StartupReadiness).where(StartupReadiness.org_id == org_id)
             )
         )
         .scalars()
         .all()
     }
-    items: list[ReadinessRead] = []
+    states = []
     for criterion in criteria:
         state = existing.get(criterion.id)
         if state is None:
-            state = await state_for(db, org.id, criterion)
-        items.append(criterion_read(criterion, state))
+            state = await state_for(db, org_id, criterion)
+        states.append(state)
+    names = await _signer_names(db, states)
 
-    summary = await _recompute_score(db, org.id)
+    items = [
+        criterion_read(
+            criterion, state,
+            names.get(state.signed_off_by) if state.signed_off_by else None,
+        )
+        for criterion, state in zip(criteria, states, strict=True)
+    ]
+
+    summary = await _recompute_score(db, org_id)
     # The read persists its own not_started rows (D5); scoring rides the
     # same commit so the cached number is written exactly once.
     await db.commit()
-    return ReadinessBoard(org_id=org.id, summary=summary, items=items)
+    return ReadinessBoard(org_id=org_id, summary=summary, items=items)
 
 
 async def get_item(
@@ -657,7 +700,12 @@ async def get_item(
     # roll-up NULL when a readiness row exists (plan D1: 0 when none).
     await _recompute_score(db, org.id)
     await db.commit()
-    return criterion_read(criterion, state)
+    name = (
+        (await _signer_names(db, [state])).get(state.signed_off_by)
+        if state.signed_off_by
+        else None
+    )
+    return criterion_read(criterion, state, name)
 
 
 async def update_evidence(
@@ -696,7 +744,12 @@ async def update_evidence(
     await _recompute_score(db, org.id)
     await db.commit()
     await db.refresh(state)
-    return criterion_read(criterion, state)
+    name = (
+        (await _signer_names(db, [state])).get(state.signed_off_by)
+        if state.signed_off_by
+        else None
+    )
+    return criterion_read(criterion, state, name)
 
 
 async def submit(
@@ -727,7 +780,12 @@ async def submit(
     await _recompute_score(db, org.id)
     await db.commit()
     await db.refresh(state)
-    return criterion_read(criterion, state)
+    name = (
+        (await _signer_names(db, [state])).get(state.signed_off_by)
+        if state.signed_off_by
+        else None
+    )
+    return criterion_read(criterion, state, name)
 
 
 async def withdraw(
@@ -749,7 +807,12 @@ async def withdraw(
     await _recompute_score(db, org.id)
     await db.commit()
     await db.refresh(state)
-    return criterion_read(criterion, state)
+    name = (
+        (await _signer_names(db, [state])).get(state.signed_off_by)
+        if state.signed_off_by
+        else None
+    )
+    return criterion_read(criterion, state, name)
 
 
 async def sign_off(
@@ -771,7 +834,12 @@ async def sign_off(
     await _recompute_score(db, org.id)
     await db.commit()
     await db.refresh(state)
-    return criterion_read(criterion, state)
+    name = (
+        (await _signer_names(db, [state])).get(state.signed_off_by)
+        if state.signed_off_by
+        else None
+    )
+    return criterion_read(criterion, state, name)
 
 
 async def reject(
@@ -797,7 +865,12 @@ async def reject(
     await _recompute_score(db, org.id)
     await db.commit()
     await db.refresh(state)
-    return criterion_read(criterion, state)
+    name = (
+        (await _signer_names(db, [state])).get(state.signed_off_by)
+        if state.signed_off_by
+        else None
+    )
+    return criterion_read(criterion, state, name)
 
 
 async def require_readiness_ref(
@@ -823,3 +896,152 @@ async def require_readiness_ref(
                 {"loc": ["body", "readiness_id"], "msg": message, "type": "value_error"}
             ],
         )
+
+
+# ------------------------------------------------------- Step 8f: mentor sign-off
+
+
+async def _mentor_mentorship_or_404(
+    db: AsyncSession, mentorship_id: uuid.UUID
+) -> Mentorship:
+    """The engagement, or 404 — the same no-existence-oracle rule as 8b/8d."""
+    row = (
+        await db.execute(
+            select(Mentorship).where(
+                Mentorship.id == mentorship_id, Mentorship.deleted_at.is_(None)
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise not_found("Mentorship not found.")
+    return row
+
+
+async def _require_signing_mentor(
+    db: AsyncSession, mentorship: Mentorship, user: User, org_id: uuid.UUID
+) -> None:
+    """Only the mentor ON THIS ROW, and only while it is active, may sign.
+
+    Three separate refusals, all deliberate (8f plan):
+
+    - an outsider / wrong row -> 404, so a mentorship cannot be probed;
+    - any startup member, OWNER INCLUDED -> 403. This is what makes
+      self-sign-off structurally impossible: the founder can never be the
+      mentor on their own startup's row, because a mentorship's
+      ``mentor_id`` is set when the startup requests a mentor and cannot be
+      the requester;
+    - a mentor whose engagement is not ``active`` -> 409. Signed-off
+      readiness is credibility, so it must not come from a request that was
+      never accepted, nor from one that has ended.
+    """
+    if mentorship.mentor_id != user.id:
+        role = (
+            await db.execute(
+                select(OrganizationMember.role).where(
+                    OrganizationMember.org_id == org_id,
+                    OrganizationMember.user_id == user.id,
+                    OrganizationMember.deleted_at.is_(None),
+                    OrganizationMember.status == "active",
+                )
+            )
+        ).scalar_one_or_none()
+        if role is None:
+            raise not_found("Mentorship not found.")
+        raise forbidden("Only the mentor can sign off readiness for this startup.")
+
+    if mentorship.status != MentorshipStatus.active:
+        raise conflict(
+            "Sign-off needs an active mentorship.",
+            code="INVALID_STATE",
+        )
+
+
+async def mentor_sign_off(
+    db: AsyncSession, user: User, mentorship_id: uuid.UUID, criterion_id: uuid.UUID
+) -> ReadinessRead:
+    """A mentor signs off a startup's submitted readiness item (Step 8f).
+
+    Same state machine as the admin route: only ``submitted`` can be signed
+    off. The admin route is unchanged and still stamps no mentorship.
+    """
+    mentorship = await _mentor_mentorship_or_404(db, mentorship_id)
+    await _require_signing_mentor(db, mentorship, user, mentorship.startup_org_id)
+    await _enforce_action_limit(user, "mentor_sign_off")
+
+    criterion = await _criterion_or_404(db, criterion_id)
+    state = await state_for(db, mentorship.startup_org_id, criterion)
+    _require_transition(
+        state.status, frozenset({ReadinessStatus.submitted}), "sign off"
+    )
+
+    state.status = ReadinessStatus.signed_off
+    # Always the authenticated actor, never the body.
+    state.signed_off_by = user.id
+    state.signed_off_at = datetime.now(UTC)
+    state.signed_off_mentorship_id = mentorship.id
+    await _recompute_score(db, mentorship.startup_org_id)
+    activity_service.record(
+        db,
+        event_type=ActivityEventType.readiness_mentor_signed_off,
+        summary=f"Readiness item '{criterion.title}' signed off by a mentor.",
+        org_id=mentorship.startup_org_id,
+        actor_id=user.id,
+        entity_type="readiness",
+        entity_id=state.id,
+    )
+    await db.commit()
+    await db.refresh(state)
+    name = (
+        (await _signer_names(db, [state])).get(state.signed_off_by)
+        if state.signed_off_by
+        else None
+    )
+    return criterion_read(criterion, state, name)
+
+
+async def mentor_revoke_sign_off(
+    db: AsyncSession, user: User, mentorship_id: uuid.UUID, criterion_id: uuid.UUID
+) -> ReadinessRead:
+    """The mentor takes their own sign-off back.
+
+    Only the mentor whose sign-off is in force may revoke it: a different
+    mentor on the same startup must not be able to undo someone else's
+    judgement. Admin sign-offs (no mentorship) cannot be revoked here.
+    """
+    mentorship = await _mentor_mentorship_or_404(db, mentorship_id)
+    await _require_signing_mentor(db, mentorship, user, mentorship.startup_org_id)
+    await _enforce_action_limit(user, "mentor_revoke")
+
+    criterion = await _criterion_or_404(db, criterion_id)
+    state = await state_for(db, mentorship.startup_org_id, criterion)
+    if (
+        state.status != ReadinessStatus.signed_off
+        or state.signed_off_mentorship_id != mentorship.id
+    ):
+        raise conflict(
+            "This item was not signed off through this mentorship.",
+            code="INVALID_STATE",
+        )
+
+    state.status = ReadinessStatus.in_progress
+    state.signed_off_by = None
+    state.signed_off_at = None
+    state.signed_off_mentorship_id = None
+    await _recompute_score(db, mentorship.startup_org_id)
+    activity_service.record(
+        db,
+        event_type=ActivityEventType.readiness_mentor_revoked,
+        summary=f"Mentor sign-off withdrawn for '{criterion.title}'.",
+        org_id=mentorship.startup_org_id,
+        actor_id=user.id,
+        entity_type="readiness",
+        entity_id=state.id,
+    )
+    await db.commit()
+    await db.refresh(state)
+    name = (
+        (await _signer_names(db, [state])).get(state.signed_off_by)
+        if state.signed_off_by
+        else None
+    )
+    return criterion_read(criterion, state, name)
