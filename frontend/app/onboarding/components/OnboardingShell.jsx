@@ -4,7 +4,6 @@ import React from 'react';
 import Link from 'next/link';
 import { LogOut, Sparkles } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { clearTokens } from '@/lib/api/client';
 
 export default function OnboardingShell({ children }) {
   const { logout } = useAuth() || {};
@@ -35,12 +34,8 @@ export default function OnboardingShell({ children }) {
             </span>
             <button
               type="button"
-              onClick={() => {
-                try {
-                  clearTokens();
-                  window.localStorage.clear();
-                  window.sessionStorage.clear();
-                } catch {}
+              onClick={async () => {
+                if (logout) await logout();
                 window.location.href = '/login';
               }}
               className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5E1D8] px-3 py-1.5 text-xs font-semibold text-[#4A5568] hover:bg-[#FAF8F4] hover:text-[#0F1B2D] transition"

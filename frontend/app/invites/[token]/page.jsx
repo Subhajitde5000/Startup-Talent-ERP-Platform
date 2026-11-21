@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { api, ApiError, getAccessToken } from '@/lib/api/client';
+import { api, ApiError } from '@/lib/api/client';
 
 export default function AcceptInvitePage() {
   const { token } = useParams();
@@ -44,7 +44,7 @@ export default function AcceptInvitePage() {
 
   useEffect(() => {
     // Auto-accept once we know who the user is.
-    if (!loading && user && getAccessToken() && status === 'working' && !busy) {
+    if (!loading && user && status === 'working' && !busy) {
       accept();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

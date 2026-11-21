@@ -1,12 +1,12 @@
 'use client';
 /**
  * Session state for the whole app: who is signed in, the current user's
- * roles, and the login/logout helpers. Backed by lib/api/client.ts (tokens
- * live in local storage; the API client attaches them and refreshes them).
+ * roles, and the login/logout helpers. Backed by lib/api/client.ts (session tokens
+ * live in HttpOnly cookies; the API client refreshes them).
  */
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, clearTokens, getAccessToken, setTokens, UNAUTHENTICATED_EVENT } from '@/lib/api/client';
+import { api, clearTokens, UNAUTHENTICATED_EVENT } from '@/lib/api/client';
 
 const AuthContext = createContext(null);
 
@@ -49,10 +49,7 @@ export function AuthProvider({ children }) {
     mounted.current = true;
     let cancelled = false;
     async function load() {
-      if (!getAccessToken()) {
-        setLoading(false);
-        return;
-      }
+      clearTokens(); // discard legacy local-storage credentials
       try {
         const me = await api.users.me();
         if (!cancelled) setUser(me);
@@ -91,8 +88,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const verifyEmail = useCallback(async (email, code) => {
-    const tokens = await api.auth.verifyEmail({ email, code });
-    setTokens(tokens);
+    await api.auth.verifyEmail({ email, code });
     const me = await api.users.me();
     setUser(me);
     return me;
