@@ -50,7 +50,9 @@ import {
   Video,
   Filter,
   BarChart3,
-  Menu
+  Menu,
+  BookOpen,
+  Edit2
 } from 'lucide-react';
 
 const investors = [
@@ -145,6 +147,50 @@ function progressNum(value) {
   return Number.isNaN(n) ? 0 : n;
 }
 
+function StatusBadge({ status }) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'open') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Open
+      </span>
+    );
+  }
+  if (s === 'draft') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#ECD9BA] bg-[#FAF4E8] px-2.5 py-0.5 text-xs font-semibold text-[#806236]">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#B8955A]" /> Draft
+      </span>
+    );
+  }
+  if (s === 'paused') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Paused
+      </span>
+    );
+  }
+  if (s === 'closed') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-stone-100 px-2.5 py-0.5 text-xs font-semibold text-stone-700">
+        <span className="h-1.5 w-1.5 rounded-full bg-stone-500" /> Closed
+      </span>
+    );
+  }
+  if (s === 'cancelled') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+        <span className="h-1.5 w-1.5 rounded-full bg-red-500" /> Cancelled
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full border border-stone-200 bg-stone-50 px-2.5 py-0.5 text-xs font-medium text-[#4A5568]">
+      {status}
+    </span>
+  );
+}
+
 export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const [toast, setToast] = useState('');
   const [visible, setVisible] = useState(false);
@@ -192,6 +238,30 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   });
   const [roundFormErrors, setRoundFormErrors] = useState({});
   const [savingRound, setSavingRound] = useState(false);
+
+  // Round guide + Edit round + Round status transitions
+  const [guideTab, setGuideTab] = useState('overview'); // overview|terms|dataroom|closing
+  const [statusChanging, setStatusChanging] = useState(false);
+  const [editRoundForm, setEditRoundForm] = useState({
+    name: '',
+    round_type: 'pre_seed',
+    target_amount: '',
+    min_raise: '',
+    instrument: 'equity',
+    min_ticket: '',
+    closes_on: '',
+  });
+  const [editRoundErrors, setEditRoundErrors] = useState({});
+  const [savingEditRound, setSavingEditRound] = useState(false);
+
+  useEffect(() => {
+    if (!modal) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setModal('');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [modal]);
 
   const notify = (s) => {
     setToast(s);
@@ -284,16 +354,75 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     }
   };
 
-  const handleToggleRoundStatus = async () => {
-    if (!org || !round) return;
-    const next = round.status === 'closed' ? 'open' : 'closed';
+  const openEditRoundModal = () => {
+    if (!round) return;
+    setEditRoundForm({
+      name: round.name || '',
+      round_type: round.round_type || 'pre_seed',
+      target_amount: round.target_amount ?? '',
+      min_raise: round.min_raise ?? '',
+      instrument: round.instrument || 'equity',
+      min_ticket: round.min_ticket ?? '',
+      closes_on: round.closes_on || '',
+    });
+    setEditRoundErrors({});
+    setModal('edit-round');
+  };
+
+  const handleUpdateRound = async () => {
+    if (!org || !round || savingEditRound) return;
+    setSavingEditRound(true);
+    setEditRoundErrors({});
     try {
-      const updated = await api.fundingRounds.changeStatus(org.id, round.id, next);
+      const updated = await api.fundingRounds.update(org.id, round.id, {
+        name: editRoundForm.name.trim(),
+        round_type: editRoundForm.round_type,
+        target_amount: editRoundForm.target_amount ? editRoundForm.target_amount : null,
+        min_raise: editRoundForm.min_raise ? editRoundForm.min_raise : null,
+        instrument: editRoundForm.instrument || null,
+        min_ticket: editRoundForm.min_ticket ? editRoundForm.min_ticket : null,
+        closes_on: editRoundForm.closes_on ? editRoundForm.closes_on : null,
+      });
       setRound(updated);
-      notify(next === 'closed' ? 'Round closed.' : 'Round reopened.');
+      setRounds((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      setModal('');
+      notify('Round details updated.');
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 422) {
+        setEditRoundErrors(fieldErrorsFrom(err));
+      } else {
+        notify(err instanceof ApiError ? err.message : 'Could not update the round.');
+      }
+    } finally {
+      setSavingEditRound(false);
+    }
+  };
+
+  const handleUpdateRoundStatus = async (nextStatus) => {
+    if (!org || !round || statusChanging) return;
+    setStatusChanging(true);
+    try {
+      const updated = await api.fundingRounds.changeStatus(org.id, round.id, nextStatus);
+      setRound(updated);
+      setRounds((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      const msgs = {
+        open: round.status === 'draft' ? 'Round opened for commitments.' : 'Round reopened.',
+        paused: 'Round paused.',
+        closed: 'Round closed.',
+        cancelled: 'Round cancelled.',
+      };
+      notify(msgs[nextStatus] || `Round status changed to ${nextStatus}.`);
     } catch (err) {
       notify(err instanceof ApiError ? err.message : 'Could not change the round status.');
+    } finally {
+      setStatusChanging(false);
     }
+  };
+
+  const handleToggleRoundStatus = async () => {
+    if (!round) return;
+    const next = round.status === 'closed' ? 'open' : 'closed';
+    await handleUpdateRoundStatus(next);
   };
 
   // Dynamic ID resolution supporting test IDs and semantic IDs
@@ -339,10 +468,13 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
         <p className="text-sm text-[#4A5568]">Acme Studio <span className="mx-2 text-[#B8955A]">·</span> Investors</p>
-        <h1 className="serif mt-1 text-[30px] font-semibold">{pageTitle}</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="serif mt-1 text-[30px] font-semibold">{pageTitle}</h1>
+          {page === 'round-detail' && round && <StatusBadge status={round.status} />}
+        </div>
         <p className="mt-1 text-sm text-[#4A5568]">{pageSub}</p>
       </div>
-      <div className="flex flex-wrap gap-2">{actions}</div>
+      <div className="flex flex-wrap items-center gap-2">{actions}</div>
     </div>
   );
 
@@ -1359,7 +1491,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                       <Card
                         key={r.id}
                         title={r.name}
-                        action={<span className="rounded-full bg-[#E7F3EC] px-2 py-1 text-[10px] font-semibold text-[#286749]">{r.status}</span>}
+                        action={<StatusBadge status={r.status} />}
                       >
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                           {[
@@ -1402,8 +1534,8 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                 <aside>
                   <Card title="Getting started">
                     <p className="text-xs leading-5 text-[#4A5568]">Set round terms, prepare your data room, connect with investors, record offers and close with your counsel.</p>
-                    <button type="button" onClick={() => notify('Round guide opened.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
-                      Read round guide <ArrowRight className="inline" size={12} />
+                    <button type="button" onClick={() => setModal('round-guide')} className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-[#9A7A45] hover:text-[#806236] transition-colors">
+                      <BookOpen size={13} /> Read round guide <ArrowRight className="inline" size={12} />
                     </button>
                   </Card>
                 </aside>
@@ -1416,13 +1548,106 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
         {page === 'round-detail' && (
           <>
             {head(
-              <div className="flex gap-2">
+              <>
+                <button
+                  type="button"
+                  onClick={() => setModal('round-guide')}
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#E5E1D8] bg-white px-3.5 text-xs font-semibold text-[#4A5568] hover:border-[#B8955A] hover:text-[#0F1B2D] transition-colors"
+                >
+                  <BookOpen size={14} className="text-[#B8955A]" /> Read round guide
+                </button>
+
                 {canEditRounds && round && (
-                  <Btn onClick={handleToggleRoundStatus}>
-                    {round.status === 'closed' ? 'Reopen' : 'Close round'}
-                  </Btn>
+                  <>
+                    {round.status === 'draft' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={openEditRoundModal}
+                          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#E5E1D8] bg-white px-3.5 text-xs font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4] transition-colors"
+                        >
+                          <Edit2 size={13} className="text-[#4A5568]" /> Edit terms
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateRoundStatus('cancelled')}
+                          disabled={statusChanging}
+                          className="min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs font-semibold text-[#9A3A3A] hover:bg-red-50 transition-colors"
+                        >
+                          Cancel round
+                        </button>
+                        <Btn
+                          onClick={() => handleUpdateRoundStatus('open')}
+                          disabled={statusChanging}
+                        >
+                          <CheckCircle2 size={14} className="mr-1 inline" /> Open round
+                        </Btn>
+                      </>
+                    )}
+
+                    {round.status === 'open' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={openEditRoundModal}
+                          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#E5E1D8] bg-white px-3.5 text-xs font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4] transition-colors"
+                        >
+                          <Edit2 size={13} className="text-[#4A5568]" /> Edit terms
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateRoundStatus('paused')}
+                          disabled={statusChanging}
+                          className="min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs font-semibold text-[#4A5568] hover:bg-[#FAF8F4] transition-colors"
+                        >
+                          Pause round
+                        </button>
+                        <Btn
+                          onClick={() => handleUpdateRoundStatus('closed')}
+                          disabled={statusChanging}
+                        >
+                          Close round
+                        </Btn>
+                      </>
+                    )}
+
+                    {round.status === 'paused' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={openEditRoundModal}
+                          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#E5E1D8] bg-white px-3.5 text-xs font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4] transition-colors"
+                        >
+                          <Edit2 size={13} className="text-[#4A5568]" /> Edit terms
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateRoundStatus('closed')}
+                          disabled={statusChanging}
+                          className="min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs font-semibold text-[#4A5568] hover:bg-[#FAF8F4] transition-colors"
+                        >
+                          Close round
+                        </button>
+                        <Btn
+                          onClick={() => handleUpdateRoundStatus('open')}
+                          disabled={statusChanging}
+                        >
+                          Resume round
+                        </Btn>
+                      </>
+                    )}
+
+                    {round.status === 'closed' && (
+                      <Btn
+                        onClick={() => handleUpdateRoundStatus('open')}
+                        disabled={statusChanging}
+                      >
+                        Reopen round
+                      </Btn>
+                    )}
+                  </>
                 )}
-              </div>
+              </>
             )}
             {roundPhase === 'loading' && <LoadingBlock label="Loading round…" rows={2} />}
             {roundPhase === 'error' && (
@@ -1436,6 +1661,98 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
             )}
             {roundPhase === 'ready' && round && (
               <>
+                {round.status === 'draft' && (
+                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#ECD9BA] bg-[#FAF4E8] p-4 text-[#806236]">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle size={18} className="mt-0.5 shrink-0 text-[#B8955A]" />
+                      <div>
+                        <p className="text-sm font-semibold">This round is currently in Draft</p>
+                        <p className="mt-0.5 text-xs text-[#6B522D]">
+                          It is not yet open to investor commitments. Review your terms and data room, and click &ldquo;Open round&rdquo; when ready to start accepting offers.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setModal('round-guide')}
+                        className="rounded-lg border border-[#D9CEBA] bg-white px-3 py-1.5 text-xs font-semibold text-[#806236] hover:bg-[#FAF8F4]"
+                      >
+                        Read round guide
+                      </button>
+                      {canEditRounds && (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateRoundStatus('open')}
+                          disabled={statusChanging}
+                          className="rounded-lg bg-[#806236] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-[#6b522d] transition-colors"
+                        >
+                          Open round now
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {round.status === 'paused' && (
+                  <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-600" />
+                      <div>
+                        <p className="text-sm font-semibold">This round is paused</p>
+                        <p className="mt-0.5 text-xs text-amber-700">
+                          New commitments are temporarily suspended while terms or allocations are evaluated.
+                        </p>
+                      </div>
+                    </div>
+                    {canEditRounds && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateRoundStatus('open')}
+                        disabled={statusChanging}
+                        className="rounded-lg bg-amber-700 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-800"
+                      >
+                        Resume round
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {round.status === 'closed' && (
+                  <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-stone-200 bg-stone-50 p-4 text-[#4A5568]">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-stone-600" />
+                      <div>
+                        <p className="text-sm font-semibold">This round is closed</p>
+                        <p className="mt-0.5 text-xs text-[#4A5568]">
+                          Fundraising for this round has ended. Terms and historical metrics are archived.
+                        </p>
+                      </div>
+                    </div>
+                    {canEditRounds && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateRoundStatus('open')}
+                        disabled={statusChanging}
+                        className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#0F1B2D] hover:bg-stone-100"
+                      >
+                        Reopen round
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {round.status === 'cancelled' && (
+                  <div className="mb-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
+                    <AlertCircle size={18} className="mt-0.5 shrink-0 text-red-600" />
+                    <div>
+                      <p className="text-sm font-semibold">This round was cancelled</p>
+                      <p className="mt-0.5 text-xs text-red-700">
+                        This fundraising round was marked cancelled. No further commitments or status changes are permitted.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div className="mb-5 rounded-xl border border-[#E5E1D8] bg-white p-5">
                   <div className="flex justify-between text-sm">
                     <b>Raised {formatMoney(round.committed_amount, round.currency)} of {formatMoney(round.target_amount, round.currency)}</b>
@@ -1637,9 +1954,9 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
       </main>
 
       {/* Modals */}
-      {modal && (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-[#0F1B2D]/45 p-4">
-          <section role="dialog" aria-modal="true" className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+      {modal && modal !== 'round-guide' && (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-[#0F1B2D]/45 p-4" onClick={(e) => { if (e.target === e.currentTarget) setModal(''); }}>
+          <section role="dialog" aria-modal="true" className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="serif text-2xl font-semibold">
                 {modal.startsWith('intro')
@@ -1648,6 +1965,8 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   ? 'Schedule investor meeting'
                   : modal === 'round'
                   ? 'Set up a fundraising round'
+                  : modal === 'edit-round'
+                  ? 'Edit round terms'
                   : modal === 'offer'
                   ? 'Record an offer'
                   : modal.startsWith('grant')
@@ -1808,6 +2127,94 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                 </label>
                 <p className="rounded-lg bg-[#FFF8E8] p-3 text-xs text-[#806236]">Round terms and instruments have legal consequences. Review with a lawyer.</p>
               </div>
+            ) : modal === 'edit-round' ? (
+              <div className="space-y-3">
+                <label className="block text-sm">
+                  Round name
+                  <input
+                    value={editRoundForm.name}
+                    onChange={(e) => setEditRoundForm({ ...editRoundForm, name: e.target.value })}
+                    placeholder="Pre-seed"
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
+                  />
+                  <FieldError>{editRoundErrors.name}</FieldError>
+                </label>
+                <label className="block text-sm">
+                  Round type
+                  <select
+                    value={editRoundForm.round_type}
+                    onChange={(e) => setEditRoundForm({ ...editRoundForm, round_type: e.target.value })}
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
+                  >
+                    <option value="pre_seed">Pre-seed</option>
+                    <option value="seed">Seed</option>
+                    <option value="series_a">Series A</option>
+                    <option value="series_b">Series B</option>
+                    <option value="bridge">Bridge</option>
+                    <option value="safe">SAFE</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <FieldError>{editRoundErrors.round_type}</FieldError>
+                </label>
+                <label className="block text-sm">
+                  Target raise
+                  <input
+                    value={editRoundForm.target_amount}
+                    onChange={(e) => setEditRoundForm({ ...editRoundForm, target_amount: e.target.value })}
+                    placeholder="25000000"
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
+                  />
+                  <FieldError>{editRoundErrors.target_amount}</FieldError>
+                </label>
+                <label className="block text-sm">
+                  Minimum raise
+                  <input
+                    value={editRoundForm.min_raise}
+                    onChange={(e) => setEditRoundForm({ ...editRoundForm, min_raise: e.target.value })}
+                    placeholder="15000000"
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
+                  />
+                  <FieldError>{editRoundErrors.min_raise}</FieldError>
+                </label>
+                <label className="block text-sm">
+                  Instrument
+                  <select
+                    value={editRoundForm.instrument}
+                    onChange={(e) => setEditRoundForm({ ...editRoundForm, instrument: e.target.value })}
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
+                  >
+                    <option value="equity">Equity</option>
+                    <option value="safe">SAFE</option>
+                    <option value="convertible_note">Convertible note</option>
+                    <option value="ccd">CCD</option>
+                    <option value="ccps">CCPS</option>
+                    <option value="debt">Debt</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <FieldError>{editRoundErrors.instrument}</FieldError>
+                </label>
+                <label className="block text-sm">
+                  Minimum ticket
+                  <input
+                    value={editRoundForm.min_ticket}
+                    onChange={(e) => setEditRoundForm({ ...editRoundForm, min_ticket: e.target.value })}
+                    placeholder="1000000"
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
+                  />
+                  <FieldError>{editRoundErrors.min_ticket}</FieldError>
+                </label>
+                <label className="block text-sm">
+                  Closing date
+                  <input
+                    type="date"
+                    value={editRoundForm.closes_on}
+                    onChange={(e) => setEditRoundForm({ ...editRoundForm, closes_on: e.target.value })}
+                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
+                  />
+                  <FieldError>{editRoundErrors.closes_on}</FieldError>
+                </label>
+                <p className="rounded-lg bg-[#FFF8E8] p-3 text-xs text-[#806236]">Round terms and instruments have legal consequences. Review with a lawyer.</p>
+              </div>
             ) : modal === 'offer' ? (
               <div className="space-y-3">
                 <label className="block text-sm">
@@ -1871,6 +2278,10 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                     handleCreateRound();
                     return;
                   }
+                  if (modal === 'edit-round') {
+                    handleUpdateRound();
+                    return;
+                  }
                   setModal('');
                   notify(
                     modal.startsWith('intro')
@@ -1883,7 +2294,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   );
                 }}
                 className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white"
-                disabled={modal === 'round' && savingRound}
+                disabled={(modal === 'round' && savingRound) || (modal === 'edit-round' && savingEditRound)}
               >
                 {modal.startsWith('intro')
                   ? 'Send request'
@@ -1894,9 +2305,293 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   : modal === 'offer'
                   ? 'Save offer'
                   : modal === 'round'
-                  ? 'Create round'
+                  ? (savingRound ? 'Creating…' : 'Create round')
+                  : modal === 'edit-round'
+                  ? (savingEditRound ? 'Saving…' : 'Save changes')
                   : 'Save'}
               </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* Round Guide Modal */}
+      {modal === 'round-guide' && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1B2D]/45 p-4 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setModal('');
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="round-guide-heading"
+            className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl overflow-hidden"
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-[#E5E1D8] p-6 pb-4">
+              <div>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FAF4E8] px-2.5 py-0.5 text-xs font-semibold text-[#806236]">
+                  <BookOpen size={12} className="text-[#B8955A]" /> Founder Resource
+                </span>
+                <h2 id="round-guide-heading" className="serif mt-1 text-2xl font-semibold text-[#0F1B2D]">
+                  Fundraising Round Guide
+                </h2>
+                <p className="mt-1 text-xs text-[#4A5568]">
+                  Step-by-step guidance on round structures, investor due diligence, instruments, and closing workflows.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModal('')}
+                aria-label="Close guide"
+                className="grid h-8 w-8 place-items-center rounded-lg text-[#4A5568] hover:bg-[#FAF8F4] hover:text-[#0F1B2D]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex border-b border-[#E5E1D8] bg-[#FAF8F4] px-6">
+              {[
+                { id: 'overview', label: '1. Overview & Roadmap' },
+                { id: 'terms', label: '2. Terms & Instruments' },
+                { id: 'dataroom', label: '3. Data Room Prep' },
+                { id: 'closing', label: '4. Closing Checklist' },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setGuideTab(t.id)}
+                  className={`border-b-2 px-4 py-3 text-xs font-semibold transition-colors ${
+                    guideTab === t.id
+                      ? 'border-[#B8955A] text-[#806236]'
+                      : 'border-transparent text-[#4A5568] hover:text-[#0F1B2D]'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Content Body */}
+            <div className="overflow-y-auto p-6 text-sm text-[#0F1B2D]">
+              {guideTab === 'overview' && (
+                <div className="space-y-5">
+                  <div>
+                    <h3 className="serif text-lg font-semibold text-[#0F1B2D]">The Fundraising Lifecycle</h3>
+                    <p className="mt-1 text-xs leading-relaxed text-[#4A5568]">
+                      A successful financing round follows five distinct phases from internal calibration to wire transfers and cap table allotment.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-4">
+                      <b className="flex items-center gap-1.5 text-xs text-[#806236]">
+                        <span className="grid h-5 w-5 place-items-center rounded-full bg-[#ECD9BA] text-[10px] font-bold">1</span>
+                        Draft Terms & Targets
+                      </b>
+                      <p className="mt-2 text-xs leading-5 text-[#4A5568]">
+                        Determine your runway requirements (18–24 months), ideal target raise, minimum closing threshold, and appropriate investment instrument.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-4">
+                      <b className="flex items-center gap-1.5 text-xs text-[#806236]">
+                        <span className="grid h-5 w-5 place-items-center rounded-full bg-[#ECD9BA] text-[10px] font-bold">2</span>
+                        Prepare the Data Room
+                      </b>
+                      <p className="mt-2 text-xs leading-5 text-[#4A5568]">
+                        Assemble financial projections, cap table details, historical traction metrics, and corporate documents so you are ready when diligence starts.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-4">
+                      <b className="flex items-center gap-1.5 text-xs text-[#806236]">
+                        <span className="grid h-5 w-5 place-items-center rounded-full bg-[#ECD9BA] text-[10px] font-bold">3</span>
+                        Open Round & Outreach
+                      </b>
+                      <p className="mt-2 text-xs leading-5 text-[#4A5568]">
+                        Move your round from Draft to Open. Run active investor intro calls, pitch presentations, and track pipeline momentum in parallel.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-4">
+                      <b className="flex items-center gap-1.5 text-xs text-[#806236]">
+                        <span className="grid h-5 w-5 place-items-center rounded-full bg-[#ECD9BA] text-[10px] font-bold">4</span>
+                        Offers & Term Sheets
+                      </b>
+                      <p className="mt-2 text-xs leading-5 text-[#4A5568]">
+                        Secure soft commitments and identify a lead investor to set pricing terms. Compare offers on valuation, rights, and dilution impact.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#ECD9BA] bg-[#FAF4E8] p-4">
+                    <b className="flex items-center gap-2 text-sm font-semibold text-[#806236]">
+                      <CheckCircle2 size={16} /> Stage 5: Execution & Legal Close
+                    </b>
+                    <p className="mt-1 text-xs leading-5 text-[#6B522D]">
+                      Sign definitive agreements (SHA / SSA / Convertible agreements), verify bank wire deposits, execute board allotment resolutions, and update your capitalization table.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {guideTab === 'terms' && (
+                <div className="space-y-5">
+                  <div>
+                    <h3 className="serif text-lg font-semibold text-[#0F1B2D]">Instruments & Deal Mechanics</h3>
+                    <p className="mt-1 text-xs text-[#4A5568]">
+                      Choose the structure that matches your current stage, speed requirement, and investor preferences.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="rounded-xl border border-[#E5E1D8] p-4">
+                      <div className="flex items-baseline justify-between">
+                        <b className="text-sm font-semibold text-[#0F1B2D]">Equity (Priced Round)</b>
+                        <span className="text-[11px] font-medium text-[#4A5568]">Seed, Series A+</span>
+                      </div>
+                      <p className="mt-1.5 text-xs leading-relaxed text-[#4A5568]">
+                        Shares are issued at an agreed pre-money valuation and price per share. Best for institutional rounds with lead investors who require board governance.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-[#E5E1D8] p-4">
+                      <div className="flex items-baseline justify-between">
+                        <b className="text-sm font-semibold text-[#0F1B2D]">SAFE (Simple Agreement for Future Equity)</b>
+                        <span className="text-[11px] font-medium text-[#4A5568]">Pre-seed, Early Seed</span>
+                      </div>
+                      <p className="mt-1.5 text-xs leading-relaxed text-[#4A5568]">
+                        Converts into equity upon the next qualified priced round. Low legal overhead and fast execution. Commonly includes a Valuation Cap and/or Discount Rate (typically 15%–20%).
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-[#E5E1D8] p-4">
+                      <div className="flex items-baseline justify-between">
+                        <b className="text-sm font-semibold text-[#0F1B2D]">Convertible Notes & CCPS / CCD</b>
+                        <span className="text-[11px] font-medium text-[#4A5568]">Bridge, Seed, India VC standard</span>
+                      </div>
+                      <p className="mt-1.5 text-xs leading-relaxed text-[#4A5568]">
+                        Compulsorily Convertible Preference Shares (CCPS) or Convertible Debentures (CCD) are widespread under Indian corporate law, offering preference on dividends and conversion upon milestones.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
+                    <b>Important Legal Notice:</b> Investment instruments carry binding legal, tax, and governance implications for founders and future investors. Always review definitive term sheets with qualified corporate counsel.
+                  </div>
+                </div>
+              )}
+
+              {guideTab === 'dataroom' && (
+                <div className="space-y-5">
+                  <div>
+                    <h3 className="serif text-lg font-semibold text-[#0F1B2D]">Data Room Essentials</h3>
+                    <p className="mt-1 text-xs text-[#4A5568]">
+                      Organize your diligence documents in advance to avoid closing delays when investors are ready.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-[#E5E1D8] p-4">
+                      <b className="text-xs font-semibold text-[#0F1B2D]">1. Pitch & Product</b>
+                      <ul className="mt-2 space-y-1.5 text-xs text-[#4A5568]">
+                        <li>• Executive Pitch Deck (12–15 slides)</li>
+                        <li>• Product architecture & roadmap brief</li>
+                        <li>• Customer testimonials & case studies</li>
+                      </ul>
+                    </div>
+
+                    <div className="rounded-xl border border-[#E5E1D8] p-4">
+                      <b className="text-xs font-semibold text-[#0F1B2D]">2. Financials & Unit Economics</b>
+                      <ul className="mt-2 space-y-1.5 text-xs text-[#4A5568]">
+                        <li>• 24-month financial model & budget</li>
+                        <li>• Historical P&L, balance sheet, and bank statements</li>
+                        <li>• Unit economics: CAC, LTV, Gross Margins, Net Burn</li>
+                      </ul>
+                    </div>
+
+                    <div className="rounded-xl border border-[#E5E1D8] p-4">
+                      <b className="text-xs font-semibold text-[#0F1B2D]">3. Cap Table & Equity</b>
+                      <ul className="mt-2 space-y-1.5 text-xs text-[#4A5568]">
+                        <li>• Fully diluted shareholding pattern</li>
+                        <li>• ESOP pool sizing and grant schedule</li>
+                        <li>• Existing convertible notes or SAFEs</li>
+                      </ul>
+                    </div>
+
+                    <div className="rounded-xl border border-[#E5E1D8] p-4">
+                      <b className="text-xs font-semibold text-[#0F1B2D]">4. Legal & Corporate</b>
+                      <ul className="mt-2 space-y-1.5 text-xs text-[#4A5568]">
+                        <li>• Certificate of Incorporation, MOA & AOA</li>
+                        <li>• Founder IP assignment agreements</li>
+                        <li>• Key employee & advisor contracts</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {guideTab === 'closing' && (
+                <div className="space-y-5">
+                  <div>
+                    <h3 className="serif text-lg font-semibold text-[#0F1B2D]">Round Closing Checklist</h3>
+                    <p className="mt-1 text-xs text-[#4A5568]">
+                      Verify every prerequisite item before formally transitioning a round to Closed.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {[
+                      { title: 'Minimum Raise Reached', desc: 'Total firm commitments meet or exceed your minimum raise threshold.' },
+                      { title: 'Definitive Agreements Executed', desc: 'SHA, SSA, or SAFE documents signed by founders, key shareholders, and incoming investors.' },
+                      { title: 'Board & Shareholder Approvals', desc: 'Special resolutions approved for increasing authorized capital and allotting securities.' },
+                      { title: 'Wire Transfers Verified', desc: 'Subscription funds deposited and verified in the company bank account or escrow.' },
+                      { title: 'Cap Table Updated', desc: 'Dilution reflected and share certificates or convertible instruments issued.' },
+                      { title: 'Investor Welcome & Reporting Cadence', desc: 'Welcome update dispatched to new backers establishing monthly reporting schedule.' },
+                    ].map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-3 rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-3.5">
+                        <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#B8955A]" />
+                        <div>
+                          <b className="text-xs font-semibold text-[#0F1B2D]">{item.title}</b>
+                          <p className="mt-0.5 text-xs text-[#4A5568]">{item.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-[#E5E1D8] bg-[#FAF8F4] px-6 py-4">
+              <span className="text-xs text-[#4A5568]">
+                Need additional advice? Connect with a mentor from your dashboard.
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModal('')}
+                  className="rounded-lg border border-[#E5E1D8] bg-white px-4 py-2 text-xs font-semibold text-[#0F1B2D] hover:bg-stone-50"
+                >
+                  Close guide
+                </button>
+                {page === 'round-detail' && round?.status === 'draft' && canEditRounds && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModal('');
+                      handleUpdateRoundStatus('open');
+                    }}
+                    className="rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white hover:bg-black"
+                  >
+                    Open this round now
+                  </button>
+                )}
+              </div>
             </div>
           </section>
         </div>
