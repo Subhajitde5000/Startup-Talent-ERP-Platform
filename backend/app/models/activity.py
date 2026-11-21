@@ -65,6 +65,13 @@ class ActivityEventType(enum.StrEnum):
     # credibility, so both the grant and the revoke are audited.
     readiness_mentor_signed_off = "readiness_mentor_signed_off"
     readiness_mentor_revoked = "readiness_mentor_revoked"
+    # Step 9a: a round is financial data the startup's members create,
+    # edit, re-status and delete, so every one of those is audited in the
+    # same transaction (D11).
+    round_created = "round_created"
+    round_updated = "round_updated"
+    round_status_changed = "round_status_changed"
+    round_deleted = "round_deleted"
 
 
 class ActivityEvent(Base):

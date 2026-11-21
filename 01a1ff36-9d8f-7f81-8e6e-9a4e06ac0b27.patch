@@ -1,0 +1,3291 @@
+diff --git a/PROGRESS.md b/PROGRESS.md
+index 41d28e2..11f0bf1 100644
+--- a/PROGRESS.md
++++ b/PROGRESS.md
+@@ -262,8 +262,8 @@ Already done in Step 3: team directory, members and invites, startup organizatio
+ ## Step 9: Investors, rounds, data room (one sub-step at a time; A = backend, B = frontend wired)
+ 
+ ### 9a Funding rounds (startup)
+-- [ ] A: Create and edit a round (target, instrument, valuation, dates), status, progress against target
+-- [ ] B: /startup/rounds, /startup/rounds/[roundId] wired; demo data removed
++- [x] A: Create and edit a round (target, instrument, valuation, dates), status, progress against target — `funding_rounds` table (migration 0024), 7 endpoints (create/list/summary/get/patch/status/soft-delete), state-machine transitions, derived progress, member read / owner-admin-member write, server-only `committed_amount`, audit rows; tests pass on SQLite (ruff/mypy clean). PostgreSQL/Docker migration verification pending in this sandbox (no Docker, apt repos network-restricted).
++- [x] B: /startup/rounds, /startup/rounds/[roundId] wired; demo data removed
+ 
+ ### 9b Investor directory (startup view)
+ - [ ] A: Startup searches and filters investors, public investor page; uses the investor organization profile and, once 9d exists, investor preferences
+diff --git a/backend/alembic/env.py b/backend/alembic/env.py
+index 95dca7b..58c4605 100644
+--- a/backend/alembic/env.py
++++ b/backend/alembic/env.py
+@@ -16,6 +16,7 @@ from app.models import (  # noqa: F401  (register models for autogenerate)
+     availability,
+     deliverable,
+     earning,
++    funding_round,
+     mentorship,
+     metric,
+     milestone,
+diff --git a/backend/alembic/versions/0024_step9a_funding_rounds.py b/backend/alembic/versions/0024_step9a_funding_rounds.py
+new file mode 100644
+index 0000000..5230c85
+--- /dev/null
++++ b/backend/alembic/versions/0024_step9a_funding_rounds.py
+@@ -0,0 +1,120 @@
++"""Step 9a: funding rounds (startup).
++
++Revision ID: 0024_step9a_funding_rounds
++Revises: 0023_step8i_session_reviews
++Create Date: 2026-11-21
++
++One new table mirroring schema.sql's ``funding_rounds`` (section 6),
++including the ``round_amounts_non_negative`` CHECK and the
++``funding_rounds_org_idx`` partial index verbatim.
++
++Approved deviations (9a plan, user-approved):
++
++- ``min_raise`` / ``min_ticket`` added (nullable NUMERIC(14,2)): the
++  "Set up a fundraising round" modal collects Minimum raise and Minimum
++  ticket, and schema.sql has no columns for either (plan D4).
++- ``pre_money_valuation >= 0`` CHECK added (plan D8): schema.sql has no
++  CHECK there.
++- Enums (``funding_round_type``, ``round_status``, ``instrument_type``)
++  are VARCHAR + named CHECKs, never native PG enums (project policy).
++- ``currency`` is String(3) + length CHECK, not ``char(3)`` (SQLite has
++  no ``char``; the value is a 3-letter ISO code either way).
++
++``committed_amount`` starts at 0 and is server-only in 9a; only 9i/9j
++(offers/commitments) will write it. Progress is derived in the service.
++
++No data is inserted: demo rounds belong to the dev seed script, never to
++a migration (AGENTS.md section 6).
++"""
++
++from collections.abc import Sequence
++
++import sqlalchemy as sa
++
++from alembic import op
++
++revision: str = "0024_step9a_funding_rounds"
++down_revision: str | None = "0023_step8i_session_reviews"
++branch_labels: str | Sequence[str] | None = None
++depends_on: str | Sequence[str] | None = None
++
++_DT = sa.DateTime(timezone=True)
++_NOW = sa.func.now()
++_LIVE = "deleted_at IS NULL"
++
++
++def upgrade() -> None:
++    op.create_table(
++        "funding_rounds",
++        sa.Column("id", sa.Uuid(), nullable=False),
++        sa.Column("org_id", sa.Uuid(), nullable=False),
++        sa.Column("name", sa.String(length=200), nullable=False),
++        sa.Column("round_type", sa.String(length=16), nullable=False),
++        sa.Column("target_amount", sa.Numeric(14, 2), nullable=True),
++        sa.Column(
++            "committed_amount",
++            sa.Numeric(14, 2),
++            server_default="0",
++            nullable=False,
++        ),
++        sa.Column("currency", sa.String(length=3), server_default="INR", nullable=False),
++        sa.Column("pre_money_valuation", sa.Numeric(14, 2), nullable=True),
++        sa.Column("instrument", sa.String(length=16), nullable=True),
++        sa.Column("status", sa.String(length=16), server_default="draft", nullable=False),
++        sa.Column("opens_on", sa.Date(), nullable=True),
++        sa.Column("closes_on", sa.Date(), nullable=True),
++        sa.Column("min_raise", sa.Numeric(14, 2), nullable=True),
++        sa.Column("min_ticket", sa.Numeric(14, 2), nullable=True),
++        sa.Column("created_at", _DT, server_default=_NOW, nullable=False),
++        sa.Column("updated_at", _DT, server_default=_NOW, nullable=False),
++        sa.Column("deleted_at", _DT, nullable=True),
++        sa.CheckConstraint(
++            "round_type IN ('pre_seed','seed','series_a','series_b','bridge','safe','other')",
++            name="funding_round_type_valid",
++        ),
++        sa.CheckConstraint(
++            "status IN ('draft','open','paused','closed','cancelled')",
++            name="round_status_valid",
++        ),
++        sa.CheckConstraint(
++            "instrument IS NULL OR instrument IN "
++            "('equity','safe','convertible_note','ccd','ccps','debt','other')",
++            name="funding_round_instrument_valid",
++        ),
++        # schema.sql verbatim.
++        sa.CheckConstraint(
++            "(target_amount IS NULL OR target_amount > 0) AND committed_amount >= 0",
++            name="round_amounts_non_negative",
++        ),
++        sa.CheckConstraint(
++            "pre_money_valuation IS NULL OR pre_money_valuation >= 0",
++            name="funding_rounds_valuation_check",
++        ),
++        sa.CheckConstraint("length(currency) = 3", name="funding_rounds_currency_check"),
++        sa.CheckConstraint(
++            "min_raise IS NULL OR min_raise > 0",
++            name="funding_rounds_min_raise_check",
++        ),
++        sa.CheckConstraint(
++            "min_ticket IS NULL OR min_ticket > 0",
++            name="funding_rounds_min_ticket_check",
++        ),
++        sa.CheckConstraint(
++            "length(trim(name)) BETWEEN 1 AND 200",
++            name="funding_rounds_name_check",
++        ),
++        sa.ForeignKeyConstraint(["org_id"], ["organizations.id"], ondelete="CASCADE"),
++        sa.PrimaryKeyConstraint("id"),
++    )
++    op.create_index(
++        "funding_rounds_org_idx",
++        "funding_rounds",
++        ["org_id", "status"],
++        postgresql_where=sa.text(_LIVE),
++        sqlite_where=sa.text(_LIVE),
++    )
++
++
++def downgrade() -> None:
++    op.drop_index("funding_rounds_org_idx", table_name="funding_rounds")
++    op.drop_table("funding_rounds")
+diff --git a/backend/app/core/config.py b/backend/app/core/config.py
+index 0765b6e..b948363 100644
+--- a/backend/app/core/config.py
++++ b/backend/app/core/config.py
+@@ -134,6 +134,10 @@ class Settings(BaseSettings):
+     # Step 8h: the mentor reading their own earnings.
+     EARNING_READ_LIMIT: int = 120
+     EARNING_READ_WINDOW_SECONDS: int = 60
++    # Step 9a: rounds are edited in bursts while a startup plans a raise,
++    # so the cap matches the metrics/deliverable write limits.
++    FUNDING_ROUND_WRITE_LIMIT: int = 60
++    FUNDING_ROUND_WRITE_WINDOW_SECONDS: int = 300
+     # Step 8h: commission and TDS withheld from a mentor's fee.
+     #
+     # BOTH DEFAULT TO 0 ON PURPOSE. BUILD_PLAN.md, schema.sql and this
+diff --git a/backend/app/main.py b/backend/app/main.py
+index 437ae94..2249c52 100644
+--- a/backend/app/main.py
++++ b/backend/app/main.py
+@@ -23,6 +23,7 @@ from app.routers import (
+     deliverable,
+     discovery,
+     earning,
++    funding_round,
+     invites,
+     market,
+     mentor,
+@@ -116,6 +117,7 @@ def create_app() -> FastAPI:
+     app.include_router(organizations.router, prefix=settings.API_V1_PREFIX)
+     app.include_router(startup_profile.router, prefix=settings.API_V1_PREFIX)
+     app.include_router(milestones.router, prefix=settings.API_V1_PREFIX)
++    app.include_router(funding_round.router, prefix=settings.API_V1_PREFIX)
+     app.include_router(tasks.router, prefix=settings.API_V1_PREFIX)
+     app.include_router(readiness.router, prefix=settings.API_V1_PREFIX)
+     # Step 8f: mentor sign-off through the mentorship it comes from.
+diff --git a/backend/app/models/activity.py b/backend/app/models/activity.py
+index aeb4aeb..d165ef8 100644
+--- a/backend/app/models/activity.py
++++ b/backend/app/models/activity.py
+@@ -65,6 +65,13 @@ class ActivityEventType(enum.StrEnum):
+     # credibility, so both the grant and the revoke are audited.
+     readiness_mentor_signed_off = "readiness_mentor_signed_off"
+     readiness_mentor_revoked = "readiness_mentor_revoked"
++    # Step 9a: a round is financial data the startup's members create,
++    # edit, re-status and delete, so every one of those is audited in the
++    # same transaction (D11).
++    round_created = "round_created"
++    round_updated = "round_updated"
++    round_status_changed = "round_status_changed"
++    round_deleted = "round_deleted"
+ 
+ 
+ class ActivityEvent(Base):
+diff --git a/backend/app/models/funding_round.py b/backend/app/models/funding_round.py
+new file mode 100644
+index 0000000..0576841
+--- /dev/null
++++ b/backend/app/models/funding_round.py
+@@ -0,0 +1,213 @@
++"""Funding round model (Step 9a, schema.sql section 6 ``funding_rounds``).
++
++Mirrors schema.sql, with the project's portable-type policy (same as
++migrations 0003-0023):
++
++- Native PG enums (``funding_round_type``, ``round_status``,
++  ``instrument_type``) -> VARCHAR + named CHECK via
++  ``Enum(native_enum=False)`` / ``String`` + CHECK, never native enums.
++- ``currency char(3)`` -> ``String(3)`` + ``length(currency) = 3`` CHECK:
++  ``char`` pads with spaces and does not exist on SQLite; the value is a
++  3-letter ISO code either way (``talent.py``/``earning.py`` already do this).
++- ``round_amounts_non_negative`` and ``funding_rounds_org_idx`` kept verbatim.
++
++Approved deviations from schema.sql (9a plan, user-approved):
++
++- ``min_raise`` / ``min_ticket`` added (nullable ``NUMERIC(14,2)``): the
++  "Set up a fundraising round" modal collects Minimum raise and Minimum
++  ticket, and schema.sql has no columns for either (plan D4).
++- ``pre_money_valuation >= 0`` CHECK added (plan D8): schema.sql has no
++  CHECK there; a negative valuation is nonsense.
++- ``committed_amount`` is server-only in 9a (plan D2): it starts at 0 and
++  only 9i/9j (offers/commitments) will ever write it. Progress
++  (remaining / progress_pct) is derived in the service, never stored.
++
++Money: ``NUMERIC(14,2)`` + ISO-4217 ``currency`` defaulting to INR
++(AGENTS.md section 6). Amounts are serialized as decimal strings, never
++floats (the 5e ``MetricRead`` pattern).
++"""
++
++import enum
++import uuid
++from datetime import date, datetime
++from decimal import Decimal
++
++from sqlalchemy import (
++    CheckConstraint,
++    Date,
++    DateTime,
++    ForeignKey,
++    Index,
++    Numeric,
++    String,
++    func,
++    text,
++)
++from sqlalchemy.dialects.postgresql import UUID as PG_UUID
++from sqlalchemy.orm import Mapped, mapped_column
++
++from app.db.base import Base
++
++
++class FundingRoundType(enum.StrEnum):
++    """schema.sql ``funding_round_type``."""
++
++    pre_seed = "pre_seed"
++    seed = "seed"
++    series_a = "series_a"
++    series_b = "series_b"
++    bridge = "bridge"
++    safe = "safe"
++    other = "other"
++
++
++class RoundStatus(enum.StrEnum):
++    """schema.sql ``round_status``."""
++
++    draft = "draft"
++    open = "open"
++    paused = "paused"
++    closed = "closed"
++    cancelled = "cancelled"
++
++
++class InstrumentType(enum.StrEnum):
++    """schema.sql ``instrument_type``."""
++
++    equity = "equity"
++    safe = "safe"
++    convertible_note = "convertible_note"
++    ccd = "ccd"
++    ccps = "ccps"
++    debt = "debt"
++    other = "other"
++
++
++# Status lifecycle (plan D1/D14): the only transitions the service allows.
++# ``cancelled`` is terminal; ``closed`` may reopen to ``open`` (the
++# round-detail page has a Reopen button).
++ROUND_TRANSITIONS: dict[RoundStatus, frozenset[RoundStatus]] = {
++    RoundStatus.draft: frozenset({RoundStatus.open, RoundStatus.cancelled}),
++    RoundStatus.open: frozenset(
++        {RoundStatus.paused, RoundStatus.closed, RoundStatus.cancelled}
++    ),
++    RoundStatus.paused: frozenset(
++        {RoundStatus.open, RoundStatus.closed, RoundStatus.cancelled}
++    ),
++    RoundStatus.closed: frozenset({RoundStatus.open}),
++    RoundStatus.cancelled: frozenset(),
++}
++
++_ROUND_TYPE_SQL = (
++    "round_type IN ('pre_seed','seed','series_a','series_b','bridge','safe','other')"
++)
++_ROUND_STATUS_SQL = "status IN ('draft','open','paused','closed','cancelled')"
++_INSTRUMENT_SQL = (
++    "instrument IS NULL OR instrument IN "
++    "('equity','safe','convertible_note','ccd','ccps','debt','other')"
++)
++
++
++class FundingRound(Base):
++    """One fundraising round belonging to a startup organization."""
++
++    __tablename__ = "funding_rounds"
++
++    id: Mapped[uuid.UUID] = mapped_column(
++        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
++    )
++    org_id: Mapped[uuid.UUID] = mapped_column(
++        PG_UUID(as_uuid=True),
++        ForeignKey("organizations.id", ondelete="CASCADE"),
++        nullable=False,
++    )
++    name: Mapped[str] = mapped_column(String(200), nullable=False)
++    round_type: Mapped[FundingRoundType] = mapped_column(
++        String(16),
++        nullable=False,
++    )
++    target_amount: Mapped[Decimal | None] = mapped_column(
++        Numeric(14, 2), nullable=True
++    )
++    # Server-only in 9a (plan D2): starts at 0, written only by 9i/9j.
++    committed_amount: Mapped[Decimal] = mapped_column(
++        Numeric(14, 2), nullable=False, default=Decimal("0"), server_default="0"
++    )
++    currency: Mapped[str] = mapped_column(
++        String(3), nullable=False, default="INR", server_default="INR"
++    )
++    pre_money_valuation: Mapped[Decimal | None] = mapped_column(
++        Numeric(14, 2), nullable=True
++    )
++    instrument: Mapped[InstrumentType | None] = mapped_column(
++        String(16), nullable=True
++    )
++    status: Mapped[RoundStatus] = mapped_column(
++        String(16),
++        nullable=False,
++        default=RoundStatus.draft,
++        server_default="draft",
++    )
++    opens_on: Mapped[date | None] = mapped_column(Date, nullable=True)
++    closes_on: Mapped[date | None] = mapped_column(Date, nullable=True)
++    # Plan D4: the modal's Minimum raise / Minimum ticket.
++    min_raise: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
++    min_ticket: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
++    created_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
++    updated_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True),
++        nullable=False,
++        server_default=func.now(),
++        onupdate=func.now(),
++    )
++    deleted_at: Mapped[datetime | None] = mapped_column(
++        DateTime(timezone=True), nullable=True
++    )
++
++    __table_args__ = (
++        CheckConstraint(_ROUND_TYPE_SQL, name="funding_round_type_valid"),
++        CheckConstraint(_ROUND_STATUS_SQL, name="round_status_valid"),
++        CheckConstraint(_INSTRUMENT_SQL, name="funding_round_instrument_valid"),
++        # schema.sql verbatim.
++        CheckConstraint(
++            "(target_amount IS NULL OR target_amount > 0) AND committed_amount >= 0",
++            name="round_amounts_non_negative",
++        ),
++        # Plan D8: a negative valuation is nonsense.
++        CheckConstraint(
++            "pre_money_valuation IS NULL OR pre_money_valuation >= 0",
++            name="funding_rounds_valuation_check",
++        ),
++        CheckConstraint("length(currency) = 3", name="funding_rounds_currency_check"),
++        CheckConstraint(
++            "min_raise IS NULL OR min_raise > 0",
++            name="funding_rounds_min_raise_check",
++        ),
++        CheckConstraint(
++            "min_ticket IS NULL OR min_ticket > 0",
++            name="funding_rounds_min_ticket_check",
++        ),
++        CheckConstraint(
++            "length(trim(name)) BETWEEN 1 AND 200",
++            name="funding_rounds_name_check",
++        ),
++        # schema.sql verbatim (partial index on live rows).
++        Index(
++            "funding_rounds_org_idx",
++            "org_id",
++            "status",
++            postgresql_where=text("deleted_at IS NULL"),
++            sqlite_where=text("deleted_at IS NULL"),
++        ),
++    )
++
++
++__all__ = [
++    "FundingRound",
++    "FundingRoundType",
++    "InstrumentType",
++    "ROUND_TRANSITIONS",
++    "RoundStatus",
++]
+diff --git a/backend/app/routers/funding_round.py b/backend/app/routers/funding_round.py
+new file mode 100644
+index 0000000..326adca
+--- /dev/null
++++ b/backend/app/routers/funding_round.py
+@@ -0,0 +1,170 @@
++"""Funding round router (Step 9a).
++
++Thin routes only (AGENTS.md section 3): the actor comes from
++``get_current_user``, ``org_id``/``round_id`` are ``uuid.UUID`` (a
++malformed id is a 422 before any service code runs), and every guard,
++org-scoped lookup, state machine and rate limit lives in
++``funding_round_service``.
++
++Routes:
++
++- ``POST /organizations/{org_id}/funding-rounds`` — create (201).
++- ``GET /organizations/{org_id}/funding-rounds`` — paginated list.
++- ``GET /organizations/{org_id}/funding-rounds/summary`` — header roll-up.
++- ``GET /organizations/{org_id}/funding-rounds/{round_id}`` — detail.
++- ``PATCH /organizations/{org_id}/funding-rounds/{round_id}`` — edit.
++- ``POST /organizations/{org_id}/funding-rounds/{round_id}/status`` — transition.
++- ``DELETE /organizations/{org_id}/funding-rounds/{round_id}`` — soft delete.
++
++``committed_amount`` and ``status`` are never accepted from the client:
++they are absent from the Create/Update schemas (``extra="forbid"`` ->
++422) and ``status`` only changes via the transition endpoint.
++"""
++
++import uuid
++from typing import Annotated
++
++from fastapi import APIRouter, Depends, Query, status
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from app.core.dependencies import get_current_user
++from app.db.session import get_db
++from app.models.funding_round import RoundStatus
++from app.models.user import User
++from app.schemas.funding_round import (
++    FundingRoundCreate,
++    FundingRoundPage,
++    FundingRoundRead,
++    FundingRoundSummary,
++    FundingRoundUpdate,
++    StatusTransition,
++)
++from app.services import funding_round_service
++
++router = APIRouter(prefix="/organizations", tags=["funding-rounds"])
++
++
++@router.post(
++    "/{org_id}/funding-rounds",
++    response_model=FundingRoundRead,
++    status_code=status.HTTP_201_CREATED,
++    summary="Create a funding round",
++)
++async def create_funding_round(
++    org_id: uuid.UUID,
++    payload: FundingRoundCreate,
++    db: Annotated[AsyncSession, Depends(get_db)],
++    user: Annotated[User, Depends(get_current_user)],
++) -> FundingRoundRead:
++    """Owner/admin/member of the startup; viewer gets 403.
++
++    ``committed_amount`` starts at 0 (server-only in 9a).
++    """
++    return await funding_round_service.create(db, user, org_id, payload)
++
++
++@router.get(
++    "/{org_id}/funding-rounds",
++    response_model=FundingRoundPage,
++    summary="List a startup's funding rounds",
++)
++async def list_funding_rounds(
++    org_id: uuid.UUID,
++    db: Annotated[AsyncSession, Depends(get_db)],
++    user: Annotated[User, Depends(get_current_user)],
++    status_filter: Annotated[
++        RoundStatus | None, Query(alias="status", description="Filter by round status")
++    ] = None,
++    sort: Annotated[str, Query(description="created_at | closes_on | name")] = "created_at",
++    limit: Annotated[int, Query(ge=1, le=100)] = 20,
++    offset: Annotated[int, Query(ge=0)] = 0,
++) -> FundingRoundPage:
++    """Any active member may read (viewer included).
++
++    Sort keys are whitelisted by the service; an unknown key is a 422
++    (the ``Literal``-style guard happens in the service dict lookup).
++    """
++    items, total = await funding_round_service.list_rounds(
++        db, user, org_id, status=status_filter, sort=sort, limit=limit, offset=offset
++    )
++    return FundingRoundPage(
++        items=list(items), total=total, limit=limit, offset=offset, has_more=offset + len(items) < total
++    )
++
++
++@router.get(
++    "/{org_id}/funding-rounds/summary",
++    response_model=FundingRoundSummary,
++    summary="Startup rounds summary",
++)
++async def funding_rounds_summary(
++    org_id: uuid.UUID,
++    db: Annotated[AsyncSession, Depends(get_db)],
++    user: Annotated[User, Depends(get_current_user)],
++) -> FundingRoundSummary:
++    """Total target / committed / open-round counts in one aggregate query."""
++    return await funding_round_service.summary(db, user, org_id)
++
++
++@router.get(
++    "/{org_id}/funding-rounds/{round_id}",
++    response_model=FundingRoundRead,
++    summary="Get a funding round",
++)
++async def get_funding_round(
++    org_id: uuid.UUID,
++    round_id: uuid.UUID,
++    db: Annotated[AsyncSession, Depends(get_db)],
++    user: Annotated[User, Depends(get_current_user)],
++) -> FundingRoundRead:
++    """A foreign or deleted round is a 404 (no existence oracle)."""
++    return await funding_round_service.get_round(db, user, org_id, round_id)
++
++
++@router.patch(
++    "/{org_id}/funding-rounds/{round_id}",
++    response_model=FundingRoundRead,
++    summary="Edit a funding round",
++)
++async def update_funding_round(
++    org_id: uuid.UUID,
++    round_id: uuid.UUID,
++    payload: FundingRoundUpdate,
++    db: Annotated[AsyncSession, Depends(get_db)],
++    user: Annotated[User, Depends(get_current_user)],
++) -> FundingRoundRead:
++    """Owner/admin/member; ``status``/``committed_amount`` are not editable."""
++    return await funding_round_service.update_round(db, user, org_id, round_id, payload)
++
++
++@router.post(
++    "/{org_id}/funding-rounds/{round_id}/status",
++    response_model=FundingRoundRead,
++    summary="Change a round's status",
++)
++async def change_funding_round_status(
++    org_id: uuid.UUID,
++    round_id: uuid.UUID,
++    payload: StatusTransition,
++    db: Annotated[AsyncSession, Depends(get_db)],
++    user: Annotated[User, Depends(get_current_user)],
++) -> FundingRoundRead:
++    """Only through the defined lifecycle; an invalid move is a 409."""
++    return await funding_round_service.transition_status(
++        db, user, org_id, round_id, payload.status
++    )
++
++
++@router.delete(
++    "/{org_id}/funding-rounds/{round_id}",
++    status_code=status.HTTP_204_NO_CONTENT,
++    summary="Soft-delete a funding round",
++)
++async def delete_funding_round(
++    org_id: uuid.UUID,
++    round_id: uuid.UUID,
++    db: Annotated[AsyncSession, Depends(get_db)],
++    user: Annotated[User, Depends(get_current_user)],
++) -> None:
++    """Sets ``deleted_at``; a repeat delete is a 404."""
++    await funding_round_service.delete_round(db, user, org_id, round_id)
+diff --git a/backend/app/schemas/funding_round.py b/backend/app/schemas/funding_round.py
+new file mode 100644
+index 0000000..0dfa89b
+--- /dev/null
++++ b/backend/app/schemas/funding_round.py
+@@ -0,0 +1,211 @@
++"""Funding round schemas (Step 9a).
++
++Strict, server-controlled shapes (AGENTS.md section 3):
++
++- ``Create`` and ``Update`` are ``extra="forbid"``: sending a field the
++  caller may not set is a 422, never a silent ignore (mass-assignment
++  guard). In particular ``committed_amount``, ``status``, ``id``,
++  ``org_id`` and the timestamps are absent from both input shapes —
++  ``committed_amount`` is server-only (starts at 0, only 9i/9j write it)
++  and ``status`` changes only through the transition endpoint (plan D1).
++- Money is ``Decimal`` (``NUMERIC(14,2)`` in the table) and serializes as
++  a decimal string by pydantic v2's ``Decimal`` encoder, never a float
++  (the 5e ``MetricRead`` pattern).
++- ``currency`` is a 3-letter ISO-4217 code, uppercased on input.
++- ``Read`` computes ``remaining_amount`` / ``progress_pct`` in the
++  service (derived, never stored, never writable).
++"""
++
++import uuid
++from datetime import date, datetime
++from decimal import Decimal
++
++from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
++
++from app.models.funding_round import FundingRoundType, InstrumentType, RoundStatus
++
++# schema.sql names "target_amount" as nullable: a round may be recorded
++# before a target is agreed, so it is optional (but > 0 when present).
++_Money = Field(default=None, max_digits=14, decimal_places=2)
++
++
++def _clean_name(value: str) -> str:
++    """Strip and reject blanks (mirrors the organizations name rule)."""
++    cleaned = value.strip()
++    if not cleaned:
++        raise ValueError("Round name is required.")
++    return cleaned
++
++
++class FundingRoundCreate(BaseModel):
++    """A new round. ``committed_amount`` starts at 0 (server-set)."""
++
++    model_config = ConfigDict(extra="forbid")
++
++    name: str = Field(min_length=1, max_length=200)
++    round_type: FundingRoundType
++    target_amount: Decimal | None = Field(default=None, max_digits=14, decimal_places=2)
++    currency: str = Field(default="INR", max_length=3)
++    pre_money_valuation: Decimal | None = Field(default=None, max_digits=14, decimal_places=2)
++    instrument: InstrumentType | None = None
++    opens_on: date | None = None
++    closes_on: date | None = None
++    min_raise: Decimal | None = Field(default=None, max_digits=14, decimal_places=2)
++    min_ticket: Decimal | None = Field(default=None, max_digits=14, decimal_places=2)
++
++    _validate_name = field_validator("name")(_clean_name)
++
++    @field_validator("currency", mode="before")
++    @classmethod
++    def _clean_currency(cls, value: str) -> str:
++        return value.strip().upper()
++
++    @field_validator("target_amount")
++    @classmethod
++    def _target_positive(cls, value: Decimal | None) -> Decimal | None:
++        if value is not None and value <= 0:
++            raise ValueError("Target amount must be greater than 0 when set.")
++        return value
++
++    @field_validator("pre_money_valuation")
++    @classmethod
++    def _valuation_non_negative(cls, value: Decimal | None) -> Decimal | None:
++        if value is not None and value < 0:
++            raise ValueError("Pre-money valuation must not be negative.")
++        return value
++
++    @field_validator("min_raise", "min_ticket")
++    @classmethod
++    def _minimums_positive(cls, value: Decimal | None) -> Decimal | None:
++        if value is not None and value <= 0:
++            raise ValueError("Minimums must be greater than 0 when set.")
++        return value
++
++    @model_validator(mode="after")
++    def _dates_ordered(self) -> "FundingRoundCreate":
++        if self.opens_on and self.closes_on and self.closes_on < self.opens_on:
++            raise ValueError("Closing date must not be before the opening date.")
++        return self
++
++
++class FundingRoundUpdate(BaseModel):
++    """Editable fields. ``status`` and ``committed_amount`` stay out."""
++
++    model_config = ConfigDict(extra="forbid")
++
++    name: str | None = Field(default=None, min_length=1, max_length=200)
++    round_type: FundingRoundType | None = None
++    target_amount: Decimal | None = Field(default=None, max_digits=14, decimal_places=2)
++    currency: str | None = Field(default=None, max_length=3)
++    pre_money_valuation: Decimal | None = Field(default=None, max_digits=14, decimal_places=2)
++    instrument: InstrumentType | None = None
++    opens_on: date | None = None
++    closes_on: date | None = None
++    min_raise: Decimal | None = Field(default=None, max_digits=14, decimal_places=2)
++    min_ticket: Decimal | None = Field(default=None, max_digits=14, decimal_places=2)
++
++    _validate_name = field_validator("name")(_clean_name)
++
++    @field_validator("currency", mode="before")
++    @classmethod
++    def _clean_currency(cls, value: str | None) -> str | None:
++        return value.strip().upper() if value is not None else None
++
++    @field_validator("target_amount")
++    @classmethod
++    def _target_positive(cls, value: Decimal | None) -> Decimal | None:
++        if value is not None and value <= 0:
++            raise ValueError("Target amount must be greater than 0 when set.")
++        return value
++
++    @field_validator("pre_money_valuation")
++    @classmethod
++    def _valuation_non_negative(cls, value: Decimal | None) -> Decimal | None:
++        if value is not None and value < 0:
++            raise ValueError("Pre-money valuation must not be negative.")
++        return value
++
++    @field_validator("min_raise", "min_ticket")
++    @classmethod
++    def _minimums_positive(cls, value: Decimal | None) -> Decimal | None:
++        if value is not None and value <= 0:
++            raise ValueError("Minimums must be greater than 0 when set.")
++        return value
++
++    @model_validator(mode="after")
++    def _dates_ordered(self) -> "FundingRoundUpdate":
++        # Re-check the ordered rule when both are being (re)set: the
++        # patch is exclude_unset, but re-validating the final values on
++        # the model keeps the rule honest if both fields are sent.
++        if self.opens_on and self.closes_on and self.closes_on < self.opens_on:
++            raise ValueError("Closing date must not be before the opening date.")
++        return self
++
++
++class StatusTransition(BaseModel):
++    """``POST …/status``: the only way ``status`` changes (plan D1)."""
++
++    model_config = ConfigDict(extra="forbid")
++
++    status: RoundStatus
++
++
++class FundingRoundRead(BaseModel):
++    """A round as returned by the API. Derived fields are read-only."""
++
++    model_config = ConfigDict(extra="forbid")
++
++    id: uuid.UUID
++    org_id: uuid.UUID
++    name: str
++    round_type: FundingRoundType
++    target_amount: Decimal | None
++    committed_amount: Decimal
++    currency: str
++    pre_money_valuation: Decimal | None
++    instrument: InstrumentType | None
++    status: RoundStatus
++    opens_on: date | None
++    closes_on: date | None
++    min_raise: Decimal | None
++    min_ticket: Decimal | None
++    remaining_amount: Decimal | None
++    progress_pct: Decimal | None
++    created_at: datetime
++    updated_at: datetime
++
++
++class FundingRoundPage(BaseModel):
++    model_config = ConfigDict(extra="forbid")
++
++    items: list[FundingRoundRead]
++    total: int
++    limit: int
++    offset: int
++    has_more: bool
++
++
++class FundingRoundSummary(BaseModel):
++    """Org-level roll-up for the ``/startup/rounds`` header.
++
++    One aggregate query in the service — no N+1. Money is a decimal
++    string; a total with no rounds is 0 (the list is simply empty).
++    """
++
++    model_config = ConfigDict(extra="forbid")
++
++    total_target: Decimal
++    total_committed: Decimal
++    currency: str
++    open_rounds: int
++    by_status: dict[str, int]
++
++
++__all__ = [
++    "FundingRoundCreate",
++    "FundingRoundPage",
++    "FundingRoundRead",
++    "FundingRoundSummary",
++    "FundingRoundUpdate",
++    "StatusTransition",
++]
+diff --git a/backend/app/services/funding_round_service.py b/backend/app/services/funding_round_service.py
+new file mode 100644
+index 0000000..e5d5828
+--- /dev/null
++++ b/backend/app/services/funding_round_service.py
+@@ -0,0 +1,378 @@
++"""Step 9a service: funding rounds (startup).
++
++Authorization in one place per operation, following the 5b/5e milestone
++and 8a-8e precedent:
++
++- **Create / edit / status / delete**: an active member with role
++  owner/admin/member. A **viewer** is read-only everywhere in the
++  product, so they get 403 (plan D13).
++- **List / get / summary**: any active member, viewer included.
++- Everyone else: a foreign ``org_id`` is caught by
++  ``startup_org_or_404`` (404); a round id from another org is caught by
++  the org-scoped lookup (404, never 403 — no existence oracle).
++
++Money handling: ``NUMERIC(14,2)`` in the table, ``Decimal`` in the
++service, decimal strings in the response. ``committed_amount`` is
++**server-only in 9a** (starts at 0; only 9i/9j will write it).
++``remaining_amount`` / ``progress_pct`` are derived here, never stored,
++never writable.
++
++Status changes only through ``ROUND_TRANSITIONS`` (plan D1); an invalid
++transition raises 409 ``INVALID_STATE``. Every create/update/status/
++delete writes an audit row in the same transaction (plan D11).
++"""
++
++import uuid
++from collections.abc import Sequence
++from datetime import UTC, datetime
++from decimal import Decimal
++from typing import Any
++
++from sqlalchemy import func, select
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from app.core.config import get_settings
++from app.core.exceptions import (
++    conflict,
++    not_found,
++    rate_limited,
++    validation_error,
++)
++from app.models.activity import ActivityEventType
++from app.models.funding_round import (
++    ROUND_TRANSITIONS,
++    FundingRound,
++    FundingRoundType,
++    InstrumentType,
++    RoundStatus,
++)
++from app.models.organization import OrgRole
++from app.models.user import User
++from app.schemas.funding_round import (
++    FundingRoundCreate,
++    FundingRoundRead,
++    FundingRoundSummary,
++    FundingRoundUpdate,
++)
++from app.services import activity_service, organization_service, rate_limiter
++
++# Org roles allowed to write a round. Viewers are read-only (5b/5e).
++WRITE_ROLES = {OrgRole.owner, OrgRole.admin, OrgRole.member}
++
++# Whitelisted sort keys for the list endpoint (router-validated values;
++# the service translates them to SQL columns). ``created_at`` is newest
++# first; ``name`` and ``closes_on`` ascend. ``FundingRound.id.desc()`` is
++# always appended as a stable tiebreak.
++_SORT_COLUMNS: dict[str, Any] = {
++    "created_at": FundingRound.created_at,
++    "closes_on": FundingRound.closes_on,
++    "name": FundingRound.name,
++}
++_SORT_DESC = {"created_at"}
++
++_HUNDRED = Decimal("100")
++
++
++async def _enforce_write_limit(user: User) -> None:
++    settings = get_settings()
++    if not await rate_limiter.rate_limiter.check(
++        f"funding_round_write:user:{user.id}",
++        settings.FUNDING_ROUND_WRITE_LIMIT,
++        settings.FUNDING_ROUND_WRITE_WINDOW_SECONDS,
++    ):
++        raise rate_limited("Too many funding round changes. Please slow down.")
++
++
++def _as_read(row: FundingRound) -> FundingRoundRead:
++    """Map a row to its API shape, computing the derived progress.
++
++    ``progress_pct`` may exceed 100 for an oversubscribed round (plan D2);
++    it is ``None`` when there is no target to divide by.
++    """
++    target = Decimal(row.target_amount) if row.target_amount is not None else None
++    committed = Decimal(row.committed_amount or 0)
++    remaining = (target - committed) if target is not None else None
++    progress = None
++    if target is not None and target > 0:
++        progress = (committed / target) * _HUNDRED
++    return FundingRoundRead(
++        id=row.id,
++        org_id=row.org_id,
++        name=row.name,
++        round_type=FundingRoundType(row.round_type),
++        target_amount=row.target_amount,
++        committed_amount=committed,
++        currency=row.currency,
++        pre_money_valuation=row.pre_money_valuation,
++        instrument=InstrumentType(row.instrument) if row.instrument else None,
++        status=RoundStatus(row.status),
++        opens_on=row.opens_on,
++        closes_on=row.closes_on,
++        min_raise=row.min_raise,
++        min_ticket=row.min_ticket,
++        remaining_amount=remaining,
++        progress_pct=progress,
++        created_at=row.created_at,
++        updated_at=row.updated_at,
++    )
++
++
++async def _get_round(db: AsyncSession, org_id: uuid.UUID, round_id: uuid.UUID) -> FundingRound:
++    """Org-scoped lookup: a foreign or deleted round is indistinguishable."""
++    result = await db.execute(
++        select(FundingRound).where(
++            FundingRound.id == round_id,
++            FundingRound.org_id == org_id,
++            FundingRound.deleted_at.is_(None),
++        )
++    )
++    row = result.scalar_one_or_none()
++    if row is None:
++        raise not_found("Funding round not found.")
++    return row
++
++
++async def create(
++    db: AsyncSession, user: User, org_id: uuid.UUID, payload: FundingRoundCreate
++) -> FundingRoundRead:
++    await _enforce_write_limit(user)
++    org = await organization_service.startup_org_or_404(db, org_id)
++    await organization_service.require_membership(
++        db, org.id, user, roles=WRITE_ROLES
++    )
++
++    row = FundingRound(
++        org_id=org.id,
++        name=payload.name,
++        round_type=payload.round_type,
++        target_amount=payload.target_amount,
++        # Server-only: 9a always starts at 0 (plan D2).
++        committed_amount=Decimal("0"),
++        currency=payload.currency,
++        pre_money_valuation=payload.pre_money_valuation,
++        instrument=payload.instrument,
++        status=RoundStatus.draft,
++        opens_on=payload.opens_on,
++        closes_on=payload.closes_on,
++        min_raise=payload.min_raise,
++        min_ticket=payload.min_ticket,
++    )
++    db.add(row)
++    await db.flush()
++    activity_service.record(
++        db,
++        event_type=ActivityEventType.round_created,
++        org_id=org.id,
++        actor_id=user.id,
++        entity_type="funding_round",
++        entity_id=row.id,
++        link_url=f"/startup/rounds/{row.id}",
++        summary=f"{user.display_name or 'A member'} created round “{row.name}”.",
++        data={"round_type": row.round_type, "status": row.status},
++    )
++    await db.commit()
++    await db.refresh(row)
++    return _as_read(row)
++
++
++async def list_rounds(
++    db: AsyncSession,
++    user: User,
++    org_id: uuid.UUID,
++    *,
++    status: RoundStatus | None,
++    sort: str,
++    limit: int,
++    offset: int,
++) -> tuple[Sequence[FundingRoundRead], int]:
++    org = await organization_service.startup_org_or_404(db, org_id)
++    await organization_service.require_membership(db, org.id, user)
++
++    if sort not in _SORT_COLUMNS:
++        raise validation_error("Unknown sort key.")
++
++    where = [FundingRound.org_id == org.id, FundingRound.deleted_at.is_(None)]
++    if status is not None:
++        where.append(FundingRound.status == status.value)
++
++    total = (
++        await db.execute(
++            select(func.count()).select_from(FundingRound).where(*where)
++        )
++    ).scalar_one()
++
++    sort_col = _SORT_COLUMNS[sort]
++    order_by = [
++        sort_col.desc() if sort in _SORT_DESC else sort_col.asc(),
++        FundingRound.id.desc(),
++    ]
++    rows = (
++        await db.execute(
++            select(FundingRound)
++            .where(*where)
++            .order_by(*order_by)
++            .limit(limit)
++            .offset(offset)
++        )
++    ).scalars().all()
++
++    return [_as_read(row) for row in rows], total
++
++
++async def get_round(db: AsyncSession, user: User, org_id: uuid.UUID, round_id: uuid.UUID) -> FundingRoundRead:
++    org = await organization_service.startup_org_or_404(db, org_id)
++    await organization_service.require_membership(db, org.id, user)
++    return _as_read(await _get_round(db, org.id, round_id))
++
++
++async def update_round(
++    db: AsyncSession,
++    user: User,
++    org_id: uuid.UUID,
++    round_id: uuid.UUID,
++    payload: FundingRoundUpdate,
++) -> FundingRoundRead:
++    await _enforce_write_limit(user)
++    org = await organization_service.startup_org_or_404(db, org_id)
++    await organization_service.require_membership(db, org.id, user, roles=WRITE_ROLES)
++
++    row = await _get_round(db, org.id, round_id)
++    data = payload.model_dump(exclude_unset=True)
++    if "name" in data and data["name"] is not None:
++        data["name"] = data["name"].strip()
++    # ``model_dump`` returns enum members (not raw strings), so the
++    # setattr below stores valid enum values for round_type/instrument.
++    for field, value in data.items():
++        setattr(row, field, value)
++
++    activity_service.record(
++        db,
++        event_type=ActivityEventType.round_updated,
++        org_id=org.id,
++        actor_id=user.id,
++        entity_type="funding_round",
++        entity_id=row.id,
++        link_url=f"/startup/rounds/{row.id}",
++        summary=f"{user.display_name or 'A member'} updated round “{row.name}”.",
++        data={"fields": sorted(data.keys())},
++    )
++    await db.commit()
++    await db.refresh(row)
++    return _as_read(row)
++
++
++async def transition_status(
++    db: AsyncSession, user: User, org_id: uuid.UUID, round_id: uuid.UUID, status: RoundStatus
++) -> FundingRoundRead:
++    await _enforce_write_limit(user)
++    org = await organization_service.startup_org_or_404(db, org_id)
++    await organization_service.require_membership(db, org.id, user, roles=WRITE_ROLES)
++
++    row = await _get_round(db, org.id, round_id)
++    current = RoundStatus(row.status)
++    allowed = ROUND_TRANSITIONS[current]
++    if status not in allowed:
++        raise conflict(
++            f"Cannot move a round from '{current.value}' to '{status.value}'.",
++            code="INVALID_STATE",
++        )
++    previous = row.status
++    row.status = status
++    activity_service.record(
++        db,
++        event_type=ActivityEventType.round_status_changed,
++        org_id=org.id,
++        actor_id=user.id,
++        entity_type="funding_round",
++        entity_id=row.id,
++        link_url=f"/startup/rounds/{row.id}",
++        summary=(
++            f"{user.display_name or 'A member'} moved round “{row.name}”"
++            f" from {previous} to {status.value}."
++        ),
++        data={"from": previous, "to": status.value},
++    )
++    await db.commit()
++    await db.refresh(row)
++    return _as_read(row)
++
++
++async def delete_round(db: AsyncSession, user: User, org_id: uuid.UUID, round_id: uuid.UUID) -> None:
++    await _enforce_write_limit(user)
++    org = await organization_service.startup_org_or_404(db, org_id)
++    await organization_service.require_membership(db, org.id, user, roles=WRITE_ROLES)
++
++    row = await _get_round(db, org.id, round_id)
++    activity_service.record(
++        db,
++        event_type=ActivityEventType.round_deleted,
++        org_id=org.id,
++        actor_id=user.id,
++        entity_type="funding_round",
++        entity_id=row.id,
++        link_url=f"/startup/rounds/{row.id}",
++        summary=f"{user.display_name or 'A member'} deleted round “{row.name}”.",
++    )
++    row.deleted_at = datetime.now(UTC)
++    await db.commit()
++
++
++async def summary(db: AsyncSession, user: User, org_id: uuid.UUID) -> FundingRoundSummary:
++    """Org-level roll-up for the rounds header (one aggregate query)."""
++    org = await organization_service.startup_org_or_404(db, org_id)
++    await organization_service.require_membership(db, org.id, user)
++
++    where = [FundingRound.org_id == org.id, FundingRound.deleted_at.is_(None)]
++
++    total_target, total_committed = (
++        await db.execute(
++            select(
++                func.coalesce(func.sum(FundingRound.target_amount), 0),
++                func.coalesce(func.sum(FundingRound.committed_amount), 0),
++            ).where(*where)
++        )
++    ).one()
++
++    open_rounds, currency = (
++        await db.execute(
++            select(
++                func.count(FundingRound.id).filter(
++                    FundingRound.status.in_(
++                        [RoundStatus.open.value, RoundStatus.paused.value]
++                    )
++                ),
++                func.coalesce(func.min(FundingRound.currency), "INR"),
++            ).select_from(FundingRound).where(*where)
++        )
++    ).one()
++
++    status_rows = (
++        await db.execute(
++            select(FundingRound.status, func.count())
++            .where(*where)
++            .group_by(FundingRound.status)
++        )
++    ).all()
++
++    # Coerce explicitly: SQLite has no DECIMAL, so an aggregate may
++    # come back as float/int; Decimal(str(...)) keeps it a real decimal
++    # either way (the 8h pattern).
++    return FundingRoundSummary(
++        total_target=Decimal(str(total_target)),
++        total_committed=Decimal(str(total_committed)),
++        currency=currency,
++        open_rounds=open_rounds,
++        by_status={status_value: count for status_value, count in status_rows},
++    )
++
++
++__all__ = [
++    "WRITE_ROLES",
++    "create",
++    "delete_round",
++    "get_round",
++    "list_rounds",
++    "summary",
++    "transition_status",
++    "update_round",
++]
+diff --git a/backend/app/tests/test_funding_rounds.py b/backend/app/tests/test_funding_rounds.py
+new file mode 100644
+index 0000000..63fd753
+--- /dev/null
++++ b/backend/app/tests/test_funding_rounds.py
+@@ -0,0 +1,466 @@
++"""Step 9a tests: funding rounds — CRUD, transitions, permissions, IDOR.
++
++Covers the AGENTS.md section 7 definition of done: happy path,
++validation errors, 401, 403 (wrong role), 404 (wrong organization /
++foreign id), cross-organization references, mass-assignment on
++server-controlled fields, the status state machine (409s), pagination /
++sort / filter, soft-delete and the summary roll-up.
++
++Money is asserted with ``Decimal(...)`` on the decimal-string JSON
++values, never floats.
++"""
++
++import re
++import uuid
++from decimal import Decimal
++
++import pytest
++from httpx import AsyncClient
++
++from app.services import email_service
++
++PASSWORD = "Str0ng!Password99"
++
++
++def _extract_code(email: str) -> str:
++    """The 6-digit code from THIS user's verification email.
++
++    Matched by recipient so that building several orgs (several users)
++    in one test cannot pick up another user's code.
++    """
++    for email_row in reversed(email_service.SENT_EMAILS):
++        if email_row.get("to") != email:
++            continue
++        if "verification code" not in email_row.get("subject", ""):
++            continue
++        match = re.search(r"(\d{6})", email_row.get("body", ""))
++        assert match, f"no 6-digit code in email body: {email_row.get('body')!r}"
++        return match.group(1)
++    raise AssertionError(f"expected a verification email for {email}")
++
++
++async def _signup_verified(client: AsyncClient, email: str, role: str = "startup") -> dict:
++    resp = await client.post(
++        "/api/v1/auth/register",
++        json={
++            "email": email,
++            "password": PASSWORD,
++            "display_name": email.split("@")[0].title(),
++            "role": role,
++        },
++    )
++    assert resp.status_code == 201, resp.text
++    code = _extract_code(email)
++    verify = await client.post(
++        "/api/v1/auth/verify-email", json={"email": email, "code": code}
++    )
++    assert verify.status_code == 200, verify.text
++    login = await client.post(
++        "/api/v1/auth/login", json={"email": email, "password": PASSWORD}
++    )
++    assert login.status_code == 200, login.text
++    return {
++        "email": email,
++        "headers": {"Authorization": f"Bearer {login.json()['access_token']}"},
++    }
++
++
++async def _create_org(
++    client: AsyncClient, auth: dict, *, name: str = "Acme Rockets", type_: str = "startup"
++) -> dict:
++    resp = await client.post(
++        "/api/v1/organizations",
++        json={"name": name, "type": type_},
++        headers=auth["headers"],
++    )
++    assert resp.status_code == 201, resp.text
++    return resp.json()
++
++
++async def _invite_member(
++    client: AsyncClient, owner: dict, invitee: dict, org: dict, role: str = "member"
++) -> None:
++    resp = await client.post(
++        f"/api/v1/organizations/{org['id']}/invites",
++        json={"email": invitee["email"], "role": role},
++        headers=owner["headers"],
++    )
++    assert resp.status_code == 201, resp.text
++    token = resp.json()["token"]
++    accept = await client.post(
++        f"/api/v1/invites/{token}/accept", headers=invitee["headers"]
++    )
++    assert accept.status_code == 200, accept.text
++
++
++async def _make_org_with_members(client: AsyncClient, suffix: str = "") -> dict:
++    """Owner + member + viewer in one startup, plus an outsider user.
++
++    Emails are unique per call (``suffix``) so two orgs built in one
++    test are genuinely separate accounts — reusing an email would make
++    the second "owner" the first org's already-verified user.
++    """
++    tag = suffix or uuid.uuid4().hex[:8]
++    owner = await _signup_verified(client, f"rounds-owner-{tag}@example.com")
++    member = await _signup_verified(client, f"rounds-member-{tag}@example.com")
++    viewer = await _signup_verified(client, f"rounds-viewer-{tag}@example.com")
++    outsider = await _signup_verified(client, f"rounds-outsider-{tag}@example.com")
++    org = await _create_org(client, owner, name=f"Rounds Org {tag}")
++    await _invite_member(client, owner, member, org, role="member")
++    await _invite_member(client, owner, viewer, org, role="viewer")
++    return {"org": org, "owner": owner, "member": member, "viewer": viewer, "outsider": outsider}
++
++
++# --- helpers ---------------------------------------------------------------
++
++
++async def _create_round(client: AsyncClient, auth: dict, org_id: str, payload: dict, expect: int = 201) -> dict:
++    resp = await client.post(
++        f"/api/v1/organizations/{org_id}/funding-rounds",
++        json=payload,
++        headers=auth["headers"],
++    )
++    assert resp.status_code == expect, resp.text
++    return resp.json() if expect == 201 else {}
++
++
++async def _patch_round(client: AsyncClient, auth: dict, org_id: str, round_id: str, payload: dict, expect: int = 200) -> dict:
++    resp = await client.patch(
++        f"/api/v1/organizations/{org_id}/funding-rounds/{round_id}",
++        json=payload,
++        headers=auth["headers"],
++    )
++    assert resp.status_code == expect, resp.text
++    return resp.json() if expect == 200 else {}
++
++
++async def _transition(client: AsyncClient, auth: dict, org_id: str, round_id: str, status_value: str, expect: int = 200) -> dict:
++    resp = await client.post(
++        f"/api/v1/organizations/{org_id}/funding-rounds/{round_id}/status",
++        json={"status": status_value},
++        headers=auth["headers"],
++    )
++    assert resp.status_code == expect, resp.text
++    return resp.json() if expect == 200 else {}
++
++
++def _round_payload(**overrides) -> dict:
++    payload = {
++        "name": "Pre-Seed Round",
++        "round_type": "pre_seed",
++        "target_amount": "25000000.00",
++        "currency": "INR",
++        "pre_money_valuation": "80000000.00",
++        "instrument": "equity",
++        "opens_on": "2027-01-01",
++        "closes_on": "2027-03-31",
++        "min_raise": "10000000.00",
++        "min_ticket": "500000.00",
++    }
++    payload.update(overrides)
++    return payload
++
++
++# --- happy path ------------------------------------------------------------
++
++
++@pytest.mark.asyncio
++async def test_create_round_happy_path(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    body = await _create_round(client, team["owner"], team["org"]["id"], _round_payload())
++
++    assert body["name"] == "Pre-Seed Round"
++    assert body["round_type"] == "pre_seed"
++    assert body["status"] == "draft"
++    assert body["currency"] == "INR"
++    assert body["instrument"] == "equity"
++    assert Decimal(body["target_amount"]) == Decimal("25000000.00")
++    # Server-only: committed starts at 0 (plan D2).
++    assert Decimal(body["committed_amount"]) == Decimal("0.00")
++    assert Decimal(body["remaining_amount"]) == Decimal("25000000.00")
++    assert Decimal(body["progress_pct"]) == Decimal("0.00")
++    assert isinstance(body["target_amount"], str)  # decimal string, never float
++
++
++@pytest.mark.asyncio
++async def test_get_round_derives_progress(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    created = await _create_round(client, team["owner"], team["org"]["id"], _round_payload())
++    body = await _get(client, team["owner"], team["org"]["id"], created["id"])
++    assert body["id"] == created["id"]
++    assert body["opens_on"] == "2027-01-01"
++    assert body["closes_on"] == "2027-03-31"
++    assert Decimal(body["min_raise"]) == Decimal("10000000.00")
++    assert Decimal(body["min_ticket"]) == Decimal("500000.00")
++
++
++@pytest.mark.asyncio
++async def test_update_round_happy_path(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    created = await _create_round(client, team["owner"], team["org"]["id"], _round_payload())
++    body = await _patch_round(
++        client, team["member"], team["org"]["id"], created["id"], {"name": "Seed Round B", "target_amount": "40000000.00"}
++    )
++    assert body["name"] == "Seed Round B"
++    assert Decimal(body["target_amount"]) == Decimal("40000000.00")
++    # status untouched by PATCH.
++    assert body["status"] == "draft"
++
++
++@pytest.mark.asyncio
++async def test_status_transition_and_reopen(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    created = await _create_round(client, team["owner"], team["org"]["id"], _round_payload())
++    opened = await _transition(client, team["member"], team["org"]["id"], created["id"], "open")
++    assert opened["status"] == "open"
++    closed = await _transition(client, team["owner"], team["org"]["id"], created["id"], "closed")
++    assert closed["status"] == "closed"
++    reopened = await _transition(client, team["owner"], team["org"]["id"], created["id"], "open")
++    assert reopened["status"] == "open"
++
++
++@pytest.mark.asyncio
++async def test_cancelled_is_terminal(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    created = await _create_round(client, team["owner"], team["org"]["id"], _round_payload())
++    await _transition(client, team["owner"], team["org"]["id"], created["id"], "cancelled")
++    # cancelled -> open is invalid (D14).
++    await _transition(client, team["owner"], team["org"]["id"], created["id"], "open", expect=409)
++
++
++@pytest.mark.asyncio
++async def test_delete_round_soft_deletes(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    created = await _create_round(client, team["owner"], team["org"]["id"], _round_payload())
++    resp = await client.delete(
++        f"/api/v1/organizations/{team['org']['id']}/funding-rounds/{created['id']}",
++        headers=team["owner"]["headers"],
++    )
++    assert resp.status_code == 204, resp.text
++    # gone from get and list.
++    await _get(client, team["owner"], team["org"]["id"], created["id"], expect=404)
++    listing = await _list(client, team["owner"], team["org"]["id"])
++    assert listing["total"] == 0
++
++
++@pytest.mark.asyncio
++async def test_summary_rolls_up(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    await _create_round(client, team["owner"], team["org"]["id"], _round_payload())
++    await _create_round(
++        client, team["owner"], team["org"]["id"], _round_payload(name="Second", target_amount="10000000.00")
++    )
++    resp = await client.get(
++        f"/api/v1/organizations/{team['org']['id']}/funding-rounds/summary",
++        headers=team["owner"]["headers"],
++    )
++    assert resp.status_code == 200, resp.text
++    body = resp.json()
++    assert Decimal(body["total_target"]) == Decimal("35000000.00")
++    assert Decimal(body["total_committed"]) == Decimal("0.00")
++    assert body["open_rounds"] == 0
++    assert body["by_status"] == {"draft": 2}
++
++
++@pytest.mark.asyncio
++async def test_list_pagination_sort_filter(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    for i in range(3):
++        await _create_round(client, team["owner"], team["org"]["id"], _round_payload(name=f"Round {i}"))
++    body = await _list(client, team["member"], team["org"]["id"], {"limit": 2, "offset": 0, "sort": "name"})
++    assert body["total"] == 3
++    assert body["has_more"] is True
++    assert len(body["items"]) == 2
++    assert body["items"][0]["name"] == "Round 0"
++    # filter by status.
++    filtered = await _list(client, team["member"], team["org"]["id"], {"status": "draft"})
++    assert filtered["total"] == 3
++    empty = await _list(client, team["member"], team["org"]["id"], {"status": "open"})
++    assert empty["total"] == 0
++
++
++# --- validation ------------------------------------------------------------
++
++
++@pytest.mark.asyncio
++async def test_create_validation_errors(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    # blank name
++    await _create_round(client, team["owner"], team["org"]["id"], _round_payload(name="   "), expect=422)
++    # non-positive target
++    await _create_round(client, team["owner"], team["org"]["id"], _round_payload(target_amount="0"), expect=422)
++    # negative valuation
++    await _create_round(client, team["owner"], team["org"]["id"], _round_payload(pre_money_valuation="-1"), expect=422)
++    # unknown enum
++    await _create_round(client, team["owner"], team["org"]["id"], _round_payload(round_type="series_z"), expect=422)
++    # closes before opens
++    await _create_round(
++        client, team["owner"], team["org"]["id"], _round_payload(opens_on="2027-05-01", closes_on="2027-01-01"), expect=422
++    )
++
++
++@pytest.mark.asyncio
++async def test_unknown_sort_key_is_422(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    await _list(client, team["member"], team["org"]["id"], {"sort": "nonsense"}, expect=422)
++
++
++# --- authentication / authorization ---------------------------------------
++
++
++@pytest.mark.asyncio
++async def test_unauthenticated_gets_401(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    resp = await client.post(
++        f"/api/v1/organizations/{team['org']['id']}/funding-rounds",
++        json=_round_payload(),
++    )
++    assert resp.status_code == 401
++    resp = await client.get(f"/api/v1/organizations/{team['org']['id']}/funding-rounds")
++    assert resp.status_code == 401
++
++
++@pytest.mark.asyncio
++async def test_viewer_can_read_but_not_write(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    created = await _create_round(client, team["owner"], team["org"]["id"], _round_payload())
++    # viewer reads.
++    await _get(client, team["viewer"], team["org"]["id"], created["id"])
++    await _list(client, team["viewer"], team["org"]["id"])
++    # viewer cannot create / edit / transition / delete.
++    await _create_round(client, team["viewer"], team["org"]["id"], _round_payload(), expect=403)
++    await _patch_round(client, team["viewer"], team["org"]["id"], created["id"], {"name": "x"}, expect=403)
++    await _transition(client, team["viewer"], team["org"]["id"], created["id"], "open", expect=403)
++    resp = await client.delete(
++        f"/api/v1/organizations/{team['org']['id']}/funding-rounds/{created['id']}",
++        headers=team["viewer"]["headers"],
++    )
++    assert resp.status_code == 403
++
++
++@pytest.mark.asyncio
++async def test_outsider_gets_403_on_org_path(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    await _create_round(client, team["owner"], team["org"]["id"], _round_payload())
++    await _list(client, team["outsider"], team["org"]["id"], expect=403)
++    await _create_round(client, team["outsider"], team["org"]["id"], _round_payload(), expect=403)
++
++
++@pytest.mark.asyncio
++async def test_wrong_org_id_and_foreign_round_id(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    other_org = await _create_org(client, team["owner"], name="Other Startup")
++    created = await _create_round(client, team["owner"], team["org"]["id"], _round_payload())
++    # A foreign round id under this org's path -> 404 (no existence oracle).
++    resp = await client.get(
++        f"/api/v1/organizations/{team['org']['id']}/funding-rounds/{uuid.uuid4()}",
++        headers=team["owner"]["headers"],
++    )
++    assert resp.status_code == 404
++    # An org the caller is not a member of -> 403 (not a member).
++    await _list(client, team["member"], other_org["id"], expect=403)
++    # The round itself is still readable under its own org.
++    await _get(client, team["owner"], team["org"]["id"], created["id"], expect=200)
++
++
++@pytest.mark.asyncio
++async def test_cross_org_round_id_is_404(client: AsyncClient) -> None:
++    """A round created in org A is invisible under org B's path (IDOR)."""
++    team_a = await _make_org_with_members(client)
++    team_b = await _make_org_with_members(client)
++    created_a = await _create_round(client, team_a["owner"], team_a["org"]["id"], _round_payload())
++    await _get(client, team_b["owner"], team_b["org"]["id"], created_a["id"], expect=404)
++    await _transition(client, team_b["owner"], team_b["org"]["id"], created_a["id"], "open", expect=404)
++    await _patch_round(client, team_b["owner"], team_b["org"]["id"], created_a["id"], {"name": "hijack"}, expect=404)
++
++
++@pytest.mark.asyncio
++async def test_repeated_delete_is_404(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    created = await _create_round(client, team["owner"], team["org"]["id"], _round_payload())
++    resp = await client.delete(
++        f"/api/v1/organizations/{team['org']['id']}/funding-rounds/{created['id']}",
++        headers=team["owner"]["headers"],
++    )
++    assert resp.status_code == 204
++    resp = await client.delete(
++        f"/api/v1/organizations/{team['org']['id']}/funding-rounds/{created['id']}",
++        headers=team["owner"]["headers"],
++    )
++    assert resp.status_code == 404
++
++
++# --- mass-assignment -------------------------------------------------------
++
++
++@pytest.mark.asyncio
++@pytest.mark.parametrize(
++    "field,value",
++    [
++        ("committed_amount", "5000000.00"),
++        ("status", "open"),
++        ("id", str(uuid.uuid4())),
++        ("org_id", str(uuid.uuid4())),
++        ("created_at", "2020-01-01T00:00:00Z"),
++    ],
++)
++async def test_mass_assignment_on_server_fields(client: AsyncClient, field: str, value: str) -> None:
++    team = await _make_org_with_members(client)
++    payload = _round_payload()
++    payload[field] = value
++    await _create_round(client, team["owner"], team["org"]["id"], payload, expect=422)
++
++    created = await _create_round(client, team["owner"], team["org"]["id"], _round_payload())
++    patch = {field: value}
++    await _patch_round(client, team["owner"], team["org"]["id"], created["id"], patch, expect=422)
++
++
++@pytest.mark.asyncio
++async def test_invalid_state_transition_is_409(client: AsyncClient) -> None:
++    team = await _make_org_with_members(client)
++    created = await _create_round(client, team["owner"], team["org"]["id"], _round_payload())
++    # draft -> paused is not a legal transition (D1).
++    await _transition(client, team["owner"], team["org"]["id"], created["id"], "paused", expect=409)
++
++
++@pytest.mark.asyncio
++async def test_audit_rows_written(client: AsyncClient, db_session) -> None:
++    team = await _make_org_with_members(client)
++    created = await _create_round(client, team["owner"], team["org"]["id"], _round_payload())
++    await _transition(client, team["owner"], team["org"]["id"], created["id"], "open")
++    from sqlalchemy import select
++
++    from app.models.activity import ActivityEvent
++
++    rows = (
++        await db_session.execute(
++            select(ActivityEvent)
++            .where(ActivityEvent.org_id == uuid.UUID(team["org"]["id"]))
++            .order_by(ActivityEvent.id)
++        )
++    ).scalars().all()
++    kinds = {row.event_type for row in rows}
++    assert "round_created" in kinds
++    assert "round_status_changed" in kinds
++
++
++# --- extra helpers used above ----------------------------------------------
++
++
++async def _get(client: AsyncClient, auth: dict, org_id: str, round_id: str, expect: int = 200) -> dict:
++    resp = await client.get(
++        f"/api/v1/organizations/{org_id}/funding-rounds/{round_id}",
++        headers=auth["headers"],
++    )
++    assert resp.status_code == expect, resp.text
++    return resp.json() if expect == 200 else {}
++
++
++async def _list(client: AsyncClient, auth: dict, org_id: str, params: dict | None = None, expect: int = 200) -> dict:
++    resp = await client.get(
++        f"/api/v1/organizations/{org_id}/funding-rounds",
++        params=params or {},
++        headers=auth["headers"],
++    )
++    assert resp.status_code == expect, resp.text
++    return resp.json() if expect == 200 else {}
+diff --git a/backend/scripts/seed_dev.py b/backend/scripts/seed_dev.py
+index 90830c7..f5332c9 100644
+--- a/backend/scripts/seed_dev.py
++++ b/backend/scripts/seed_dev.py
+@@ -41,6 +41,12 @@ from app.models.analytics import StartupCompetitor, StartupMarketSize  # noqa: E
+ from app.models.availability import AvailabilitySlot  # noqa: E402
+ from app.models.deliverable import DeliverableStatus, MentorDeliverable  # noqa: E402
+ from app.models.earning import EarningStatus, MentorEarning  # noqa: E402
++from app.models.funding_round import (  # noqa: E402
++    FundingRound,
++    FundingRoundType,
++    InstrumentType,
++    RoundStatus,
++)
+ from app.models.mentorship import (  # noqa: E402
+     BUSY_STATUSES,
+     Mentorship,
+@@ -435,6 +441,43 @@ STEP5B_MILESTONES: list[dict[str, object]] = [
+     },
+ ]
+ 
++# Step 9a demo funding rounds (moved out of the wired rounds page's inline
++# demo data). `committed_amount` is written directly here so the dev UI
++# shows a non-zero progress bar exactly like the old demo did; in 9a the
++# API keeps committed_amount server-only (starts at 0) and only 9i/9j will
++# ever write it through the app. Fill-only: a round with the same name in
++# the founder's org is never duplicated.
++STEP9A_ROUNDS: list[dict[str, object]] = [
++    {
++        "name": "Pre-seed Round",
++        "round_type": FundingRoundType.pre_seed,
++        "target_amount": Decimal("25000000.00"),
++        "committed_amount": Decimal("8000000.00"),
++        "currency": "INR",
++        "pre_money_valuation": Decimal("80000000.00"),
++        "instrument": InstrumentType.equity,
++        "status": RoundStatus.open,
++        "opens_on": date(2026, 10, 10),
++        "closes_on": date(2027, 3, 31),
++        "min_raise": Decimal("15000000.00"),
++        "min_ticket": Decimal("1000000.00"),
++    },
++    {
++        "name": "Seed Round",
++        "round_type": FundingRoundType.seed,
++        "target_amount": Decimal("50000000.00"),
++        "committed_amount": Decimal("0"),
++        "currency": "INR",
++        "pre_money_valuation": None,
++        "instrument": InstrumentType.safe,
++        "status": RoundStatus.draft,
++        "opens_on": None,
++        "closes_on": date(2027, 6, 30),
++        "min_raise": None,
++        "min_ticket": None,
++    },
++]
++
+ # Step 5c demo tasks (moved out of the wired board's inline demo data).
+ # `due_offset` is relative to the day the seed runs, so the board never shows
+ # a uniformly-overdue board just because time moved on. Fill-only: a task
+@@ -917,6 +960,7 @@ async def seed() -> None:
+         milestones_added = 0
+         tasks_added = 0
+         labels_added = 0
++        funding_rounds_added = 0
+         task_label_links_added = 0
+         founder_org = (
+             (
+@@ -1108,6 +1152,43 @@ async def seed() -> None:
+             if milestones_added:
+                 await db.commit()
+ 
++            # Step 9a: demo funding rounds for the wired rounds page
++            # (fill-only, by name). committed_amount is written directly so
++            # the dev progress bar is non-zero, matching the old demo.
++            for spec in STEP9A_ROUNDS:
++                exists = (
++                    await db.execute(
++                        select(FundingRound.id).where(
++                            FundingRound.org_id == founder_org.id,
++                            FundingRound.name == str(spec["name"]),
++                            FundingRound.deleted_at.is_(None),
++                        )
++                    )
++                ).first()
++                if exists is not None:
++                    continue
++                instrument = spec["instrument"]
++                db.add(
++                    FundingRound(
++                        org_id=founder_org.id,
++                        name=str(spec["name"]),
++                        round_type=spec["round_type"],
++                        target_amount=spec["target_amount"],
++                        committed_amount=spec["committed_amount"],
++                        currency=str(spec["currency"]),
++                        pre_money_valuation=spec["pre_money_valuation"],
++                        instrument=instrument if instrument is not None else None,
++                        status=spec["status"],
++                        opens_on=spec["opens_on"],
++                        closes_on=spec["closes_on"],
++                        min_raise=spec["min_raise"],
++                        min_ticket=spec["min_ticket"],
++                    )
++                )
++                funding_rounds_added += 1
++            if funding_rounds_added:
++                await db.commit()
++
+             # Step 5c: demo tasks for the wired board (fill-only, by title).
+             # display_order is per (org, status) column, so each column is
+             # numbered independently in the order the records appear here.
+@@ -1890,6 +1971,7 @@ async def seed() -> None:
+     print(f"  + extra org member (5a): {extra_members_added}")
+     print(f"  + team states (3d deactivated member / pending invite): {team_state_added}")
+     print(f"  + milestones (5b): {milestones_added}")
++    print(f"  + funding rounds (9a): {funding_rounds_added}")
+     print(f"  + tasks (5c): {tasks_added}")
+     print(f"  + task labels (5d): {labels_added}")
+     print(f"  + task label links (5d): {task_label_links_added}")
+diff --git a/frontend/app/startup/investors/investor-app.jsx b/frontend/app/startup/investors/investor-app.jsx
+index 8a093a6..d1679f6 100644
+--- a/frontend/app/startup/investors/investor-app.jsx
++++ b/frontend/app/startup/investors/investor-app.jsx
+@@ -1,7 +1,16 @@
+ 'use client';
+-import { useState } from 'react';
++import { useState, useEffect } from 'react';
+ import Link from 'next/link';
+ import { StartupSidebar, Btn, Card, SubNavTabs } from '../../../components';
++import { useAuth } from '@/lib/auth-context';
++import { api, ApiError } from '@/lib/api/client';
++import {
++  LoadingBlock,
++  EmptyBlock,
++  ErrorBlock,
++  FieldError,
++  fieldErrorsFrom,
++} from '@/components/async-state';
+ import {
+   Search,
+   Bell,
+@@ -117,6 +126,25 @@ const investors = [
+ 
+ const columns = ['Interested', 'Intro / Talking', 'Meeting held', 'Data room', 'Offer', 'Committed'];
+ 
++// Step 9a: render the API's decimal-string money as ₹ Cr/L (matching the
++// demo's Indian numbering). Purely presentational — the value is the real
++// server figure, never an invented number.
++function formatMoney(value, currency = 'INR') {
++  if (value === null || value === undefined || value === '') return '—';
++  const num = Number(value);
++  if (Number.isNaN(num)) return '—';
++  const sym = currency === 'INR' ? '₹' : currency + ' ';
++  if (num >= 1e7) return sym + (num / 1e7).toFixed(2).replace(/\.?0+$/, '') + ' Cr';
++  if (num >= 1e5) return sym + (num / 1e5).toFixed(2).replace(/\.?0+$/, '') + ' L';
++  return sym + num.toLocaleString('en-IN');
++}
++
++function progressNum(value) {
++  if (value === null || value === undefined || value === '') return 0;
++  const n = Number(value);
++  return Number.isNaN(n) ? 0 : n;
++}
++
+ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
+   const [toast, setToast] = useState('');
+   const [visible, setVisible] = useState(false);
+@@ -140,15 +168,134 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
+   ]);
+   const [vis, setVis] = useState('Mentors and verified investors');
+   const [toggles, setToggles] = useState({ summary: true, traction: true, team: true, funding: false, round: false, readiness: true });
+-  const [roundStatus, setRoundStatus] = useState('Open');
+   const [mobileNav, setMobileNav] = useState(false);
+   const [compact, setCompact] = useState(false);
+ 
++  // Step 9a: real rounds data (only loaded for the rounds/round-detail pages).
++  const { user } = useAuth();
++  const [org, setOrg] = useState(null); // the startup org (Startup org row)
++  const [canEditRounds, setCanEditRounds] = useState(false); // owner/admin/member
++  const [rounds, setRounds] = useState([]); // FundingRoundRead[]
++  const [roundsPhase, setRoundsPhase] = useState('loading'); // loading|ready|error|none
++  const [round, setRound] = useState(null); // the round being viewed (detail)
++  const [roundPhase, setRoundPhase] = useState('loading'); // loading|ready|error|none
++  const [roundLoadError, setRoundLoadError] = useState('');
++  // New-round modal form + server validation errors.
++  const [roundForm, setRoundForm] = useState({
++    name: '',
++    round_type: 'pre_seed',
++    target_amount: '',
++    min_raise: '',
++    instrument: 'equity',
++    min_ticket: '',
++    closes_on: '',
++  });
++  const [roundFormErrors, setRoundFormErrors] = useState({});
++  const [savingRound, setSavingRound] = useState(false);
++
+   const notify = (s) => {
+     setToast(s);
+     setTimeout(() => setToast(''), 2800);
+   };
+ 
++  const loadRounds = async (orgId) => {
++    setRoundsPhase('loading');
++    try {
++      const result = await api.fundingRounds.list(orgId, { sort: 'created_at' });
++      setRounds(result.items);
++      setRoundsPhase('ready');
++    } catch {
++      setRoundsPhase('error');
++    }
++  };
++
++  const loadRound = async (orgId, roundId) => {
++    setRoundPhase('loading');
++    setRoundLoadError('');
++    try {
++      setRound(await api.fundingRounds.get(orgId, roundId));
++      setRoundPhase('ready');
++    } catch (err) {
++      setRoundPhase('error');
++      setRoundLoadError(err instanceof ApiError ? err.message : 'Could not load this round.');
++    }
++  };
++
++  // Resolve the startup org and load this page's rounds. Gated to the two
++  // Step 9a pages; every other page in this shared component keeps its demo data.
++  useEffect(() => {
++    if (page !== 'rounds' && page !== 'round-detail') return undefined;
++    let cancelled = false;
++    (async () => {
++      try {
++        const orgs = await api.organizations.mine();
++        const startup = orgs.find((o) => o.type === 'startup') || null;
++        if (cancelled) return;
++        if (!startup) {
++          setOrg(null);
++          setRoundsPhase('none');
++          setRoundPhase('none');
++          return;
++        }
++        setOrg(startup);
++        setCanEditRounds(['owner', 'admin', 'member'].includes(startup.my_role));
++        if (page === 'rounds') {
++          await loadRounds(startup.id);
++        } else {
++          await loadRound(startup.id, id);
++        }
++      } catch {
++        if (!cancelled) {
++          setRoundsPhase('error');
++          setRoundPhase('error');
++        }
++      }
++    })();
++    return () => {
++      cancelled = true;
++    };
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [page, id, user?.id]);
++
++  const handleCreateRound = async () => {
++    setSavingRound(true);
++    setRoundFormErrors({});
++    try {
++      await api.fundingRounds.create(org.id, {
++        name: roundForm.name.trim(),
++        round_type: roundForm.round_type,
++        target_amount: roundForm.target_amount || null,
++        min_raise: roundForm.min_raise || null,
++        instrument: roundForm.instrument || null,
++        min_ticket: roundForm.min_ticket || null,
++        closes_on: roundForm.closes_on || null,
++      });
++      setModal('');
++      notify('Round created.');
++      if (org) await loadRounds(org.id);
++    } catch (err) {
++      if (err instanceof ApiError && err.status === 422) {
++        setRoundFormErrors(fieldErrorsFrom(err));
++      } else {
++        notify(err instanceof ApiError ? err.message : 'Could not create the round.');
++      }
++    } finally {
++      setSavingRound(false);
++    }
++  };
++
++  const handleToggleRoundStatus = async () => {
++    if (!org || !round) return;
++    const next = round.status === 'closed' ? 'open' : 'closed';
++    try {
++      const updated = await api.fundingRounds.changeStatus(org.id, round.id, next);
++      setRound(updated);
++      notify(next === 'closed' ? 'Round closed.' : 'Round reopened.');
++    } catch (err) {
++      notify(err instanceof ApiError ? err.message : 'Could not change the round status.');
++    }
++  };
++
+   // Dynamic ID resolution supporting test IDs and semantic IDs
+   const resolvedId = id === 'inv-1' ? 'northstar' : id === 'inv-2' ? 'mira' : id === 'inv-3' ? 'seed-spring' : id === 'inv-4' ? 'river' : id;
+   const inv = investors.find(x => x.id === resolvedId || x.id === id) || investors[0];
+@@ -181,12 +328,19 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
+     settings: 'Control who can discover your startup and what they can see.',
+   }[page] || '';
+ 
++  // The round-detail title/sub follow the loaded round, not a hardcoded name.
++  const pageTitle = page === 'round-detail' && round ? round.name : title;
++  const pageSub =
++    page === 'round-detail' && round
++      ? round.round_type + ' · ' + (round.instrument || 'No instrument set') + ' · closes ' + (round.closes_on || '—')
++      : sub;
++
+   const head = (actions) => (
+     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+       <div>
+         <p className="text-sm text-[#4A5568]">Acme Studio <span className="mx-2 text-[#B8955A]">·</span> Investors</p>
+-        <h1 className="serif mt-1 text-[30px] font-semibold">{title}</h1>
+-        <p className="mt-1 text-sm text-[#4A5568]">{sub}</p>
++        <h1 className="serif mt-1 text-[30px] font-semibold">{pageTitle}</h1>
++        <p className="mt-1 text-sm text-[#4A5568]">{pageSub}</p>
+       </div>
+       <div className="flex flex-wrap gap-2">{actions}</div>
+     </div>
+@@ -1169,65 +1323,92 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
+         {page === 'rounds' && (
+           <>
+             {head(
+-              <Btn onClick={() => setModal('round')}><Plus size={15} /> New round</Btn>
++              canEditRounds && (
++                <Btn onClick={() => setModal('round')}><Plus size={15} /> New round</Btn>
++              )
+             )}
+-            <div className="grid gap-5 lg:grid-cols-3">
+-              <div className="space-y-3 lg:col-span-2">
+-                <Card title="Pre-seed round" action={<span className="rounded-full bg-[#E7F3EC] px-2 py-1 text-[10px] font-semibold text-[#286749]">{roundStatus}</span>}>
+-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+-                    {[
+-                      ['Target', '₹2.5 Cr'],
+-                      ['Committed', '₹0.8 Cr'],
+-                      ['Remaining', '₹1.7 Cr'],
+-                      ['Investors', '3'],
+-                    ].map(([n, v]) => (
+-                      <div key={n} className="rounded-lg bg-[#FAF8F4] p-3">
+-                        <small className="text-xs text-[#4A5568]">{n}</small>
+-                        <b className="serif mt-1 block text-xl">{v}</b>
+-                      </div>
+-                    ))}
+-                  </div>
+-                  <div className="mt-4 h-2 rounded-full bg-[#E5E1D8]">
+-                    <div className="h-full w-[32%] rounded-full bg-[#B8955A]" />
+-                  </div>
+-                  <div className="mt-4 flex flex-wrap justify-between gap-3">
+-                    <span className="text-xs text-[#4A5568]">Pre-seed · Equity · Closing target Mar 31, 2027</span>
+-                    <Link href="/startup/rounds/round-preseed" className="text-xs font-semibold text-[#9A7A45]">
+-                      Open round <ArrowRight className="inline" size={12} />
+-                    </Link>
+-                  </div>
+-                </Card>
++            {roundsPhase === 'loading' && <LoadingBlock label="Loading your rounds…" rows={2} />}
++            {roundsPhase === 'error' && (
++              <ErrorBlock
++                message="Could not load your rounds."
++                onRetry={() => org && loadRounds(org.id)}
++              />
++            )}
++            {roundsPhase === 'none' && (
++              <EmptyBlock
++                title="No startup workspace yet"
++                hint="Create or join a startup to start tracking fundraising rounds."
++              />
++            )}
++            {roundsPhase === 'ready' && rounds.length === 0 && (
++              <EmptyBlock
++                title="No fundraising rounds yet"
++                hint="Set up your first round to start tracking your raise."
++              >
++                {canEditRounds && (
++                  <Btn onClick={() => setModal('round')}><Plus size={15} /> New round</Btn>
++                )}
++              </EmptyBlock>
++            )}
++            {roundsPhase === 'ready' && rounds.length > 0 && (
++              <div className="grid gap-5 lg:grid-cols-3">
++                <div className="space-y-3 lg:col-span-2">
++                  {rounds.map((r) => {
++                    const pct = progressNum(r.progress_pct);
++                    return (
++                      <Card
++                        key={r.id}
++                        title={r.name}
++                        action={<span className="rounded-full bg-[#E7F3EC] px-2 py-1 text-[10px] font-semibold text-[#286749]">{r.status}</span>}
++                      >
++                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
++                          {[
++                            ['Target', formatMoney(r.target_amount, r.currency)],
++                            ['Committed', formatMoney(r.committed_amount, r.currency)],
++                            ['Remaining', formatMoney(r.remaining_amount, r.currency)],
++                            ['Progress', pct + '%'],
++                          ].map(([n, v]) => (
++                            <div key={n} className="rounded-lg bg-[#FAF8F4] p-3">
++                              <small className="text-xs text-[#4A5568]">{n}</small>
++                              <b className="serif mt-1 block text-xl">{v}</b>
++                            </div>
++                          ))}
++                        </div>
++                        <div className="mt-4 h-2 rounded-full bg-[#E5E1D8]">
++                          <div
++                            className="h-full rounded-full bg-[#B8955A]"
++                            style={{ width: Math.min(100, Math.max(0, pct)) + '%' }}
++                          />
++                        </div>
++                        <div className="mt-4 flex flex-wrap justify-between gap-3">
++                          <span className="text-xs text-[#4A5568]">
++                            {r.round_type} · {r.instrument || 'No instrument'} · Closing target {r.closes_on || '—'}
++                          </span>
++                          <Link href={'/startup/rounds/' + r.id} className="text-xs font-semibold text-[#9A7A45]">
++                            Open round <ArrowRight className="inline" size={12} />
++                          </Link>
++                        </div>
++                      </Card>
++                    );
++                  })}
++                  <Card title="Round milestones">
++                    <EmptyBlock
++                      title="Round milestones arrive later"
++                      hint="Milestones such as first commitment and term-sheet signing are recorded with offers and commitments (a later step)."
++                    />
++                  </Card>
++                </div>
+ 
+-                <Card title="Round milestones">
+-                  <div className="space-y-4">
+-                    {[
+-                      ['Round opened', 'Oct 10 · Complete'],
+-                      ['First commitment', 'Oct 28 · Complete'],
+-                      ['Lead investor', 'In progress'],
+-                      ['Term sheet signed', 'Upcoming'],
+-                      ['Closing', 'Mar 31, 2027'],
+-                    ].map(([x, y], i) => (
+-                      <p key={x} className="flex items-center gap-3 text-xs">
+-                        <span className={`grid h-6 w-6 place-items-center rounded-full ${i < 2 ? 'bg-ink text-white' : 'bg-[#F3F4F6] text-[#4A5568]'}`}>
+-                          {i < 2 ? <Check size={13} /> : i + 1}
+-                        </span>
+-                        <b>{x}</b>
+-                        <span className="ml-auto text-[#4A5568]">{y}</span>
+-                      </p>
+-                    ))}
+-                  </div>
+-                </Card>
++                <aside>
++                  <Card title="Getting started">
++                    <p className="text-xs leading-5 text-[#4A5568]">Set round terms, prepare your data room, connect with investors, record offers and close with your counsel.</p>
++                    <button type="button" onClick={() => notify('Round guide opened.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
++                      Read round guide <ArrowRight className="inline" size={12} />
++                    </button>
++                  </Card>
++                </aside>
+               </div>
+-
+-              <aside>
+-                <Card title="Getting started">
+-                  <p className="text-xs leading-5 text-[#4A5568]">Set round terms, prepare your data room, connect with investors, record offers and close with your counsel.</p>
+-                  <button type="button" onClick={() => notify('Round guide opened.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
+-                    Read round guide <ArrowRight className="inline" size={12} />
+-                  </button>
+-                </Card>
+-              </aside>
+-            </div>
++            )}
+             {disclaimer}
+           </>
+         )}
+@@ -1236,101 +1417,103 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
+           <>
+             {head(
+               <div className="flex gap-2">
+-                <Btn secondary onClick={() => notify('Round summary exported.')}><Download size={14} /> Export summary</Btn>
+-                <Btn onClick={() => setRoundStatus(roundStatus === 'Closed' ? 'Open' : 'Closed')}>
+-                  {roundStatus === 'Closed' ? 'Reopen' : 'Close round'}
+-                </Btn>
++                {canEditRounds && round && (
++                  <Btn onClick={handleToggleRoundStatus}>
++                    {round.status === 'closed' ? 'Reopen' : 'Close round'}
++                  </Btn>
++                )}
+               </div>
+             )}
+-            <div className="mb-5 rounded-xl border border-[#E5E1D8] bg-white p-5">
+-              <div className="flex justify-between text-sm">
+-                <b>Raised ₹0.8 Cr of ₹2.5 Cr</b>
+-                <span>Closes Mar 31, 2027</span>
+-              </div>
+-              <div className="mt-3 h-3 rounded-full bg-[#E5E1D8]">
+-                <div className="h-full w-[32%] rounded-full bg-[#B8955A]" />
+-              </div>
+-              <p className="mt-2 text-xs text-[#4A5568]">32% committed · 3 investors · Average ticket ₹26.7L</p>
+-            </div>
+-
+-            <div className="mb-4 flex gap-2 overflow-x-auto">
+-              {['Overview', 'Offers and commitments', 'Term sheets', 'Cap table impact', 'Documents', 'Activity'].map(x => (
+-                <button
+-                  key={x}
+-                  type="button"
+-                  onClick={() => setRoundTab(x)}
+-                  className={`min-h-10 shrink-0 rounded-lg px-3 text-xs ${roundTab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
+-                >
+-                  {x}
+-                </button>
+-              ))}
+-            </div>
+-
+-            <Card title={roundTab}>
+-              {roundTab === 'Overview' ? (
+-                <>
+-                  <div className="grid gap-3 sm:grid-cols-4">
+-                    {[
+-                      ['Committed', '₹0.8 Cr'],
+-                      ['Remaining', '₹1.7 Cr'],
+-                      ['Investors', '3'],
+-                      ['Average ticket', '₹26.7L'],
+-                    ].map(([a, b]) => (
+-                      <div key={a} className="rounded-lg bg-[#FAF8F4] p-4">
+-                        <small className="text-xs text-[#4A5568]">{a}</small>
+-                        <b className="serif mt-1 block text-xl">{b}</b>
+-                      </div>
+-                    ))}
++            {roundPhase === 'loading' && <LoadingBlock label="Loading round…" rows={2} />}
++            {roundPhase === 'error' && (
++              <ErrorBlock
++                message={roundLoadError || 'Could not load this round.'}
++                onRetry={() => org && loadRound(org.id, id)}
++              />
++            )}
++            {roundPhase === 'none' && (
++              <EmptyBlock title="No startup workspace yet" hint="Create or join a startup to view this round." />
++            )}
++            {roundPhase === 'ready' && round && (
++              <>
++                <div className="mb-5 rounded-xl border border-[#E5E1D8] bg-white p-5">
++                  <div className="flex justify-between text-sm">
++                    <b>Raised {formatMoney(round.committed_amount, round.currency)} of {formatMoney(round.target_amount, round.currency)}</b>
++                    <span>Closes {round.closes_on || '—'}</span>
+                   </div>
+-                  <p className="mt-5 text-xs text-[#4A5568]">
+-                    Round activity · Opened Oct 10 · First commitment Oct 28 · Lead investor in progress
++                  <div className="mt-3 h-3 rounded-full bg-[#E5E1D8]">
++                    <div
++                      className="h-full rounded-full bg-[#B8955A]"
++                      style={{ width: Math.min(100, Math.max(0, progressNum(round.progress_pct))) + '%' }}
++                    />
++                  </div>
++                  <p className="mt-2 text-xs text-[#4A5568]">
++                    {progressNum(round.progress_pct) + '% committed' + (round.target_amount ? ' · target ' + formatMoney(round.target_amount, round.currency) : '')}
+                   </p>
+-                </>
+-              ) : roundTab === 'Offers and commitments' ? (
+-                <>
+-                  <button type="button" onClick={() => setModal('offer')} className="mb-4 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
+-                    + Record offer
+-                  </button>
+-                  <div className="overflow-x-auto">
+-                    <table className="w-full min-w-[650px] text-left text-xs">
+-                      <thead className="border-b text-[#4A5568]">
+-                        <tr>
+-                          {['Investor', 'Offer type', 'Amount', 'Instrument', 'Status', 'Date'].map(x => (
+-                            <th key={x} className="py-3">{x}</th>
+-                          ))}
+-                        </tr>
+-                      </thead>
+-                      <tbody>
++                </div>
++
++                <div className="mb-4 flex gap-2 overflow-x-auto">
++                  {['Overview', 'Offers and commitments', 'Term sheets', 'Cap table impact', 'Documents', 'Activity'].map((x) => (
++                    <button
++                      key={x}
++                      type="button"
++                      onClick={() => setRoundTab(x)}
++                      className={roundTab === x ? 'min-h-10 shrink-0 rounded-lg px-3 text-xs bg-ink text-white' : 'min-h-10 shrink-0 rounded-lg px-3 text-xs border border-[#E5E1D8] bg-white'}
++                    >
++                      {x}
++                    </button>
++                  ))}
++                </div>
++
++                <Card title={roundTab}>
++                  {roundTab === 'Overview' ? (
++                    <>
++                      <div className="grid gap-3 sm:grid-cols-4">
+                         {[
+-                          ['Northstar Capital', 'Equity', '₹50L', 'Equity', 'Under review', 'Nov 02'],
+-                          ['Mira Shah', 'Equity', '₹25L', 'SAFE', 'Offer received', 'Nov 03'],
+-                          ['SeedSpring Fund', 'Equity', '₹25L', 'Equity', 'Committed', 'Oct 28'],
+-                        ].map(r => (
+-                          <tr key={r[0]} className="border-b">
+-                            <td className="py-3">{r[0]}</td>
+-                            {r.slice(1).map((v, i) => (
+-                              <td key={i}>{v}</td>
+-                            ))}
+-                          </tr>
++                          ['Committed', formatMoney(round.committed_amount, round.currency)],
++                          ['Remaining', formatMoney(round.remaining_amount, round.currency)],
++                          ['Target', formatMoney(round.target_amount, round.currency)],
++                          ['Progress', progressNum(round.progress_pct) + '%'],
++                        ].map(([a, b]) => (
++                          <div key={a} className="rounded-lg bg-[#FAF8F4] p-4">
++                            <small className="text-xs text-[#4A5568]">{a}</small>
++                            <b className="serif mt-1 block text-xl">{b}</b>
++                          </div>
+                         ))}
+-                      </tbody>
+-                    </table>
+-                  </div>
+-                </>
+-              ) : roundTab === 'Cap table impact' ? (
+-                <>
+-                  <div className="flex h-5 overflow-hidden rounded-full">
+-                    <span className="w-[62%] bg-ink" />
+-                    <span className="w-[18%] bg-[#B8955A]" />
+-                    <span className="w-[20%] bg-[#A0A7B4]" />
+-                  </div>
+-                  <p className="mt-3 text-xs">Founders 62% · ESOP 18% · New investors 20% (illustrative target scenario)</p>
+-                  <p className="mt-3 rounded-lg bg-[#FFF8E8] p-3 text-xs text-[#806236]">Estimate only. Confirm dilution and terms with your legal and finance advisers.</p>
+-                </>
+-              ) : (
+-                <div className="py-5 text-sm text-[#4A5568]">{roundTab} entries will appear here as the round progresses.</div>
+-              )}
+-            </Card>
++                      </div>
++                      <p className="mt-5 text-xs text-[#4A5568]">
++                        Round opened {round.opens_on || '—'} · closes {round.closes_on || '—'} · status {round.status}
++                      </p>
++                    </>
++                  ) : roundTab === 'Offers and commitments' ? (
++                    <EmptyBlock
++                      title="Offers and commitments arrive later"
++                      hint="Offers are recorded with the offers step (a later step); none exist yet for this round."
++                    />
++                  ) : roundTab === 'Term sheets' ? (
++                    <EmptyBlock
++                      title="Term sheets arrive later"
++                      hint="Term sheets are tracked with the offers step (a later step)."
++                    />
++                  ) : roundTab === 'Cap table impact' ? (
++                    <EmptyBlock
++                      title="Cap table impact arrives later"
++                      hint="Dilution and cap-table impact are computed with the commitments step (a later step)."
++                    />
++                  ) : roundTab === 'Documents' ? (
++                    <EmptyBlock
++                      title="Documents arrive later"
++                      hint="Data-room documents are managed with the data-room step (a later step)."
++                    />
++                  ) : (
++                    <EmptyBlock
++                      title="Activity arrives later"
++                      hint="Round activity is recorded as offers and commitments are added (a later step)."
++                    />
++                  )}
++                </Card>
++              </>
++            )}
+             {disclaimer}
+           </>
+         )}
+@@ -1539,19 +1722,90 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
+               </div>
+             ) : modal === 'round' ? (
+               <div className="space-y-3">
+-                {[
+-                  ['Round name', 'Pre-seed'],
+-                  ['Target raise', '₹2.5 Cr'],
+-                  ['Minimum raise', '₹1.5 Cr'],
+-                  ['Instrument', 'Equity / SAFE'],
+-                  ['Minimum ticket', '₹10L'],
+-                  ['Closing date', '2027-03-31'],
+-                ].map(([l, p]) => (
+-                  <label key={l} className="block text-sm">
+-                    {l}
+-                    <input placeholder={p} className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm" />
+-                  </label>
+-                ))}
++                <label className="block text-sm">
++                  Round name
++                  <input
++                    value={roundForm.name}
++                    onChange={(e) => setRoundForm({ ...roundForm, name: e.target.value })}
++                    placeholder="Pre-seed"
++                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
++                  />
++                  <FieldError>{roundFormErrors.name}</FieldError>
++                </label>
++                <label className="block text-sm">
++                  Round type
++                  <select
++                    value={roundForm.round_type}
++                    onChange={(e) => setRoundForm({ ...roundForm, round_type: e.target.value })}
++                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
++                  >
++                    <option value="pre_seed">Pre-seed</option>
++                    <option value="seed">Seed</option>
++                    <option value="series_a">Series A</option>
++                    <option value="series_b">Series B</option>
++                    <option value="bridge">Bridge</option>
++                    <option value="safe">SAFE</option>
++                    <option value="other">Other</option>
++                  </select>
++                  <FieldError>{roundFormErrors.round_type}</FieldError>
++                </label>
++                <label className="block text-sm">
++                  Target raise
++                  <input
++                    value={roundForm.target_amount}
++                    onChange={(e) => setRoundForm({ ...roundForm, target_amount: e.target.value })}
++                    placeholder="25000000"
++                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
++                  />
++                  <FieldError>{roundFormErrors.target_amount}</FieldError>
++                </label>
++                <label className="block text-sm">
++                  Minimum raise
++                  <input
++                    value={roundForm.min_raise}
++                    onChange={(e) => setRoundForm({ ...roundForm, min_raise: e.target.value })}
++                    placeholder="15000000"
++                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
++                  />
++                  <FieldError>{roundFormErrors.min_raise}</FieldError>
++                </label>
++                <label className="block text-sm">
++                  Instrument
++                  <select
++                    value={roundForm.instrument}
++                    onChange={(e) => setRoundForm({ ...roundForm, instrument: e.target.value })}
++                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
++                  >
++                    <option value="equity">Equity</option>
++                    <option value="safe">SAFE</option>
++                    <option value="convertible_note">Convertible note</option>
++                    <option value="ccd">CCD</option>
++                    <option value="ccps">CCPS</option>
++                    <option value="debt">Debt</option>
++                    <option value="other">Other</option>
++                  </select>
++                  <FieldError>{roundFormErrors.instrument}</FieldError>
++                </label>
++                <label className="block text-sm">
++                  Minimum ticket
++                  <input
++                    value={roundForm.min_ticket}
++                    onChange={(e) => setRoundForm({ ...roundForm, min_ticket: e.target.value })}
++                    placeholder="1000000"
++                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
++                  />
++                  <FieldError>{roundFormErrors.min_ticket}</FieldError>
++                </label>
++                <label className="block text-sm">
++                  Closing date
++                  <input
++                    type="date"
++                    value={roundForm.closes_on}
++                    onChange={(e) => setRoundForm({ ...roundForm, closes_on: e.target.value })}
++                    className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm"
++                  />
++                  <FieldError>{roundFormErrors.closes_on}</FieldError>
++                </label>
+                 <p className="rounded-lg bg-[#FFF8E8] p-3 text-xs text-[#806236]">Round terms and instruments have legal consequences. Review with a lawyer.</p>
+               </div>
+             ) : modal === 'offer' ? (
+@@ -1613,6 +1867,10 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
+               <button
+                 type="button"
+                 onClick={() => {
++                  if (modal === 'round') {
++                    handleCreateRound();
++                    return;
++                  }
+                   setModal('');
+                   notify(
+                     modal.startsWith('intro')
+@@ -1625,6 +1883,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
+                   );
+                 }}
+                 className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white"
++                disabled={modal === 'round' && savingRound}
+               >
+                 {modal.startsWith('intro')
+                   ? 'Send request'
+@@ -1634,6 +1893,8 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
+                   ? 'Approve scope'
+                   : modal === 'offer'
+                   ? 'Save offer'
++                  : modal === 'round'
++                  ? 'Create round'
+                   : 'Save'}
+               </button>
+             </div>
+diff --git a/frontend/lib/api/client.ts b/frontend/lib/api/client.ts
+index 7d19a80..73d2d41 100644
+--- a/frontend/lib/api/client.ts
++++ b/frontend/lib/api/client.ts
+@@ -217,6 +217,20 @@ export type EarningRead = components["schemas"]["EarningRead"];
+ export type EarningPage = components["schemas"]["EarningPage"];
+ export type EarningSummary = components["schemas"]["EarningSummary"];
+ 
++// Step 9a: startup funding rounds. Money fields are decimal strings (the
++// backend serialises NUMERIC as strings); `committed_amount` is server-only
++// in 9a (starts at 0, only 9i/9j write it) and `status` changes only through
++// the transition endpoint, so neither appears on the Create/Update inputs.
++export type FundingRoundType = components["schemas"]["FundingRoundType"];
++export type RoundStatus = components["schemas"]["RoundStatus"];
++export type InstrumentType = components["schemas"]["InstrumentType"];
++export type FundingRoundCreate = components["schemas"]["FundingRoundCreate"];
++export type FundingRoundUpdate = components["schemas"]["FundingRoundUpdate"];
++export type FundingRoundRead = components["schemas"]["FundingRoundRead"];
++export type FundingRoundPage = components["schemas"]["FundingRoundPage"];
++export type FundingRoundSummary = components["schemas"]["FundingRoundSummary"];
++export type StatusTransition = components["schemas"]["StatusTransition"];
++
+ /** Whitelisted filters for `startups.discover` (Step 5h). */
+ export type StartupDiscoveryQuery = {
+   limit?: number;
+@@ -276,6 +290,14 @@ export type EarningListQuery = {
+   offset?: number;
+ };
+ 
++/** Whitelisted filters/sort for `fundingRounds.list` (Step 9a). */
++export type FundingRoundListQuery = {
++  status?: RoundStatus;
++  sort?: "created_at" | "closes_on" | "name";
++  limit?: number;
++  offset?: number;
++};
++
+ /** Whitelisted filters/sorts for `mentors.list` (Step 8a). */
+ export type MentorListQuery = {
+   limit?: number;
+@@ -1700,6 +1722,75 @@ export const api = {
+       }),
+   },
+ 
++  /**
++   * Step 9a: a startup's fundraising rounds.
++   *
++   * Reads are open to any active member (viewer included); writes need
++   * owner/admin/member (viewer gets 403). A foreign round id is a 404 (the
++   * API will not confirm another org's round exists). `committed_amount`
++   * is server-only in 9a and `status` changes only through `changeStatus`.
++   */
++  fundingRounds: {
++    /** `GET /organizations/{orgId}/funding-rounds` — newest first. */
++    list: (
++      orgId: string,
++      query?: FundingRoundListQuery,
++      signal?: AbortSignal,
++    ) =>
++      apiRequest<FundingRoundPage>(`/organizations/${orgId}/funding-rounds`, {
++        method: "GET",
++        query: query as Record<string, string | number | boolean | undefined>,
++        signal,
++      }),
++
++    /** `GET /organizations/{orgId}/funding-rounds/summary` — header roll-up. */
++    summary: (orgId: string, signal?: AbortSignal) =>
++      apiRequest<FundingRoundSummary>(`/organizations/${orgId}/funding-rounds/summary`, {
++        method: "GET",
++        signal,
++      }),
++
++    /** `GET /organizations/{orgId}/funding-rounds/{roundId}` — one round. */
++    get: (orgId: string, roundId: string, signal?: AbortSignal) =>
++      apiRequest<FundingRoundRead>(
++        `/organizations/${orgId}/funding-rounds/${roundId}`,
++        { method: "GET", signal },
++      ),
++
++    /** `POST /organizations/{orgId}/funding-rounds` — create (member+). */
++    create: (orgId: string, body: FundingRoundCreate) =>
++      apiRequest<FundingRoundRead>(`/organizations/${orgId}/funding-rounds`, {
++        method: "POST",
++        body,
++      }),
++
++    /**
++     * `PATCH /organizations/{orgId}/funding-rounds/{roundId}` — edit fields
++     * (member+). `status`/`committed_amount` are not editable here.
++     */
++    update: (orgId: string, roundId: string, body: FundingRoundUpdate) =>
++      apiRequest<FundingRoundRead>(
++        `/organizations/${orgId}/funding-rounds/${roundId}`,
++        { method: "PATCH", body },
++      ),
++
++    /**
++     * `POST /organizations/{orgId}/funding-rounds/{roundId}/status` — the
++     * only way to change status (member+). An illegal move is a 409.
++     */
++    changeStatus: (orgId: string, roundId: string, status: RoundStatus) =>
++      apiRequest<FundingRoundRead>(
++        `/organizations/${orgId}/funding-rounds/${roundId}/status`,
++        { method: "POST", body: { status } },
++      ),
++
++    /** `DELETE /organizations/{orgId}/funding-rounds/{roundId}` — soft delete. */
++    remove: (orgId: string, roundId: string) =>
++      apiRequest<void>(`/organizations/${orgId}/funding-rounds/${roundId}`, {
++        method: "DELETE",
++      }),
++  },
++
+   reviews: {
+     create: (sessionId: string, body: ReviewCreate) => apiRequest<ReviewRead>(`/sessions/${sessionId}/reviews`, { method: "POST", body }),
+     mine: (sessionId: string, signal?: AbortSignal) => apiRequest<ReviewRead>(`/sessions/${sessionId}/reviews/me`, { method: "GET", signal }),
+diff --git a/frontend/lib/api/schema.d.ts b/frontend/lib/api/schema.d.ts
+index f7c61c6..e7897df 100644
+--- a/frontend/lib/api/schema.d.ts
++++ b/frontend/lib/api/schema.d.ts
+@@ -784,6 +784,103 @@ export interface paths {
+         patch: operations["update_milestone_api_v1_organizations__org_id__milestones__milestone_id__patch"];
+         trace?: never;
+     };
++    "/api/v1/organizations/{org_id}/funding-rounds": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        /**
++         * List a startup's funding rounds
++         * @description Any active member may read (viewer included).
++         *
++         *     Sort keys are whitelisted by the service; an unknown key is a 422
++         *     (the ``Literal``-style guard happens in the service dict lookup).
++         */
++        get: operations["list_funding_rounds_api_v1_organizations__org_id__funding_rounds_get"];
++        put?: never;
++        /**
++         * Create a funding round
++         * @description Owner/admin/member of the startup; viewer gets 403.
++         *
++         *     ``committed_amount`` starts at 0 (server-only in 9a).
++         */
++        post: operations["create_funding_round_api_v1_organizations__org_id__funding_rounds_post"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/organizations/{org_id}/funding-rounds/summary": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        /**
++         * Startup rounds summary
++         * @description Total target / committed / open-round counts in one aggregate query.
++         */
++        get: operations["funding_rounds_summary_api_v1_organizations__org_id__funding_rounds_summary_get"];
++        put?: never;
++        post?: never;
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/organizations/{org_id}/funding-rounds/{round_id}": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        /**
++         * Get a funding round
++         * @description A foreign or deleted round is a 404 (no existence oracle).
++         */
++        get: operations["get_funding_round_api_v1_organizations__org_id__funding_rounds__round_id__get"];
++        put?: never;
++        post?: never;
++        /**
++         * Soft-delete a funding round
++         * @description Sets ``deleted_at``; a repeat delete is a 404.
++         */
++        delete: operations["delete_funding_round_api_v1_organizations__org_id__funding_rounds__round_id__delete"];
++        options?: never;
++        head?: never;
++        /**
++         * Edit a funding round
++         * @description Owner/admin/member; ``status``/``committed_amount`` are not editable.
++         */
++        patch: operations["update_funding_round_api_v1_organizations__org_id__funding_rounds__round_id__patch"];
++        trace?: never;
++    };
++    "/api/v1/organizations/{org_id}/funding-rounds/{round_id}/status": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /**
++         * Change a round's status
++         * @description Only through the defined lifecycle; an invalid move is a 409.
++         */
++        post: operations["change_funding_round_status_api_v1_organizations__org_id__funding_rounds__round_id__status_post"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
+     "/api/v1/organizations/{org_id}/tasks": {
+         parameters: {
+             query?: never;
+@@ -2006,6 +2103,30 @@ export interface paths {
+         patch?: never;
+         trace?: never;
+     };
++    "/api/v1/startups/{identifier}": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        /**
++         * Get discoverable startup profile (signed in)
++         * @description Retrieve full startup profile for discoverers (mentors, investors, etc.).
++         *
++         *     Only returns startups that have allowed the viewer's audience. Startups
++         *     outside the viewer's audience or non-existent startups 404 with STARTUP_NOT_FOUND
++         *     without existence leakage.
++         */
++        get: operations["get_discoverable_startup_api_v1_startups__identifier__get"];
++        put?: never;
++        post?: never;
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
+     "/api/v1/organizations/{org_id}/stage": {
+         parameters: {
+             query?: never;
+@@ -3230,6 +3351,148 @@ export interface components {
+              */
+             email: string;
+         };
++        /**
++         * FundingRoundCreate
++         * @description A new round. ``committed_amount`` starts at 0 (server-set).
++         */
++        FundingRoundCreate: {
++            /** Name */
++            name: string;
++            round_type: components["schemas"]["FundingRoundType"];
++            /** Target Amount */
++            target_amount?: number | string | null;
++            /**
++             * Currency
++             * @default INR
++             */
++            currency?: string;
++            /** Pre Money Valuation */
++            pre_money_valuation?: number | string | null;
++            instrument?: components["schemas"]["InstrumentType"] | null;
++            /** Opens On */
++            opens_on?: string | null;
++            /** Closes On */
++            closes_on?: string | null;
++            /** Min Raise */
++            min_raise?: number | string | null;
++            /** Min Ticket */
++            min_ticket?: number | string | null;
++        };
++        /** FundingRoundPage */
++        FundingRoundPage: {
++            /** Items */
++            items: components["schemas"]["FundingRoundRead"][];
++            /** Total */
++            total: number;
++            /** Limit */
++            limit: number;
++            /** Offset */
++            offset: number;
++            /** Has More */
++            has_more: boolean;
++        };
++        /**
++         * FundingRoundRead
++         * @description A round as returned by the API. Derived fields are read-only.
++         */
++        FundingRoundRead: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /**
++             * Org Id
++             * Format: uuid
++             */
++            org_id: string;
++            /** Name */
++            name: string;
++            round_type: components["schemas"]["FundingRoundType"];
++            /** Target Amount */
++            target_amount: string | null;
++            /** Committed Amount */
++            committed_amount: string;
++            /** Currency */
++            currency: string;
++            /** Pre Money Valuation */
++            pre_money_valuation: string | null;
++            instrument: components["schemas"]["InstrumentType"] | null;
++            status: components["schemas"]["RoundStatus"];
++            /** Opens On */
++            opens_on: string | null;
++            /** Closes On */
++            closes_on: string | null;
++            /** Min Raise */
++            min_raise: string | null;
++            /** Min Ticket */
++            min_ticket: string | null;
++            /** Remaining Amount */
++            remaining_amount: string | null;
++            /** Progress Pct */
++            progress_pct: string | null;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++            /**
++             * Updated At
++             * Format: date-time
++             */
++            updated_at: string;
++        };
++        /**
++         * FundingRoundSummary
++         * @description Org-level roll-up for the ``/startup/rounds`` header.
++         *
++         *     One aggregate query in the service — no N+1. Money is a decimal
++         *     string; a total with no rounds is 0 (the list is simply empty).
++         */
++        FundingRoundSummary: {
++            /** Total Target */
++            total_target: string;
++            /** Total Committed */
++            total_committed: string;
++            /** Currency */
++            currency: string;
++            /** Open Rounds */
++            open_rounds: number;
++            /** By Status */
++            by_status: {
++                [key: string]: number;
++            };
++        };
++        /**
++         * FundingRoundType
++         * @description schema.sql ``funding_round_type``.
++         * @enum {string}
++         */
++        FundingRoundType: "pre_seed" | "seed" | "series_a" | "series_b" | "bridge" | "safe" | "other";
++        /**
++         * FundingRoundUpdate
++         * @description Editable fields. ``status`` and ``committed_amount`` stay out.
++         */
++        FundingRoundUpdate: {
++            /** Name */
++            name?: string | null;
++            round_type?: components["schemas"]["FundingRoundType"] | null;
++            /** Target Amount */
++            target_amount?: number | string | null;
++            /** Currency */
++            currency?: string | null;
++            /** Pre Money Valuation */
++            pre_money_valuation?: number | string | null;
++            instrument?: components["schemas"]["InstrumentType"] | null;
++            /** Opens On */
++            opens_on?: string | null;
++            /** Closes On */
++            closes_on?: string | null;
++            /** Min Raise */
++            min_raise?: number | string | null;
++            /** Min Ticket */
++            min_ticket?: number | string | null;
++        };
+         /**
+          * FunnelStep
+          * @description One bar of the sales funnel.
+@@ -3273,6 +3536,12 @@ export interface components {
+             /** Badges Attributed */
+             badges_attributed?: null;
+         };
++        /**
++         * InstrumentType
++         * @description schema.sql ``instrument_type``.
++         * @enum {string}
++         */
++        InstrumentType: "equity" | "safe" | "convertible_note" | "ccd" | "ccps" | "debt" | "other";
+         /** InviteCreate */
+         InviteCreate: {
+             /**
+@@ -4837,6 +5106,12 @@ export interface components {
+              */
+             created_at: string;
+         };
++        /**
++         * RoundStatus
++         * @description schema.sql ``round_status``.
++         * @enum {string}
++         */
++        RoundStatus: "draft" | "open" | "paused" | "closed" | "cancelled";
+         /** ScopedReadinessBoard */
+         ScopedReadinessBoard: {
+             /**
+@@ -5213,6 +5488,72 @@ export interface components {
+             /** Notes */
+             notes?: string | null;
+         };
++        /**
++         * StartupDiscoveryDetail
++         * @description Full discovery detail view for signed-in viewers (mentors, investors, etc.).
++         */
++        StartupDiscoveryDetail: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /** Slug */
++            slug: string;
++            /** Name */
++            name: string;
++            /** Logo Url */
++            logo_url?: string | null;
++            /** Tagline */
++            tagline?: string | null;
++            stage?: components["schemas"]["StartupStage"] | null;
++            /** Sector */
++            sector?: string | null;
++            /** City */
++            city?: string | null;
++            /** Region */
++            region?: string | null;
++            /** Country */
++            country?: string | null;
++            /** Founded Year */
++            founded_year?: number | null;
++            /** Website */
++            website?: string | null;
++            /**
++             * Mentor Verified
++             * @default false
++             */
++            mentor_verified?: boolean;
++            /** Readiness Score */
++            readiness_score?: number | null;
++            /** Summary */
++            summary?: string | null;
++            /** Business Model */
++            business_model?: string | null;
++            /** Problem */
++            problem?: string | null;
++            /** Solution */
++            solution?: string | null;
++            /** Market */
++            market?: string | null;
++            /** Traction Summary */
++            traction_summary?: string | null;
++            /** Ecosystem Goals */
++            ecosystem_goals?: string[];
++            /** Demo Url */
++            demo_url?: string | null;
++            /** Pitch Deck Url */
++            pitch_deck_url?: string | null;
++            /** Existing Mentorship Id */
++            existing_mentorship_id?: string | null;
++            /** Existing Mentorship Status */
++            existing_mentorship_status?: string | null;
++            /**
++             * Is Member
++             * @default false
++             */
++            is_member?: boolean;
++        };
+         /**
+          * StartupDiscoveryItem
+          * @description One discovery result: public identity fields + gated sections.
+@@ -5459,6 +5800,13 @@ export interface components {
+          * @enum {string}
+          */
+         StartupStage: "idea" | "prototype" | "early_revenue" | "growth" | "mature";
++        /**
++         * StatusTransition
++         * @description ``POST …/status``: the only way ``status`` changes (plan D1).
++         */
++        StatusTransition: {
++            status: components["schemas"]["RoundStatus"];
++        };
+         /** TalentProfileRead */
+         TalentProfileRead: {
+             /**
+@@ -7841,6 +8189,258 @@ export interface operations {
+             };
+         };
+     };
++    list_funding_rounds_api_v1_organizations__org_id__funding_rounds_get: {
++        parameters: {
++            query?: {
++                /** @description Filter by round status */
++                status?: components["schemas"]["RoundStatus"] | null;
++                /** @description created_at | closes_on | name */
++                sort?: string;
++                limit?: number;
++                offset?: number;
++            };
++            header?: {
++                authorization?: string | null;
++            };
++            path: {
++                org_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["FundingRoundPage"];
++                };
++            };
++            /** @description Validation Error */
++            422: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["HTTPValidationError"];
++                };
++            };
++        };
++    };
++    create_funding_round_api_v1_organizations__org_id__funding_rounds_post: {
++        parameters: {
++            query?: never;
++            header?: {
++                authorization?: string | null;
++            };
++            path: {
++                org_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["FundingRoundCreate"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            201: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["FundingRoundRead"];
++                };
++            };
++            /** @description Validation Error */
++            422: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["HTTPValidationError"];
++                };
++            };
++        };
++    };
++    funding_rounds_summary_api_v1_organizations__org_id__funding_rounds_summary_get: {
++        parameters: {
++            query?: never;
++            header?: {
++                authorization?: string | null;
++            };
++            path: {
++                org_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["FundingRoundSummary"];
++                };
++            };
++            /** @description Validation Error */
++            422: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["HTTPValidationError"];
++                };
++            };
++        };
++    };
++    get_funding_round_api_v1_organizations__org_id__funding_rounds__round_id__get: {
++        parameters: {
++            query?: never;
++            header?: {
++                authorization?: string | null;
++            };
++            path: {
++                org_id: string;
++                round_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["FundingRoundRead"];
++                };
++            };
++            /** @description Validation Error */
++            422: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["HTTPValidationError"];
++                };
++            };
++        };
++    };
++    delete_funding_round_api_v1_organizations__org_id__funding_rounds__round_id__delete: {
++        parameters: {
++            query?: never;
++            header?: {
++                authorization?: string | null;
++            };
++            path: {
++                org_id: string;
++                round_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            204: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content?: never;
++            };
++            /** @description Validation Error */
++            422: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["HTTPValidationError"];
++                };
++            };
++        };
++    };
++    update_funding_round_api_v1_organizations__org_id__funding_rounds__round_id__patch: {
++        parameters: {
++            query?: never;
++            header?: {
++                authorization?: string | null;
++            };
++            path: {
++                org_id: string;
++                round_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["FundingRoundUpdate"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["FundingRoundRead"];
++                };
++            };
++            /** @description Validation Error */
++            422: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["HTTPValidationError"];
++                };
++            };
++        };
++    };
++    change_funding_round_status_api_v1_organizations__org_id__funding_rounds__round_id__status_post: {
++        parameters: {
++            query?: never;
++            header?: {
++                authorization?: string | null;
++            };
++            path: {
++                org_id: string;
++                round_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["StatusTransition"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["FundingRoundRead"];
++                };
++            };
++            /** @description Validation Error */
++            422: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["HTTPValidationError"];
++                };
++            };
++        };
++    };
+     list_tasks_api_v1_organizations__org_id__tasks_get: {
+         parameters: {
+             query?: {
+@@ -10803,6 +11403,39 @@ export interface operations {
+             };
+         };
+     };
++    get_discoverable_startup_api_v1_startups__identifier__get: {
++        parameters: {
++            query?: never;
++            header?: {
++                authorization?: string | null;
++            };
++            path: {
++                identifier: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["StartupDiscoveryDetail"];
++                };
++            };
++            /** @description Validation Error */
++            422: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["HTTPValidationError"];
++                };
++            };
++        };
++    };
+     get_stage_api_v1_organizations__org_id__stage_get: {
+         parameters: {
+             query?: never;

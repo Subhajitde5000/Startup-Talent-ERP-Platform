@@ -41,6 +41,12 @@ from app.models.analytics import StartupCompetitor, StartupMarketSize  # noqa: E
 from app.models.availability import AvailabilitySlot  # noqa: E402
 from app.models.deliverable import DeliverableStatus, MentorDeliverable  # noqa: E402
 from app.models.earning import EarningStatus, MentorEarning  # noqa: E402
+from app.models.funding_round import (  # noqa: E402
+    FundingRound,
+    FundingRoundType,
+    InstrumentType,
+    RoundStatus,
+)
 from app.models.mentorship import (  # noqa: E402
     BUSY_STATUSES,
     Mentorship,
@@ -432,6 +438,43 @@ STEP5B_MILESTONES: list[dict[str, object]] = [
         "status": "at_risk",
         "progress": 0,
         "owner": "mentor@forma.dev",
+    },
+]
+
+# Step 9a demo funding rounds (moved out of the wired rounds page's inline
+# demo data). `committed_amount` is written directly here so the dev UI
+# shows a non-zero progress bar exactly like the old demo did; in 9a the
+# API keeps committed_amount server-only (starts at 0) and only 9i/9j will
+# ever write it through the app. Fill-only: a round with the same name in
+# the founder's org is never duplicated.
+STEP9A_ROUNDS: list[dict[str, object]] = [
+    {
+        "name": "Pre-seed Round",
+        "round_type": FundingRoundType.pre_seed,
+        "target_amount": Decimal("25000000.00"),
+        "committed_amount": Decimal("8000000.00"),
+        "currency": "INR",
+        "pre_money_valuation": Decimal("80000000.00"),
+        "instrument": InstrumentType.equity,
+        "status": RoundStatus.open,
+        "opens_on": date(2026, 10, 10),
+        "closes_on": date(2027, 3, 31),
+        "min_raise": Decimal("15000000.00"),
+        "min_ticket": Decimal("1000000.00"),
+    },
+    {
+        "name": "Seed Round",
+        "round_type": FundingRoundType.seed,
+        "target_amount": Decimal("50000000.00"),
+        "committed_amount": Decimal("0"),
+        "currency": "INR",
+        "pre_money_valuation": None,
+        "instrument": InstrumentType.safe,
+        "status": RoundStatus.draft,
+        "opens_on": None,
+        "closes_on": date(2027, 6, 30),
+        "min_raise": None,
+        "min_ticket": None,
     },
 ]
 
@@ -917,6 +960,7 @@ async def seed() -> None:
         milestones_added = 0
         tasks_added = 0
         labels_added = 0
+        funding_rounds_added = 0
         task_label_links_added = 0
         founder_org = (
             (
@@ -1106,6 +1150,43 @@ async def seed() -> None:
                 )
                 milestones_added += 1
             if milestones_added:
+                await db.commit()
+
+            # Step 9a: demo funding rounds for the wired rounds page
+            # (fill-only, by name). committed_amount is written directly so
+            # the dev progress bar is non-zero, matching the old demo.
+            for spec in STEP9A_ROUNDS:
+                exists = (
+                    await db.execute(
+                        select(FundingRound.id).where(
+                            FundingRound.org_id == founder_org.id,
+                            FundingRound.name == str(spec["name"]),
+                            FundingRound.deleted_at.is_(None),
+                        )
+                    )
+                ).first()
+                if exists is not None:
+                    continue
+                instrument = spec["instrument"]
+                db.add(
+                    FundingRound(
+                        org_id=founder_org.id,
+                        name=str(spec["name"]),
+                        round_type=spec["round_type"],
+                        target_amount=spec["target_amount"],
+                        committed_amount=spec["committed_amount"],
+                        currency=str(spec["currency"]),
+                        pre_money_valuation=spec["pre_money_valuation"],
+                        instrument=instrument if instrument is not None else None,
+                        status=spec["status"],
+                        opens_on=spec["opens_on"],
+                        closes_on=spec["closes_on"],
+                        min_raise=spec["min_raise"],
+                        min_ticket=spec["min_ticket"],
+                    )
+                )
+                funding_rounds_added += 1
+            if funding_rounds_added:
                 await db.commit()
 
             # Step 5c: demo tasks for the wired board (fill-only, by title).
@@ -1890,6 +1971,7 @@ async def seed() -> None:
     print(f"  + extra org member (5a): {extra_members_added}")
     print(f"  + team states (3d deactivated member / pending invite): {team_state_added}")
     print(f"  + milestones (5b): {milestones_added}")
+    print(f"  + funding rounds (9a): {funding_rounds_added}")
     print(f"  + tasks (5c): {tasks_added}")
     print(f"  + task labels (5d): {labels_added}")
     print(f"  + task label links (5d): {task_label_links_added}")

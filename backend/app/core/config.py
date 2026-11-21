@@ -134,6 +134,10 @@ class Settings(BaseSettings):
     # Step 8h: the mentor reading their own earnings.
     EARNING_READ_LIMIT: int = 120
     EARNING_READ_WINDOW_SECONDS: int = 60
+    # Step 9a: rounds are edited in bursts while a startup plans a raise,
+    # so the cap matches the metrics/deliverable write limits.
+    FUNDING_ROUND_WRITE_LIMIT: int = 60
+    FUNDING_ROUND_WRITE_WINDOW_SECONDS: int = 300
     # Step 8h: commission and TDS withheld from a mentor's fee.
     #
     # BOTH DEFAULT TO 0 ON PURPOSE. BUILD_PLAN.md, schema.sql and this

@@ -262,8 +262,8 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 ## Step 9: Investors, rounds, data room (one sub-step at a time; A = backend, B = frontend wired)
 
 ### 9a Funding rounds (startup)
-- [ ] A: Create and edit a round (target, instrument, valuation, dates), status, progress against target
-- [ ] B: /startup/rounds, /startup/rounds/[roundId] wired; demo data removed
+- [x] A: Create and edit a round (target, instrument, valuation, dates), status, progress against target — `funding_rounds` table (migration 0024), 7 endpoints (create/list/summary/get/patch/status/soft-delete), state-machine transitions, derived progress, member read / owner-admin-member write, server-only `committed_amount`, audit rows; tests pass on SQLite (ruff/mypy clean). PostgreSQL/Docker migration verification pending in this sandbox (no Docker, apt repos network-restricted).
+- [x] B: /startup/rounds, /startup/rounds/[roundId] wired; demo data removed
 
 ### 9b Investor directory (startup view)
 - [ ] A: Startup searches and filters investors, public investor page; uses the investor organization profile and, once 9d exists, investor preferences
