@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     )
 
     APP_NAME: str = "Forma API"
-    ENVIRONMENT: Literal["dev", "development", "test", "prod"] = "dev"
+    ENVIRONMENT: Literal["dev", "test", "prod"] = "dev"
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
 
@@ -82,9 +82,6 @@ class Settings(BaseSettings):
     STAGE_WRITE_WINDOW_SECONDS: int = 300
     # Step 5e: metric upsert/delete, per actor. A founder entering the
     # eight keys for six months is 48 writes, so the window is comfortable.
-    FUNDING_ROUND_WRITE_LIMIT: int = 30
-    FUNDING_ROUND_WRITE_WINDOW_SECONDS: int = 300
-
     METRICS_WRITE_LIMIT: int = 60
     METRICS_WRITE_WINDOW_SECONDS: int = 300
     # Step 5l: market-size and competitor writes, per actor. A team filling
@@ -109,9 +106,6 @@ class Settings(BaseSettings):
     # Step 8a: mentor directory searches, per user. Browsing a directory is
     # a handful of requests per session; a scraper is cut off well before
     # it can walk the whole mentor table.
-    # Step 9b: verified investor directory reads, shared across both endpoints.
-    INVESTOR_DIRECTORY_READ_LIMIT: int = 120
-    INVESTOR_DIRECTORY_READ_WINDOW_SECONDS: int = 60
     MENTOR_SEARCH_LIMIT: int = 60
     MENTOR_SEARCH_WINDOW_SECONDS: int = 300
     # Step 8b: asking a mentor to work with you. Low on purpose — a startup

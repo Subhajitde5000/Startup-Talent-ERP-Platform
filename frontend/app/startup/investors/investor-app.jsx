@@ -1,8 +1,5 @@
 'use client';
 import { useState } from 'react';
-import RoundPages from '../rounds/round-pages';
-import InvestorDirectory from './investor-directory';
-import {useAuth} from '@/lib/auth-context';
 import Link from 'next/link';
 import { StartupSidebar, Btn, Card, SubNavTabs } from '../../../components';
 import {
@@ -121,9 +118,6 @@ const investors = [
 const columns = ['Interested', 'Intro / Talking', 'Meeting held', 'Data room', 'Offer', 'Committed'];
 
 export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
-  const {user} = useAuth();
-  const isRound = page === 'rounds' || page === 'round-detail';
-  const isDirectory = page === 'discover' || page === 'investor';
   const [toast, setToast] = useState('');
   const [visible, setVisible] = useState(false);
   const [showAnyway, setShowAnyway] = useState(false);
@@ -146,6 +140,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   ]);
   const [vis, setVis] = useState('Mentors and verified investors');
   const [toggles, setToggles] = useState({ summary: true, traction: true, team: true, funding: false, round: false, readiness: true });
+  const [roundStatus, setRoundStatus] = useState('Open');
   const [mobileNav, setMobileNav] = useState(false);
   const [compact, setCompact] = useState(false);
 
@@ -306,7 +301,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
           </Link>
         </div>
         <div className="flex items-center gap-3">
-          {!isRound && !isDirectory && <button
+          <button
             type="button"
             onClick={() => notify('You’re all caught up.')}
             aria-label="Notifications"
@@ -314,10 +309,10 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
           >
             <Bell size={19} />
             <i className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#B8955A]" />
-          </button>}
+          </button>
           <span className="flex items-center gap-2 text-xs">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-ink font-semibold text-white">{(isRound || isDirectory) ? (user?.display_name || user?.primary_email || 'U').slice(0, 1).toUpperCase() : 'AK'}</span>
-            <span className="hidden sm:block">{(isRound || isDirectory) ? (user?.display_name || user?.primary_email || 'Account') : 'Aarav Kapoor'}</span>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-ink font-semibold text-white">AK</span>
+            <span className="hidden sm:block">Aarav Kapoor</span>
             <ChevronDown size={14} />
           </span>
         </div>
@@ -485,7 +480,191 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
           </>
         )}
 
-        {isDirectory && <InvestorDirectory detail={page === 'investor'} id={id} />}
+        {page === 'discover' && (
+          <>
+            {head(
+              <Link href="/startup/investors/settings" className="rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs font-semibold">
+                Visibility settings
+              </Link>
+            )}
+            {visBanner}
+            <div className="mb-5 rounded-lg border border-[#E7D4B0] bg-[#FFF8E8] p-3 text-xs text-[#806236]">
+              {readinessLocked
+                ? 'Browse investors in preparation mode. Intro requests unlock after you complete readiness or choose “Show me anyway” on the hub.'
+                : 'Intro requests are limited to 5 per day. Investors decide whether to accept; no data room access is shared automatically.'}
+            </div>
+            <div className="grid items-start gap-5 lg:grid-cols-4">
+              <aside className="rounded-xl border border-[#E5E1D8] bg-white p-5">
+                <h2 className="font-semibold">Investor filters</h2>
+                {[
+                  ['Type', ['Angel', 'Angel group', 'Fund']],
+                  ['Stage focus', ['Pre-seed', 'Seed']],
+                  ['Sector', ['Fintech', 'B2B SaaS', 'Climate']],
+                  ['Ticket range', ['₹10L–₹50L', '₹50L–₹2 Cr']],
+                  ['Location', ['India', 'Global']],
+                ].map(([name, opts]) => (
+                  <fieldset key={name} className="mt-4">
+                    <legend className="text-xs font-semibold">{name}</legend>
+                    {opts.map(o => (
+                      <label key={o} className="mt-2 flex gap-2 text-xs text-[#4A5568]">
+                        <input type="checkbox" className="accent-ink" />{o}
+                      </label>
+                    ))}
+                  </fieldset>
+                ))}
+                <label className="mt-4 flex gap-2 text-xs">
+                  <input type="checkbox" defaultChecked disabled />Verified only
+                </label>
+                <p className="mt-4 text-[10px] text-[#4A5568]">No filters on personal protected characteristics.</p>
+              </aside>
+
+              <div className="space-y-3 lg:col-span-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 text-[#A0A7B4]" size={16} />
+                  <input
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    placeholder="Search verified investors"
+                    className="h-11 w-full rounded-lg border border-[#E5E1D8] bg-white pl-9 text-sm"
+                  />
+                </div>
+                <p className="text-xs text-[#4A5568]">Recommended for Acme Studio · Prototype · Fintech</p>
+                {investors
+                  .filter(x => !query || `${x.name} ${x.firm} ${x.focus.join(' ')}`.toLowerCase().includes(query.toLowerCase()))
+                  .map(investorCard)}
+              </div>
+            </div>
+            {disclaimer}
+          </>
+        )}
+
+        {page === 'investor' && (
+          <>
+            {head(
+              <Link href="/startup/investors" className="text-sm text-[#9A7A45]">
+                ← Investor hub
+              </Link>
+            )}
+            {visBanner}
+            <div className="grid items-start gap-5 xl:grid-cols-3">
+              <div className="space-y-5 xl:col-span-2">
+                <Card title="Investor profile">
+                  <div className="flex items-start gap-4">
+                    <span className="grid h-16 w-16 place-items-center rounded-xl bg-[#F3EBDD] font-serif text-2xl">
+                      {inv.initial}
+                    </span>
+                    <div>
+                      <h2 className="text-lg font-semibold">{inv.name}</h2>
+                      <p className="text-sm text-[#4A5568]">{inv.firm} · {inv.type}</p>
+                      <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#F3EBDD] px-2 py-1 text-[10px] font-semibold text-[#806236]">
+                        <ShieldCheck size={12} />{inv.verified}
+                      </span>
+                      <p className="mt-2 text-xs text-[#4A5568]">{inv.location} · Typical ticket {inv.ticket}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {inv.focus.map(f => (
+                      <span key={f} className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[10px]">{f}</span>
+                    ))}
+                  </div>
+                  <p className="mt-5 text-sm leading-6 text-[#4A5568]">
+                    We partner with ambitious early-stage founders building differentiated products for underserved markets. We value thoughtful customer discovery, capital discipline and clear evidence of market demand.
+                  </p>
+                </Card>
+
+                <Card title="Portfolio and track record">
+                  <p className="text-sm">28 early-stage investments · Typical stage: Pre-seed to Seed</p>
+                  <p className="mt-2 text-xs text-[#4A5568]">Selected portfolio details are shown by investor permission. Details are self-reported unless marked verified.</p>
+                </Card>
+
+                <Card title="Activity on your startup">
+                  <div className="space-y-3">
+                    {[
+                      ['Viewed your profile', '2 days ago'],
+                      ['Shortlisted Acme Studio', 'Yesterday'],
+                      ['Opened public pitch summary', 'Yesterday'],
+                    ].map(([x, d]) => (
+                      <p key={x} className="flex items-center gap-3 text-xs">
+                        <Eye size={14} className="text-[#9A7A45]" />{x}
+                        <span className="ml-auto text-[#4A5568]">{d}</span>
+                      </p>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card title="Conversation">
+                  <div className="rounded-lg bg-[#FAF8F4] p-4">
+                    <p className="text-xs"><b>{inv.name}</b> · We’d like to learn more about your customer validation work.</p>
+                    <small className="mt-1 block text-[10px] text-[#4A5568]">Yesterday · 3:20 PM</small>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <input placeholder="Write a secure message…" className="h-10 flex-1 rounded-lg border border-[#E5E1D8] px-3 text-xs" />
+                    <button type="button" onClick={() => notify('Secure message sent.')} className="grid h-10 w-10 place-items-center rounded-lg bg-ink text-white">
+                      <Send size={14} />
+                    </button>
+                  </div>
+                  <p className="mt-2 text-[10px] text-[#4A5568]">Messages are secure and logged for audit.</p>
+                </Card>
+
+                <Card title="Private notes">
+                  <textarea rows={4} placeholder="Notes for your team only; never shown to the investor." className="w-full rounded-lg border border-[#E5E1D8] p-3 text-sm" />
+                  <button type="button" onClick={() => notify('Private note saved.')} className="mt-2 text-xs font-semibold text-[#9A7A45]">
+                    Save note
+                  </button>
+                </Card>
+              </div>
+
+              <aside className="space-y-5 xl:sticky xl:top-24">
+                <Card title="Pipeline status">
+                  <span className="rounded-full bg-[#F3EBDD] px-2.5 py-1 text-xs font-semibold text-[#806236]">{inv.status}</span>
+                  <select
+                    value={inv.stage}
+                    onChange={e => {
+                      setInvestorStatus(investorStatus.map((s, i) => i === investors.findIndex(v => v.id === inv.id) ? e.target.value : s));
+                      notify('Investor stage updated.');
+                    }}
+                    className="mt-4 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs"
+                  >
+                    {columns.map(c => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </select>
+                  <div className="mt-4 space-y-2">
+                    <button type="button" onClick={() => notify('Message composer opened.')} className="w-full rounded-lg bg-ink py-2.5 text-xs font-semibold text-white">
+                      Message
+                    </button>
+                    <Link href="/startup/meetings" className="block text-center w-full rounded-lg border border-[#E5E1D8] py-2.5 text-xs font-semibold hover:bg-[#FAF8F4]">
+                      Schedule meeting
+                    </Link>
+                    <Link href="/startup/data-room/requests" className="block text-center w-full rounded-lg border border-[#E5E1D8] py-2.5 text-xs font-semibold hover:bg-[#FAF8F4]">
+                      Grant data room access
+                    </Link>
+                  </div>
+                </Card>
+
+                <Card title="Access summary">
+                  <p className="text-xs text-[#4A5568]">Investor can view your public profile only. No documents shared.</p>
+                  <Link href="/startup/data-room" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
+                    Manage access <ArrowRight className="inline" size={12} />
+                  </Link>
+                </Card>
+
+                <Card title="Next step">
+                  <input type="date" className="h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs" />
+                  <input placeholder="Add a reminder note" className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs" />
+                  <button type="button" onClick={() => notify('Follow-up reminder saved.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
+                    Save reminder
+                  </button>
+                </Card>
+
+                <button type="button" onClick={() => notify('Investor blocked from future contact.')} className="text-xs text-[#B42318]">
+                  Block or report
+                </button>
+              </aside>
+            </div>
+            {disclaimer}
+          </>
+        )}
 
         {page === 'pipeline' && (
           <>
@@ -987,7 +1166,174 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
           </>
         )}
 
-        {isRound && <RoundPages detail={page === 'round-detail'} id={id} />}
+        {page === 'rounds' && (
+          <>
+            {head(
+              <Btn onClick={() => setModal('round')}><Plus size={15} /> New round</Btn>
+            )}
+            <div className="grid gap-5 lg:grid-cols-3">
+              <div className="space-y-3 lg:col-span-2">
+                <Card title="Pre-seed round" action={<span className="rounded-full bg-[#E7F3EC] px-2 py-1 text-[10px] font-semibold text-[#286749]">{roundStatus}</span>}>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {[
+                      ['Target', '₹2.5 Cr'],
+                      ['Committed', '₹0.8 Cr'],
+                      ['Remaining', '₹1.7 Cr'],
+                      ['Investors', '3'],
+                    ].map(([n, v]) => (
+                      <div key={n} className="rounded-lg bg-[#FAF8F4] p-3">
+                        <small className="text-xs text-[#4A5568]">{n}</small>
+                        <b className="serif mt-1 block text-xl">{v}</b>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 h-2 rounded-full bg-[#E5E1D8]">
+                    <div className="h-full w-[32%] rounded-full bg-[#B8955A]" />
+                  </div>
+                  <div className="mt-4 flex flex-wrap justify-between gap-3">
+                    <span className="text-xs text-[#4A5568]">Pre-seed · Equity · Closing target Mar 31, 2027</span>
+                    <Link href="/startup/rounds/round-preseed" className="text-xs font-semibold text-[#9A7A45]">
+                      Open round <ArrowRight className="inline" size={12} />
+                    </Link>
+                  </div>
+                </Card>
+
+                <Card title="Round milestones">
+                  <div className="space-y-4">
+                    {[
+                      ['Round opened', 'Oct 10 · Complete'],
+                      ['First commitment', 'Oct 28 · Complete'],
+                      ['Lead investor', 'In progress'],
+                      ['Term sheet signed', 'Upcoming'],
+                      ['Closing', 'Mar 31, 2027'],
+                    ].map(([x, y], i) => (
+                      <p key={x} className="flex items-center gap-3 text-xs">
+                        <span className={`grid h-6 w-6 place-items-center rounded-full ${i < 2 ? 'bg-ink text-white' : 'bg-[#F3F4F6] text-[#4A5568]'}`}>
+                          {i < 2 ? <Check size={13} /> : i + 1}
+                        </span>
+                        <b>{x}</b>
+                        <span className="ml-auto text-[#4A5568]">{y}</span>
+                      </p>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+
+              <aside>
+                <Card title="Getting started">
+                  <p className="text-xs leading-5 text-[#4A5568]">Set round terms, prepare your data room, connect with investors, record offers and close with your counsel.</p>
+                  <button type="button" onClick={() => notify('Round guide opened.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
+                    Read round guide <ArrowRight className="inline" size={12} />
+                  </button>
+                </Card>
+              </aside>
+            </div>
+            {disclaimer}
+          </>
+        )}
+
+        {page === 'round-detail' && (
+          <>
+            {head(
+              <div className="flex gap-2">
+                <Btn secondary onClick={() => notify('Round summary exported.')}><Download size={14} /> Export summary</Btn>
+                <Btn onClick={() => setRoundStatus(roundStatus === 'Closed' ? 'Open' : 'Closed')}>
+                  {roundStatus === 'Closed' ? 'Reopen' : 'Close round'}
+                </Btn>
+              </div>
+            )}
+            <div className="mb-5 rounded-xl border border-[#E5E1D8] bg-white p-5">
+              <div className="flex justify-between text-sm">
+                <b>Raised ₹0.8 Cr of ₹2.5 Cr</b>
+                <span>Closes Mar 31, 2027</span>
+              </div>
+              <div className="mt-3 h-3 rounded-full bg-[#E5E1D8]">
+                <div className="h-full w-[32%] rounded-full bg-[#B8955A]" />
+              </div>
+              <p className="mt-2 text-xs text-[#4A5568]">32% committed · 3 investors · Average ticket ₹26.7L</p>
+            </div>
+
+            <div className="mb-4 flex gap-2 overflow-x-auto">
+              {['Overview', 'Offers and commitments', 'Term sheets', 'Cap table impact', 'Documents', 'Activity'].map(x => (
+                <button
+                  key={x}
+                  type="button"
+                  onClick={() => setRoundTab(x)}
+                  className={`min-h-10 shrink-0 rounded-lg px-3 text-xs ${roundTab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
+                >
+                  {x}
+                </button>
+              ))}
+            </div>
+
+            <Card title={roundTab}>
+              {roundTab === 'Overview' ? (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-4">
+                    {[
+                      ['Committed', '₹0.8 Cr'],
+                      ['Remaining', '₹1.7 Cr'],
+                      ['Investors', '3'],
+                      ['Average ticket', '₹26.7L'],
+                    ].map(([a, b]) => (
+                      <div key={a} className="rounded-lg bg-[#FAF8F4] p-4">
+                        <small className="text-xs text-[#4A5568]">{a}</small>
+                        <b className="serif mt-1 block text-xl">{b}</b>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-5 text-xs text-[#4A5568]">
+                    Round activity · Opened Oct 10 · First commitment Oct 28 · Lead investor in progress
+                  </p>
+                </>
+              ) : roundTab === 'Offers and commitments' ? (
+                <>
+                  <button type="button" onClick={() => setModal('offer')} className="mb-4 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
+                    + Record offer
+                  </button>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[650px] text-left text-xs">
+                      <thead className="border-b text-[#4A5568]">
+                        <tr>
+                          {['Investor', 'Offer type', 'Amount', 'Instrument', 'Status', 'Date'].map(x => (
+                            <th key={x} className="py-3">{x}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          ['Northstar Capital', 'Equity', '₹50L', 'Equity', 'Under review', 'Nov 02'],
+                          ['Mira Shah', 'Equity', '₹25L', 'SAFE', 'Offer received', 'Nov 03'],
+                          ['SeedSpring Fund', 'Equity', '₹25L', 'Equity', 'Committed', 'Oct 28'],
+                        ].map(r => (
+                          <tr key={r[0]} className="border-b">
+                            <td className="py-3">{r[0]}</td>
+                            {r.slice(1).map((v, i) => (
+                              <td key={i}>{v}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : roundTab === 'Cap table impact' ? (
+                <>
+                  <div className="flex h-5 overflow-hidden rounded-full">
+                    <span className="w-[62%] bg-ink" />
+                    <span className="w-[18%] bg-[#B8955A]" />
+                    <span className="w-[20%] bg-[#A0A7B4]" />
+                  </div>
+                  <p className="mt-3 text-xs">Founders 62% · ESOP 18% · New investors 20% (illustrative target scenario)</p>
+                  <p className="mt-3 rounded-lg bg-[#FFF8E8] p-3 text-xs text-[#806236]">Estimate only. Confirm dilution and terms with your legal and finance advisers.</p>
+                </>
+              ) : (
+                <div className="py-5 text-sm text-[#4A5568]">{roundTab} entries will appear here as the round progresses.</div>
+              )}
+            </Card>
+            {disclaimer}
+          </>
+        )}
 
         {page === 'settings' && (
           <>
@@ -1117,6 +1463,8 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   ? 'Request an introduction'
                   : modal === 'meeting'
                   ? 'Schedule investor meeting'
+                  : modal === 'round'
+                  ? 'Set up a fundraising round'
                   : modal === 'offer'
                   ? 'Record an offer'
                   : modal.startsWith('grant')
@@ -1188,6 +1536,23 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   <textarea rows={3} placeholder="What would you like to discuss?" className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3" />
                 </label>
                 <p className="text-xs text-[#4A5568]">Time zone: Asia/Kolkata · Recording is off by default.</p>
+              </div>
+            ) : modal === 'round' ? (
+              <div className="space-y-3">
+                {[
+                  ['Round name', 'Pre-seed'],
+                  ['Target raise', '₹2.5 Cr'],
+                  ['Minimum raise', '₹1.5 Cr'],
+                  ['Instrument', 'Equity / SAFE'],
+                  ['Minimum ticket', '₹10L'],
+                  ['Closing date', '2027-03-31'],
+                ].map(([l, p]) => (
+                  <label key={l} className="block text-sm">
+                    {l}
+                    <input placeholder={p} className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-sm" />
+                  </label>
+                ))}
+                <p className="rounded-lg bg-[#FFF8E8] p-3 text-xs text-[#806236]">Round terms and instruments have legal consequences. Review with a lawyer.</p>
               </div>
             ) : modal === 'offer' ? (
               <div className="space-y-3">

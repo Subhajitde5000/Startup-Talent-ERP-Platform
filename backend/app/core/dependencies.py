@@ -7,7 +7,7 @@ role-restricted routes additionally use require_role(...).
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Header
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,18 +30,9 @@ def _bearer_token(authorization: str | None) -> str:
 
 async def get_current_user(
     db: Annotated[AsyncSession, Depends(get_db)],
-    request: Request,
     authorization: Annotated[str | None, Header()] = None,
 ) -> User:
-    if authorization:
-        token = _bearer_token(authorization)
-    else:
-        cookie_token = request.cookies.get("forma_access")
-        if not cookie_token:
-            raise invalid_token("Missing or invalid authorization.")
-        token = cookie_token
-        if request.method not in ("GET", "HEAD", "OPTIONS") and request.headers.get("x-forma-client") != "browser":
-            raise forbidden("Browser request header required.")
+    token = _bearer_token(authorization)
     try:
         user_id = decode_access_token(token)
     except jwt.ExpiredSignatureError:

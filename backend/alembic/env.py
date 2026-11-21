@@ -16,7 +16,6 @@ from app.models import (  # noqa: F401  (register models for autogenerate)
     availability,
     deliverable,
     earning,
-    funding_round,
     mentorship,
     metric,
     milestone,

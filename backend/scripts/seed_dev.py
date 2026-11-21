@@ -2,9 +2,9 @@
 
 Run (from backend/):
 
-    ENVIRONMENT=development ../.venv/bin/python scripts/seed_dev.py
+    ../.venv/bin/python scripts/seed_dev.py
 
-- Refuses to run unless ENVIRONMENT=development — never use this in production.
+- Refuses to run unless ENVIRONMENT=dev — never use this in production.
 - Idempotent: existing accounts keep their values; profile fields are only
   filled where still empty, skills/readiness rows are inserted if missing.
 - All seeded accounts share one dev password (printed at the end) and are
@@ -41,7 +41,6 @@ from app.models.analytics import StartupCompetitor, StartupMarketSize  # noqa: E
 from app.models.availability import AvailabilitySlot  # noqa: E402
 from app.models.deliverable import DeliverableStatus, MentorDeliverable  # noqa: E402
 from app.models.earning import EarningStatus, MentorEarning  # noqa: E402
-from app.models.funding_round import FundingRound  # noqa: E402
 from app.models.mentorship import (  # noqa: E402
     BUSY_STATUSES,
     Mentorship,
@@ -759,7 +758,7 @@ SEED_USERS = [
 
 async def seed() -> None:
     settings = get_settings()
-    if settings.ENVIRONMENT != "development":
+    if settings.ENVIRONMENT != "dev":
         raise SystemExit(
             f"Refusing to seed: ENVIRONMENT={settings.ENVIRONMENT!r} (this script is dev-only)."
         )
@@ -909,25 +908,6 @@ async def seed() -> None:
         if orgs_added:
             await db.commit()
 
-        # Step 9b: organizations used only in the development directory.
-        # Never modify a pre-existing organization or pretend demo angels are firms.
-        demo_investors = [
-            ("demo-northstar-ventures", "Northstar Ventures", "Mumbai",
-             "Invests in pre-seed fintech and SaaS teams."),
-            ("demo-seedspring-capital", "SeedSpring Capital", "Delhi",
-             "Early-stage investment firm."),
-        ]
-        for slug, name, city, summary in demo_investors:
-            existing = (await db.execute(
-                select(Organization.id).where(Organization.slug == slug)
-            )).first()
-            if existing is None:
-                db.add(Organization(
-                    slug=slug, name=name, type="investor_firm", status="active",
-                    city=city, country="IN", summary=summary, verified_at=now,
-                ))
-        await db.commit()
-
         # Step 5a: startup profile for the founder's organisation, plus the
         # org summary/founded year and a second member so the wired profile
         # and team cards look populated in development. Fill-only.
@@ -958,10 +938,6 @@ async def seed() -> None:
             .first()
         )
         if founder_org is not None:
-            existing_round = (await db.execute(select(FundingRound.id).where(FundingRound.org_id == founder_org.id, FundingRound.name == "Pre-seed round", FundingRound.deleted_at.is_(None)))).first()
-            if existing_round is None:
-                db.add(FundingRound(org_id=founder_org.id, name="Pre-seed round", round_type="pre_seed", target_amount=Decimal("25000000"), instrument="equity", currency="INR", status="open", closes_on=date(2027, 3, 31)))
-                await db.commit()
             if founder_org.summary is None:
                 founder_org.summary = (
                     "Live cash-flow visibility, forecasting and GST invoicing for "

@@ -34,10 +34,6 @@ class ActivityEventType(enum.StrEnum):
     invent a new event category. Later steps append their own members.
     """
 
-    funding_round_created = "funding_round_created"
-    funding_round_updated = "funding_round_updated"
-    funding_round_status_changed = "funding_round_status_changed"
-    funding_round_deleted = "funding_round_deleted"
     role_changed = "role_changed"
     member_deactivated = "member_deactivated"
     member_reactivated = "member_reactivated"

@@ -3,7 +3,7 @@
  *
  * - Base URL comes from NEXT_PUBLIC_API_URL (defaults to the same-origin
  *   "/api/v1", which next.config.js proxies to the backend).
- * - HttpOnly session cookies are sent automatically.
+ * - Bearer access token is attached automatically from local storage.
  * - A 401 triggers a single-flight refresh; the original request is retried
  *   once with the new access token.
  * - Every failure surfaces as an ApiError carrying the backend's
@@ -305,13 +305,31 @@ export type ScopedReadinessBoard = components["schemas"]["ScopedReadinessBoard"]
 
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "/api/v1").replace(/\/+$/, "");
 
-// Remove credentials left by older versions. Sessions now live in HttpOnly cookies.
+const ACCESS_KEY = "forma.access_token";
+const REFRESH_KEY = "forma.refresh_token";
+
+/* ------------------------------------------------------------------ tokens */
+
+export function getAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(ACCESS_KEY);
+}
+
+export function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(REFRESH_KEY);
+}
+
+export function setTokens(tokens: { access_token: string; refresh_token: string }): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(ACCESS_KEY, tokens.access_token);
+  window.localStorage.setItem(REFRESH_KEY, tokens.refresh_token);
+}
+
 export function clearTokens(): void {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem("forma.access_token");
-  window.localStorage.removeItem("forma.refresh_token");
-  window.sessionStorage.removeItem("forma.access_token");
-  window.sessionStorage.removeItem("forma.refresh_token");
+  window.localStorage.removeItem(ACCESS_KEY);
+  window.localStorage.removeItem(REFRESH_KEY);
 }
 
 /** Fired when the session is gone (refresh failed) so the app can react. */
@@ -421,6 +439,7 @@ interface RequestOptions {
 async function rawFetch<T>(
   path: string,
   opts: RequestOptions,
+  accessToken: string | null,
 ): Promise<T> {
   // Relative BASE_URL (the default) resolves against the page origin in the
   // browser; an absolute NEXT_PUBLIC_API_URL is used as-is. No window access
@@ -436,15 +455,16 @@ async function rawFetch<T>(
   }
   const headers: Record<string, string> = {};
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
-  // A non-simple header makes cross-origin cookie writes require a CORS preflight.
-  headers["X-Forma-Client"] = "browser";
+  // apiRequest passes a token for every request unless auth is explicitly
+  // disabled. Use that resolved token here rather than opts.auth, whose
+  // undefined default means "authenticated".
+  if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
 
   const res = await fetch(url, {
     method: opts.method ?? (opts.body !== undefined ? "POST" : "GET"),
     headers,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
     signal: opts.signal,
-    credentials: "include",
   });
 
   if (res.status === 204) return undefined as T;
@@ -464,17 +484,24 @@ async function rawFetch<T>(
 }
 
 /** Single-flight refresh: concurrent 401s share one refresh call. */
-let refreshInFlight: Promise<boolean> | null = null;
+let refreshInFlight: Promise<TokenResponse | null> | null = null;
 
-async function refreshTokens(): Promise<boolean> {
+async function refreshTokens(): Promise<TokenResponse | null> {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return null;
     try {
-      await rawFetch<MessageResponse>("/auth/browser/refresh", { method: "POST", auth: false });
-      return true;
+      const tokens = await rawFetch<TokenResponse>(
+        "/auth/refresh",
+        { body: { refresh_token: refreshToken }, auth: false },
+        null,
+      );
+      setTokens(tokens);
+      return tokens;
     } catch {
       clearTokens();
-      return false;
+      return null;
     } finally {
       refreshInFlight = null;
     }
@@ -490,29 +517,31 @@ function emitUnauthenticated(): void {
 
 /**
  * Perform an API request. Throws ApiError on failure.
- * On 401 refreshes once via the HttpOnly cookie and retries the
+ * On 401 (with a stored refresh token) refreshes once and retries the
  * request a single time; if the refresh fails, tokens are cleared and the
  * `forma:unauthenticated` event fires.
  */
 export async function apiRequest<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const withAuth = opts.auth !== false;
+  const token = withAuth ? getAccessToken() : null;
 
   try {
-    return await rawFetch<T>(path, opts);
+    return await rawFetch<T>(path, opts, token);
   } catch (err) {
     const canRetry =
       err instanceof ApiError &&
       err.status === 401 &&
       withAuth &&
+      getRefreshToken() !== null &&
       !path.startsWith("/auth/"); // never refresh-loop on auth endpoints themselves
     if (!canRetry) throw err;
 
     const tokens = await refreshTokens();
     if (!tokens) {
-      if (path !== "/users/me") emitUnauthenticated();
+      emitUnauthenticated();
       throw err;
     }
-    return rawFetch<T>(path, opts);
+    return rawFetch<T>(path, opts, tokens.access_token);
   }
 }
 
@@ -529,7 +558,7 @@ export async function apiRequestText(
   opts: RequestOptions = {},
 ): Promise<string> {
   const withAuth = opts.auth !== false;
-  const read = async (): Promise<string> => {
+  const read = async (token: string | null): Promise<string> => {
     let url = BASE_URL + path;
     if (opts.query) {
       const params = new URLSearchParams();
@@ -540,8 +569,8 @@ export async function apiRequestText(
       if (qs) url += (url.includes("?") ? "&" : "?") + qs;
     }
     const headers: Record<string, string> = {};
-    headers["X-Forma-Client"] = "browser";
-    const res = await fetch(url, { method: "GET", headers, signal: opts.signal, credentials: "include" });
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(url, { method: "GET", headers, signal: opts.signal });
     if (!res.ok) {
       const text = await res.text();
       let payload: unknown = null;
@@ -555,64 +584,50 @@ export async function apiRequestText(
     return res.text();
   };
 
+  const token = withAuth ? getAccessToken() : null;
   try {
-    return await read();
+    return await read(token);
   } catch (err) {
     const canRetry =
       err instanceof ApiError &&
       err.status === 401 &&
-      withAuth;
+      withAuth &&
+      getRefreshToken() !== null;
     if (!canRetry) throw err;
     const tokens = await refreshTokens();
     if (!tokens) {
       emitUnauthenticated();
       throw err;
     }
-    return read();
+    return read(tokens.access_token);
   }
 }
 
 /* -------------------------------------------------------- typed endpoints */
 
-export type FundingRoundRead = components["schemas"]["FundingRoundRead"];
-export type FundingRoundCreate = components["schemas"]["FundingRoundCreate"];
-export type FundingRoundUpdate = components["schemas"]["FundingRoundUpdate"];
-export type FundingRoundPage = components["schemas"]["FundingRoundPage"];
-export type RoundProgress = components["schemas"]["RoundProgress"];
-export type RoundStatus = components["schemas"]["RoundStatus"];
-
-export type InvestorDirectoryItem = components["schemas"]["InvestorDirectoryItem"];
-export type InvestorDirectoryPage = components["schemas"]["InvestorDirectoryPage"];
-export type InvestorDirectoryQuery = NonNullable<operations["list_investors_api_v1_organizations__startup_org_id__investors_get"]["parameters"]["query"]>;
-
 export const api = {
-  investorDirectory: {
-    list: (org: string, query: InvestorDirectoryQuery = {}, signal?: AbortSignal) =>
-      apiRequest<InvestorDirectoryPage>(`/organizations/${org}/investors`, {
-        query: { ...query, q: query.q ?? undefined, city: query.city ?? undefined, country: query.country ?? undefined }, signal,
-      }),
-    get: (org: string, id: string, signal?: AbortSignal) =>
-      apiRequest<InvestorDirectoryItem>(`/organizations/${org}/investors/${id}`, { signal }),
-  },
-  fundingRounds: {
-    list: (org: string, limit = 20, offset = 0) => apiRequest<FundingRoundPage>(`/organizations/${org}/funding-rounds`, { query: { limit, offset } }),
-    get: (org: string, id: string) => apiRequest<FundingRoundRead>(`/organizations/${org}/funding-rounds/${id}`),
-    progress: (org: string, id: string) => apiRequest<RoundProgress>(`/organizations/${org}/funding-rounds/${id}/progress`),
-    create: (org: string, body: FundingRoundCreate) => apiRequest<FundingRoundRead>(`/organizations/${org}/funding-rounds`, { body }),
-    update: (org: string, id: string, body: FundingRoundUpdate) => apiRequest<FundingRoundRead>(`/organizations/${org}/funding-rounds/${id}`, { method: "PATCH", body }),
-    status: (org: string, id: string, status: RoundStatus) => apiRequest<FundingRoundRead>(`/organizations/${org}/funding-rounds/${id}/status`, { body: { status } }),
-    delete: (org: string, id: string) => apiRequest<void>(`/organizations/${org}/funding-rounds/${id}`, { method: "DELETE" }),
-  },
   auth: {
     register: (body: RegisterRequest) =>
       apiRequest<RegisterResponse>("/auth/register", { body, auth: false }),
 
-    login: (body: LoginRequest) =>
-      apiRequest<MessageResponse>("/auth/browser/login", { body, auth: false }),
+    login: async (body: LoginRequest) => {
+      const tokens = await apiRequest<TokenResponse>("/auth/login", { body, auth: false });
+      setTokens(tokens);
+      return tokens;
+    },
 
     logout: async () => {
+      // The backend revokes the session by refresh-token hash: the token
+      // goes in the body, not the Authorization header.
+      const refreshToken = getRefreshToken();
       try {
-        await apiRequest<void>("/auth/browser/logout", { method: "POST", auth: false });
+        if (refreshToken) {
+          await apiRequest<void>("/auth/logout", {
+            method: "POST",
+            body: { refresh_token: refreshToken },
+            auth: false,
+          });
+        }
       } finally {
         clearTokens();
       }
@@ -622,7 +637,6 @@ export const api = {
       try {
         await apiRequest<MessageResponse>("/auth/logout-all", { method: "POST" });
       } finally {
-        await apiRequest<void>("/auth/browser/logout", { method: "POST", auth: false });
         clearTokens();
       }
     },
@@ -630,7 +644,7 @@ export const api = {
     refresh: () => refreshTokens(),
 
     verifyEmail: (body: VerifyEmailRequest) =>
-      apiRequest<MessageResponse>("/auth/browser/verify-email", { body, auth: false }),
+      apiRequest<VerifyEmailResponse>("/auth/verify-email", { body, auth: false }),
 
     resendVerification: (body: ResendVerificationRequest) =>
       apiRequest<MessageResponse>("/auth/resend-verification", { body, auth: false }),
