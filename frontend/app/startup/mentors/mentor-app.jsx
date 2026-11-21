@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { StartupSidebar, Btn, Card, SubNavTabs } from '../../../components';
 import { api, ApiError } from '@/lib/api/client';
+import SessionReview from '@/components/session-review';
+import PublicMentorReviews from '@/components/public-mentor-reviews';
 import { Toast } from '@/components';
 import {
   EmptyBlock,
@@ -696,6 +698,8 @@ function StartupSessionDetailBlock({ sessionId }) {
       )}
       {toast && <Toast message={toast} />}
 
+      <SessionReview session={session} />
+
       {isCancelled && (
         <div className="mb-4 rounded-lg border border-[#F1C6C1] bg-[#FEF3F2] p-3 text-xs text-[#7A271A]">
           This session was cancelled{session.cancelled_reason ? `: ${session.cancelled_reason}` : '.'}
@@ -1367,34 +1371,32 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
     (async () => {
       try {
         const orgs = await api.organizations.mine();
-        const startup = orgs.find(o => o.type === 'startup') || orgs[0] || null;
+        const startup = orgs.find(o => o.type === 'startup') || null;
         if (!alive) return;
-        if (startup) {
-          setReadinessOrg(startup);
-          setMentorOrgId(startup.id);
-        }
-
-        const [mentorshipsRes, sessionsRes, tasksRes, readinessRes] = await Promise.allSettled([
-          api.mentorships.list({ side: 'startup', limit: 50 }),
-          api.sessions.list({ limit: 50 }),
-          startup ? api.tasks.list(startup.id, { limit: 20 }) : Promise.resolve({ items: [] }),
-          startup ? api.readiness.board(startup.id) : Promise.resolve(null),
+        if (!startup) { setOverviewMentorships([]); setOverviewSessions([]); setOverviewTasks([]); setReadiness(null); setReadinessOrg(null); setOverviewPhase('ready'); return; }
+        setReadinessOrg(startup);
+        setMentorOrgId(startup.id);
+        const allPages = async (load) => {
+          const items = [];
+          for (let offset = 0;;) {
+            const page = await load(offset);
+            items.push(...page.items);
+            offset += page.items.length;
+            if (!page.items.length || offset >= page.total) return items;
+          }
+        };
+        const [mentorships, sessions, tasks, board] = await Promise.all([
+          allPages(offset => api.mentorWorkspace.overview(startup.id, { limit: 50, offset }).then(r => r.mentorships)),
+          allPages(offset => api.sessions.list({ limit: 50, offset })),
+          api.tasks.listAll(startup.id),
+          api.readiness.board(startup.id),
         ]);
-
         if (!alive) return;
-
-        if (mentorshipsRes.status === 'fulfilled') {
-          setOverviewMentorships(mentorshipsRes.value.items || []);
-        }
-        if (sessionsRes.status === 'fulfilled') {
-          setOverviewSessions(sessionsRes.value.items || []);
-        }
-        if (tasksRes.status === 'fulfilled') {
-          setOverviewTasks(tasksRes.value.items || []);
-        }
-        if (readinessRes.status === 'fulfilled' && readinessRes.value) {
-          setReadiness(readinessRes.value);
-        }
+        const ids = new Set(mentorships.map(m => m.id));
+        setOverviewMentorships(mentorships);
+        setOverviewSessions(sessions.filter(s => ids.has(s.mentorship_id)));
+        setOverviewTasks(tasks);
+        setReadiness(board);
 
         setOverviewPhase('ready');
       } catch (err) {
@@ -1419,7 +1421,7 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
 
     (async () => {
       try {
-        const m = await api.mentorships.get(id);
+        const m = page === 'workspace' ? (await api.mentorWorkspace.get(id)).mentorship : await api.mentorships.get(id);
         if (!alive) return;
         setWorkspaceMentorship(m);
 
@@ -1433,13 +1435,13 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
 
         if (sessionsRes.status === 'fulfilled') {
           setWorkspaceSessions(sessionsRes.value.items || []);
-        }
+        } else if (page === 'workspace') { throw sessionsRes.reason; }
         if (tasksRes.status === 'fulfilled') {
           setWorkspaceTasks(tasksRes.value.items || []);
-        }
+        } else if (page === 'workspace') { throw tasksRes.reason; }
         if (readinessRes.status === 'fulfilled' && readinessRes.value) {
           setReadiness(readinessRes.value);
-        }
+        } else if (page === 'workspace') { throw readinessRes.reason; }
 
         setWorkspacePhase('ready');
       } catch (err) {
@@ -1758,8 +1760,8 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
           const dueTasks = overviewTasks.filter(t => t.status === 'todo' || t.status === 'in_progress');
 
           const readinessSummary = readiness?.summary;
-          const readinessSignedOff = readinessSummary ? readinessSummary.criteria_signed_off : 0;
-          const readinessTotal = readinessSummary ? readinessSummary.criteria_total : 6;
+          const readinessSignedOff = readinessSummary ? readinessSummary.criteria_signed_off : '—';
+          const readinessTotal = readinessSummary ? readinessSummary.criteria_total : '—';
           const readinessPct = readinessSummary ? readinessSummary.readiness_pct : 0;
           const readinessItems = readiness?.items || [];
 
@@ -1768,7 +1770,7 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
             .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
           const nextSession = upcomingSessions[0] || null;
 
-          const stageName = readinessOrg?.stage ? (STAGE_LABEL[readinessOrg.stage] || readinessOrg.stage) : 'Prototype';
+          const stageName = readinessOrg?.stage ? (STAGE_LABEL[readinessOrg.stage] || readinessOrg.stage) : 'your startup';
 
           return (
             <>
@@ -1784,7 +1786,7 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                 {[
                   ['Active mentors', String(activeMentorships.length)],
                   ['Sessions held', String(completedSessionsCount)],
-                  ['Deliverables due', String(dueTasks.length)],
+                  ['Open tasks', String(dueTasks.length)],
                   ['Readiness', `${readinessSignedOff} / ${readinessTotal}`],
                 ].map(([n, v]) => (
                   <div key={n} className="rounded-xl border border-[#E5E1D8] bg-white p-4">
@@ -1868,10 +1870,10 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                     )}
                   </Card>
 
-                  <Card title="Deliverables due" action={<Link href="/startup/tasks" className="text-xs font-semibold text-[#9A7A45]">Open tasks</Link>}>
+                  <Card title="Open tasks" action={<Link href="/startup/tasks" className="text-xs font-semibold text-[#9A7A45]">Open tasks</Link>}>
                     {dueTasks.length === 0 ? (
                       <div className="py-6 text-center text-xs text-[#4A5568]">
-                        No pending deliverables due.
+                        No open tasks.
                       </div>
                     ) : (
                       <div className="divide-y divide-[#E5E1D8]">
@@ -2328,22 +2330,9 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                       )}
                     </Card>
 
-                    {/* Reviews arrive with step 8i (no reviews table exists).
-                        An empty state, never invented quotes. */}
                     <Card title="Reviews">
-                      <p className="text-sm">
-                        {profile.rating != null ? (
-                          <>
-                            <Star className="mr-1 inline fill-[#B8955A] text-[#B8955A]" size={14} />
-                            {profile.rating} average · verified sessions only
-                          </>
-                        ) : (
-                          'Not yet rated'
-                        )}
-                      </p>
-                      <p className="mt-3 border-t border-[#E5E1D8] pt-3 text-sm text-[#4A5568]">
-                        Written reviews are not available yet.
-                      </p>
+                      <p className="text-sm">{profile.rating != null ? `${profile.rating} average · ${profile.reviews_count} public reviews` : `Average available after three public reviews · ${profile.reviews_count || 0} public reviews`}</p>
+                      <PublicMentorReviews handle={profile.handle} />
                     </Card>
                   </div>
 
@@ -2649,8 +2638,8 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
             .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
           const nextSession = upcoming[0] || null;
 
-          const readinessSignedOff = readiness?.summary?.criteria_signed_off || 0;
-          const readinessTotal = readiness?.summary?.criteria_total || 6;
+          const readinessSignedOff = readiness?.summary?.criteria_signed_off ?? '—';
+          const readinessTotal = readiness?.summary?.criteria_total ?? '—';
 
           return (
             <>

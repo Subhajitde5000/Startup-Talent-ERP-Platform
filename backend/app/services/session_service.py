@@ -53,6 +53,7 @@ from app.models.session import (
     SessionAttendee,
     SessionStatus,
 )
+from app.models.session_review import SessionReview
 from app.models.user import User
 from app.schemas.session import (
     SessionAttendeeRead,
@@ -61,7 +62,7 @@ from app.schemas.session import (
     SessionRead,
     SessionReschedule,
 )
-from app.services import mentorship_service, rate_limiter
+from app.services import earning_service, mentorship_service, rate_limiter
 
 # Statuses in which a session may still be changed.
 EDITABLE: frozenset[SessionStatus] = frozenset(
@@ -271,12 +272,42 @@ async def _as_read(
 
     attendee_rows = (
         await db.execute(
-            select(SessionAttendee.user_id, SessionAttendee.role, User.display_name)
+            select(
+                SessionAttendee.user_id,
+                SessionAttendee.role,
+                User.display_name,
+                OrganizationMember.role,
+                SessionReview.id,
+            )
             .join(User, User.id == SessionAttendee.user_id)
+            .outerjoin(
+                OrganizationMember,
+                (OrganizationMember.user_id == SessionAttendee.user_id)
+                & (OrganizationMember.org_id == mentorship.startup_org_id)
+                & (OrganizationMember.status == "active")
+                & OrganizationMember.deleted_at.is_(None),
+            )
+            .outerjoin(
+                SessionReview,
+                (SessionReview.session_id == SessionAttendee.session_id)
+                & (SessionReview.reviewer_id == SessionAttendee.user_id),
+            )
             .where(SessionAttendee.session_id == row.id)
             .order_by(SessionAttendee.created_at)
         )
     ).all()
+
+    can_review = (
+        side == "startup"
+        and row.status == SessionStatus.completed
+        and any(
+            uid == user.id
+            and role == AttendeeRole.startup
+            and member_role in ("owner", "admin", "member")
+            and review_id is None
+            for uid, role, _, member_role, review_id in attendee_rows
+        )
+    )
 
     return SessionRead(
         id=row.id,
@@ -301,10 +332,11 @@ async def _as_read(
                 display_name=name,
                 role=AttendeeRole(role),
             )
-            for uid, role, name in attendee_rows
+            for uid, role, name, _, _ in attendee_rows
         ],
         viewer_side=side,  # type: ignore[arg-type]
         can_join=_can_join(row.status, row.scheduled_at, row.duration_min),
+        can_review=can_review,
     )
 
 
@@ -357,9 +389,7 @@ async def schedule(
             code="SLOT_TAKEN",
         )
     if await _mentor_conflict(db, mentorship.mentor_id, start, end):
-        raise conflict(
-            "The mentor already has a session at that time.", code="SLOT_TAKEN"
-        )
+        raise conflict("The mentor already has a session at that time.", code="SLOT_TAKEN")
 
     # Nobody outside the pair may be added as an attendee. The mentor is
     # attached automatically with the right role, so a client cannot
@@ -413,14 +443,10 @@ async def schedule(
         ) from None
 
     db.add(
-        SessionAttendee(
-            session_id=row.id, user_id=mentorship.mentor_id, role=AttendeeRole.mentor
-        )
+        SessionAttendee(session_id=row.id, user_id=mentorship.mentor_id, role=AttendeeRole.mentor)
     )
     for uid in dict.fromkeys(attendee_ids):
-        db.add(
-            SessionAttendee(session_id=row.id, user_id=uid, role=AttendeeRole.startup)
-        )
+        db.add(SessionAttendee(session_id=row.id, user_id=uid, role=AttendeeRole.startup))
 
     await _sync_mentorship_times(db, mentorship)
     await db.commit()
@@ -467,12 +493,8 @@ async def list_for_mentorship(
     if mentorship.mentor_id != user.id:
         await mentorship_service.require_can_read(db, mentorship, user)
 
-    base = select(MentoringSession).where(
-        MentoringSession.mentorship_id == mentorship_id
-    )
-    total = (
-        await db.execute(select(func.count()).select_from(base.subquery()))
-    ).scalar_one()
+    base = select(MentoringSession).where(MentoringSession.mentorship_id == mentorship_id)
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
     rows = (
         (
             await db.execute(
@@ -496,9 +518,7 @@ async def list_mine(
             MentoringSession.scheduled_at >= datetime.now(UTC),
         )
 
-    total = (
-        await db.execute(select(func.count()).select_from(base.subquery()))
-    ).scalar_one()
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
     rows = (
         (
             await db.execute(
@@ -543,9 +563,7 @@ async def confirm(db: AsyncSession, user: User, session_id: uuid.UUID) -> Sessio
     row, mentorship = await _get_session(db, user, session_id)
     await _can_write(db, mentorship, user)
     if row.status not in (SessionStatus.scheduled.value, SessionStatus.proposed.value):
-        raise conflict(
-            f"Cannot confirm a session that is '{row.status}'.", code="INVALID_STATE"
-        )
+        raise conflict(f"Cannot confirm a session that is '{row.status}'.", code="INVALID_STATE")
     row.status = SessionStatus.confirmed
     await db.commit()
     await db.refresh(row)
@@ -559,25 +577,17 @@ async def reschedule(
     row, mentorship = await _get_session(db, user, session_id)
     await _can_write(db, mentorship, user)
     if row.status not in {s.value for s in EDITABLE}:
-        raise conflict(
-            f"Cannot reschedule a session that is '{row.status}'.", code="INVALID_STATE"
-        )
+        raise conflict(f"Cannot reschedule a session that is '{row.status}'.", code="INVALID_STATE")
 
     duration = payload.duration_min or row.duration_min
     _validate_window(payload.scheduled_at, duration)
     start = payload.scheduled_at
     end = start + timedelta(minutes=duration)
 
-    if await _same_mentorship_conflict(
-        db, mentorship.id, start, exclude_session_id=row.id
-    ):
+    if await _same_mentorship_conflict(db, mentorship.id, start, exclude_session_id=row.id):
         raise conflict("Another session already holds that time.", code="SLOT_TAKEN")
-    if await _mentor_conflict(
-        db, mentorship.mentor_id, start, end, exclude_session_id=row.id
-    ):
-        raise conflict(
-            "The mentor already has a session at that time.", code="SLOT_TAKEN"
-        )
+    if await _mentor_conflict(db, mentorship.mentor_id, start, end, exclude_session_id=row.id):
+        raise conflict("The mentor already has a session at that time.", code="SLOT_TAKEN")
 
     row.scheduled_at = start
     row.duration_min = duration
@@ -596,16 +606,12 @@ async def reschedule(
     return await _as_read(db, row, mentorship, user)
 
 
-async def cancel(
-    db: AsyncSession, user: User, session_id: uuid.UUID, reason: str
-) -> SessionRead:
+async def cancel(db: AsyncSession, user: User, session_id: uuid.UUID, reason: str) -> SessionRead:
     await _enforce_write_limit(user)
     row, mentorship = await _get_session(db, user, session_id)
     await _can_write(db, mentorship, user)
     if row.status not in {s.value for s in EDITABLE}:
-        raise conflict(
-            f"Cannot cancel a session that is '{row.status}'.", code="INVALID_STATE"
-        )
+        raise conflict(f"Cannot cancel a session that is '{row.status}'.", code="INVALID_STATE")
     row.status = SessionStatus.cancelled
     row.cancelled_reason = reason
     await _sync_mentorship_times(db, mentorship)
@@ -627,13 +633,15 @@ async def complete(
     if mentorship.mentor_id != user.id:
         raise forbidden("Only the mentor can complete a session.")
     if row.status not in {s.value for s in EDITABLE}:
-        raise conflict(
-            f"Cannot complete a session that is '{row.status}'.", code="INVALID_STATE"
-        )
+        raise conflict(f"Cannot complete a session that is '{row.status}'.", code="INVALID_STATE")
     row.status = SessionStatus.completed
     row.summary = summary
     row.action_items = list(action_items)
     row.completed_at = datetime.now(UTC)
+    # Step 8h: a completed, paid session becomes money the mentor is owed.
+    # Staged in THIS transaction, so the completion and the earning commit
+    # or roll back together (see earning_service.record_for_session).
+    await earning_service.record_for_session(db, row, mentorship.mentor_id)
     await _sync_mentorship_times(db, mentorship)
     await db.commit()
     await db.refresh(row)

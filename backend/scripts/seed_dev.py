@@ -39,6 +39,8 @@ from app.core.security import hash_password  # noqa: E402
 from app.db.session import async_session_factory, engine  # noqa: E402
 from app.models.analytics import StartupCompetitor, StartupMarketSize  # noqa: E402
 from app.models.availability import AvailabilitySlot  # noqa: E402
+from app.models.deliverable import DeliverableStatus, MentorDeliverable  # noqa: E402
+from app.models.earning import EarningStatus, MentorEarning  # noqa: E402
 from app.models.mentorship import (  # noqa: E402
     BUSY_STATUSES,
     Mentorship,
@@ -65,6 +67,7 @@ from app.models.session import (  # noqa: E402
     SessionAttendee,
     SessionStatus,
 )
+from app.models.session_review import SessionReview  # noqa: E402
 from app.models.stage import StageToolProgress, ToolStatus  # noqa: E402
 from app.models.startup import (  # noqa: E402
     ProfileVisibility,
@@ -75,7 +78,10 @@ from app.models.talent import MentorProfile, TalentProfile, TalentProfileSkill, 
 from app.models.task import Task, TaskPriority, TaskStatus  # noqa: E402
 from app.models.task_label import TaskLabel, TaskLabelLink  # noqa: E402
 from app.models.user import AccountStatus, ReviewState, User, UserRole, UserRoleRow  # noqa: E402
-from app.services import stage_service  # noqa: E402
+from app.services import (
+    session_review_service,  # noqa: E402
+    stage_service,  # noqa: E402
+)
 
 DEV_PASSWORD = "Forma-Dev-2026!"
 
@@ -149,26 +155,61 @@ STEP3_PROFILE_FIELDS: dict[str, dict[str, object]] = {
 
 # Read-only skills catalog (Step 3 part 6; POST /skills is admin/Step 7).
 STEP3_SKILLS: list[tuple[str, str | None]] = [
-    ("Python", "Engineering"), ("JavaScript", "Engineering"), ("TypeScript", "Engineering"),
-    ("React", "Engineering"), ("Next.js", "Engineering"), ("Node.js", "Engineering"),
-    ("Go", "Engineering"), ("Java", "Engineering"), ("Rust", "Engineering"),
-    ("PostgreSQL", "Engineering"), ("MySQL", "Engineering"), ("Redis", "Engineering"),
-    ("AWS", "Engineering"), ("GCP", "Engineering"), ("Docker", "Engineering"),
-    ("Kubernetes", "Engineering"), ("GraphQL", "Engineering"), ("REST APIs", "Engineering"),
-    ("System Design", "Engineering"), ("Microservices", "Engineering"),
-    ("Product Strategy", "Product"), ("Roadmapping", "Product"), ("User Research", "Product"),
-    ("A/B Testing", "Product"), ("PRD Writing", "Product"), ("Figma", "Design"),
-    ("UI/UX Design", "Design"), ("Design Systems", "Design"), ("Prototyping", "Design"),
-    ("Wireframing", "Design"), ("Data Analysis", "Data"), ("Machine Learning", "Data"),
-    ("SQL", "Data"), ("Data Visualization", "Data"), ("Excel", "Data"),
-    ("Digital Marketing", "Marketing"), ("SEO", "Marketing"), ("Content Writing", "Marketing"),
-    ("Growth Marketing", "Marketing"), ("Brand Strategy", "Marketing"),
-    ("Sales", "Sales"), ("Business Development", "Sales"), ("Negotiation", "Sales"),
-    ("Enterprise Sales", "Sales"), ("Fundraising", "Finance"), ("Financial Modeling", "Finance"),
-    ("Cap Table Management", "Finance"), ("Unit Economics", "Finance"),
-    ("Recruiting", "People"), ("People Operations", "People"), ("Onboarding", "People"),
-    ("Public Speaking", "Communication"), ("Technical Writing", "Communication"),
-    ("Cross-functional Leadership", "Leadership"), ("OKRs", "Leadership"),
+    ("Python", "Engineering"),
+    ("JavaScript", "Engineering"),
+    ("TypeScript", "Engineering"),
+    ("React", "Engineering"),
+    ("Next.js", "Engineering"),
+    ("Node.js", "Engineering"),
+    ("Go", "Engineering"),
+    ("Java", "Engineering"),
+    ("Rust", "Engineering"),
+    ("PostgreSQL", "Engineering"),
+    ("MySQL", "Engineering"),
+    ("Redis", "Engineering"),
+    ("AWS", "Engineering"),
+    ("GCP", "Engineering"),
+    ("Docker", "Engineering"),
+    ("Kubernetes", "Engineering"),
+    ("GraphQL", "Engineering"),
+    ("REST APIs", "Engineering"),
+    ("System Design", "Engineering"),
+    ("Microservices", "Engineering"),
+    ("Product Strategy", "Product"),
+    ("Roadmapping", "Product"),
+    ("User Research", "Product"),
+    ("A/B Testing", "Product"),
+    ("PRD Writing", "Product"),
+    ("Figma", "Design"),
+    ("UI/UX Design", "Design"),
+    ("Design Systems", "Design"),
+    ("Prototyping", "Design"),
+    ("Wireframing", "Design"),
+    ("Data Analysis", "Data"),
+    ("Machine Learning", "Data"),
+    ("SQL", "Data"),
+    ("Data Visualization", "Data"),
+    ("Excel", "Data"),
+    ("Digital Marketing", "Marketing"),
+    ("SEO", "Marketing"),
+    ("Content Writing", "Marketing"),
+    ("Growth Marketing", "Marketing"),
+    ("Brand Strategy", "Marketing"),
+    ("Sales", "Sales"),
+    ("Business Development", "Sales"),
+    ("Negotiation", "Sales"),
+    ("Enterprise Sales", "Sales"),
+    ("Fundraising", "Finance"),
+    ("Financial Modeling", "Finance"),
+    ("Cap Table Management", "Finance"),
+    ("Unit Economics", "Finance"),
+    ("Recruiting", "People"),
+    ("People Operations", "People"),
+    ("Onboarding", "People"),
+    ("Public Speaking", "Communication"),
+    ("Technical Writing", "Communication"),
+    ("Cross-functional Leadership", "Leadership"),
+    ("OKRs", "Leadership"),
 ]
 
 # Demo resume/practice scores (Steps 4/5 will compute real ones later).
@@ -206,7 +247,12 @@ STEP3B_MENTOR = {
         "15+ years designing distributed systems at scale; mentors early-stage "
         "teams on architecture, reliability and platform decisions."
     ),
-    "expertise": ["System Design", "Distributed Systems", "Architecture Review", "Technical Mentorship"],
+    "expertise": [
+        "System Design",
+        "Distributed Systems",
+        "Architecture Review",
+        "Technical Mentorship",
+    ],
     "sectors": ["SaaS", "Infrastructure", "Fintech"],
     "languages": ["English", "Hindi", "Bengali"],
     "hourly_fee": 6500,
@@ -246,6 +292,32 @@ STEP8BCD_MENTORSHIPS: list[dict[str, object]] = [
         "availability": [(2, 11, 13)],
         "next_topic": "",
         "next_in_days": 0,
+    },
+]
+
+# Step 8e demo deliverables on the ACTIVE mentorship, one per status the UI
+# renders differently, so the pages are not empty on a fresh database.
+STEP8E_DELIVERABLES: list[dict[str, object]] = [
+    {
+        "title": "Draft the pricing page",
+        "description": "Three tiers with the middle one highlighted, plus a comparison table.",
+        "status": "in_progress",
+        "due_in_days": 6,
+        "evidence": None,
+    },
+    {
+        "title": "One-page go-to-market summary",
+        "description": "Positioning, ICP and the first two channels, on one page.",
+        "status": "submitted",
+        "due_in_days": 2,
+        "evidence": "Draft shared in the shared folder; looking for feedback on the ICP.",
+    },
+    {
+        "title": "Competitor teardown",
+        "description": "Five competitors, pricing and positioning side by side.",
+        "status": "accepted",
+        "due_in_days": -14,
+        "evidence": "Teardown delivered and reviewed.",
     },
 ]
 
@@ -723,7 +795,9 @@ async def seed() -> None:
         # Step 3: fill profile fields that are still empty (never clobber).
         profile_filled = 0
         result = await db.execute(
-            select(User).where(User.deleted_at.is_(None), User.primary_email.in_(STEP3_PROFILE_FIELDS))
+            select(User).where(
+                User.deleted_at.is_(None), User.primary_email.in_(STEP3_PROFILE_FIELDS)
+            )
         )
         for user in result.scalars().all():
             fields = STEP3_PROFILE_FIELDS[user.primary_email]
@@ -733,9 +807,14 @@ async def seed() -> None:
                 if current is None or (isinstance(current, str) and current == ""):
                     setattr(user, field, value)
                     changed = True
-                elif isinstance(value, bool) and current is not True and field in (
-                    "profile_public",
-                    "allow_outreach",
+                elif (
+                    isinstance(value, bool)
+                    and current is not True
+                    and field
+                    in (
+                        "profile_public",
+                        "allow_outreach",
+                    )
                 ):
                     setattr(user, field, value)
                     changed = True
@@ -766,9 +845,7 @@ async def seed() -> None:
         )
         for user in result.scalars().all():
             row = (
-                await db.execute(
-                    select(UserReadiness).where(UserReadiness.user_id == user.id)
-                )
+                await db.execute(select(UserReadiness).where(UserReadiness.user_id == user.id))
             ).scalar_one_or_none()
             if row is None:
                 db.add(
@@ -871,9 +948,7 @@ async def seed() -> None:
             await db.commit()
 
             mentor_user = (
-                await db.execute(
-                    select(User).where(User.primary_email == "mentor@forma.dev")
-                )
+                await db.execute(select(User).where(User.primary_email == "mentor@forma.dev"))
             ).scalar_one_or_none()
             if mentor_user is not None:
                 member_exists = (
@@ -901,9 +976,7 @@ async def seed() -> None:
 
             # Step 5e: the read-only teammate for the analytics viewer checks.
             viewer_user = (
-                await db.execute(
-                    select(User).where(User.primary_email == "viewer@forma.dev")
-                )
+                await db.execute(select(User).where(User.primary_email == "viewer@forma.dev"))
             ).scalar_one_or_none()
             if viewer_user is not None:
                 viewer_exists = (
@@ -934,9 +1007,7 @@ async def seed() -> None:
             # each so the wired page shows every state in development.
             # Fill-only and idempotent, like everything else here.
             deactivated_user = (
-                await db.execute(
-                    select(User).where(User.primary_email == "jobseeker@forma.dev")
-                )
+                await db.execute(select(User).where(User.primary_email == "jobseeker@forma.dev"))
             ).scalar_one_or_none()
             if deactivated_user is not None:
                 deact_exists = (
@@ -964,9 +1035,7 @@ async def seed() -> None:
                     await db.commit()
 
             founder_user = (
-                await db.execute(
-                    select(User).where(User.primary_email == "founder@forma.dev")
-                )
+                await db.execute(select(User).where(User.primary_email == "founder@forma.dev"))
             ).scalar_one_or_none()
             pending_invite = (
                 await db.execute(
@@ -1000,9 +1069,7 @@ async def seed() -> None:
 
             profile_exists = (
                 await db.execute(
-                    select(StartupProfile.org_id).where(
-                        StartupProfile.org_id == founder_org.id
-                    )
+                    select(StartupProfile.org_id).where(StartupProfile.org_id == founder_org.id)
                 )
             ).first()
             if profile_exists is None:
@@ -1024,17 +1091,13 @@ async def seed() -> None:
                 if exists is not None:
                     continue
                 owner_user = (
-                    await db.execute(
-                        select(User).where(User.primary_email == str(spec["owner"]))
-                    )
+                    await db.execute(select(User).where(User.primary_email == str(spec["owner"])))
                 ).scalar_one_or_none()
                 db.add(
                     Milestone(
                         org_id=founder_org.id,
                         name=str(spec["name"]),
-                        description=(
-                            str(spec["description"]) if spec["description"] else None
-                        ),
+                        description=(str(spec["description"]) if spec["description"] else None),
                         target_date=spec["target_date"],
                         status=str(spec["status"]),
                         progress=int(spec["progress"]),
@@ -1080,22 +1143,16 @@ async def seed() -> None:
                 assert isinstance(status, TaskStatus)
                 order = column_seq.get(status.value, 0)
                 column_seq[status.value] = order + 1
-                completed_at = (
-                    datetime.now(UTC) if status == TaskStatus.done else None
-                )
+                completed_at = datetime.now(UTC) if status == TaskStatus.done else None
                 db.add(
                     Task(
                         org_id=founder_org.id,
                         title=str(spec["title"]),
-                        description=(
-                            str(spec["description"]) if spec["description"] else None
-                        ),
+                        description=(str(spec["description"]) if spec["description"] else None),
                         status=status,
                         priority=spec["priority"],
                         milestone_id=milestone_row.id if milestone_row is not None else None,
-                        assignee_id=(
-                            assignee_user.id if assignee_user is not None else None
-                        ),
+                        assignee_id=(assignee_user.id if assignee_user is not None else None),
                         created_by=assignee_user.id if assignee_user is not None else None,
                         due_on=seed_today + timedelta(days=int(spec["due_offset"])),  # type: ignore[arg-type]
                         completed_at=completed_at,
@@ -1132,9 +1189,7 @@ async def seed() -> None:
             labels_by_name = {
                 row.name: row
                 for row in (
-                    await db.execute(
-                        select(TaskLabel).where(TaskLabel.org_id == founder_org.id)
-                    )
+                    await db.execute(select(TaskLabel).where(TaskLabel.org_id == founder_org.id))
                 )
                 .scalars()
                 .all()
@@ -1175,9 +1230,7 @@ async def seed() -> None:
             # come from scripts/bootstrap_readiness.py; skip if not seeded.
             readiness_added = 0
             admin_user = (
-                await db.execute(
-                    select(User).where(User.primary_email == "admin@forma.dev")
-                )
+                await db.execute(select(User).where(User.primary_email == "admin@forma.dev"))
             ).scalar_one_or_none()
             profile_row = (
                 await db.execute(
@@ -1221,9 +1274,7 @@ async def seed() -> None:
                             else "Demo evidence added by the dev seed."
                         ),
                         notes=spec.get("notes"),
-                        signed_off_by=(
-                            admin_user.id if signed_off and admin_user else None
-                        ),
+                        signed_off_by=(admin_user.id if signed_off and admin_user else None),
                         signed_off_at=datetime.now(UTC) if signed_off else None,
                     )
                 )
@@ -1248,8 +1299,7 @@ async def seed() -> None:
                         select(func.count(StartupReadiness.id))
                         .join(
                             ReadinessCriterion,
-                            ReadinessCriterion.id
-                            == StartupReadiness.criterion_id,
+                            ReadinessCriterion.id == StartupReadiness.criterion_id,
                         )
                         .where(
                             StartupReadiness.org_id == founder_org.id,
@@ -1260,9 +1310,7 @@ async def seed() -> None:
                 ).scalar_one()
                 profile_row = (
                     await db.execute(
-                        select(StartupProfile).where(
-                            StartupProfile.org_id == founder_org.id
-                        )
+                        select(StartupProfile).where(StartupProfile.org_id == founder_org.id)
                     )
                 ).scalar_one()
                 profile_row.readiness_score = round(100 * signed / total) if total else 0
@@ -1325,9 +1373,7 @@ async def seed() -> None:
             while month <= 0:
                 month += 12
                 year -= 1
-            period_end = date(
-                year, month, calendar.monthrange(year, month)[1]
-            )
+            period_end = date(year, month, calendar.monthrange(year, month)[1])
             exists = (
                 await db.execute(
                     select(StartupMetric.id).where(
@@ -1428,8 +1474,7 @@ async def seed() -> None:
                 await db.execute(
                     select(StartupCompetitor.id).where(
                         StartupCompetitor.org_id == founder_org.id,
-                        func.lower(StartupCompetitor.name)
-                        == str(spec["name"]).lower(),
+                        func.lower(StartupCompetitor.name) == str(spec["name"]).lower(),
                         StartupCompetitor.deleted_at.is_(None),
                     )
                 )
@@ -1533,9 +1578,7 @@ async def seed() -> None:
         mentors8a_added = 0
         for spec in STEP8A_MENTORS:
             mentor_user = (
-                await db.execute(
-                    select(User).where(User.primary_email == spec["email"])
-                )
+                await db.execute(select(User).where(User.primary_email == spec["email"]))
             ).scalar_one_or_none()
             if mentor_user is None:
                 continue
@@ -1548,9 +1591,7 @@ async def seed() -> None:
                 mentor_user.region = spec["region"]
             existing = (
                 await db.execute(
-                    select(MentorProfile).where(
-                        MentorProfile.user_id == mentor_user.id
-                    )
+                    select(MentorProfile).where(MentorProfile.user_id == mentor_user.id)
                 )
             ).scalar_one_or_none()
             if existing is not None:
@@ -1587,12 +1628,12 @@ async def seed() -> None:
         mentorships_added = 0
         availability_added = 0
         sessions_added = 0
+        deliverables_added = 0
+        earnings_added = 0
         if founder_org is not None:
             for spec in STEP8BCD_MENTORSHIPS:
                 mentor_user = (
-                    await db.execute(
-                        select(User).where(User.primary_email == spec["email"])
-                    )
+                    await db.execute(select(User).where(User.primary_email == spec["email"]))
                 ).scalar_one_or_none()
                 if mentor_user is None:
                     continue
@@ -1603,9 +1644,7 @@ async def seed() -> None:
                             Mentorship.mentor_id == mentor_user.id,
                             Mentorship.startup_org_id == founder_org.id,
                             Mentorship.deleted_at.is_(None),
-                            Mentorship.status.in_(
-                                [s.value for s in BUSY_STATUSES]
-                            ),
+                            Mentorship.status.in_([s.value for s in BUSY_STATUSES]),
                         )
                     )
                 ).scalar_one_or_none()
@@ -1688,6 +1727,151 @@ async def seed() -> None:
                             )
                         )
                         sessions_added += 1
+
+                    # 8e: deliverables, on the active mentorship only.
+                    for item in STEP8E_DELIVERABLES:
+                        has_deliverable = (
+                            await db.execute(
+                                select(MentorDeliverable.id).where(
+                                    MentorDeliverable.mentorship_id == row.id,
+                                    MentorDeliverable.title == item["title"],
+                                    MentorDeliverable.deleted_at.is_(None),
+                                )
+                            )
+                        ).first()
+                        if has_deliverable is not None:
+                            continue
+                        db.add(
+                            MentorDeliverable(
+                                mentorship_id=row.id,
+                                title=item["title"],
+                                description=item["description"],
+                                status=DeliverableStatus(item["status"]),
+                                due_on=date.today() + timedelta(days=item["due_in_days"]),
+                                evidence=item["evidence"],
+                                # The founder is the active member doing the work.
+                                owner_id=founder_user.id if founder_user else None,
+                                submitted_at=(
+                                    datetime.now(UTC)
+                                    if item["status"] in ("submitted", "accepted")
+                                    else None
+                                ),
+                                reviewed_at=(
+                                    datetime.now(UTC) if item["status"] == "accepted" else None
+                                ),
+                                reviewed_by=(
+                                    mentor_user.id if item["status"] == "accepted" else None
+                                ),
+                            )
+                        )
+                        deliverables_added += 1
+
+                    # 8h: one paid, COMPLETED session and the earning it
+                    # creates, so the mentor earnings page has a row. Built
+                    # through the same arithmetic the API uses.
+                    has_paid = (
+                        await db.execute(
+                            select(MentorEarning.id)
+                            .where(MentorEarning.mentor_id == mentor_user.id)
+                            .limit(1)
+                        )
+                    ).first()
+                    if has_paid is None and spec["fee_amount"]:
+                        paid_session = MentoringSession(
+                            mentorship_id=row.id,
+                            topic="Pricing review",
+                            session_type="advisory",
+                            status=SessionStatus.completed,
+                            scheduled_at=(datetime.now(UTC) - timedelta(days=12)).replace(
+                                second=0, microsecond=0
+                            ),
+                            duration_min=45,
+                            meeting_url="https://meet.forma.example/demo-session",
+                            summary="Reviewed the pricing tiers and agreed the next experiment.",
+                            completed_at=datetime.now(UTC) - timedelta(days=12),
+                            fee_amount=spec["fee_amount"],
+                            currency="INR",
+                        )
+                        db.add(paid_session)
+                        await db.flush()
+                        db.add(
+                            SessionAttendee(
+                                session_id=paid_session.id,
+                                user_id=mentor_user.id,
+                                role=AttendeeRole.mentor,
+                            )
+                        )
+                        commission = Decimal(spec["fee_amount"]) * Decimal("0")
+                        net = Decimal(spec["fee_amount"]) - commission
+                        db.add(
+                            MentorEarning(
+                                mentor_id=mentor_user.id,
+                                session_id=paid_session.id,
+                                gross_amount=Decimal(spec["fee_amount"]),
+                                commission_amount=commission,
+                                tds_amount=Decimal("0"),
+                                net_amount=net,
+                                currency="INR",
+                                status=EarningStatus.paid,
+                                earned_on=date.today() - timedelta(days=12),
+                            )
+                        )
+                        earnings_added += 1
+                    # 8i: a real, explicitly consented review of a completed
+                    # dev session; never recreate a withdrawn review.
+                    if founder_user:
+                        await db.flush()
+                        reviewed_session = (
+                            await db.execute(
+                                select(MentoringSession)
+                                .where(
+                                    MentoringSession.mentorship_id == row.id,
+                                    MentoringSession.topic == "Pricing review",
+                                    MentoringSession.status == SessionStatus.completed,
+                                )
+                                .limit(1)
+                            )
+                        ).scalar_one_or_none()
+                        if reviewed_session:
+                            attendee = (
+                                await db.execute(
+                                    select(SessionAttendee).where(
+                                        SessionAttendee.session_id == reviewed_session.id,
+                                        SessionAttendee.user_id == founder_user.id,
+                                    )
+                                )
+                            ).scalar_one_or_none()
+                            if attendee is None:
+                                db.add(
+                                    SessionAttendee(
+                                        session_id=reviewed_session.id,
+                                        user_id=founder_user.id,
+                                        role=AttendeeRole.startup,
+                                    )
+                                )
+                            existing_review = (
+                                await db.execute(
+                                    select(SessionReview.id).where(
+                                        SessionReview.session_id == reviewed_session.id,
+                                        SessionReview.reviewer_id == founder_user.id,
+                                    )
+                                )
+                            ).first()
+                            if existing_review is None:
+                                profile = await session_review_service._lock_profile(
+                                    db, mentor_user.id
+                                )
+                                db.add(
+                                    SessionReview(
+                                        session_id=reviewed_session.id,
+                                        reviewer_id=founder_user.id,
+                                        rating=5,
+                                        public_text="Thoughtful and direct. We left the session with clear next steps.",
+                                        public_consent=True,
+                                        anonymous=True,
+                                    )
+                                )
+                                await session_review_service._recompute(db, profile)
             await db.commit()
 
     await engine.dispose()
@@ -1714,6 +1898,8 @@ async def seed() -> None:
     print(f"  + mentorships (8b): {mentorships_added}")
     print(f"  + availability windows (8c): {availability_added}")
     print(f"  + sessions (8d): {sessions_added}")
+    print(f"  + deliverables (8e): {deliverables_added}")
+    print(f"  + earnings (8h): {earnings_added}")
     print(f"  + stage tool progress (5i/5j): {tools_added}")
     print(f"  + market size (5l): {market_added}")
     print(f"  + competitors (5l): {competitors_added}")

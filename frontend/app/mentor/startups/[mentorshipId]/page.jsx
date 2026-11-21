@@ -41,8 +41,10 @@ export default function MentorshipWorkspacePage() {
 
   const [mentorship, setMentorship] = useState(null);
   const [sessions, setSessions] = useState([]);
+  const [sessionTotal, setSessionTotal] = useState(0);
   const [tasks, setTasks] = useState([]);
   const [readiness, setReadiness] = useState(null);
+  const [readinessError, setReadinessError] = useState('');
   const [phase, setPhase] = useState('loading'); // loading|ready|error|notfound
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
@@ -64,27 +66,28 @@ export default function MentorshipWorkspacePage() {
 
     (async () => {
       try {
-        const m = await api.mentorships.get(mentorshipId);
+        const { mentorship: m } = await api.mentorWorkspace.get(mentorshipId);
         if (!alive) return;
         setMentorship(m);
 
         const [sessionsRes, tasksRes, readinessRes] = await Promise.allSettled([
           api.sessions.forMentorship(mentorshipId, { limit: 50 }),
-          m.startup_org_id ? api.tasks.list(m.startup_org_id, { limit: 50 }) : Promise.resolve({ items: [] }),
-          m.startup_org_id ? api.readiness.board(m.startup_org_id) : Promise.resolve(null),
+          api.deliverables.list(mentorshipId, { limit: 50 }),
+          api.mentorWorkspace.readiness(mentorshipId),
         ]);
 
         if (!alive) return;
 
         if (sessionsRes.status === 'fulfilled') {
           setSessions(sessionsRes.value.items || []);
-        }
+          setSessionTotal(sessionsRes.value.total);
+        } else { throw sessionsRes.reason; }
         if (tasksRes.status === 'fulfilled') {
           setTasks(tasksRes.value.items || []);
-        }
+        } else { throw tasksRes.reason; }
         if (readinessRes.status === 'fulfilled' && readinessRes.value) {
-          setReadiness(readinessRes.value);
-        }
+          setReadiness(readinessRes.value); setReadinessError('');
+        } else { setReadiness(null); setReadinessError('Readiness is unavailable for this mentorship.'); }
 
         setPhase('ready');
       } catch (err) {
@@ -142,9 +145,8 @@ export default function MentorshipWorkspacePage() {
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
   const nextSession = upcoming[0] || null;
 
-  const readinessSigned = readiness?.summary?.criteria_signed_off || 0;
-  const readinessTotal = readiness?.summary?.criteria_total || 6;
-  const readinessPct = readiness?.summary?.readiness_pct || Math.round((readinessSigned / readinessTotal) * 100);
+  const readinessSigned = readiness?.summary?.criteria_signed_off ?? '—';
+  const readinessTotal = readiness?.summary?.criteria_total ?? '—';
 
   return (
     <MentorPageShell
@@ -343,7 +345,7 @@ export default function MentorshipWorkspacePage() {
                   <>
                     <div className="mb-3 flex items-center justify-between text-xs">
                       <p className="text-[#4A5568]">
-                        {sessions.length} total session{sessions.length === 1 ? '' : 's'} recorded.
+                        {sessionTotal} total session{sessionTotal === 1 ? '' : 's'} recorded.
                       </p>
                       <Link href={`/mentor/sessions?mentorship_id=${mentorship.id}`} className="font-semibold text-[#9A7A45]">
                         View in session calendar →
@@ -396,7 +398,7 @@ export default function MentorshipWorkspacePage() {
                               <th className="py-3 font-medium">Deliverable</th>
                               <th className="py-3 font-medium">Due</th>
                               <th className="py-3 font-medium">Status</th>
-                              <th className="py-3 font-medium">Priority</th>
+                              <th className="py-3 font-medium">Owner</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -409,7 +411,7 @@ export default function MentorshipWorkspacePage() {
                                     {t.status.replace('_', ' ')}
                                   </span>
                                 </td>
-                                <td className="capitalize text-[#4A5568]">{t.priority}</td>
+                                <td className="capitalize text-[#4A5568]">{t.owner?.display_name || 'Unassigned'}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -430,7 +432,7 @@ export default function MentorshipWorkspacePage() {
                         const isSigned = item.status === 'signed_off';
                         return (
                           <div
-                            key={item.id}
+                            key={item.criterion_id}
                             className="flex flex-wrap items-center gap-2 rounded-lg border border-[#E5E1D8] p-3 text-xs"
                           >
                             <span className={isSigned ? 'text-[#286749]' : 'text-[#8A5700]'}>
@@ -448,7 +450,7 @@ export default function MentorshipWorkspacePage() {
                         );
                       })
                     ) : (
-                      <p className="text-xs text-[#4A5568]">No readiness criteria configured for this startup yet.</p>
+                      <p className="text-xs text-[#4A5568]">{readinessError || 'No readiness criteria configured for this startup yet.'}</p>
                     )}
                   </div>
                 ) : workspaceTab === 'Notes' ? (
@@ -472,21 +474,10 @@ export default function MentorshipWorkspacePage() {
                   </>
                 ) : (
                   <>
-                    <p className="text-xs text-[#4A5568]">
-                      Shared data room documents and pitch decks are visible on the startup profile.
-                    </p>
-                    <div className="mt-3 rounded-lg border border-dashed border-[#E5E1D8] p-6 text-center">
+                    <div className="rounded-lg border border-dashed border-[#E5E1D8] p-6 text-center">
                       <FileText className="mx-auto mb-2 text-[#9A7A45]" size={20} />
-                      <p className="text-sm font-semibold text-[#0F1B2D]">Startup Profile & Documents</p>
-                      <p className="mt-1 text-xs text-[#4A5568]">
-                        Access pitch decks, cap table, and traction documents shared by {startupName}.
-                      </p>
-                      <Link
-                        href={`/mentor/startups/${mentorship.id}/startup`}
-                        className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]"
-                      >
-                        Open startup documents →
-                      </Link>
+                      <p className="text-sm font-semibold text-[#0F1B2D]">Startup documents</p>
+                      <p className="mt-1 text-xs text-[#4A5568]">Shared documents are not available here yet.</p>
                     </div>
                   </>
                 )}

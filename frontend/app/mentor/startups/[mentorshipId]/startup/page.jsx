@@ -43,17 +43,13 @@ export default function MenteeStartupProfilePage() {
 
     (async () => {
       try {
-        const m = await api.mentorships.get(mentorshipId);
+        const { mentorship: m } = await api.mentorWorkspace.get(mentorshipId);
         if (!alive) return;
         setMentorship(m);
 
         if (m.startup_org_id) {
-          try {
-            const r = await api.readiness.board(m.startup_org_id);
-            if (alive) setReadiness(r);
-          } catch {
-            // ignore readiness load failure
-          }
+          const r = await api.mentorWorkspace.readiness(mentorshipId);
+          if (alive) setReadiness(r);
         }
         setPhase('ready');
       } catch (err) {
@@ -74,9 +70,9 @@ export default function MenteeStartupProfilePage() {
   const startup = mentorship?.startup;
   const startupName = startup?.display_name || 'Startup';
   const startupStage = startup?.stage ? (STAGE_LABEL[startup.stage] || startup.stage) : 'Stage not specified';
-  const readinessSigned = readiness?.summary?.criteria_signed_off || 0;
-  const readinessTotal = readiness?.summary?.criteria_total || 6;
-  const readinessPct = readiness?.summary?.readiness_pct || Math.round((readinessSigned / readinessTotal) * 100);
+  const readinessSigned = readiness?.summary?.criteria_signed_off ?? 0;
+  const readinessTotal = readiness?.summary?.criteria_total ?? 0;
+  const readinessPct = readiness?.summary?.readiness_pct ?? 0;
 
   return (
     <MentorPageShell
