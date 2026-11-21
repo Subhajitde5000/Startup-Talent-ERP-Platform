@@ -231,6 +231,89 @@ export type FundingRoundPage = components["schemas"]["FundingRoundPage"];
 export type FundingRoundSummary = components["schemas"]["FundingRoundSummary"];
 export type StatusTransition = components["schemas"]["StatusTransition"];
 
+// --- Step 9b: investor directory (startup view) -------------------------
+export type InvestorDirectoryItem = components["schemas"]["InvestorDirectoryItem"];
+export type InvestorDirectoryDetail = components["schemas"]["InvestorDirectoryDetail"];
+export type InvestorDirectoryPage = components["schemas"]["InvestorDirectoryPage"];
+export type InvestorDirectorySummary = components["schemas"]["InvestorDirectorySummary"];
+export type InvestorDirectoryFacets = components["schemas"]["InvestorDirectoryFacets"];
+export type InvestorType = components["schemas"]["InvestorType"];
+
+/** Whitelisted filters for `investorDirectory.list` (Step 9b). */
+export type InvestorDirectoryListQuery = {
+  q?: string;
+  investor_type?: InvestorType;
+  sector?: string;
+  stage_focus?: StartupStage;
+  ticket_min?: number;
+  ticket_max?: number;
+  location?: string;
+  verified_only?: boolean;
+  sort?: "name" | "recent";
+  limit?: number;
+  offset?: number;
+};
+
+// --- Step 9c: startup discovery (investor view) --------------------------
+export type InvestorStartupItem = components["schemas"]["InvestorStartupItem"];
+export type InvestorStartupDetail = components["schemas"]["InvestorStartupDetail"];
+export type InvestorStartupPage = components["schemas"]["InvestorStartupPage"];
+export type InvestorStartupFilters = components["schemas"]["InvestorStartupFilters"];
+export type InvestorRoundItem = components["schemas"]["InvestorRoundItem"];
+export type InvestorRoundPage = components["schemas"]["InvestorRoundPage"];
+
+/** Whitelisted filters for `investorDiscovery.list` (Step 9c). */
+export type InvestorStartupListQuery = {
+  sort?: "recent" | "name" | "stage" | "readiness";
+  order?: "asc" | "desc";
+  stage?: StartupStage;
+  sector?: string;
+  city?: string;
+  q?: string;
+  raise_min?: number;
+  raise_max?: number;
+  investment_ready_only?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
+// --- Step 9d: preferences, saved searches, shortlist ---------------------
+export type InvestorPreferenceRead = components["schemas"]["InvestorPreferenceRead"];
+export type InvestorPreferenceUpdate = components["schemas"]["InvestorPreferenceUpdate"];
+export type SavedSearchRead = components["schemas"]["SavedSearchRead"];
+export type SavedSearchCreate = components["schemas"]["SavedSearchCreate"];
+export type SavedSearchUpdate = components["schemas"]["SavedSearchUpdate"];
+export type ShortlistEntryRead = components["schemas"]["ShortlistEntryRead"];
+export type ShortlistEntryCreate = components["schemas"]["ShortlistEntryCreate"];
+export type ShortlistEntryUpdate = components["schemas"]["ShortlistEntryUpdate"];
+export type ShortlistStatus = components["schemas"]["ShortlistStatus"];
+
+// --- Step 9e: investor pipeline (deals) ----------------------------------
+export type PipelineStage = components["schemas"]["PipelineStage"];
+export type InvestorDealRead = components["schemas"]["InvestorDealRead"];
+export type InvestorDealCreate = components["schemas"]["InvestorDealCreate"];
+export type InvestorDealUpdate = components["schemas"]["InvestorDealUpdate"];
+export type InvestorDealPage = components["schemas"]["InvestorDealPage"];
+export type InvestorDealSummary = components["schemas"]["InvestorDealSummary"];
+export type InvestorDealHistoryItem = components["schemas"]["InvestorDealHistoryItem"];
+export type InvestorDealHistoryPage = components["schemas"]["InvestorDealHistoryPage"];
+export type StartupInvestorDealRead = components["schemas"]["StartupInvestorDealRead"];
+export type StartupInvestorDealPage = components["schemas"]["StartupInvestorDealPage"];
+
+/** Whitelisted filters for `investorDeals.list` (Step 9e). */
+export type InvestorDealListQuery = {
+  stage?: PipelineStage;
+  q?: string;
+  limit?: number;
+  offset?: number;
+};
+
+/** Whitelisted filters for `startupInvestorDeals.list` (Step 9e). */
+export type StartupInvestorDealListQuery = {
+  limit?: number;
+  offset?: number;
+};
+
 /** Whitelisted filters for `startups.discover` (Step 5h). */
 export type StartupDiscoveryQuery = {
   limit?: number;
@@ -1789,6 +1872,254 @@ export const api = {
       apiRequest<void>(`/organizations/${orgId}/funding-rounds/${roundId}`, {
         method: "DELETE",
       }),
+  },
+
+  // --- Step 9b: investor directory (startup view) -----------------------
+  investorDirectory: {
+    /** `GET /organizations/{orgId}/investors` — filtered investor list. */
+    list: (
+      orgId: string,
+      query?: InvestorDirectoryListQuery,
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<InvestorDirectoryPage>(
+        `/organizations/${orgId}/investors`,
+        { method: "GET", query: query as Record<string, string | number | boolean | undefined>, signal },
+      ),
+
+    /** `GET /organizations/{orgId}/investors/summary` — header roll-up. */
+    summary: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<InvestorDirectorySummary>(
+        `/organizations/${orgId}/investors/summary`,
+        { method: "GET", signal },
+      ),
+
+    /** `GET /organizations/{orgId}/investors/filters` — facet values. */
+    filters: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<InvestorDirectoryFacets>(
+        `/organizations/${orgId}/investors/filters`,
+        { method: "GET", signal },
+      ),
+
+    /** `GET /organizations/{orgId}/investors/{investorOrgId}` — one firm. */
+    get: (orgId: string, investorOrgId: string, signal?: AbortSignal) =>
+      apiRequest<InvestorDirectoryDetail>(
+        `/organizations/${orgId}/investors/${investorOrgId}`,
+        { method: "GET", signal },
+      ),
+  },
+
+  // --- Step 9c: startup discovery (investor view) ------------------------
+  investorDiscovery: {
+    /** `GET /investors/startups` — filtered startup list. */
+    list: (
+      query?: InvestorStartupListQuery,
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<InvestorStartupPage>(`/investors/startups`, {
+        method: "GET",
+        query: query as Record<string, string | number | boolean | undefined>,
+        signal,
+      }),
+
+    /** `GET /investors/startups/filters` — facet values. */
+    filters: (signal?: AbortSignal) =>
+      apiRequest<InvestorStartupFilters>(`/investors/startups/filters`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** `GET /investors/startups/{identifier}` — one startup detail. */
+    get: (identifier: string, signal?: AbortSignal) =>
+      apiRequest<InvestorStartupDetail>(
+        `/investors/startups/${encodeURIComponent(identifier)}`,
+        { method: "GET", signal },
+      ),
+
+    /** `GET /investors/startups/{identifier}/rounds` — its rounds. */
+    rounds: (
+      identifier: string,
+      query?: { limit?: number; offset?: number },
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<InvestorRoundPage>(
+        `/investors/startups/${encodeURIComponent(identifier)}/rounds`,
+        { method: "GET", query, signal },
+      ),
+  },
+
+  // --- Step 9d: preferences, saved searches, shortlist --------------------
+  investorPreferences: {
+    /** `GET /investors/me/preferences` — current thesis filters. */
+    get: (signal?: AbortSignal) =>
+      apiRequest<InvestorPreferenceRead>(`/investors/me/preferences`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** `PUT /investors/me/preferences` — full replace (member+). */
+    update: (body: InvestorPreferenceUpdate) =>
+      apiRequest<InvestorPreferenceRead>(`/investors/me/preferences`, {
+        method: "PUT",
+        body,
+      }),
+  },
+
+  investorSearches: {
+    /** `GET /investors/me/saved-searches` — my saved searches. */
+    list: (signal?: AbortSignal) =>
+      apiRequest<SavedSearchRead[]>(`/investors/me/saved-searches`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** `POST /investors/me/saved-searches` — create (member+). */
+    create: (body: SavedSearchCreate) =>
+      apiRequest<SavedSearchRead>(`/investors/me/saved-searches`, {
+        method: "POST",
+        body,
+      }),
+
+    /** `PATCH /investors/me/saved-searches/{id}` — edit (member+). */
+    update: (id: string, body: SavedSearchUpdate) =>
+      apiRequest<SavedSearchRead>(`/investors/me/saved-searches/${id}`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /** `DELETE /investors/me/saved-searches/{id}` — soft delete (member+). */
+    remove: (id: string) =>
+      apiRequest<void>(`/investors/me/saved-searches/${id}`, {
+        method: "DELETE",
+      }),
+
+    /** `GET /investors/me/saved-searches/{id}/matches` — matching startups. */
+    matches: (
+      id: string,
+      query?: { limit?: number; offset?: number },
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<InvestorStartupPage>(
+        `/investors/me/saved-searches/${id}/matches`,
+        { method: "GET", query, signal },
+      ),
+  },
+
+  investorShortlist: {
+    /** `GET /investors/me/shortlist` — my shortlisted startups. */
+    list: (signal?: AbortSignal) =>
+      apiRequest<ShortlistEntryRead[]>(`/investors/me/shortlist`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** `POST /investors/me/shortlist` — add (member+). */
+    add: (body: ShortlistEntryCreate) =>
+      apiRequest<ShortlistEntryRead>(`/investors/me/shortlist`, {
+        method: "POST",
+        body,
+      }),
+
+    /** `PATCH /investors/me/shortlist/{id}` — edit note/status (member+). */
+    update: (id: string, body: ShortlistEntryUpdate) =>
+      apiRequest<ShortlistEntryRead>(`/investors/me/shortlist/${id}`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /** `DELETE /investors/me/shortlist/{id}` — remove (member+). */
+    remove: (id: string) =>
+      apiRequest<void>(`/investors/me/shortlist/${id}`, {
+        method: "DELETE",
+      }),
+  },
+
+  // --- Step 9e: investor pipeline (deals) -------------------------------
+  investorDeals: {
+    /** `GET /investors/deals` — my firm's deals, newest activity first. */
+    list: (query?: InvestorDealListQuery, signal?: AbortSignal) =>
+      apiRequest<InvestorDealPage>(`/investors/deals`, {
+        method: "GET",
+        query: query as Record<string, string | number | boolean | undefined>,
+        signal,
+      }),
+
+    /** `GET /investors/deals/summary` — counts per stage. */
+    summary: (signal?: AbortSignal) =>
+      apiRequest<InvestorDealSummary>(`/investors/deals/summary`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** `POST /investors/deals` — open a deal (member+). */
+    create: (body: InvestorDealCreate) =>
+      apiRequest<InvestorDealRead>(`/investors/deals`, {
+        method: "POST",
+        body,
+      }),
+
+    /** `GET /investors/deals/{id}` — one deal. */
+    get: (dealId: string, signal?: AbortSignal) =>
+      apiRequest<InvestorDealRead>(`/investors/deals/${dealId}`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** `PATCH /investors/deals/{id}` — edit (member+). */
+    update: (dealId: string, body: InvestorDealUpdate) =>
+      apiRequest<InvestorDealRead>(`/investors/deals/${dealId}`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /** `DELETE /investors/deals/{id}` — soft delete (member+). */
+    remove: (dealId: string) =>
+      apiRequest<void>(`/investors/deals/${dealId}`, {
+        method: "DELETE",
+      }),
+
+    /** `GET /investors/deals/{id}/history` — stage-change log. */
+    history: (
+      dealId: string,
+      query?: { limit?: number; offset?: number },
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<InvestorDealHistoryPage>(
+        `/investors/deals/${dealId}/history`,
+        { method: "GET", query, signal },
+      ),
+  },
+
+  // --- Step 9e: startup-side view of investor deals ----------------------
+  startupInvestorDeals: {
+    /** `GET /organizations/{orgId}/investor-deals` — deals targeting me. */
+    list: (
+      orgId: string,
+      query?: StartupInvestorDealListQuery,
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<StartupInvestorDealPage>(
+        `/organizations/${orgId}/investor-deals`,
+        {
+          method: "GET",
+          query: query as Record<string, string | number | boolean | undefined>,
+          signal,
+        },
+      ),
+
+    /** `GET /organizations/{orgId}/investor-deals/{investorOrgId}`. */
+    get: (orgId: string, investorOrgId: string, signal?: AbortSignal) =>
+      apiRequest<StartupInvestorDealRead>(
+        `/organizations/${orgId}/investor-deals/${investorOrgId}`,
+        { method: "GET", signal },
+      ),
+
+    /** `PATCH /organizations/{orgId}/investor-deals/{investorOrgId}` — stage only. */
+    updateStage: (orgId: string, investorOrgId: string, stage: PipelineStage) =>
+      apiRequest<StartupInvestorDealRead>(
+        `/organizations/${orgId}/investor-deals/${investorOrgId}`,
+        { method: "PATCH", body: { stage } },
+      ),
   },
 
   reviews: {

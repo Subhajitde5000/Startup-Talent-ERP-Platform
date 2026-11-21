@@ -24,6 +24,10 @@ from app.routers import (
     discovery,
     earning,
     funding_round,
+    investor_deal,
+    investor_directory,
+    investor_discovery,
+    investor_search,
     invites,
     market,
     mentor,
@@ -118,6 +122,10 @@ def create_app() -> FastAPI:
     app.include_router(startup_profile.router, prefix=settings.API_V1_PREFIX)
     app.include_router(milestones.router, prefix=settings.API_V1_PREFIX)
     app.include_router(funding_round.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(investor_search.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(investor_deal.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(investor_directory.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(investor_discovery.router, prefix=settings.API_V1_PREFIX)
     app.include_router(tasks.router, prefix=settings.API_V1_PREFIX)
     app.include_router(readiness.router, prefix=settings.API_V1_PREFIX)
     # Step 8f: mentor sign-off through the mentorship it comes from.

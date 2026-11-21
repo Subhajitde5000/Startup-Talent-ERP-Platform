@@ -266,20 +266,20 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [x] B: /startup/rounds, /startup/rounds/[roundId] wired; demo data removed
 
 ### 9b Investor directory (startup view)
-- [ ] A: Startup searches and filters investors, public investor page; uses the investor organization profile and, once 9d exists, investor preferences
-- [ ] B: /startup/investors/discover, /startup/investors/[investorId] wired; demo data removed
+- [x] A: Startup searches and filters investors, public investor page; uses the investor organization profile and, once 9d exists, investor preferences — read-only, no new tables; 4 endpoints (`GET /organizations/{org_id}/investors` list with q/type/sector/stage/ticket/location/verified filters + pagination, `/summary`, `/filters`, `/{investor_org_id}`); any active startup member (viewer included); foreign org 404; rate-limited; tests pass on SQLite (ruff/mypy clean)
+- [x] B: /startup/investors/discover, /startup/investors/[investorId] wired to the 9b directory APIs (list/summary/filters/get) in `investor-app.jsx`; loading/empty/error states; demo data removed to `seed_dev.py`
 
 ### 9c Startup discovery (investor view)
-- [ ] A: Search startups with filters, startup detail respecting visibility and round toggles; compare stays client-side
-- [ ] B: /investor/discover, /investor/startups/[startupId], /investor/compare wired; demo data removed
+- [x] A: Search startups with filters, startup detail respecting visibility and round toggles; compare stays client-side — read-only, no new tables; 4 endpoints (`GET /investors/startups` list, `/filters`, `/{identifier}` detail, `/{identifier}/rounds`); any signed-in user (5h visibility); round data gated by `round_public` (aggregates NULL + `round_visible` flag, rounds 404 when not opted in); shared query with 9d matches; tests pass on SQLite (ruff/mypy clean)
+- [x] B: /investor/discover, /investor/startups/[startupId], /investor/compare wired to the 9c discovery APIs (list/filters/get/rounds, and `/investors/deals` for compare); loading/empty/error states; demo data removed to `seed_dev.py` (added `org_id` to the 9c item/detail schema for shortlist links)
 
 ### 9d Preferences, saved searches and shortlist (GAP)
-- [ ] A: Investor preferences (sectors, stage, ticket size), saved searches, shortlist; propose tables first
-- [ ] B: /investor/searches, /investor/shortlist, preferences in profile edit wired; demo data removed
+- [x] A: Investor preferences (sectors, stage, ticket size), saved searches, shortlist; propose tables first — `investor_preferences`/`saved_searches`/`shortlist_entries` (migration 0025); 11 endpoints under `/investors/me`; investor-firm member read / owner-admin-member write (viewer 403), org-scoped 404, criteria whitelist, soft delete, audit rows; tests pass on SQLite (ruff/mypy clean)
+- [x] B: /investor/searches, /investor/shortlist wired to the 9d CRUD APIs; investment preferences (ticket range, stage focus, sectors) wired into profile edit (`PUT /investors/me/preferences`); loading/empty/error states; demo data removed to `seed_dev.py`
 
 ### 9e Pipeline
-- [ ] A: Investor deal board with stages, probability, ticket size, next step, stage history, private notes; the startup sees its own investor list without private notes
-- [ ] B: /investor/pipeline, /startup/investors/pipeline wired; demo data removed
+- [x] A: Investor deal board with stages, probability, ticket size, next step, stage history, private notes; the startup sees its own investor list without private notes — `investor_deals` (schema.sql verbatim) + `investor_deal_stage_history` (migration 0026), `pipeline_stage` gains `diligence`; 10 endpoints (investor: list/create/summary/get/patch/delete/history; startup: list/get/stage-only patch); startup read strips `fit_note`/`probability`/`passed_reason`/`owner_id`; stage changes logged in-transaction; tests pass on SQLite (ruff/mypy clean)
+- [x] B: /investor/pipeline, /startup/investors/pipeline wired to the 9e deal APIs (list/summary/create/update/delete, stage-only PATCH); Board/Table/Funnel from real deals; loading/empty/error states; demo data removed to `seed_dev.py`
 
 ### 9f Requests, introductions and meetings (GAP)
 - [ ] A: Intro, meeting and information requests between investors and startups; propose the model first
