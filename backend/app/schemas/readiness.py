@@ -97,6 +97,12 @@ class ReadinessRead(BaseModel):
     evidence: str | None
     notes: str | None
     signed_off_by: uuid.UUID | None
+    # Step 8f: the engagement a mentor signed off through (None for admin).
+    signed_off_mentorship_id: uuid.UUID | None = None
+    # Who signed it off, resolved for display. A UUID alone cannot be shown
+    # on the startup's readiness page, and asking the client to look it up
+    # would leak a users-by-id lookup. None until somebody signs off.
+    signed_off_by_name: str | None = None
     signed_off_at: datetime | None
     updated_at: datetime | None
 

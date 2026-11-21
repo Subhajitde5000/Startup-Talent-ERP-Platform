@@ -146,6 +146,34 @@ export type MentorSuggestionPage = components["schemas"]["MentorSuggestionPage"]
 // Step 5h discovery read, reused by the mentor Discover page (Step 8b).
 export type StartupDiscoveryItem = components["schemas"]["StartupDiscoveryItem"];
 export type StartupDiscoveryPage = components["schemas"]["StartupDiscoveryPage"];
+export type StartupDiscoveryDetail = {
+  id: string;
+  slug: string;
+  name: string;
+  logo_url?: string | null;
+  tagline?: string | null;
+  stage?: StartupStage | null;
+  sector?: string | null;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+  founded_year?: number | null;
+  website?: string | null;
+  mentor_verified: boolean;
+  readiness_score?: number | null;
+  summary?: string | null;
+  business_model?: string | null;
+  problem?: string | null;
+  solution?: string | null;
+  market?: string | null;
+  traction_summary?: string | null;
+  ecosystem_goals?: string[];
+  demo_url?: string | null;
+  pitch_deck_url?: string | null;
+  existing_mentorship_id?: string | null;
+  existing_mentorship_status?: string | null;
+  is_member?: boolean;
+};
 
 // --- Steps 8b / 8c / 8d: mentorships, availability, sessions --------------
 export type MentorshipStatus = components["schemas"]["MentorshipStatus"];
@@ -175,6 +203,19 @@ export type SessionComplete = components["schemas"]["SessionComplete"];
 export type SessionNoShow = components["schemas"]["SessionNoShow"];
 export type SessionRead = components["schemas"]["SessionRead"];
 export type SessionPage = components["schemas"]["SessionPage"];
+
+// Step 8e: mentor deliverables.
+export type DeliverableStatus = components["schemas"]["DeliverableStatus"];
+export type DeliverableCreate = components["schemas"]["DeliverableCreate"];
+export type DeliverableUpdate = components["schemas"]["DeliverableUpdate"];
+export type DeliverableRead = components["schemas"]["DeliverableRead"];
+export type DeliverablePage = components["schemas"]["DeliverablePage"];
+
+// Step 8h: the mentor's own earnings.
+export type EarningStatus = components["schemas"]["EarningStatus"];
+export type EarningRead = components["schemas"]["EarningRead"];
+export type EarningPage = components["schemas"]["EarningPage"];
+export type EarningSummary = components["schemas"]["EarningSummary"];
 
 /** Whitelisted filters for `startups.discover` (Step 5h). */
 export type StartupDiscoveryQuery = {
@@ -220,6 +261,21 @@ export type TaskListQuery = {
   label_id?: string;
 };
 
+/** Whitelisted filters for `deliverables.list` (Step 8e, all server-side). */
+export type DeliverableListQuery = {
+  status?: DeliverableStatus;
+  overdue_only?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
+/** Whitelisted filters for `earnings.list` (Step 8h). */
+export type EarningListQuery = {
+  status?: EarningStatus;
+  limit?: number;
+  offset?: number;
+};
+
 /** Whitelisted filters/sorts for `mentors.list` (Step 8a). */
 export type MentorListQuery = {
   limit?: number;
@@ -235,6 +291,17 @@ export type MentorListQuery = {
   max_fee?: number;
   q?: string;
 };
+
+// Steps 8i/8j: reviews and workspace summaries.
+export type ReviewCreate = components["schemas"]["ReviewCreate"];
+export type ReviewRead = components["schemas"]["ReviewRead"];
+export type MentorReviewPage = components["schemas"]["MentorReviewPage"];
+export type PublicReviewPage = components["schemas"]["PublicReviewPage"];
+export type WorkspaceRead = components["schemas"]["WorkspaceRead"];
+export type MentorDashboardRead = components["schemas"]["MentorDashboardRead"];
+export type ImpactRead = components["schemas"]["ImpactRead"];
+export type StartupMentorshipOverview = components["schemas"]["StartupMentorshipOverview"];
+export type ScopedReadinessBoard = components["schemas"]["ScopedReadinessBoard"];
 
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "/api/v1").replace(/\/+$/, "");
 
@@ -803,6 +870,13 @@ export const api = {
     discover: (query: StartupDiscoveryQuery = {}, signal?: AbortSignal) =>
       apiRequest<StartupDiscoveryPage>("/startups", { method: "GET", query, signal }),
 
+    /** `GET /startups/{identifier}` — full discoverable profile for signed-in viewers. */
+    get: (identifier: string, signal?: AbortSignal) =>
+      apiRequest<StartupDiscoveryDetail>(`/startups/${encodeURIComponent(identifier)}`, {
+        method: "GET",
+        signal,
+      }),
+
     /** `GET /public/startups` — the same read, anonymously, public rows only. */
     discoverPublic: (query: StartupDiscoveryQuery = {}, signal?: AbortSignal) =>
       apiRequest<StartupDiscoveryPage>("/public/startups", {
@@ -1104,6 +1178,26 @@ export const api = {
     withdraw: (orgId: string, criterionId: string) =>
       apiRequest<ReadinessItem>(
         `/organizations/${orgId}/readiness/${criterionId}/withdraw`,
+        { method: "POST" },
+      ),
+
+    /**
+     * `POST /mentorships/{id}/readiness/{criterion_id}/sign-off` (Step 8f).
+     *
+     * The mentor ON that row, and only while it is `active` (409 otherwise).
+     * Every startup member — the owner included — gets 403, which is what
+     * makes self-sign-off impossible. Independent of the admin route below.
+     */
+    mentorSignOff: (mentorshipId: string, criterionId: string) =>
+      apiRequest<ReadinessItem>(
+        `/mentorships/${mentorshipId}/readiness/${criterionId}/sign-off`,
+        { method: "POST" },
+      ),
+
+    /** `POST …/revoke` — only the sign-off that came through this row (409). */
+    mentorRevoke: (mentorshipId: string, criterionId: string) =>
+      apiRequest<ReadinessItem>(
+        `/mentorships/${mentorshipId}/readiness/${criterionId}/revoke`,
         { method: "POST" },
       ),
 
@@ -1530,6 +1624,95 @@ export const api = {
         `/mentors/${encodeURIComponent(handle)}/availability`,
         { method: "GET", signal },
       ),
+  },
+
+  /**
+   * Step 8e: mentor deliverables.
+   *
+   * Read authorization is "any active member of the startup, viewer
+   * included"; writes are the mentor on the row, and the assignee may only
+   * move `status`/`evidence`. `can_edit` is computed server-side, so the UI
+   * never re-derives permission from ids.
+   */
+  deliverables: {
+    /** `GET /mentorships/{id}/deliverables` — one engagement's work. */
+    list: (
+      mentorshipId: string,
+      query: DeliverableListQuery = {},
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<DeliverablePage>(`/mentorships/${mentorshipId}/deliverables`, {
+        method: "GET",
+        query: query as Record<string, string | number | boolean | undefined>,
+        signal,
+      }),
+
+    /** `GET /deliverables/{id}` — member of the startup, else 404. */
+    get: (deliverableId: string, signal?: AbortSignal) =>
+      apiRequest<DeliverableRead>(`/deliverables/${deliverableId}`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** `POST /mentorships/{id}/deliverables` — mentor on the row only. */
+    create: (mentorshipId: string, body: DeliverableCreate) =>
+      apiRequest<DeliverableRead>(`/mentorships/${mentorshipId}/deliverables`, {
+        method: "POST",
+        body,
+      }),
+
+    /**
+     * `PATCH /deliverables/{id}` — mentor edits anything; the assignee may
+     * only send `status`/`evidence` (403 otherwise). Illegal transitions are
+     * 422 with `loc: ["body","status"]`.
+     */
+    update: (deliverableId: string, body: DeliverableUpdate) =>
+      apiRequest<DeliverableRead>(`/deliverables/${deliverableId}`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /** `DELETE /deliverables/{id}` — soft delete, mentor on the row. */
+    remove: (deliverableId: string) =>
+      apiRequest<void>(`/deliverables/${deliverableId}`, { method: "DELETE" }),
+
+
+  },
+
+  /**
+   * Step 8h: the mentor's own earnings. Read-only — rows are created by
+   * completing a paid session, and payouts belong to Step 14f.
+   */
+  earnings: {
+    /** `GET /mentor/earnings` — mine only, newest first. */
+    list: (query: EarningListQuery = {}, signal?: AbortSignal) =>
+      apiRequest<EarningPage>("/mentor/earnings", {
+        method: "GET",
+        query: query as Record<string, string | number | boolean | undefined>,
+        signal,
+      }),
+
+    /** `GET /mentor/earnings/summary` — the four dashboard totals. */
+    summary: (signal?: AbortSignal) =>
+      apiRequest<EarningSummary>("/mentor/earnings/summary", {
+        method: "GET",
+        signal,
+      }),
+  },
+
+  reviews: {
+    create: (sessionId: string, body: ReviewCreate) => apiRequest<ReviewRead>(`/sessions/${sessionId}/reviews`, { method: "POST", body }),
+    mine: (sessionId: string, signal?: AbortSignal) => apiRequest<ReviewRead>(`/sessions/${sessionId}/reviews/me`, { method: "GET", signal }),
+    remove: (id: string) => apiRequest<void>(`/session-reviews/${id}`, { method: "DELETE" }),
+    forMentor: (query: { limit?: number; offset?: number } = {}, signal?: AbortSignal) => apiRequest<MentorReviewPage>("/mentor/reviews", { method: "GET", query, signal }),
+    public: (handle: string, query: { limit?: number; offset?: number } = {}, signal?: AbortSignal) => apiRequest<PublicReviewPage>(`/mentors/${encodeURIComponent(handle)}/reviews`, { method: "GET", query, signal }),
+  },
+  mentorWorkspace: {
+    get: (id: string, signal?: AbortSignal) => apiRequest<WorkspaceRead>(`/mentorships/${id}/workspace`, { method: "GET", signal }),
+    readiness: (id: string, signal?: AbortSignal) => apiRequest<ScopedReadinessBoard>(`/mentorships/${id}/readiness`, { method: "GET", signal }),
+    dashboard: (query: { limit?: number; offset?: number } = {}, signal?: AbortSignal) => apiRequest<MentorDashboardRead>("/mentor/dashboard", { method: "GET", query, signal }),
+    impact: (signal?: AbortSignal) => apiRequest<ImpactRead>("/mentor/impact", { method: "GET", signal }),
+    overview: (orgId: string, query: { limit?: number; offset?: number } = {}, signal?: AbortSignal) => apiRequest<StartupMentorshipOverview>(`/organizations/${orgId}/mentorships/overview`, { method: "GET", query, signal }),
   },
 
   /**

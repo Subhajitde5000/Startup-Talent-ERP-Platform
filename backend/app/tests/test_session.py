@@ -650,3 +650,29 @@ async def test_a_cancelled_session_frees_its_slot(client: AsyncClient) -> None:
         headers=ctx["mentor"]["headers"],
     )
     assert again.status_code == 201, again.text
+
+
+async def test_scheduled_session_cannot_be_joined_until_confirmed(client: AsyncClient) -> None:
+    ctx = await _pair(client, "joingate")
+    now_utc = datetime.now(UTC)
+    # 5 minutes ahead is inside the 15-minute join window
+    when = (now_utc + timedelta(minutes=5)).isoformat()
+    created = await client.post(
+        f"/api/v1/mentorships/{ctx['mid']}/sessions",
+        json={"scheduled_at": when, "meeting_url": "https://meet.google.com/test"},
+        headers=ctx["mentor"]["headers"],
+    )
+    assert created.status_code == 201, created.text
+    sid = created.json()["id"]
+    # While only scheduled, neither side can join
+    assert created.json()["status"] == "scheduled"
+    assert created.json()["can_join"] is False
+
+    # Once startup confirms, can_join activates
+    confirmed = await client.post(
+        f"/api/v1/sessions/{sid}/confirm",
+        headers=ctx["founder"]["headers"],
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["status"] == "confirmed"
+    assert confirmed.json()["can_join"] is True

@@ -16,7 +16,9 @@ Sections are ``None`` when the caller may not see them (toggle off, or the
 profile is not visible to this caller at all) — never an empty string.
 """
 
-from pydantic import BaseModel, ConfigDict
+import uuid
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.startup import StartupStage
 
@@ -41,6 +43,39 @@ class StartupDiscoveryItem(BaseModel):
     # Gated by summary_public / traction_public (5a convention).
     summary: str | None = None
     traction_summary: str | None = None
+
+
+class StartupDiscoveryDetail(BaseModel):
+    """Full discovery detail view for signed-in viewers (mentors, investors, etc.)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    slug: str
+    name: str
+    logo_url: str | None = None
+    tagline: str | None = None
+    stage: StartupStage | None = None
+    sector: str | None = None
+    city: str | None = None
+    region: str | None = None
+    country: str | None = None
+    founded_year: int | None = None
+    website: str | None = None
+    mentor_verified: bool = False
+    readiness_score: int | None = None
+    summary: str | None = None
+    business_model: str | None = None
+    problem: str | None = None
+    solution: str | None = None
+    market: str | None = None
+    traction_summary: str | None = None
+    ecosystem_goals: list[str] = Field(default_factory=list)
+    demo_url: str | None = None
+    pitch_deck_url: str | None = None
+    existing_mentorship_id: uuid.UUID | None = None
+    existing_mentorship_status: str | None = None
+    is_member: bool = False
 
 
 class StartupDiscoveryPage(BaseModel):

@@ -55,6 +55,16 @@ class ActivityEventType(enum.StrEnum):
     mentorship_accepted = "mentorship_accepted"
     mentorship_declined = "mentorship_declined"
     mentorship_ended = "mentorship_ended"
+    # Step 8e: a deliverable is user content the mentor creates and deletes,
+    # and the assignee submits — the same create/delete audit rule (D-9b).
+    deliverable_created = "deliverable_created"
+    deliverable_submitted = "deliverable_submitted"
+    deliverable_reviewed = "deliverable_reviewed"
+    deliverable_deleted = "deliverable_deleted"
+    # Step 8f: mentor sign-off on a readiness item grants a startup real
+    # credibility, so both the grant and the revoke are audited.
+    readiness_mentor_signed_off = "readiness_mentor_signed_off"
+    readiness_mentor_revoked = "readiness_mentor_revoked"
 
 
 class ActivityEvent(Base):

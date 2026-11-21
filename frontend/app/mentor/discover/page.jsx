@@ -174,7 +174,13 @@ export default function MentorDiscoverPage() {
                     {(s.name || '?').slice(0, 1).toUpperCase()}
                   </span>
                   <div className="flex-1">
-                    <h2 className="font-semibold text-[#0F1B2D]">{s.name}</h2>
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/mentor/discover/${s.slug}`)}
+                      className="text-left font-semibold text-[#0F1B2D] hover:underline"
+                    >
+                      {s.name}
+                    </button>
                     <p className="mt-1 text-xs text-[#4A5568]">
                       {s.tagline || 'No tagline added yet.'}
                     </p>
@@ -185,21 +191,30 @@ export default function MentorDiscoverPage() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs text-[#4A5568]">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[#F0EBE1] pt-3">
+                  <p className="line-clamp-2 max-w-xl text-xs text-[#4A5568]">
                     {s.summary || 'No summary shared.'}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      notify(
-                        'Only startups can start a mentorship request. Your profile is visible to them here.',
-                      )
-                    }
-                    className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4]"
-                  >
-                    How requests work
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        notify(
+                          'Only startups can start a mentorship request. Your profile is visible to them here.',
+                        )
+                      }
+                      className="rounded-lg border border-[#E5E1D8] px-3 py-1.5 text-xs font-semibold text-[#4A5568] hover:bg-[#FAF8F4]"
+                    >
+                      How requests work
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/mentor/discover/${s.slug}`)}
+                      className="rounded-lg bg-[#0F1B2D] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1E2D42]"
+                    >
+                      View startup profile →
+                    </button>
+                  </div>
                 </div>
               </article>
             ))

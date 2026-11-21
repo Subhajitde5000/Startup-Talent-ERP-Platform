@@ -170,6 +170,16 @@ class StartupReadiness(Base):
         DateTime(timezone=True), nullable=True
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Step 8f (approved Q1a): WHICH mentorship's mentor signed this off.
+    # schema.sql only records the user in ``signed_off_by``; a mentor can
+    # hold several mentorships with the same startup, so provenance needs
+    # the engagement, not just the person. Nullable: admin sign-off (5f) and
+    # every pre-8f row have no mentorship behind them.
+    signed_off_mentorship_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("mentorships.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

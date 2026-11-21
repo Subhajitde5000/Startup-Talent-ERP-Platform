@@ -347,4 +347,7 @@ async def _booked_instants(
             )
         )
     ).scalars()
-    return {r.astimezone(UTC) for r in rows}
+    return {
+        r.replace(tzinfo=UTC) if r.tzinfo is None else r.astimezone(UTC)
+        for r in rows
+    }

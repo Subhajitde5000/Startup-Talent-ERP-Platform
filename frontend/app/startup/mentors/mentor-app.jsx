@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { StartupSidebar, Btn, Card, SubNavTabs } from '../../../components';
 import { api, ApiError } from '@/lib/api/client';
+import SessionReview from '@/components/session-review';
+import PublicMentorReviews from '@/components/public-mentor-reviews';
 import { Toast } from '@/components';
 import {
   EmptyBlock,
@@ -165,6 +167,12 @@ function StartupSessionsBlock() {
   const [loadError, setLoadError] = useState('');
   const [reload, setReload] = useState(0);
 
+  const [rescheduleSession, setRescheduleSession] = useState(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('16:00');
+  const [rescheduleErr, setRescheduleErr] = useState('');
+  const [savingReschedule, setSavingReschedule] = useState(false);
+
   const notify = (m) => {
     setToast(m);
     setTimeout(() => setToast(''), 2700);
@@ -218,6 +226,10 @@ function StartupSessionsBlock() {
   };
 
   const join = (s) => {
+    if (s.status !== 'confirmed') {
+      notify('This session must be accepted before joining.');
+      return;
+    }
     if (!s.can_join) {
       notify('Join opens 10 minutes before the session.');
       return;
@@ -227,6 +239,50 @@ function StartupSessionsBlock() {
       return;
     }
     window.open(s.meeting_url, '_blank', 'noopener,noreferrer');
+  };
+
+  const openReschedule = (s) => {
+    setRescheduleSession(s);
+    setRescheduleErr('');
+    if (s.scheduled_at) {
+      const dt = new Date(s.scheduled_at);
+      const istStr = dt.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      setRescheduleDate(istStr);
+      const timeStr = dt.toLocaleTimeString('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      setRescheduleTime(timeStr);
+    } else {
+      setRescheduleDate('');
+      setRescheduleTime('16:00');
+    }
+  };
+
+  const submitReschedule = async () => {
+    if (!rescheduleSession) return;
+    setRescheduleErr('');
+    if (!rescheduleDate || !rescheduleTime) {
+      setRescheduleErr('Please pick a date and time.');
+      return;
+    }
+    const iso = new Date(`${rescheduleDate}T${rescheduleTime}:00+05:30`).toISOString();
+    setSavingReschedule(true);
+    try {
+      const updated = await api.sessions.reschedule(rescheduleSession.id, {
+        scheduled_at: iso,
+      });
+      setSessions((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+      setRescheduleSession(null);
+      notify('Change request submitted. Session moved to the new time.');
+    } catch (err) {
+      setRescheduleErr(
+        err instanceof ApiError ? err.message : 'Could not change session time.'
+      );
+    } finally {
+      setSavingReschedule(false);
+    }
   };
 
   const renderUpcoming = () => {
@@ -262,22 +318,31 @@ function StartupSessionsBlock() {
                 Details
               </Link>
               {s.status === 'scheduled' ? (
-                <button
-                  type="button"
-                  onClick={() => confirm(s)}
-                  className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white"
-                >
-                  Confirm
-                </button>
-              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => confirm(s)}
+                    className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white hover:bg-[#1C2B42]"
+                  >
+                    Accept session
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openReschedule(s)}
+                    className="rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4]"
+                  >
+                    Request change
+                  </button>
+                </div>
+              ) : s.status === 'confirmed' ? (
                 <button
                   type="button"
                   onClick={() => join(s)}
-                  className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white"
+                  className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white hover:bg-[#1C2B42]"
                 >
                   Join session
                 </button>
-              )}
+              ) : null}
             </article>
           );
         })}
@@ -366,6 +431,79 @@ function StartupSessionsBlock() {
       </div>
 
       {body()}
+
+      {rescheduleSession && (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-[#0F1B2D]/45 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5E1D8]">
+              <h2 className="serif text-xl font-semibold text-[#0F1B2D]">
+                Request Change to Session
+              </h2>
+              <button
+                type="button"
+                onClick={() => setRescheduleSession(null)}
+                aria-label="Close"
+                className="text-[#4A5568] hover:text-[#0F1B2D]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="mt-3 text-xs text-[#5A6E85]">
+              Cannot make the scheduled time? Propose a new date and time. Your mentor will see the updated schedule and can accept or adjust.
+            </p>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-[#0F1B2D]">
+                  New Date (Asia/Kolkata)
+                </label>
+                <input
+                  type="date"
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[#E5E1D8] p-2 text-xs font-medium text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#0F1B2D]">
+                  New Time
+                </label>
+                <input
+                  type="time"
+                  value={rescheduleTime}
+                  onChange={(e) => setRescheduleTime(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[#E5E1D8] p-2 text-xs font-medium text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
+                />
+              </div>
+            </div>
+            {rescheduleErr && (
+              <div className="mt-3 rounded-lg bg-[#FEE4E2] p-2.5 text-xs text-[#B42318]">
+                {rescheduleErr}
+              </div>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRescheduleSession(null)}
+                className="min-h-9 px-3 text-xs font-semibold text-[#4A5568] hover:text-[#0F1B2D]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitReschedule}
+                disabled={savingReschedule}
+                className="min-h-9 rounded-lg bg-ink px-4 text-xs font-semibold text-white hover:bg-[#1C2B42] disabled:opacity-60 transition"
+              >
+                {savingReschedule ? 'Sending request…' : 'Send change request'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
@@ -382,6 +520,13 @@ function StartupSessionDetailBlock({ sessionId }) {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelErr, setCancelErr] = useState('');
 
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('16:00');
+  const [rescheduleErr, setRescheduleErr] = useState('');
+  const [savingReschedule, setSavingReschedule] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
   const notify = (m) => {
     setToast(m);
     setTimeout(() => setToast(''), 2700);
@@ -396,6 +541,16 @@ function StartupSessionDetailBlock({ sessionId }) {
         const data = await api.sessions.get(sessionId);
         if (!alive) return;
         setSession(data);
+        if (data.scheduled_at) {
+          const dt = new Date(data.scheduled_at);
+          setRescheduleDate(dt.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
+          const timeStr = dt.toLocaleTimeString('en-GB', {
+            timeZone: 'Asia/Kolkata',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          setRescheduleTime(timeStr);
+        }
         try {
           const m = await api.mentorships.get(data.mentorship_id);
           if (alive) setMentorship(m);
@@ -437,6 +592,39 @@ function StartupSessionDetailBlock({ sessionId }) {
   const mentor = mentorship?.mentor;
   const isCancelled = session.status === 'cancelled';
 
+  const doConfirm = async () => {
+    setConfirming(true);
+    try {
+      const updated = await api.sessions.confirm(session.id);
+      setSession(updated);
+      notify('Session accepted and confirmed.');
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not accept the session.');
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const doReschedule = async () => {
+    setRescheduleErr('');
+    if (!rescheduleDate || !rescheduleTime) {
+      setRescheduleErr('Please pick a date and time.');
+      return;
+    }
+    const iso = new Date(`${rescheduleDate}T${rescheduleTime}:00+05:30`).toISOString();
+    setSavingReschedule(true);
+    try {
+      const updated = await api.sessions.reschedule(session.id, { scheduled_at: iso });
+      setSession(updated);
+      setRescheduleOpen(false);
+      notify('Change request submitted. Session moved to the new time.');
+    } catch (err) {
+      setRescheduleErr(err instanceof ApiError ? err.message : 'Could not change session time.');
+    } finally {
+      setSavingReschedule(false);
+    }
+  };
+
   const doCancel = async () => {
     setCancelErr('');
     if (cancelReason.trim().length < 3) {
@@ -459,35 +647,58 @@ function StartupSessionDetailBlock({ sessionId }) {
         session.topic || 'Session',
         `${formatInstant(session.scheduled_at)} IST · ${session.duration_min} minutes · ${session.session_type || 'Session'}`,
         <>
-          <button
-            type="button"
-            onClick={() => {
-              if (!session.can_join) {
-                notify('Join opens 10 minutes before the session.');
-                return;
-              }
-              if (!session.meeting_url) {
-                notify('No meeting link was added to this session.');
-                return;
-              }
-              window.open(session.meeting_url, '_blank', 'noopener,noreferrer');
-            }}
-            className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white"
-          >
-            <Video className="mr-2 inline" size={15} /> Join session
-          </button>
+          {session.status === 'confirmed' && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!session.can_join) {
+                  notify('Join opens 10 minutes before the session.');
+                  return;
+                }
+                if (!session.meeting_url) {
+                  notify('No meeting link was added to this session.');
+                  return;
+                }
+                window.open(session.meeting_url, '_blank', 'noopener,noreferrer');
+              }}
+              className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white hover:bg-[#1C2B42]"
+            >
+              <Video className="mr-2 inline" size={15} /> Join session
+            </button>
+          )}
+          {session.status === 'scheduled' && (
+            <>
+              <button
+                type="button"
+                onClick={doConfirm}
+                disabled={confirming}
+                className="min-h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white hover:bg-[#1C2B42] disabled:opacity-60"
+              >
+                {confirming ? 'Accepting…' : 'Accept session'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setRescheduleOpen(true)}
+                className="min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4]"
+              >
+                Request change
+              </button>
+            </>
+          )}
           {!isCancelled && session.status !== 'completed' && (
             <button
               type="button"
               onClick={() => setCancelOpen(true)}
-              className="min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm"
+              className="min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm font-semibold text-[#4A5568] hover:text-[#0F1B2D]"
             >
-              Cancel
+              {session.status === 'scheduled' ? 'Decline' : 'Cancel'}
             </button>
           )}
         </>
       )}
       {toast && <Toast message={toast} />}
+
+      <SessionReview session={session} />
 
       {isCancelled && (
         <div className="mb-4 rounded-lg border border-[#F1C6C1] bg-[#FEF3F2] p-3 text-xs text-[#7A271A]">
@@ -580,7 +791,9 @@ function StartupSessionDetailBlock({ sessionId }) {
       {cancelOpen && (
         <div className="fixed inset-0 z-40 grid place-items-center bg-[#0F1B2D]/45 p-4">
           <section role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="serif text-2xl font-semibold">Cancel session</h2>
+            <h2 className="serif text-2xl font-semibold">
+              {session.status === 'scheduled' ? 'Decline session' : 'Cancel session'}
+            </h2>
             <p className="mt-2 text-sm text-[#4A5568]">
               Your mentor is notified. A reason is required.
             </p>
@@ -588,20 +801,93 @@ function StartupSessionDetailBlock({ sessionId }) {
               rows={3}
               value={cancelReason}
               onChange={e => setCancelReason(e.target.value)}
-              placeholder="Why is this session being cancelled?"
+              placeholder="Why is this session being declined/cancelled?"
               className="mt-3 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm"
             />
             {cancelErr && <FieldError>{cancelErr}</FieldError>}
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={() => setCancelOpen(false)} className="min-h-10 px-4 text-sm">
+              <button type="button" onClick={() => setCancelOpen(false)} className="min-h-10 px-4 text-sm font-semibold text-[#4A5568] hover:text-[#0F1B2D]">
                 Keep session
               </button>
               <button
                 type="button"
                 onClick={doCancel}
-                className="min-h-10 rounded-lg bg-[#B42318] px-4 text-sm font-semibold text-white"
+                className="min-h-10 rounded-lg bg-[#B42318] px-4 text-sm font-semibold text-white hover:bg-[#912018]"
               >
-                Cancel session
+                {session.status === 'scheduled' ? 'Decline session' : 'Cancel session'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {rescheduleOpen && (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-[#0F1B2D]/45 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5E1D8]">
+              <h2 className="serif text-xl font-semibold text-[#0F1B2D]">
+                Request Change to Session
+              </h2>
+              <button
+                type="button"
+                onClick={() => setRescheduleOpen(false)}
+                aria-label="Close"
+                className="text-[#4A5568] hover:text-[#0F1B2D]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="mt-3 text-xs text-[#5A6E85]">
+              Cannot make the scheduled time? Propose a new date and time. Your mentor will see the updated schedule and can accept or adjust.
+            </p>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-[#0F1B2D]">
+                  New Date (Asia/Kolkata)
+                </label>
+                <input
+                  type="date"
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[#E5E1D8] p-2 text-xs font-medium text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#0F1B2D]">
+                  New Time
+                </label>
+                <input
+                  type="time"
+                  value={rescheduleTime}
+                  onChange={(e) => setRescheduleTime(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[#E5E1D8] p-2 text-xs font-medium text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
+                />
+              </div>
+            </div>
+            {rescheduleErr && (
+              <div className="mt-3 rounded-lg bg-[#FEE4E2] p-2.5 text-xs text-[#B42318]">
+                {rescheduleErr}
+              </div>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRescheduleOpen(false)}
+                className="min-h-9 px-3 text-xs font-semibold text-[#4A5568] hover:text-[#0F1B2D]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={doReschedule}
+                disabled={savingReschedule}
+                className="min-h-9 rounded-lg bg-ink px-4 text-xs font-semibold text-white hover:bg-[#1C2B42] disabled:opacity-60 transition"
+              >
+                {savingReschedule ? 'Sending request…' : 'Send change request'}
               </button>
             </div>
           </section>
@@ -1085,34 +1371,32 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
     (async () => {
       try {
         const orgs = await api.organizations.mine();
-        const startup = orgs.find(o => o.type === 'startup') || orgs[0] || null;
+        const startup = orgs.find(o => o.type === 'startup') || null;
         if (!alive) return;
-        if (startup) {
-          setReadinessOrg(startup);
-          setMentorOrgId(startup.id);
-        }
-
-        const [mentorshipsRes, sessionsRes, tasksRes, readinessRes] = await Promise.allSettled([
-          api.mentorships.list({ side: 'startup', limit: 50 }),
-          api.sessions.list({ limit: 50 }),
-          startup ? api.tasks.list(startup.id, { limit: 20 }) : Promise.resolve({ items: [] }),
-          startup ? api.readiness.board(startup.id) : Promise.resolve(null),
+        if (!startup) { setOverviewMentorships([]); setOverviewSessions([]); setOverviewTasks([]); setReadiness(null); setReadinessOrg(null); setOverviewPhase('ready'); return; }
+        setReadinessOrg(startup);
+        setMentorOrgId(startup.id);
+        const allPages = async (load) => {
+          const items = [];
+          for (let offset = 0;;) {
+            const page = await load(offset);
+            items.push(...page.items);
+            offset += page.items.length;
+            if (!page.items.length || offset >= page.total) return items;
+          }
+        };
+        const [mentorships, sessions, tasks, board] = await Promise.all([
+          allPages(offset => api.mentorWorkspace.overview(startup.id, { limit: 50, offset }).then(r => r.mentorships)),
+          allPages(offset => api.sessions.list({ limit: 50, offset })),
+          api.tasks.listAll(startup.id),
+          api.readiness.board(startup.id),
         ]);
-
         if (!alive) return;
-
-        if (mentorshipsRes.status === 'fulfilled') {
-          setOverviewMentorships(mentorshipsRes.value.items || []);
-        }
-        if (sessionsRes.status === 'fulfilled') {
-          setOverviewSessions(sessionsRes.value.items || []);
-        }
-        if (tasksRes.status === 'fulfilled') {
-          setOverviewTasks(tasksRes.value.items || []);
-        }
-        if (readinessRes.status === 'fulfilled' && readinessRes.value) {
-          setReadiness(readinessRes.value);
-        }
+        const ids = new Set(mentorships.map(m => m.id));
+        setOverviewMentorships(mentorships);
+        setOverviewSessions(sessions.filter(s => ids.has(s.mentorship_id)));
+        setOverviewTasks(tasks);
+        setReadiness(board);
 
         setOverviewPhase('ready');
       } catch (err) {
@@ -1137,7 +1421,7 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
 
     (async () => {
       try {
-        const m = await api.mentorships.get(id);
+        const m = page === 'workspace' ? (await api.mentorWorkspace.get(id)).mentorship : await api.mentorships.get(id);
         if (!alive) return;
         setWorkspaceMentorship(m);
 
@@ -1151,13 +1435,13 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
 
         if (sessionsRes.status === 'fulfilled') {
           setWorkspaceSessions(sessionsRes.value.items || []);
-        }
+        } else if (page === 'workspace') { throw sessionsRes.reason; }
         if (tasksRes.status === 'fulfilled') {
           setWorkspaceTasks(tasksRes.value.items || []);
-        }
+        } else if (page === 'workspace') { throw tasksRes.reason; }
         if (readinessRes.status === 'fulfilled' && readinessRes.value) {
           setReadiness(readinessRes.value);
-        }
+        } else if (page === 'workspace') { throw readinessRes.reason; }
 
         setWorkspacePhase('ready');
       } catch (err) {
@@ -1476,8 +1760,8 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
           const dueTasks = overviewTasks.filter(t => t.status === 'todo' || t.status === 'in_progress');
 
           const readinessSummary = readiness?.summary;
-          const readinessSignedOff = readinessSummary ? readinessSummary.criteria_signed_off : 0;
-          const readinessTotal = readinessSummary ? readinessSummary.criteria_total : 6;
+          const readinessSignedOff = readinessSummary ? readinessSummary.criteria_signed_off : '—';
+          const readinessTotal = readinessSummary ? readinessSummary.criteria_total : '—';
           const readinessPct = readinessSummary ? readinessSummary.readiness_pct : 0;
           const readinessItems = readiness?.items || [];
 
@@ -1486,7 +1770,7 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
             .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
           const nextSession = upcomingSessions[0] || null;
 
-          const stageName = readinessOrg?.stage ? (STAGE_LABEL[readinessOrg.stage] || readinessOrg.stage) : 'Prototype';
+          const stageName = readinessOrg?.stage ? (STAGE_LABEL[readinessOrg.stage] || readinessOrg.stage) : 'your startup';
 
           return (
             <>
@@ -1502,7 +1786,7 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                 {[
                   ['Active mentors', String(activeMentorships.length)],
                   ['Sessions held', String(completedSessionsCount)],
-                  ['Deliverables due', String(dueTasks.length)],
+                  ['Open tasks', String(dueTasks.length)],
                   ['Readiness', `${readinessSignedOff} / ${readinessTotal}`],
                 ].map(([n, v]) => (
                   <div key={n} className="rounded-xl border border-[#E5E1D8] bg-white p-4">
@@ -1586,10 +1870,10 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                     )}
                   </Card>
 
-                  <Card title="Deliverables due" action={<Link href="/startup/tasks" className="text-xs font-semibold text-[#9A7A45]">Open tasks</Link>}>
+                  <Card title="Open tasks" action={<Link href="/startup/tasks" className="text-xs font-semibold text-[#9A7A45]">Open tasks</Link>}>
                     {dueTasks.length === 0 ? (
                       <div className="py-6 text-center text-xs text-[#4A5568]">
-                        No pending deliverables due.
+                        No open tasks.
                       </div>
                     ) : (
                       <div className="divide-y divide-[#E5E1D8]">
@@ -2046,22 +2330,9 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                       )}
                     </Card>
 
-                    {/* Reviews arrive with step 8i (no reviews table exists).
-                        An empty state, never invented quotes. */}
                     <Card title="Reviews">
-                      <p className="text-sm">
-                        {profile.rating != null ? (
-                          <>
-                            <Star className="mr-1 inline fill-[#B8955A] text-[#B8955A]" size={14} />
-                            {profile.rating} average · verified sessions only
-                          </>
-                        ) : (
-                          'Not yet rated'
-                        )}
-                      </p>
-                      <p className="mt-3 border-t border-[#E5E1D8] pt-3 text-sm text-[#4A5568]">
-                        Written reviews are not available yet.
-                      </p>
+                      <p className="text-sm">{profile.rating != null ? `${profile.rating} average · ${profile.reviews_count} public reviews` : `Average available after three public reviews · ${profile.reviews_count || 0} public reviews`}</p>
+                      <PublicMentorReviews handle={profile.handle} />
                     </Card>
                   </div>
 
@@ -2367,8 +2638,8 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
             .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
           const nextSession = upcoming[0] || null;
 
-          const readinessSignedOff = readiness?.summary?.criteria_signed_off || 0;
-          const readinessTotal = readiness?.summary?.criteria_total || 6;
+          const readinessSignedOff = readiness?.summary?.criteria_signed_off ?? '—';
+          const readinessTotal = readiness?.summary?.criteria_total ?? '—';
 
           return (
             <>

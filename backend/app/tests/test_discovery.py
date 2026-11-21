@@ -667,3 +667,82 @@ async def test_no_write_methods_on_discovery(client: AsyncClient) -> None:
         # DELETE is 405 on the public list; on the member list the token
         # check runs first, so a 401 is equally proof that no write exists.
         assert (await client.delete(path, headers={})).status_code in (401, 405)
+
+
+@pytest.mark.asyncio
+async def test_get_discoverable_startup_visibility(client: AsyncClient) -> None:
+    """GET /startups/{identifier} enforces the same visibility policy as the list."""
+    startup = await _make_startup(
+        client,
+        "mentor_only@example.com",
+        name="Mentor Target Co",
+        visibility="mentors",
+        tagline="Building for mentors",
+        problem="Hard problems",
+        solution="Great solutions",
+    )
+    slug = startup["slug"]
+    org_id = startup["org"]["id"]
+
+    # 1. Anonymous -> 401
+    anon_resp = await client.get(f"/api/v1/startups/{slug}")
+    assert anon_resp.status_code == 401
+
+    # 2. Jobseeker -> 404 (mentors-only startup not visible to jobseeker)
+    jobseeker_auth = await _signup_verified(
+        client, "js_disco@example.com", role="jobseeker"
+    )
+    js_resp = await client.get(
+        f"/api/v1/startups/{slug}", headers=jobseeker_auth["headers"]
+    )
+    assert js_resp.status_code == 404
+    assert js_resp.json()["error"]["code"] == "STARTUP_NOT_FOUND"
+
+    # 3. Mentor -> 200 by slug and by org_id
+    mentor_auth = await _signup_verified(
+        client, "mentor_disco@example.com", role="mentor"
+    )
+    await client.patch(
+        "/api/v1/mentor-profile/me",
+        json={"headline": "Growth Advisor", "accepting_requests": True},
+        headers=mentor_auth["headers"],
+    )
+    mentor_resp_slug = await client.get(
+        f"/api/v1/startups/{slug}", headers=mentor_auth["headers"]
+    )
+    assert mentor_resp_slug.status_code == 200, mentor_resp_slug.text
+    detail = mentor_resp_slug.json()
+    assert detail["name"] == "Mentor Target Co"
+    assert detail["tagline"] == "Building for mentors"
+    assert detail["problem"] == "Hard problems"
+    assert detail["solution"] == "Great solutions"
+    assert detail["id"] == org_id
+    assert detail["is_member"] is False
+    assert detail["existing_mentorship_id"] is None
+    assert detail["existing_mentorship_status"] is None
+
+    # Fetching by uuid identifier also works
+    mentor_resp_id = await client.get(
+        f"/api/v1/startups/{org_id}", headers=mentor_auth["headers"]
+    )
+    assert mentor_resp_id.status_code == 200
+    assert mentor_resp_id.json()["slug"] == slug
+
+    # When a mentorship request exists between this mentor and startup:
+    mentor_me = (await client.get("/api/v1/users/me", headers=mentor_auth["headers"])).json()
+    req_resp = await client.post(
+        f"/api/v1/organizations/{org_id}/mentorships",
+        json={"mentor_id": mentor_me["id"], "goal": "Scale engineering team"},
+        headers=startup["auth"]["headers"],
+    )
+    assert req_resp.status_code == 201, req_resp.text
+    mentorship_id = req_resp.json()["id"]
+
+    # Re-fetch as mentor: existing_mentorship_id is now populated!
+    mentor_after = (
+        await client.get(f"/api/v1/startups/{slug}", headers=mentor_auth["headers"])
+    ).json()
+    assert mentor_after["existing_mentorship_id"] == mentorship_id
+    assert mentor_after["existing_mentorship_status"] == "requested"
+
+

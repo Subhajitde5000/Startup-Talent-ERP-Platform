@@ -37,7 +37,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.exceptions import forbidden, rate_limited
+from app.models.mentorship import Mentorship
 from app.models.organization import Organization, OrgType
+from app.models.session import MentoringSession
+from app.models.session_review import SessionReview
 from app.models.startup import StartupProfile, StartupStage
 from app.models.talent import MentorProfile
 from app.models.user import User
@@ -135,9 +138,7 @@ def _apply_filters(
         stmt = stmt.where(MentorProfile.accepting_requests.is_(True))
     if free_only:
         # "Free / pro bono" on the find page: no fee recorded, or a zero one.
-        stmt = stmt.where(
-            or_(MentorProfile.hourly_fee.is_(None), MentorProfile.hourly_fee == 0)
-        )
+        stmt = stmt.where(or_(MentorProfile.hourly_fee.is_(None), MentorProfile.hourly_fee == 0))
     elif max_fee is not None:
         # A mentor with no fee is cheaper than any cap, so include them.
         stmt = stmt.where(
@@ -160,36 +161,71 @@ def _apply_filters(
     return stmt
 
 
+def _visible_rating():  # type: ignore[no-untyped-def]
+    # Only explicit public consent permits inclusion in public aggregates.
+    return (
+        select(
+            case((func.count(SessionReview.id) >= 3, func.avg(SessionReview.rating)), else_=None)
+        )
+        .join(MentoringSession, MentoringSession.id == SessionReview.session_id)
+        .join(Mentorship, Mentorship.id == MentoringSession.mentorship_id)
+        .where(
+            Mentorship.mentor_id == MentorProfile.user_id,
+            Mentorship.deleted_at.is_(None),
+            SessionReview.deleted_at.is_(None),
+            SessionReview.public_consent.is_(True),
+        )
+        .correlate(MentorProfile)
+        .scalar_subquery()
+    )
+
+
+async def _review_stats(
+    db: AsyncSession, ids: list[uuid.UUID]
+) -> dict[uuid.UUID, tuple[int, float | None]]:
+    rows = (
+        await db.execute(
+            select(
+                Mentorship.mentor_id, func.count(SessionReview.id), func.avg(SessionReview.rating)
+            )
+            .join(MentoringSession, MentoringSession.mentorship_id == Mentorship.id)
+            .join(SessionReview, SessionReview.session_id == MentoringSession.id)
+            .where(
+                Mentorship.mentor_id.in_(ids),
+                Mentorship.deleted_at.is_(None),
+                SessionReview.deleted_at.is_(None),
+                SessionReview.public_consent.is_(True),
+            )
+            .group_by(Mentorship.mentor_id)
+        )
+    ).all()
+    return {uid: (count, round(float(avg), 2) if count >= 3 else None) for uid, count, avg in rows}
+
+
 def _ordering(sort: str, order: str) -> list[Any]:
     """Whitelisted sort with stable tiebreaks (5b/5c/5h convention)."""
     if sort == "rating":
         # rating is nullable; unscored mentors sort last regardless of order
         # so an ascending "rating" list does not open with unknowns.
-        column: Any = MentorProfile.rating
-        primary = (
-            column.asc().nullslast() if order == "asc" else column.desc().nullslast()
-        )
+        column: Any = _visible_rating()
+        primary = column.asc().nullslast() if order == "asc" else column.desc().nullslast()
     elif sort == "price":
         # A free mentor is the cheapest, so NULL sorts first ascending.
         column = MentorProfile.hourly_fee
-        primary = (
-            column.asc().nullsfirst() if order == "asc" else column.desc().nullsfirst()
-        )
+        primary = column.asc().nullsfirst() if order == "asc" else column.desc().nullsfirst()
     elif sort == "experience":
         column = MentorProfile.years_experience
-        primary = (
-            column.asc().nullslast() if order == "asc" else column.desc().nullslast()
-        )
+        primary = column.asc().nullslast() if order == "asc" else column.desc().nullslast()
     else:  # "relevance" (default): verified, then rating, then experience.
-        primary = case(
-            (MentorProfile.is_verified.is_(True), 0), else_=1
-        ).asc()
+        primary = case((MentorProfile.is_verified.is_(True), 0), else_=1).asc()
     # Stable tiebreaks: rating/fee collide constantly in seed data, so offset
     # pagination would otherwise repeat or skip rows.
     return [primary, func.lower(User.display_name).asc(), User.id.asc()]
 
 
-def _card(user: User, profile: MentorProfile) -> MentorDirectoryItem:
+def _card(
+    user: User, profile: MentorProfile, stats: tuple[int, float | None] = (0, None)
+) -> MentorDirectoryItem:
     return MentorDirectoryItem(
         handle=user.handle or "",
         display_name=user.display_name,
@@ -203,7 +239,8 @@ def _card(user: User, profile: MentorProfile) -> MentorDirectoryItem:
         hourly_fee=float(profile.hourly_fee) if profile.hourly_fee is not None else None,
         currency=profile.currency,
         cadence=profile.cadence,
-        rating=float(profile.rating) if profile.rating is not None else None,
+        rating=stats[1],
+        reviews_count=stats[0],
         sessions_completed=profile.sessions_completed,
         is_verified=profile.is_verified,
         accepting_requests=profile.accepting_requests,
@@ -211,9 +248,11 @@ def _card(user: User, profile: MentorProfile) -> MentorDirectoryItem:
     )
 
 
-def _detail(user: User, profile: MentorProfile) -> MentorDirectoryDetail:
+def _detail(
+    user: User, profile: MentorProfile, stats: tuple[int, float | None] = (0, None)
+) -> MentorDirectoryDetail:
     return MentorDirectoryDetail(
-        **_card(user, profile).model_dump(),
+        **_card(user, profile, stats).model_dump(),
         bio=profile.bio,
         max_startups=profile.max_startups,
     )
@@ -270,14 +309,13 @@ async def list_mentors(
         free_only=free_only,
         terms=_terms(q),
     )
-    total = (
-        await db.execute(select(func.count()).select_from(filtered.subquery()))
-    ).scalar_one()
+    total = (await db.execute(select(func.count()).select_from(filtered.subquery()))).scalar_one()
 
     stmt = filtered.order_by(*_ordering(sort, order)).limit(limit).offset(offset)
     rows = (await db.execute(stmt)).all()
+    counts = await _review_stats(db, [user.id for user, _ in rows])
     return MentorDirectoryPage(
-        items=[_card(user, profile) for user, profile in rows],
+        items=[_card(user, profile, counts.get(user.id, (0, None))) for user, profile in rows],
         total=total,
         limit=limit,
         offset=offset,
@@ -287,19 +325,16 @@ async def list_mentors(
 async def get_mentor(db: AsyncSession, handle: str) -> MentorDirectoryDetail | None:
     """One visible mentor. ``None`` for a hidden profile and for a missing
     one alike, so the caller cannot tell them apart (no existence oracle)."""
-    result = await db.execute(
-        _base_query().where(User.handle == handle)
-    )
+    result = await db.execute(_base_query().where(User.handle == handle))
     row = result.one_or_none()
     if row is None:
         return None
     user, profile = row
-    return _detail(user, profile)
+    counts = await _review_stats(db, [user.id])
+    return _detail(user, profile, counts.get(user.id, (0, None)))
 
 
-async def resolve_visible_mentor_id(
-    db: AsyncSession, handle: str
-) -> uuid.UUID | None:
+async def resolve_visible_mentor_id(db: AsyncSession, handle: str) -> uuid.UUID | None:
     """The user id behind a visible mentor handle, or ``None``.
 
     Added for Step 8c: availability is keyed by ``users.id``, but the
@@ -311,9 +346,9 @@ async def resolve_visible_mentor_id(
     """
     return (
         await db.execute(
-            select(User.id).join(MentorProfile, MentorProfile.user_id == User.id).where(
-                _is_visible(), User.handle == handle
-            )
+            select(User.id)
+            .join(MentorProfile, MentorProfile.user_id == User.id)
+            .where(_is_visible(), User.handle == handle)
         )
     ).scalar_one_or_none()
 
@@ -344,7 +379,9 @@ async def _startup_context(db: AsyncSession, org_id: uuid.UUID) -> _StartupConte
     return _StartupContext(stage=profile.stage, sector=sector, goals=goals or None)
 
 
-def _match(profile: MentorProfile, *, sector: str | None, goals: str | None) -> tuple[int, list[str]]:
+def _match(
+    profile: MentorProfile, *, sector: str | None, goals: str | None
+) -> tuple[int, list[str]]:
     """Explain a suggestion using ONLY fields that actually matched.
 
     Returns ``(declared_rank, reasons)``. ``declared_rank`` counts the
@@ -406,11 +443,10 @@ async def list_suggestions(
     stmt = _base_query().where(MentorProfile.accepting_requests.is_(True))
     rows = (await db.execute(stmt)).all()
 
+    counts = await _review_stats(db, [user.id for user, _ in rows])
     scored: list[tuple[int, User, MentorProfile, list[str]]] = []
     for user, profile in rows:
-        rank, reasons = _match(
-            profile, sector=context.sector, goals=context.goals
-        )
+        rank, reasons = _match(profile, sector=context.sector, goals=context.goals)
         scored.append((rank, user, profile, reasons))
 
     # Deterministic total order: declared matches, then verified, then a
@@ -419,7 +455,7 @@ async def list_suggestions(
         key=lambda row: (
             -row[0],
             -int(row[2].is_verified),
-            -float(row[2].rating or 0),
+            -(counts.get(row[1].id, (0, None))[1] or 0),
             -int(row[2].years_experience or 0),
             (row[1].display_name or "").lower(),
             str(row[1].id),
@@ -430,7 +466,8 @@ async def list_suggestions(
     return MentorSuggestionPage(
         items=[
             MentorSuggestionItem(
-                **_card(user, profile).model_dump(), match_reasons=reasons
+                **_card(user, profile, counts.get(user.id, (0, None))).model_dump(),
+                match_reasons=reasons,
             )
             for _rank, user, profile, reasons in window
         ],
@@ -446,9 +483,7 @@ async def list_suggestions(
     )
 
 
-async def require_startup_member(
-    db: AsyncSession, org_id: uuid.UUID, user: User
-) -> Organization:
+async def require_startup_member(db: AsyncSession, org_id: uuid.UUID, user: User) -> Organization:
     """The org must exist, be a startup, and the caller must be active in it.
 
     A non-member gets the same 403 as any other unauthorized org action

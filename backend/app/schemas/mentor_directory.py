@@ -15,10 +15,9 @@ computed elsewhere (admin verification, 8i rating recompute) and a client
 can never set them — proven by the fact that this module defines no input
 model at all.
 
-``reviews_count`` is intentionally ABSENT. A review count belongs to 8i
-(``session_reviews``); until then the directory shows ``rating`` and
-``sessions_completed`` only rather than deriving a plausible-looking number
-(8a plan D-3).
+``reviews_count`` counts only reviews shared publicly. A public rating is
+shown once at least three publicly shared reviews exist; private feedback
+and private ratings never contribute to the public value.
 
 ``match_reasons`` is only populated by the suggestions read, and each string
 is generated from a field that genuinely matched (8a plan D-2) — it is never
@@ -51,6 +50,7 @@ class MentorDirectoryItem(BaseModel):
     currency: str = "INR"
     cadence: str | None = None
     rating: float | None = None
+    reviews_count: int = 0
     sessions_completed: int = 0
     is_verified: bool = False
     accepting_requests: bool = True

@@ -53,6 +53,16 @@ function isUpcoming(session) {
   return new Date(session.scheduled_at).getTime() >= Date.now() - 60 * 60 * 1000;
 }
 
+const WEEKDAYS = [
+  { id: 0, name: 'Monday', short: 'Mon' },
+  { id: 1, name: 'Tuesday', short: 'Tue' },
+  { id: 2, name: 'Wednesday', short: 'Wed' },
+  { id: 3, name: 'Thursday', short: 'Thu' },
+  { id: 4, name: 'Friday', short: 'Fri' },
+  { id: 5, name: 'Saturday', short: 'Sat' },
+  { id: 6, name: 'Sunday', short: 'Sun' },
+];
+
 export default function MentorSessionsPage() {
   const [toast, setToast] = useState('');
   const [tab, setTab] = useState('Upcoming');
@@ -64,11 +74,29 @@ export default function MentorSessionsPage() {
   const [sessions, setSessions] = useState([]);
   const [mentorships, setMentorships] = useState([]);
   const [slots, setSlots] = useState([]);
-  const [slotsPhase, setSlotsPhase] = useState('idle'); // idle|loading|ready|error
+  const [slotsPhase, setSlotsPhase] = useState('loading'); // loading|ready|error|nohandle
   const [slotsError, setSlotsError] = useState('');
   const [phase, setPhase] = useState('loading'); // loading|ready|error
   const [loadError, setLoadError] = useState('');
   const [reload, setReload] = useState(0);
+
+  // --- weekly availability template (Step 8c) ------------------------------
+  const [weekSlots, setWeekSlots] = useState([]);
+  const [weekTimezone, setWeekTimezone] = useState(IST);
+  const [weekPhase, setWeekPhase] = useState('loading'); // loading|ready|error
+  const [weekError, setWeekError] = useState('');
+  const [editAvailability, setEditAvailability] = useState(false);
+  const [availabilityDraft, setAvailabilityDraft] = useState([
+    { weekday: 0, name: 'Monday', enabled: true, start_time: '10:00', end_time: '17:00' },
+    { weekday: 1, name: 'Tuesday', enabled: true, start_time: '10:00', end_time: '17:00' },
+    { weekday: 2, name: 'Wednesday', enabled: true, start_time: '10:00', end_time: '17:00' },
+    { weekday: 3, name: 'Thursday', enabled: true, start_time: '10:00', end_time: '17:00' },
+    { weekday: 4, name: 'Friday', enabled: true, start_time: '10:00', end_time: '17:00' },
+    { weekday: 5, name: 'Saturday', enabled: false, start_time: '10:00', end_time: '14:00' },
+    { weekday: 6, name: 'Sunday', enabled: false, start_time: '10:00', end_time: '14:00' },
+  ]);
+  const [savingAvailability, setSavingAvailability] = useState(false);
+  const [availabilityModalError, setAvailabilityModalError] = useState('');
 
   // --- schedule form -----------------------------------------------------
   const [form, setForm] = useState({
@@ -92,15 +120,33 @@ export default function MentorSessionsPage() {
     let alive = true;
     (async () => {
       setPhase('loading');
+      setWeekPhase('loading');
       setLoadError('');
+      setWeekError('');
       try {
-        const [sessionsPage, mentorshipPage] = await Promise.all([
+        const [sessionsRes, mentorshipRes, weekRes] = await Promise.allSettled([
           api.sessions.list({ limit: 50 }),
           api.mentorships.list({ side: 'mentor', limit: 50 }),
+          api.availability.mine(),
         ]);
         if (!alive) return;
-        setSessions(sessionsPage.items);
-        setMentorships(mentorshipPage.items);
+
+        if (sessionsRes.status === 'fulfilled') {
+          setSessions(sessionsRes.value.items || []);
+        }
+        if (mentorshipRes.status === 'fulfilled') {
+          setMentorships(mentorshipRes.value.items || []);
+        }
+        if (weekRes.status === 'fulfilled') {
+          const w = weekRes.value;
+          setWeekSlots(w.slots || []);
+          if (w.timezone) setWeekTimezone(w.timezone);
+          setWeekPhase('ready');
+        } else {
+          setWeekPhase('error');
+          setWeekError('Could not load weekly availability.');
+        }
+
         setPhase('ready');
       } catch (err) {
         if (!alive) return;
@@ -115,38 +161,103 @@ export default function MentorSessionsPage() {
     };
   }, [reload]);
 
-  // The bookable instants come from 8c, so the picker can never offer a slot
-  // the server would reject. Only fetched while the dialog is open.
+  // Bookable instants computed from Step 8c. Fetched on page load and whenever availability changes.
   const myHandle = user?.handle || null;
   useEffect(() => {
-    if (!schedule) return undefined;
-    if (!myHandle) {
-      // No handle yet means no public mentor URL, so there is nothing to
-      // fetch. Say so instead of leaving the picker silently blank.
-      setSlotsPhase('nohandle');
-      return undefined;
-    }
     let alive = true;
     (async () => {
+      let handle = myHandle;
+      if (!handle) {
+        try {
+          const me = await api.users.me();
+          if (me.handle) handle = me.handle;
+        } catch {
+          // ignore
+        }
+      }
+      if (!handle) {
+        setSlotsPhase('nohandle');
+        return;
+      }
       setSlotsPhase('loading');
       setSlotsError('');
       try {
-        const data = await api.availability.slots(myHandle, { days: 28 });
+        const data = await api.availability.slots(handle, { days: 28 });
         if (!alive) return;
-        setSlots(data.items);
+        setSlots(data.items || []);
         setSlotsPhase('ready');
       } catch (err) {
         if (!alive) return;
-        setSlotsError(
-          err instanceof ApiError ? err.message : 'Could not load your open slots.',
-        );
-        setSlotsPhase('error');
+        if (err instanceof ApiError && err.status === 404) {
+          setSlots([]);
+          setSlotsPhase('ready');
+        } else {
+          setSlotsError(
+            err instanceof ApiError ? err.message : 'Could not load your open slots.',
+          );
+          setSlotsPhase('error');
+        }
       }
     })();
     return () => {
       alive = false;
     };
-  }, [schedule, myHandle]);
+  }, [reload, myHandle]);
+
+  const openEditAvailability = () => {
+    setAvailabilityModalError('');
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const days = [0, 1, 2, 3, 4, 5, 6].map((d) => {
+      const existing = weekSlots.find((s) => s.weekday === d);
+      return {
+        weekday: d,
+        name: dayNames[d],
+        enabled: Boolean(existing && existing.is_active !== false),
+        start_time: existing ? existing.start_time.slice(0, 5) : '10:00',
+        end_time: existing ? existing.end_time.slice(0, 5) : '17:00',
+      };
+    });
+    setAvailabilityDraft(days);
+    setEditAvailability(true);
+  };
+
+  const saveAvailability = async () => {
+    setAvailabilityModalError('');
+    const slotsToSave = [];
+    for (const d of availabilityDraft) {
+      if (d.enabled) {
+        if (!d.start_time || !d.end_time) {
+          setAvailabilityModalError(`Please provide both start and end times for ${d.name}.`);
+          return;
+        }
+        if (d.end_time <= d.start_time) {
+          setAvailabilityModalError(`End time must be after start time for ${d.name}.`);
+          return;
+        }
+        slotsToSave.push({
+          weekday: d.weekday,
+          start_time: d.start_time.length === 5 ? `${d.start_time}:00` : d.start_time,
+          end_time: d.end_time.length === 5 ? `${d.end_time}:00` : d.end_time,
+          timezone: weekTimezone || IST,
+          is_active: true,
+        });
+      }
+    }
+
+    setSavingAvailability(true);
+    try {
+      const updatedWeek = await api.availability.replaceWeek({ slots: slotsToSave });
+      setWeekSlots(updatedWeek.slots || []);
+      if (updatedWeek.timezone) setWeekTimezone(updatedWeek.timezone);
+      setEditAvailability(false);
+      notify('Weekly availability updated.');
+      setReload((n) => n + 1);
+    } catch (err) {
+      setAvailabilityModalError(err instanceof ApiError ? err.message : 'Could not save availability.');
+    } finally {
+      setSavingAvailability(false);
+    }
+  };
 
   const mentorshipById = useMemo(() => {
     const map = new Map();
@@ -255,6 +366,10 @@ export default function MentorSessionsPage() {
       notify('Session completed. Review the summary below.');
       return;
     }
+    if (session.status !== 'confirmed') {
+      notify('This session must be confirmed before joining.');
+      return;
+    }
     if (!session.can_join) {
       notify('The meeting room opens 10 minutes before the start time.');
       return;
@@ -337,7 +452,7 @@ export default function MentorSessionsPage() {
             >
               Add summary
             </Link>
-          ) : (
+          ) : s.status === 'confirmed' ? (
             <>
               <Link
                 href={`/mentor/sessions/${s.id}`}
@@ -353,6 +468,20 @@ export default function MentorSessionsPage() {
                 Join
               </button>
             </>
+          ) : s.status === 'scheduled' ? (
+            <Link
+              href={`/mentor/sessions/${s.id}`}
+              className="rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4]"
+            >
+              Change time / Details
+            </Link>
+          ) : (
+            <Link
+              href={`/mentor/sessions/${s.id}`}
+              className="rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4]"
+            >
+              Details
+            </Link>
           )}
         </div>
       </article>
@@ -504,7 +633,11 @@ export default function MentorSessionsPage() {
           ['Active mentorships', phase === 'ready' ? String(activeMentorships.length) : '—'],
           [
             'Open slots (28 days)',
-            slotsPhase === 'ready' ? String(openSlotCount) : '—',
+            slotsPhase === 'ready'
+              ? String(openSlotCount)
+              : weekSlots.filter((s) => s.is_active !== false).length > 0
+              ? `${weekSlots.filter((s) => s.is_active !== false).length} days/wk`
+              : '0',
           ],
         ].map(([x, v], i) => (
           <div key={x} className="rounded-xl border border-[#E5E1D8] bg-white p-4">
@@ -583,42 +716,80 @@ export default function MentorSessionsPage() {
           </Card>
 
           <Card title="Availability">
-            {slotsPhase === 'ready' ? (
-              slots.length > 0 ? (
-                <>
-                  <p className="text-xs text-[#4A5568]">
-                    {slots.length} open {slots.length === 1 ? 'slot' : 'slots'} in the next
-                    28 days.
-                  </p>
-                  <p className="mt-2 text-xs text-[#4A5568]">
-                    Next: {formatDate(slots[0].local_date)} ·{' '}
-                    {slots[0].local_start.slice(0, 5)}
-                  </p>
-                </>
-              ) : (
-                <p className="text-xs text-[#4A5568]">
-                  No open slots. Add availability windows so startups can book you.
-                </p>
-              )
-            ) : slotsPhase === 'loading' ? (
-              <p className="text-xs text-[#4A5568]">Loading your availability…</p>
-            ) : slotsPhase === 'error' ? (
-              <p className="text-xs text-[#B42318]">{slotsError}</p>
-            ) : slotsPhase === 'nohandle' ? (
-              <p className="text-xs text-[#4A5568]">
-                Add a public handle to your mentor profile to publish availability.
-              </p>
+            {weekPhase === 'loading' ? (
+              <p className="text-xs text-[#4A5568]">Loading schedule…</p>
+            ) : weekPhase === 'error' ? (
+              <p className="text-xs text-[#B42318]">{weekError}</p>
             ) : (
-              <p className="text-xs text-[#4A5568]">
-                Open the scheduling dialog to see your bookable slots.
-              </p>
+              <div className="space-y-2">
+                {weekSlots.filter((s) => s.is_active !== false).length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7B8CA3]">
+                      Recurring Windows ({weekTimezone || IST})
+                    </p>
+                    <div className="space-y-1">
+                      {weekSlots
+                        .filter((s) => s.is_active !== false)
+                        .map((s) => (
+                          <div
+                            key={s.weekday}
+                            className="flex items-center justify-between text-xs text-[#0F1B2D]"
+                          >
+                            <span className="font-medium">
+                              {WEEKDAYS[s.weekday]?.name || `Day ${s.weekday}`}
+                            </span>
+                            <span className="text-[#5A6E85]">
+                              {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#4A5568]">
+                    No recurring availability windows set yet.
+                  </p>
+                )}
+
+                <div className="border-t border-[#E5E1D8] pt-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7B8CA3]">
+                    Bookable Slots (28 Days)
+                  </p>
+                  {slotsPhase === 'ready' ? (
+                    slots.length > 0 ? (
+                      <p className="mt-1 text-xs text-[#4A5568]">
+                        <span className="font-semibold text-[#0F1B2D]">{slots.length}</span> open{' '}
+                        {slots.length === 1 ? 'slot' : 'slots'} · Next:{' '}
+                        {formatDate(slots[0].local_date)} ({slots[0].local_start.slice(0, 5)})
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-[#4A5568]">
+                        No open slots in the next 28 days.
+                      </p>
+                    )
+                  ) : slotsPhase === 'loading' ? (
+                    <p className="mt-1 text-xs text-[#4A5568]">Calculating bookable slots…</p>
+                  ) : slotsPhase === 'nohandle' ? (
+                    <p className="mt-1 text-xs text-[#4A5568]">
+                      Set up your mentor handle to publish bookable slots.
+                    </p>
+                  ) : slotsPhase === 'error' ? (
+                    <p className="mt-1 text-xs text-[#B42318]">{slotsError}</p>
+                  ) : (
+                    <p className="mt-1 text-xs text-[#4A5568]">
+                      Weekly windows generate open slots automatically.
+                    </p>
+                  )}
+                </div>
+              </div>
             )}
-            <Link
-              href="/mentor/profile/edit"
-              className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]"
+            <button
+              type="button"
+              onClick={openEditAvailability}
+              className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-[#9A7A45] hover:text-[#0F1B2D] transition"
             >
-              Edit availability
-            </Link>
+              <CalendarDays size={13} /> Edit availability
+            </button>
           </Card>
         </aside>
       </div>
@@ -706,10 +877,21 @@ export default function MentorSessionsPage() {
                     you. Set it up in your profile first.
                   </p>
                 ) : slots.length === 0 ? (
-                  <p className="mt-2 text-xs text-[#4A5568]">
-                    No open slots in the next 28 days. Add availability windows to offer
-                    times.
-                  </p>
+                  <div className="mt-2 rounded-lg border border-dashed border-[#E5E1D8] bg-[#FAF8F4] p-3 text-center">
+                    <p className="text-xs text-[#4A5568]">
+                      No open slots in the next 28 days.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSchedule(false);
+                        openEditAvailability();
+                      }}
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#9A7A45] underline hover:text-[#0F1B2D]"
+                    >
+                      Set weekly availability now
+                    </button>
+                  </div>
                 ) : (
                   <div className="mt-2 grid max-h-48 gap-2 overflow-y-auto sm:grid-cols-2">
                     {slots.map((slot) => {
@@ -784,6 +966,166 @@ export default function MentorSessionsPage() {
                 className="min-h-10 rounded-lg bg-[#0F1B2D] px-4 text-sm font-semibold text-white hover:bg-[#1C2B42] disabled:opacity-60"
               >
                 {saving ? 'Scheduling…' : 'Schedule session'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {editAvailability && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[#0F1B2D]/45 p-4 overflow-y-auto">
+          <section
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl my-8"
+          >
+            <div className="mb-4 flex items-center justify-between border-b border-[#E5E1D8] pb-3">
+              <div>
+                <h2 className="serif text-xl font-semibold text-[#0F1B2D]">
+                  Edit Weekly Availability
+                </h2>
+                <p className="text-xs text-[#5A6E85]">
+                  Set recurring days and hours when startups can book 1:1 advisory sessions.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditAvailability(false)}
+                aria-label="Close"
+                className="text-[#4A5568] hover:text-[#0F1B2D]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#FAF8F4] p-3 text-xs text-[#5A6E85] border border-[#E5E1D8]">
+              <div>
+                <span className="font-semibold text-[#0F1B2D]">Timezone:</span>{' '}
+                {weekTimezone || 'Asia/Kolkata (IST)'}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAvailabilityDraft((prev) =>
+                      prev.map((d) => ({
+                        ...d,
+                        enabled: d.weekday >= 0 && d.weekday <= 4, // Mon-Fri
+                        start_time: '10:00',
+                        end_time: '17:00',
+                      }))
+                    );
+                  }}
+                  className="rounded px-2 py-1 text-[11px] font-semibold text-[#9A7A45] hover:bg-[#F4F1EA]"
+                >
+                  Mon–Fri Preset
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAvailabilityDraft((prev) =>
+                      prev.map((d) => ({ ...d, enabled: false }))
+                    );
+                  }}
+                  className="rounded px-2 py-1 text-[11px] font-medium text-[#7B8CA3] hover:bg-[#F4F1EA]"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+              {availabilityDraft.map((day, idx) => (
+                <div
+                  key={day.weekday}
+                  className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 transition ${
+                    day.enabled
+                      ? 'border-[#0F1B2D]/20 bg-white shadow-xs'
+                      : 'border-[#E5E1D8] bg-[#FAF8F4] opacity-75'
+                  }`}
+                >
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={day.enabled}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setAvailabilityDraft((prev) =>
+                          prev.map((item, i) =>
+                            i === idx ? { ...item, enabled: checked } : item
+                          )
+                        );
+                      }}
+                      className="h-4 w-4 rounded border-[#E5E1D8] accent-[#0F1B2D]"
+                    />
+                    <span
+                      className={`text-xs font-semibold ${
+                        day.enabled ? 'text-[#0F1B2D]' : 'text-[#7B8CA3]'
+                      }`}
+                    >
+                      {day.name}
+                    </span>
+                  </label>
+
+                  {day.enabled ? (
+                    <div className="flex items-center gap-2 text-xs">
+                      <input
+                        type="time"
+                        value={day.start_time}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setAvailabilityDraft((prev) =>
+                            prev.map((item, i) =>
+                              i === idx ? { ...item, start_time: val } : item
+                            )
+                          );
+                        }}
+                        className="h-8 rounded-lg border border-[#E5E1D8] bg-white px-2 text-xs font-medium text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
+                      />
+                      <span className="text-[#7B8CA3]">to</span>
+                      <input
+                        type="time"
+                        value={day.end_time}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setAvailabilityDraft((prev) =>
+                            prev.map((item, i) =>
+                              i === idx ? { ...item, end_time: val } : item
+                            )
+                          );
+                        }}
+                        className="h-8 rounded-lg border border-[#E5E1D8] bg-white px-2 text-xs font-medium text-[#0F1B2D] focus:border-[#0F1B2D] focus:outline-none"
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-[11px] font-medium text-[#7B8CA3] italic">
+                      Unavailable
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {availabilityModalError && (
+              <div className="mt-4 rounded-lg bg-[#FEE4E2] p-2.5 text-xs text-[#B42318]">
+                {availabilityModalError}
+              </div>
+            )}
+
+            <div className="mt-6 flex items-center justify-end gap-2 border-t border-[#E5E1D8] pt-4">
+              <button
+                type="button"
+                onClick={() => setEditAvailability(false)}
+                className="min-h-10 px-4 text-xs font-semibold text-[#4A5568] hover:text-[#0F1B2D]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveAvailability}
+                disabled={savingAvailability}
+                className="min-h-10 rounded-lg bg-[#0F1B2D] px-5 text-xs font-bold text-white hover:bg-[#1C2B42] disabled:opacity-60 transition shadow-xs"
+              >
+                {savingAvailability ? 'Saving availability…' : 'Save availability'}
               </button>
             </div>
           </section>

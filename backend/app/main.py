@@ -20,10 +20,13 @@ from app.routers import (
     auth,
     availability,
     dashboard,
+    deliverable,
     discovery,
+    earning,
     invites,
     market,
     mentor,
+    mentor_workspace,
     mentorship,
     metrics,
     milestones,
@@ -31,6 +34,7 @@ from app.routers import (
     public,
     readiness,
     session,
+    session_review,
     skills,
     stage,
     startup_profile,
@@ -114,9 +118,12 @@ def create_app() -> FastAPI:
     app.include_router(milestones.router, prefix=settings.API_V1_PREFIX)
     app.include_router(tasks.router, prefix=settings.API_V1_PREFIX)
     app.include_router(readiness.router, prefix=settings.API_V1_PREFIX)
+    # Step 8f: mentor sign-off through the mentorship it comes from.
+    app.include_router(readiness.mentorship_router, prefix=settings.API_V1_PREFIX)
     app.include_router(metrics.router, prefix=settings.API_V1_PREFIX)
     app.include_router(invites.router, prefix=settings.API_V1_PREFIX)
     app.include_router(talent.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(mentor_workspace.router, prefix=settings.API_V1_PREFIX)
     app.include_router(mentor.router, prefix=settings.API_V1_PREFIX)
     # Step 8a: the read-only mentor directory (/mentors) and per-startup
     # suggestions. Same service as /mentor-profile, separate path space.
@@ -131,8 +138,14 @@ def create_app() -> FastAPI:
     app.include_router(availability.router, prefix=settings.API_V1_PREFIX)
     app.include_router(availability.public_router, prefix=settings.API_V1_PREFIX)
     # Step 8d: mentoring sessions.
+    app.include_router(session_review.router, prefix=settings.API_V1_PREFIX)
     app.include_router(session.router, prefix=settings.API_V1_PREFIX)
     app.include_router(session.mentorship_router, prefix=settings.API_V1_PREFIX)
+    # Step 8e: mentor deliverables.
+    app.include_router(deliverable.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(deliverable.mentorship_router, prefix=settings.API_V1_PREFIX)
+    # Step 8h: the mentor's own earnings (read-only).
+    app.include_router(earning.router, prefix=settings.API_V1_PREFIX)
     app.include_router(public.router, prefix=settings.API_V1_PREFIX)
     # Step 5h: the startup discovery list. /public/startups (list) and
     # /public/startups/{slug} (detail, in public.py) differ in segment

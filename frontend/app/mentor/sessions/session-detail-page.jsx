@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Video, FileText, CheckCircle2, ArrowRight, X } from 'lucide-react';
+import { Video, FileText, CheckCircle2, ArrowRight, X, Clock } from 'lucide-react';
 import MentorPageShell from '../mentor-page-shell';
 import { Btn, Card } from '../mentor-data';
 import { api, ApiError } from '@/lib/api/client';
@@ -302,22 +302,30 @@ export default function MentorSessionDetailPage() {
           >
             ← Sessions
           </Link>
-          <Btn
-            secondary
-            onClick={() => {
-              if (!session.meeting_url) {
-                notify('No meeting link was added to this session.');
-                return;
-              }
-              if (!session.can_join) {
-                notify('The meeting room opens 10 minutes before the start time.');
-                return;
-              }
-              window.open(session.meeting_url, '_blank', 'noopener,noreferrer');
-            }}
-          >
-            <Video size={15} /> Join session
-          </Btn>
+          {session.status === 'scheduled' && (
+            <div className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#E5E1D8] bg-[#FAF8F4] px-3 text-xs font-medium text-[#5A6E85]">
+              <Clock size={14} className="text-[#9A7A45]" />
+              Awaiting startup acceptance
+            </div>
+          )}
+          {session.status === 'confirmed' && (
+            <Btn
+              secondary
+              onClick={() => {
+                if (!session.meeting_url) {
+                  notify('No meeting link was added to this session.');
+                  return;
+                }
+                if (!session.can_join) {
+                  notify('The meeting room opens 10 minutes before the start time.');
+                  return;
+                }
+                window.open(session.meeting_url, '_blank', 'noopener,noreferrer');
+              }}
+            >
+              <Video size={15} /> Join session
+            </Btn>
+          )}
           {isMentor && !isCompleted && !isCancelled && (
             <Btn onClick={() => setMeetingTab('Summary and feedback')}>
               <FileText size={15} /> Add summary
