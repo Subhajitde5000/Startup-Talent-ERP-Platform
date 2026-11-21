@@ -35,10 +35,12 @@ skips a row.
 
 from dataclasses import dataclass
 from typing import Any
+import uuid
 
 from sqlalchemy import ColumnElement, Select, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.mentorship import Mentorship
 from app.models.organization import (
     MemberStatus,
     Organization,
@@ -47,7 +49,11 @@ from app.models.organization import (
 )
 from app.models.startup import ProfileVisibility, StartupProfile, StartupStage
 from app.models.user import User, UserRole, UserRoleRow
-from app.schemas.discovery import StartupDiscoveryItem, StartupDiscoveryPage
+from app.schemas.discovery import (
+    StartupDiscoveryDetail,
+    StartupDiscoveryItem,
+    StartupDiscoveryPage,
+)
 from app.services import startup_profile_service
 
 _MAX_Q = 100
@@ -276,3 +282,99 @@ async def list_startups(
         for org, profile in rows
     ]
     return StartupDiscoveryPage(items=items, total=total, limit=limit, offset=offset)
+
+
+async def get_startup(
+    db: AsyncSession,
+    user: User,
+    identifier: str,
+) -> StartupDiscoveryDetail | None:
+    """Get full startup discovery details for an authenticated user.
+
+    Visibility adheres to the same caller audience matrix as discovery list.
+    If the viewer has no permission or the startup does not exist / is not active,
+    returns None (404 without existence leakage).
+    """
+    viewer = await _resolve_viewer(db, user)
+
+    conditions = [func.lower(Organization.slug) == identifier.strip().lower()]
+    try:
+        parsed_uuid = uuid.UUID(identifier)
+        conditions.append(Organization.id == parsed_uuid)
+    except (ValueError, AttributeError):
+        pass
+
+    stmt = (
+        select(Organization, StartupProfile)
+        .join(StartupProfile, StartupProfile.org_id == Organization.id)
+        .where(
+            Organization.type == OrgType.startup,
+            Organization.status == "active",
+            Organization.deleted_at.is_(None),
+            or_(*conditions),
+            _visible_clause(viewer),
+        )
+    )
+    row = (await db.execute(stmt)).first()
+    if row is None:
+        return None
+
+    org, profile = row
+    is_member = org.id in viewer.member_org_ids
+    sections = startup_profile_service.section_values(org, profile, visible=True)
+
+    # Check for mentorship relationship if viewer is a mentor
+    existing_mentorship_id: uuid.UUID | None = None
+    existing_mentorship_status: str | None = None
+
+    mentorship_stmt = (
+        select(Mentorship.id, Mentorship.status)
+        .where(
+            Mentorship.mentor_id == user.id,
+            Mentorship.startup_org_id == org.id,
+        )
+        .order_by(Mentorship.created_at.desc())
+        .limit(1)
+    )
+    mentorship_row = (await db.execute(mentorship_stmt)).first()
+    if mentorship_row is not None:
+        existing_mentorship_id = mentorship_row[0]
+        status_val = mentorship_row[1]
+        existing_mentorship_status = (
+            status_val.value if hasattr(status_val, "value") else str(status_val)
+        )
+
+    demo_url = profile.demo_url if (profile.summary_public or is_member) else None
+    pitch_deck_url = (
+        profile.pitch_deck_url if (profile.funding_public or is_member) else None
+    )
+
+    return StartupDiscoveryDetail(
+        id=org.id,
+        slug=org.slug,
+        name=org.name,
+        logo_url=org.logo_url,
+        tagline=profile.tagline,
+        stage=profile.stage,
+        sector=profile.sector,
+        city=org.city,
+        region=org.region,
+        country=org.country,
+        founded_year=org.founded_year,
+        website=org.website,
+        mentor_verified=profile.mentor_verified,
+        readiness_score=sections["readiness_score"],
+        summary=sections["summary"],
+        business_model=sections["business_model"],
+        problem=sections["problem"],
+        solution=sections["solution"],
+        market=sections["market"],
+        traction_summary=sections["traction_summary"],
+        ecosystem_goals=list(profile.ecosystem_goals or []),
+        demo_url=demo_url,
+        pitch_deck_url=pitch_deck_url,
+        existing_mentorship_id=existing_mentorship_id,
+        existing_mentorship_status=existing_mentorship_status,
+        is_member=is_member,
+    )
+

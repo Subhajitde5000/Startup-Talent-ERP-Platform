@@ -146,6 +146,34 @@ export type MentorSuggestionPage = components["schemas"]["MentorSuggestionPage"]
 // Step 5h discovery read, reused by the mentor Discover page (Step 8b).
 export type StartupDiscoveryItem = components["schemas"]["StartupDiscoveryItem"];
 export type StartupDiscoveryPage = components["schemas"]["StartupDiscoveryPage"];
+export type StartupDiscoveryDetail = {
+  id: string;
+  slug: string;
+  name: string;
+  logo_url?: string | null;
+  tagline?: string | null;
+  stage?: StartupStage | null;
+  sector?: string | null;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+  founded_year?: number | null;
+  website?: string | null;
+  mentor_verified: boolean;
+  readiness_score?: number | null;
+  summary?: string | null;
+  business_model?: string | null;
+  problem?: string | null;
+  solution?: string | null;
+  market?: string | null;
+  traction_summary?: string | null;
+  ecosystem_goals?: string[];
+  demo_url?: string | null;
+  pitch_deck_url?: string | null;
+  existing_mentorship_id?: string | null;
+  existing_mentorship_status?: string | null;
+  is_member?: boolean;
+};
 
 // --- Steps 8b / 8c / 8d: mentorships, availability, sessions --------------
 export type MentorshipStatus = components["schemas"]["MentorshipStatus"];
@@ -802,6 +830,13 @@ export const api = {
     /** `GET /startups` — filters/sorts are whitelisted server-side. */
     discover: (query: StartupDiscoveryQuery = {}, signal?: AbortSignal) =>
       apiRequest<StartupDiscoveryPage>("/startups", { method: "GET", query, signal }),
+
+    /** `GET /startups/{identifier}` — full discoverable profile for signed-in viewers. */
+    get: (identifier: string, signal?: AbortSignal) =>
+      apiRequest<StartupDiscoveryDetail>(`/startups/${encodeURIComponent(identifier)}`, {
+        method: "GET",
+        signal,
+      }),
 
     /** `GET /public/startups` — the same read, anonymously, public rows only. */
     discoverPublic: (query: StartupDiscoveryQuery = {}, signal?: AbortSignal) =>

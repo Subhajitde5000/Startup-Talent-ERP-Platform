@@ -17,10 +17,11 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user
+from app.core.exceptions import not_found
 from app.db.session import get_db
 from app.models.startup import StartupStage
 from app.models.user import User
-from app.schemas.discovery import StartupDiscoveryPage
+from app.schemas.discovery import StartupDiscoveryDetail, StartupDiscoveryPage
 from app.services import discovery_service
 
 router = APIRouter(tags=["discovery"])
@@ -94,3 +95,26 @@ async def discover_startups(
         city=city,
         q=q,
     )
+
+
+@router.get(
+    "/startups/{identifier}",
+    response_model=StartupDiscoveryDetail,
+    summary="Get discoverable startup profile (signed in)",
+)
+async def get_discoverable_startup(
+    identifier: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> StartupDiscoveryDetail:
+    """Retrieve full startup profile for discoverers (mentors, investors, etc.).
+
+    Only returns startups that have allowed the viewer's audience. Startups
+    outside the viewer's audience or non-existent startups 404 with STARTUP_NOT_FOUND
+    without existence leakage.
+    """
+    detail = await discovery_service.get_startup(db, user, identifier)
+    if detail is None:
+        raise not_found("Startup not found.", code="STARTUP_NOT_FOUND")
+    return detail
+
