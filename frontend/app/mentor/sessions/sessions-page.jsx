@@ -366,6 +366,10 @@ export default function MentorSessionsPage() {
       notify('Session completed. Review the summary below.');
       return;
     }
+    if (session.status !== 'confirmed') {
+      notify('This session must be confirmed before joining.');
+      return;
+    }
     if (!session.can_join) {
       notify('The meeting room opens 10 minutes before the start time.');
       return;
@@ -448,7 +452,7 @@ export default function MentorSessionsPage() {
             >
               Add summary
             </Link>
-          ) : (
+          ) : s.status === 'confirmed' ? (
             <>
               <Link
                 href={`/mentor/sessions/${s.id}`}
@@ -464,6 +468,20 @@ export default function MentorSessionsPage() {
                 Join
               </button>
             </>
+          ) : s.status === 'scheduled' ? (
+            <Link
+              href={`/mentor/sessions/${s.id}`}
+              className="rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4]"
+            >
+              Change time / Details
+            </Link>
+          ) : (
+            <Link
+              href={`/mentor/sessions/${s.id}`}
+              className="rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4]"
+            >
+              Details
+            </Link>
           )}
         </div>
       </article>

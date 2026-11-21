@@ -254,7 +254,7 @@ async def _same_mentorship_conflict(
 
 
 def _can_join(status: str, scheduled_at: datetime, duration_min: int) -> bool:
-    if status not in (SessionStatus.scheduled.value, SessionStatus.confirmed.value):
+    if status != SessionStatus.confirmed.value:
         return False
     now = datetime.now(UTC)
     start = _aware(scheduled_at)
