@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { StartupSidebar, Btn, Card, SubNavTabs } from '../../../components';
 import { useAuth } from '@/lib/auth-context';
@@ -126,7 +126,18 @@ const investors = [
   },
 ];
 
-const columns = ['Interested', 'Intro / Talking', 'Meeting held', 'Data room', 'Offer', 'Committed'];
+// Step 9e: the backend PipelineStage enum values, in board order, with
+// display labels. The deal rows carry the raw stage value.
+const PIPELINE_STAGE_ORDER = ['interested', 'intro', 'meeting', 'data_room', 'diligence', 'offer', 'committed'];
+const PIPELINE_STAGE_LABELS = {
+  interested: 'Interested',
+  intro: 'Intro / Talking',
+  meeting: 'Meeting held',
+  data_room: 'Data room',
+  diligence: 'Diligence',
+  offer: 'Offer',
+  committed: 'Committed',
+};
 
 // Step 9a: render the API's decimal-string money as ₹ Cr/L (matching the
 // demo's Indian numbering). Purely presentational — the value is the real
@@ -145,6 +156,17 @@ function progressNum(value) {
   if (value === null || value === undefined || value === '') return 0;
   const n = Number(value);
   return Number.isNaN(n) ? 0 : n;
+}
+
+// Step 9b: render the investor's typical ticket range as ₹ L/Cr.
+function formatTicketRange(min, max, currency = 'INR') {
+  const sym = currency === 'INR' ? '₹' : currency + ' ';
+  const lo = min == null ? null : formatMoney(min, currency);
+  const hi = max == null ? null : formatMoney(max, currency);
+  if (lo && hi) return `${lo} – ${hi}`;
+  if (lo) return lo;
+  if (hi) return hi;
+  return 'Not shared';
 }
 
 function StatusBadge({ status }) {
@@ -254,6 +276,31 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const [editRoundErrors, setEditRoundErrors] = useState({});
   const [savingEditRound, setSavingEditRound] = useState(false);
 
+  // Step 9b: investor directory (startup view). Only loaded for the
+  // discover and investor-detail pages; every other page keeps its demo data.
+  const [directoryPhase, setDirectoryPhase] = useState('loading'); // loading|ready|error|none
+  const [directoryItems, setDirectoryItems] = useState([]); // InvestorDirectoryItem[]
+  const [directorySummary, setDirectorySummary] = useState(null);
+  const [directoryFacets, setDirectoryFacets] = useState(null);
+  const [directoryError, setDirectoryError] = useState('');
+  const [directoryQuery, setDirectoryQuery] = useState('');
+  const [detailInvestor, setDetailInvestor] = useState(null); // InvestorDirectoryDetail
+  const [detailPhase, setDetailPhase] = useState('loading'); // loading|ready|error
+  const [detailError, setDetailError] = useState('');
+
+  // Step 9e: startup-side investor deal pipeline. Only for page="pipeline".
+  const [startupDeals, setStartupDeals] = useState([]); // StartupInvestorDealRead[]
+  const [startupDealsPhase, setStartupDealsPhase] = useState('loading'); // loading|ready|error|none
+  const [startupDealsError, setStartupDealsError] = useState('');
+
+  const cancelledRef = useRef(false);
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, []);
+
   useEffect(() => {
     if (!modal) return;
     const onKey = (e) => {
@@ -272,9 +319,11 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     setRoundsPhase('loading');
     try {
       const result = await api.fundingRounds.list(orgId, { sort: 'created_at' });
+      if (cancelledRef.current) return;
       setRounds(result.items);
       setRoundsPhase('ready');
     } catch {
+      if (cancelledRef.current) return;
       setRoundsPhase('error');
     }
   };
@@ -283,9 +332,12 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     setRoundPhase('loading');
     setRoundLoadError('');
     try {
-      setRound(await api.fundingRounds.get(orgId, roundId));
+      const result = await api.fundingRounds.get(orgId, roundId);
+      if (cancelledRef.current) return;
+      setRound(result);
       setRoundPhase('ready');
     } catch (err) {
+      if (cancelledRef.current) return;
       setRoundPhase('error');
       setRoundLoadError(err instanceof ApiError ? err.message : 'Could not load this round.');
     }
@@ -326,6 +378,100 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, id, user?.id]);
+
+  // Step 9b (discover / investor detail) and Step 9e (pipeline): resolve
+  // the startup org and load this page's real data. Gated to those three
+  // pages; every other page in this shared component keeps its demo data.
+  useEffect(() => {
+    if (page !== 'discover' && page !== 'investor' && page !== 'pipeline') {
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const orgs = await api.organizations.mine();
+        const startup = orgs.find((o) => o.type === 'startup') || null;
+        if (cancelled) return;
+        if (!startup) {
+          setOrg(null);
+          setDirectoryPhase('none');
+          setDetailPhase('none');
+          setStartupDealsPhase('none');
+          return;
+        }
+        setOrg(startup);
+        if (page === 'discover') {
+          await loadDirectory(startup.id, directoryQuery);
+        } else if (page === 'investor') {
+          await loadInvestorDetail(startup.id, id);
+        } else if (page === 'pipeline') {
+          await loadStartupDeals(startup.id);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setDirectoryPhase('error');
+        setDetailPhase('error');
+        setStartupDealsPhase('error');
+        setDirectoryError(err instanceof ApiError ? err.message : 'Could not load this page.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, id, user?.id]);
+
+  const loadDirectory = async (orgId, q) => {
+    setDirectoryPhase('loading');
+    setDirectoryError('');
+    try {
+      const [page, summary, facets] = await Promise.all([
+        api.investorDirectory.list(orgId, { q: q || undefined, limit: 50 }),
+        api.investorDirectory.summary(orgId),
+        api.investorDirectory.filters(orgId),
+      ]);
+      if (cancelledRef.current) return;
+      setDirectoryItems(page.items);
+      setDirectorySummary(summary);
+      setDirectoryFacets(facets);
+      setDirectoryPhase('ready');
+    } catch (err) {
+      if (cancelledRef.current) return;
+      setDirectoryPhase('error');
+      setDirectoryError(err instanceof ApiError ? err.message : 'Could not load investors.');
+    }
+  };
+
+  const loadInvestorDetail = async (orgId, investorId) => {
+    setDetailPhase('loading');
+    setDetailError('');
+    setDetailInvestor(null);
+    try {
+      const detail = await api.investorDirectory.get(orgId, investorId);
+      if (cancelledRef.current) return;
+      setDetailInvestor(detail);
+      setDetailPhase('ready');
+    } catch (err) {
+      if (cancelledRef.current) return;
+      setDetailPhase('error');
+      setDetailError(err instanceof ApiError ? err.message : 'Could not load this investor.');
+    }
+  };
+
+  const loadStartupDeals = async (orgId) => {
+    setStartupDealsPhase('loading');
+    setStartupDealsError('');
+    try {
+      const result = await api.startupInvestorDeals.list(orgId, { limit: 100 });
+      if (cancelledRef.current) return;
+      setStartupDeals(result.items);
+      setStartupDealsPhase('ready');
+    } catch (err) {
+      if (cancelledRef.current) return;
+      setStartupDealsPhase('error');
+      setStartupDealsError(err instanceof ApiError ? err.message : 'Could not load your investor pipeline.');
+    }
+  };
 
   const handleCreateRound = async () => {
     setSavingRound(true);
@@ -546,6 +692,54 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
           >
             Request intro
           </button>
+        </div>
+      </div>
+    </article>
+  );
+
+  // Step 9b: render a real directory item. Only org-level public fields
+  // are shown — never the firm's members, emails or pipeline state.
+  const directoryCard = (x) => (
+    <article key={x.id} className="rounded-xl border border-[#E5E1D8] bg-white p-4 sm:p-5">
+      <div className="flex flex-wrap items-start gap-3">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#F3EBDD] font-serif text-lg font-semibold text-[#806236]">
+          {x.logo_initials || (x.name || '?').charAt(0).toUpperCase()}
+        </span>
+        <div className="min-w-[180px] flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href={`/startup/investors/${x.id}`} className="font-semibold hover:underline">
+              {x.name}
+            </Link>
+            {x.verified && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#F3EBDD] px-2 py-1 text-[10px] font-semibold text-[#806236]">
+                <ShieldCheck size={12} />KYC verified
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-[#4A5568]">
+            {x.investor_type ? x.investor_type.replace('_', ' ') : 'Investor'}
+            {x.city ? ` · ${x.city}` : ''}
+          </p>
+          <p className="mt-1 text-xs">
+            <b>Typical ticket:</b> {formatTicketRange(x.min_ticket, x.max_ticket, x.currency || 'INR')}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {x.sectors.map(s => (
+          <span key={s} className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px]">{s}</span>
+        ))}
+        {x.stage_focus.map(s => (
+          <span key={s} className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px]">{s}</span>
+        ))}
+      </div>
+      {x.summary && <p className="mt-3 text-xs leading-5 text-[#4A5568]">{x.summary}</p>}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E1D8] pt-3">
+        <small className="text-[10px] text-[#4A5568]">{x.website || 'Profile listed'}</small>
+        <div className="flex gap-2">
+          <Link href={`/startup/investors/${x.id}`} className="inline-flex min-h-9 items-center rounded-lg border border-[#E5E1D8] px-3 text-xs font-semibold">
+            View profile
+          </Link>
         </div>
       </div>
     </article>
@@ -782,25 +976,42 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
             <div className="grid items-start gap-5 lg:grid-cols-4">
               <aside className="rounded-xl border border-[#E5E1D8] bg-white p-5">
                 <h2 className="font-semibold">Investor filters</h2>
-                {[
-                  ['Type', ['Angel', 'Angel group', 'Fund']],
-                  ['Stage focus', ['Pre-seed', 'Seed']],
-                  ['Sector', ['Fintech', 'B2B SaaS', 'Climate']],
-                  ['Ticket range', ['₹10L–₹50L', '₹50L–₹2 Cr']],
-                  ['Location', ['India', 'Global']],
-                ].map(([name, opts]) => (
-                  <fieldset key={name} className="mt-4">
-                    <legend className="text-xs font-semibold">{name}</legend>
-                    {opts.map(o => (
-                      <label key={o} className="mt-2 flex gap-2 text-xs text-[#4A5568]">
-                        <input type="checkbox" className="accent-ink" />{o}
-                      </label>
-                    ))}
-                  </fieldset>
-                ))}
-                <label className="mt-4 flex gap-2 text-xs">
-                  <input type="checkbox" defaultChecked disabled />Verified only
-                </label>
+                {directoryFacets ? (
+                  <div className="mt-4 space-y-4">
+                    {directoryFacets.sectors.length > 0 && (
+                      <fieldset>
+                        <legend className="text-xs font-semibold">Sector</legend>
+                        {directoryFacets.sectors.map(o => (
+                          <label key={o} className="mt-2 flex gap-2 text-xs text-[#4A5568]">
+                            <input type="checkbox" className="accent-ink" disabled />{o}
+                          </label>
+                        ))}
+                      </fieldset>
+                    )}
+                    {directoryFacets.stage_focus.length > 0 && (
+                      <fieldset>
+                        <legend className="text-xs font-semibold">Stage focus</legend>
+                        {directoryFacets.stage_focus.map(o => (
+                          <label key={o} className="mt-2 flex gap-2 text-xs text-[#4A5568]">
+                            <input type="checkbox" className="accent-ink" disabled />{o}
+                          </label>
+                        ))}
+                      </fieldset>
+                    )}
+                    {directoryFacets.types.length > 0 && (
+                      <fieldset>
+                        <legend className="text-xs font-semibold">Type</legend>
+                        {directoryFacets.types.map(o => (
+                          <label key={o} className="mt-2 flex gap-2 text-xs text-[#4A5568]">
+                            <input type="checkbox" className="accent-ink" disabled />{o.replace('_', ' ')}
+                          </label>
+                        ))}
+                      </fieldset>
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-4 text-[10px] text-[#4A5568]">Loading filters…</p>
+                )}
                 <p className="mt-4 text-[10px] text-[#4A5568]">No filters on personal protected characteristics.</p>
               </aside>
 
@@ -808,16 +1019,51 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                 <div className="relative">
                   <Search className="absolute left-3 top-3 text-[#A0A7B4]" size={16} />
                   <input
-                    value={query}
-                    onChange={e => setQuery(e.target.value)}
+                    value={directoryQuery}
+                    onChange={e => {
+                      setDirectoryQuery(e.target.value);
+                      if (org) loadDirectory(org.id, e.target.value);
+                    }}
                     placeholder="Search verified investors"
                     className="h-11 w-full rounded-lg border border-[#E5E1D8] bg-white pl-9 text-sm"
                   />
                 </div>
-                <p className="text-xs text-[#4A5568]">Recommended for Acme Studio · Prototype · Fintech</p>
-                {investors
-                  .filter(x => !query || `${x.name} ${x.firm} ${x.focus.join(' ')}`.toLowerCase().includes(query.toLowerCase()))
-                  .map(investorCard)}
+                {directorySummary && (
+                  <p className="text-xs text-[#4A5568]">
+                    {directorySummary.total} investor{directorySummary.total === 1 ? '' : 's'} listed · {directorySummary.verified} KYC verified
+                  </p>
+                )}
+                {directoryPhase === 'loading' && <LoadingBlock label="Loading investors…" rows={3} />}
+                {directoryPhase === 'error' && (
+                  <ErrorBlock
+                    message={directoryError || 'Could not load investors.'}
+                    onRetry={() => org && loadDirectory(org.id, directoryQuery)}
+                  />
+                )}
+                {directoryPhase === 'none' && (
+                  <EmptyBlock
+                    title="No startup workspace yet"
+                    hint="Create or join a startup to browse the investor directory."
+                  />
+                )}
+                {directoryPhase === 'ready' && directoryItems.length === 0 && (
+                  <EmptyBlock
+                    title="No investors match that search"
+                    hint="Try a different name, sector or stage, or clear the search to see all listed investors."
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDirectoryQuery('');
+                        if (org) loadDirectory(org.id, '');
+                      }}
+                      className="rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white"
+                    >
+                      Clear search
+                    </button>
+                  </EmptyBlock>
+                )}
+                {directoryPhase === 'ready' && directoryItems.map(directoryCard)}
               </div>
             </div>
             {disclaimer}
@@ -832,122 +1078,111 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
               </Link>
             )}
             {visBanner}
-            <div className="grid items-start gap-5 xl:grid-cols-3">
-              <div className="space-y-5 xl:col-span-2">
-                <Card title="Investor profile">
-                  <div className="flex items-start gap-4">
-                    <span className="grid h-16 w-16 place-items-center rounded-xl bg-[#F3EBDD] font-serif text-2xl">
-                      {inv.initial}
-                    </span>
-                    <div>
-                      <h2 className="text-lg font-semibold">{inv.name}</h2>
-                      <p className="text-sm text-[#4A5568]">{inv.firm} · {inv.type}</p>
-                      <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#F3EBDD] px-2 py-1 text-[10px] font-semibold text-[#806236]">
-                        <ShieldCheck size={12} />{inv.verified}
+            {detailPhase === 'loading' && <LoadingBlock label="Loading investor…" rows={3} />}
+            {detailPhase === 'error' && (
+              <ErrorBlock
+                message={detailError || 'Could not load this investor.'}
+                onRetry={() => org && loadInvestorDetail(org.id, id)}
+              />
+            )}
+            {detailPhase === 'none' && (
+              <EmptyBlock title="No startup workspace yet" hint="Create or join a startup to view an investor profile." />
+            )}
+            {detailPhase === 'ready' && detailInvestor && (
+              <div className="grid items-start gap-5 xl:grid-cols-3">
+                <div className="space-y-5 xl:col-span-2">
+                  <Card title="Investor profile">
+                    <div className="flex items-start gap-4">
+                      <span className="grid h-16 w-16 place-items-center rounded-xl bg-[#F3EBDD] font-serif text-2xl">
+                        {detailInvestor.logo_initials || (detailInvestor.name || '?').charAt(0).toUpperCase()}
                       </span>
-                      <p className="mt-2 text-xs text-[#4A5568]">{inv.location} · Typical ticket {inv.ticket}</p>
+                      <div>
+                        <h2 className="text-lg font-semibold">{detailInvestor.name}</h2>
+                        <p className="text-sm text-[#4A5568]">
+                          {detailInvestor.investor_type ? detailInvestor.investor_type.replace('_', ' ') : 'Investor'}
+                          {detailInvestor.city ? ` · ${detailInvestor.city}` : ''}
+                        </p>
+                        <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#F3EBDD] px-2 py-1 text-[10px] font-semibold text-[#806236]">
+                          <ShieldCheck size={12} />{detailInvestor.verified ? 'KYC verified' : 'Not verified'}
+                        </span>
+                        <p className="mt-2 text-xs text-[#4A5568]">
+                          Typical ticket {formatTicketRange(detailInvestor.min_ticket, detailInvestor.max_ticket, 'INR')}
+                          {detailInvestor.founded_year ? ` · Founded ${detailInvestor.founded_year}` : ''}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {inv.focus.map(f => (
-                      <span key={f} className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[10px]">{f}</span>
-                    ))}
-                  </div>
-                  <p className="mt-5 text-sm leading-6 text-[#4A5568]">
-                    We partner with ambitious early-stage founders building differentiated products for underserved markets. We value thoughtful customer discovery, capital discipline and clear evidence of market demand.
-                  </p>
-                </Card>
-
-                <Card title="Portfolio and track record">
-                  <p className="text-sm">28 early-stage investments · Typical stage: Pre-seed to Seed</p>
-                  <p className="mt-2 text-xs text-[#4A5568]">Selected portfolio details are shown by investor permission. Details are self-reported unless marked verified.</p>
-                </Card>
-
-                <Card title="Activity on your startup">
-                  <div className="space-y-3">
-                    {[
-                      ['Viewed your profile', '2 days ago'],
-                      ['Shortlisted Acme Studio', 'Yesterday'],
-                      ['Opened public pitch summary', 'Yesterday'],
-                    ].map(([x, d]) => (
-                      <p key={x} className="flex items-center gap-3 text-xs">
-                        <Eye size={14} className="text-[#9A7A45]" />{x}
-                        <span className="ml-auto text-[#4A5568]">{d}</span>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {detailInvestor.sectors.map(f => (
+                        <span key={f} className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[10px]">{f}</span>
+                      ))}
+                      {detailInvestor.stage_focus.map(f => (
+                        <span key={f} className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[10px]">{f}</span>
+                      ))}
+                    </div>
+                    {detailInvestor.summary && (
+                      <p className="mt-5 text-sm leading-6 text-[#4A5568]">{detailInvestor.summary}</p>
+                    )}
+                    {detailInvestor.website && (
+                      <p className="mt-3 text-xs text-[#4A5568]">
+                        {detailInvestor.website}
                       </p>
-                    ))}
-                  </div>
-                </Card>
+                    )}
+                  </Card>
 
-                <Card title="Conversation">
-                  <div className="rounded-lg bg-[#FAF8F4] p-4">
-                    <p className="text-xs"><b>{inv.name}</b> · We’d like to learn more about your customer validation work.</p>
-                    <small className="mt-1 block text-[10px] text-[#4A5568]">Yesterday · 3:20 PM</small>
-                  </div>
-                  <div className="mt-3 flex gap-2">
-                    <input placeholder="Write a secure message…" className="h-10 flex-1 rounded-lg border border-[#E5E1D8] px-3 text-xs" />
-                    <button type="button" onClick={() => notify('Secure message sent.')} className="grid h-10 w-10 place-items-center rounded-lg bg-ink text-white">
-                      <Send size={14} />
-                    </button>
-                  </div>
-                  <p className="mt-2 text-[10px] text-[#4A5568]">Messages are secure and logged for audit.</p>
-                </Card>
+                  <Card title="Portfolio and track record">
+                    <EmptyBlock
+                      title="Portfolio details arrive later"
+                      hint="Track record and portfolio holdings are recorded with the commitments step (a later step)."
+                    />
+                  </Card>
 
-                <Card title="Private notes">
-                  <textarea rows={4} placeholder="Notes for your team only; never shown to the investor." className="w-full rounded-lg border border-[#E5E1D8] p-3 text-sm" />
-                  <button type="button" onClick={() => notify('Private note saved.')} className="mt-2 text-xs font-semibold text-[#9A7A45]">
-                    Save note
+                  <Card title="Activity on your startup">
+                    <EmptyBlock
+                      title="Activity arrives later"
+                      hint="Investor activity on your startup is shown with the activity step (a later step)."
+                    />
+                  </Card>
+
+                  <Card title="Conversation">
+                    <EmptyBlock
+                      title="Conversations arrive later"
+                      hint="Secure messaging and introductions are handled with the requests step (a later step)."
+                    />
+                  </Card>
+
+                  <Card title="Private notes">
+                    <EmptyBlock
+                      title="Notes arrive later"
+                      hint="Private team notes on an investor are recorded with a later step."
+                    />
+                  </Card>
+                </div>
+
+                <aside className="space-y-5 xl:sticky xl:top-24">
+                  <Card title="Pipeline status">
+                    <EmptyBlock
+                      title="Pipeline status on the investor page"
+                      hint="The deal stage with this investor appears on your investor pipeline (Step 9e)."
+                    >
+                      <Link href="/startup/investors/pipeline" className="rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white">
+                        Open pipeline
+                      </Link>
+                    </EmptyBlock>
+                  </Card>
+
+                  <Card title="Access summary">
+                    <p className="text-xs text-[#4A5568]">Investor can view your public profile only. No documents shared.</p>
+                    <Link href="/startup/data-room" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
+                      Manage access <ArrowRight className="inline" size={12} />
+                    </Link>
+                  </Card>
+
+                  <button type="button" onClick={() => notify('Investor blocked from future contact.')} className="text-xs text-[#B42318]">
+                    Block or report
                   </button>
-                </Card>
+                </aside>
               </div>
-
-              <aside className="space-y-5 xl:sticky xl:top-24">
-                <Card title="Pipeline status">
-                  <span className="rounded-full bg-[#F3EBDD] px-2.5 py-1 text-xs font-semibold text-[#806236]">{inv.status}</span>
-                  <select
-                    value={inv.stage}
-                    onChange={e => {
-                      setInvestorStatus(investorStatus.map((s, i) => i === investors.findIndex(v => v.id === inv.id) ? e.target.value : s));
-                      notify('Investor stage updated.');
-                    }}
-                    className="mt-4 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs"
-                  >
-                    {columns.map(c => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </select>
-                  <div className="mt-4 space-y-2">
-                    <button type="button" onClick={() => notify('Message composer opened.')} className="w-full rounded-lg bg-ink py-2.5 text-xs font-semibold text-white">
-                      Message
-                    </button>
-                    <Link href="/startup/meetings" className="block text-center w-full rounded-lg border border-[#E5E1D8] py-2.5 text-xs font-semibold hover:bg-[#FAF8F4]">
-                      Schedule meeting
-                    </Link>
-                    <Link href="/startup/data-room/requests" className="block text-center w-full rounded-lg border border-[#E5E1D8] py-2.5 text-xs font-semibold hover:bg-[#FAF8F4]">
-                      Grant data room access
-                    </Link>
-                  </div>
-                </Card>
-
-                <Card title="Access summary">
-                  <p className="text-xs text-[#4A5568]">Investor can view your public profile only. No documents shared.</p>
-                  <Link href="/startup/data-room" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
-                    Manage access <ArrowRight className="inline" size={12} />
-                  </Link>
-                </Card>
-
-                <Card title="Next step">
-                  <input type="date" className="h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs" />
-                  <input placeholder="Add a reminder note" className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs" />
-                  <button type="button" onClick={() => notify('Follow-up reminder saved.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
-                    Save reminder
-                  </button>
-                </Card>
-
-                <button type="button" onClick={() => notify('Investor blocked from future contact.')} className="text-xs text-[#B42318]">
-                  Block or report
-                </button>
-              </aside>
-            </div>
+            )}
             {disclaimer}
           </>
         )}
@@ -965,7 +1200,6 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                 <button type="button" onClick={() => setView('Funnel')} className={`rounded-lg px-3 py-2 text-xs ${view === 'Funnel' ? 'bg-ink text-white' : 'border bg-white'}`}>
                   Funnel
                 </button>
-                <Btn onClick={() => setModal('add-investor')}><Plus size={15} /> Add investor</Btn>
               </div>
             )}
             <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -977,106 +1211,121 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
               />
               <select value={filter} onChange={e => setFilter(e.target.value)} className="h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs">
                 <option>All</option>
-                {columns.map(c => (
-                  <option key={c}>{c}</option>
+                {PIPELINE_STAGE_ORDER.map(s => (
+                  <option key={s} value={s}>{PIPELINE_STAGE_LABELS[s]}</option>
                 ))}
               </select>
-              <button type="button" onClick={() => notify('Pipeline exported as CSV.')} className="rounded-lg border bg-white px-3 py-2 text-xs">
-                <Download className="mr-1 inline" size={13} />Export
-              </button>
             </div>
 
-            {view === 'Board' ? (
-              <div className="grid gap-3 overflow-x-auto pb-3 md:grid-cols-2 2xl:grid-cols-6">
-                {columns.map(c => (
-                  <section key={c} className="min-w-[205px] rounded-xl bg-[#F4F1EA] p-3">
-                    <h2 className="mb-3 flex justify-between text-xs font-semibold">
-                      {c}<span className="text-[#4A5568]">{investors.filter(x => investorStatus[investors.indexOf(x)] === c).length}</span>
-                    </h2>
-                    {investors
-                      .filter(x => investorStatus[investors.indexOf(x)] === c && (filter === 'All' || filter === c) && (!query || x.name.toLowerCase().includes(query.toLowerCase())))
-                      .map(x => (
-                        <Link href={`/startup/investors/${x.id}`} key={x.id} className="mb-2 block rounded-lg border border-[#E5E1D8] bg-white p-3 hover:border-[#A0A7B4]">
-                          <b className="text-xs">{x.name}</b>
-                          <p className="mt-1 text-[10px] text-[#4A5568]">{x.ticket}</p>
-                          <p className="mt-2 text-[10px] text-[#4A5568]">{x.note}</p>
-                          <select
-                            value={investorStatus[investors.indexOf(x)]}
-                            onClick={e => e.preventDefault()}
-                            onChange={e => {
-                              setInvestorStatus(investorStatus.map((v, i) => i === investors.indexOf(x) ? e.target.value : v));
-                              notify(`Moved ${x.name} to ${e.target.value}.`);
-                            }}
-                            className="mt-2 w-full rounded border bg-white p-1 text-[10px]"
-                          >
-                            {[...columns, 'Passed / Declined'].map(y => (
-                              <option key={y}>{y}</option>
-                            ))}
-                          </select>
-                        </Link>
-                      ))}
-                  </section>
-                ))}
-              </div>
-            ) : view === 'Table' ? (
-              <Card title="Investor pipeline">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[700px] text-left text-xs">
-                    <thead className="border-b text-[#4A5568]">
-                      <tr>
-                        {['Investor', 'Status', 'Last activity', 'Owner', 'Ticket', 'Expected amount', 'Next step'].map(x => (
-                          <th key={x} className="py-3">{x}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {investors.map((x, i) => (
-                        <tr key={x.id} className="border-b">
-                          <td className="py-3">
-                            <Link href={`/startup/investors/${x.id}`} className="font-semibold hover:underline">
-                              {x.name}
+            {startupDealsPhase === 'loading' && <LoadingBlock label="Loading your investor pipeline…" rows={3} />}
+            {startupDealsPhase === 'error' && (
+              <ErrorBlock
+                message={startupDealsError || 'Could not load your investor pipeline.'}
+                onRetry={() => org && loadStartupDeals(org.id)}
+              />
+            )}
+            {startupDealsPhase === 'none' && (
+              <EmptyBlock
+                title="No startup workspace yet"
+                hint="Create or join a startup to view your investor pipeline."
+              />
+            )}
+            {startupDealsPhase === 'ready' && startupDeals.length === 0 && (
+              <EmptyBlock
+                title="No investors in your pipeline yet"
+                hint="When investors open a deal with your startup, their stage appears here."
+              />
+            )}
+
+            {startupDealsPhase === 'ready' && startupDeals.length > 0 && (
+              <>
+                {view === 'Board' ? (
+                  <div className="grid gap-3 overflow-x-auto pb-3 md:grid-cols-2 2xl:grid-cols-7">
+                    {PIPELINE_STAGE_ORDER.map(stageVal => {
+                      const label = PIPELINE_STAGE_LABELS[stageVal];
+                      const stageDeals = startupDeals.filter(
+                        d => d.stage === stageVal &&
+                          (filter === 'All' || filter === stageVal) &&
+                          (!query || d.investor_name.toLowerCase().includes(query.toLowerCase()))
+                      );
+                      return (
+                        <section key={stageVal} className="min-w-[205px] rounded-xl bg-[#F4F1EA] p-3">
+                          <h2 className="mb-3 flex justify-between text-xs font-semibold">
+                            {label}<span className="text-[#4A5568]">{stageDeals.length}</span>
+                          </h2>
+                          {stageDeals.map(d => (
+                            <Link href={`/startup/investors/${d.investor_org_id}`} key={d.id} className="mb-2 block rounded-lg border border-[#E5E1D8] bg-white p-3 hover:border-[#A0A7B4]">
+                              <b className="text-xs">{d.investor_name}</b>
+                              <p className="mt-1 text-[10px] text-[#4A5568]">
+                                {d.ticket_size != null ? formatMoney(d.ticket_size, d.currency) : 'Ticket not shared'}
+                              </p>
+                              {d.next_step && <p className="mt-2 text-[10px] text-[#4A5568]">{d.next_step}</p>}
                             </Link>
-                          </td>
-                          <td>{investorStatus[i]}</td>
-                          <td>{x.rating}</td>
-                          <td>{x.owner}</td>
-                          <td>{x.ticket}</td>
-                          <td>{i === 2 ? '₹50L' : '—'}</td>
-                          <td>Follow up · Nov 12</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            ) : (
-              <div className="grid gap-5 lg:grid-cols-2">
-                <Card title="Fundraising funnel">
-                  {columns.slice(0, 5).map((c, i) => (
-                    <div key={c} className="mb-3 flex items-center gap-3 text-xs">
-                      <span className="w-28">{c}</span>
-                      <div className="h-3 flex-1 rounded bg-[#E5E1D8]">
-                        <div className="h-full rounded bg-ink" style={{ width: `${[100, 70, 45, 25, 15][i]}%` }} />
-                      </div>
-                      <b>{[12, 8, 5, 3, 1][i]}</b>
-                      <small className="w-10 text-right text-[#4A5568]">{i ? `${[0, 67, 63, 60, 33][i]}%` : ''}</small>
+                          ))}
+                        </section>
+                      );
+                    })}
+                  </div>
+                ) : view === 'Table' ? (
+                  <Card title="Investor pipeline">
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[700px] text-left text-xs">
+                        <thead className="border-b text-[#4A5568]">
+                          <tr>
+                            {['Investor', 'Stage', 'Last activity', 'Ticket', 'Next step'].map(x => (
+                              <th key={x} className="py-3">{x}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {startupDeals
+                            .filter(d => filter === 'All' || d.stage === filter)
+                            .filter(d => !query || d.investor_name.toLowerCase().includes(query.toLowerCase()))
+                            .map(d => (
+                              <tr key={d.id} className="border-b">
+                                <td className="py-3">
+                                  <Link href={`/startup/investors/${d.investor_org_id}`} className="font-semibold hover:underline">
+                                    {d.investor_name}
+                                  </Link>
+                                </td>
+                                <td>{PIPELINE_STAGE_LABELS[d.stage] || d.stage}</td>
+                                <td>{d.last_activity_at ? new Date(d.last_activity_at).toLocaleDateString() : '—'}</td>
+                                <td>{d.ticket_size != null ? formatMoney(d.ticket_size, d.currency) : '—'}</td>
+                                <td>{d.next_step || '—'}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
                     </div>
-                  ))}
-                </Card>
-                <Card title="Expected raise vs target">
-                  <p className="text-sm">Target: <b>₹2.5 Cr</b></p>
-                  <div className="mt-4 flex h-5 overflow-hidden rounded-full">
-                    <span className="w-[32%] bg-ink" />
-                    <span className="w-[28%] bg-[#B8955A]" />
-                    <span className="w-[20%] bg-[#A0A7B4]" />
+                  </Card>
+                ) : (
+                  <div className="grid gap-5 lg:grid-cols-2">
+                    <Card title="Pipeline by stage">
+                      <div className="space-y-3">
+                        {PIPELINE_STAGE_ORDER.map(stageVal => {
+                          const count = startupDeals.filter(d => d.stage === stageVal).length;
+                          const max = Math.max(1, ...PIPELINE_STAGE_ORDER.map(s => startupDeals.filter(d => d.stage === s).length));
+                          return (
+                            <div key={stageVal} className="mb-3 flex items-center gap-3 text-xs">
+                              <span className="w-28">{PIPELINE_STAGE_LABELS[stageVal]}</span>
+                              <div className="h-3 flex-1 rounded bg-[#E5E1D8]">
+                                <div className="h-full rounded bg-ink" style={{ width: `${(count / max) * 100}%` }} />
+                              </div>
+                              <b>{count}</b>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </Card>
+                    <Card title="Commitments and raise">
+                      <EmptyBlock
+                        title="Commitments arrive later"
+                        hint="Expected commitments, raise progress and portfolio holdings are recorded with the commitments step (a later step)."
+                      />
+                    </Card>
                   </div>
-                  <div className="mt-3 space-y-2 text-xs">
-                    <p>Committed · ₹0.8 Cr</p>
-                    <p>Probable · ₹0.7 Cr</p>
-                    <p>Possible · ₹0.5 Cr</p>
-                  </div>
-                </Card>
-              </div>
+                )}
+              </>
             )}
             {disclaimer}
           </>

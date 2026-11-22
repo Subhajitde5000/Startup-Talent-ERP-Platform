@@ -113,16 +113,6 @@ export const startups = [
   },
 ];
 
-export const stages = [
-  'Interested',
-  'Intro / Talking',
-  'Meeting held',
-  'Data room',
-  'Diligence',
-  'Offer',
-  'Committed',
-];
-
 export const deals = [
   {
     id: 'acme',

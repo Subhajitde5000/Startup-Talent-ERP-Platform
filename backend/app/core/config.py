@@ -138,6 +138,20 @@ class Settings(BaseSettings):
     # so the cap matches the metrics/deliverable write limits.
     FUNDING_ROUND_WRITE_LIMIT: int = 60
     FUNDING_ROUND_WRITE_WINDOW_SECONDS: int = 300
+    # Step 9b/9c: investor directory and startup discovery searches are
+    # read-heavy list endpoints (the mentor-search precedent: a search
+    # box is not a batch API).
+    INVESTOR_DIRECTORY_SEARCH_LIMIT: int = 60
+    INVESTOR_DIRECTORY_SEARCH_WINDOW_SECONDS: int = 300
+    INVESTOR_DISCOVERY_SEARCH_LIMIT: int = 60
+    INVESTOR_DISCOVERY_SEARCH_WINDOW_SECONDS: int = 300
+    # Step 9d: preferences, saved searches and shortlist edits.
+    INVESTOR_SEARCH_WRITE_LIMIT: int = 30
+    INVESTOR_SEARCH_WRITE_WINDOW_SECONDS: int = 300
+    # Step 9e: the deal board is edited while an investor works a
+    # pipeline, so the cap matches the round/metrics write limits.
+    INVESTOR_DEAL_WRITE_LIMIT: int = 60
+    INVESTOR_DEAL_WRITE_WINDOW_SECONDS: int = 300
     # Step 8h: commission and TDS withheld from a mentor's fee.
     #
     # BOTH DEFAULT TO 0 ON PURPOSE. BUILD_PLAN.md, schema.sql and this
