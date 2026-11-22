@@ -178,7 +178,7 @@ export default function InvestorDashboardPage() {
                   }
                 >
                   <div className="space-y-4">
-                    {startups.slice(0, 2).map((s) => startupCard(s))}
+                    {(startups || []).slice(0, 2).map((s) => startupCard(s))}
                   </div>
                 </Card>
 
@@ -365,7 +365,7 @@ export default function InvestorDashboardPage() {
                   <p className="mt-5 text-xs leading-relaxed text-ink">{drawer.summary}</p>
 
                   <div className="mt-4 grid grid-cols-2 gap-2">
-                    {drawer.items.map(([x, y, src]) => (
+                    {(drawer.items || []).map(([x, y, src]) => (
                       <div key={x} className="rounded-lg border border-[#E5E1D8] bg-white p-3">
                         <span className="block text-xs text-[#4A5568]">{x}</span>
                         <b className="block text-sm font-semibold text-ink">{y}</b>

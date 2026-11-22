@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { StartupSidebar, Btn, Card, SubNavTabs } from '../../../components';
 import { useAuth } from '@/lib/auth-context';
@@ -293,6 +293,14 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const [startupDealsPhase, setStartupDealsPhase] = useState('loading'); // loading|ready|error|none
   const [startupDealsError, setStartupDealsError] = useState('');
 
+  const cancelledRef = useRef(false);
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, []);
+
   useEffect(() => {
     if (!modal) return;
     const onKey = (e) => {
@@ -311,9 +319,11 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     setRoundsPhase('loading');
     try {
       const result = await api.fundingRounds.list(orgId, { sort: 'created_at' });
+      if (cancelledRef.current) return;
       setRounds(result.items);
       setRoundsPhase('ready');
     } catch {
+      if (cancelledRef.current) return;
       setRoundsPhase('error');
     }
   };
@@ -322,9 +332,12 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     setRoundPhase('loading');
     setRoundLoadError('');
     try {
-      setRound(await api.fundingRounds.get(orgId, roundId));
+      const result = await api.fundingRounds.get(orgId, roundId);
+      if (cancelledRef.current) return;
+      setRound(result);
       setRoundPhase('ready');
     } catch (err) {
+      if (cancelledRef.current) return;
       setRoundPhase('error');
       setRoundLoadError(err instanceof ApiError ? err.message : 'Could not load this round.');
     }
@@ -423,6 +436,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
       setDirectoryFacets(facets);
       setDirectoryPhase('ready');
     } catch (err) {
+      if (cancelledRef.current) return;
       setDirectoryPhase('error');
       setDirectoryError(err instanceof ApiError ? err.message : 'Could not load investors.');
     }
@@ -434,9 +448,11 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     setDetailInvestor(null);
     try {
       const detail = await api.investorDirectory.get(orgId, investorId);
+      if (cancelledRef.current) return;
       setDetailInvestor(detail);
       setDetailPhase('ready');
     } catch (err) {
+      if (cancelledRef.current) return;
       setDetailPhase('error');
       setDetailError(err instanceof ApiError ? err.message : 'Could not load this investor.');
     }
@@ -447,9 +463,11 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     setStartupDealsError('');
     try {
       const result = await api.startupInvestorDeals.list(orgId, { limit: 100 });
+      if (cancelledRef.current) return;
       setStartupDeals(result.items);
       setStartupDealsPhase('ready');
     } catch (err) {
+      if (cancelledRef.current) return;
       setStartupDealsPhase('error');
       setStartupDealsError(err instanceof ApiError ? err.message : 'Could not load your investor pipeline.');
     }

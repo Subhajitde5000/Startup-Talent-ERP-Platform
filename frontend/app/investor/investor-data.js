@@ -1,5 +1,118 @@
 import { CheckCircle2, Info } from 'lucide-react';
 
+export const startups = [
+  {
+    id: 'acme',
+    name: 'Acme Studio',
+    logo: 'A',
+    tag: 'Making financial operations effortless for growing businesses.',
+    stage: 'Prototype',
+    sector: 'Fintech · B2B SaaS',
+    loc: 'Kolkata, India',
+    team: 8,
+    ready: 82,
+    badge: true,
+    verified: true,
+    mrr: '₹4.8L',
+    growth: '+12%',
+    raise: '₹2 Cr seed',
+    committed: '40%',
+    updated: '3 days ago',
+    fit: 'Matches your seed stage, fintech focus and ₹25L–₹1Cr ticket.',
+    mentor: 'S. Banerjee',
+    summary:
+      'A modern finance operations platform for growing Indian businesses. Acme brings reconciliation, spend visibility and working-capital insights together.',
+    problem:
+      'Growing businesses lose time and cash visibility across disconnected finance tools.',
+    solution:
+      'One workspace that connects accounting, payments and operating decisions.',
+    tam: '₹8,400 Cr · startup-reported',
+    model: 'SaaS subscription · SMB and mid-market',
+    teamText:
+      'Founders with experience in fintech, operations and product.',
+    roundType: 'Seed',
+    items: [
+      ['MRR', '₹4.8L', 'Startup-reported'],
+      ['MoM growth', '12%', 'Calculated'],
+      ['Customers', '126', 'Startup-reported'],
+      ['Readiness', '82 / 100', 'Mentor-verified'],
+    ],
+  },
+  {
+    id: 'greenledger',
+    name: 'GreenLedger',
+    logo: 'G',
+    tag: 'Climate data and reporting for small farms.',
+    stage: 'Idea',
+    sector: 'Climate · Agriculture',
+    loc: 'Pune, India',
+    team: 4,
+    ready: 76,
+    badge: true,
+    verified: true,
+    mrr: 'Not shared',
+    growth: 'Not shared',
+    raise: '₹75L pre-seed',
+    committed: '18%',
+    updated: '1 day ago',
+    fit: 'Matches your climate thesis and pre-seed range.',
+    mentor: 'A. Rao',
+    summary:
+      'Simple, verifiable farm-level climate records that help small farms participate in sustainability programs.',
+    problem:
+      'Small farms lack affordable ways to document sustainability practices.',
+    solution:
+      'Mobile-first climate recordkeeping built for low-connectivity environments.',
+    tam: 'Not shared',
+    model: 'Program subscription · agriculture networks',
+    teamText:
+      'A small founding team working across climate science and agriculture.',
+    roundType: 'Pre-seed',
+    items: [
+      ['Pilot farms', '24', 'Startup-reported'],
+      ['Readiness', '76 / 100', 'Mentor-verified'],
+      ['MRR', 'Not shared', 'Not shared'],
+      ['Growth', 'Not shared', 'Not shared'],
+    ],
+  },
+  {
+    id: 'orbitpay',
+    name: 'OrbitPay',
+    logo: 'O',
+    tag: 'Cross-border payments for independent teams.',
+    stage: 'Early revenue',
+    sector: 'Fintech · Payments',
+    loc: 'Bengaluru, India',
+    team: 12,
+    ready: 68,
+    badge: false,
+    verified: true,
+    mrr: '₹12L',
+    growth: '+18%',
+    raise: '₹4 Cr seed',
+    committed: '55%',
+    updated: '5 days ago',
+    fit: 'Matches your fintech focus; raise is above your preferred range.',
+    mentor: 'Not shared',
+    summary:
+      'Payments infrastructure for distributed teams and independent professionals operating across South Asia.',
+    problem:
+      'Cross-border money movement remains slow and costly for small businesses.',
+    solution:
+      'A compliance-first payment experience designed around regional payouts.',
+    tam: 'Not shared',
+    model: 'Transaction fee · platform subscription',
+    teamText: '12 team members · hiring 2 roles.',
+    roundType: 'Seed',
+    items: [
+      ['MRR', '₹12L', 'Startup-reported'],
+      ['MoM growth', '18%', 'Calculated'],
+      ['Customers', 'Not shared', 'Not shared'],
+      ['Readiness', '68 / 100', 'Calculated'],
+    ],
+  },
+];
+
 export const deals = [
   {
     id: 'acme',
