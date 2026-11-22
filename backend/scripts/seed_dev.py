@@ -25,6 +25,7 @@ import hashlib
 import re
 import secrets
 import sys
+import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -37,9 +38,19 @@ from sqlalchemy import func, select  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.db.session import async_session_factory, engine  # noqa: E402
+from app.models.activity import ActivityEvent  # noqa: E402
 from app.models.analytics import StartupCompetitor, StartupMarketSize  # noqa: E402
 from app.models.availability import AvailabilitySlot  # noqa: E402
+from app.models.commitment import (  # noqa: E402
+    Commitment,
+    CommitmentStatus,
+    PortfolioHolding,
+)
 from app.models.deliverable import DeliverableStatus, MentorDeliverable  # noqa: E402
+from app.models.diligence import (  # noqa: E402
+    InvestorDiligenceChecklist,
+    InvestorDiligenceItem,
+)
 from app.models.earning import EarningStatus, MentorEarning  # noqa: E402
 from app.models.funding_round import (  # noqa: E402
     FundingRound,
@@ -48,6 +59,15 @@ from app.models.funding_round import (  # noqa: E402
     RoundStatus,
 )
 from app.models.investor_deal import InvestorDeal, PipelineStage  # noqa: E402
+from app.models.investor_engagement import (  # noqa: E402
+    InvestorEngagementRequest,
+    InvestorMeeting,
+    MeetingStatus,
+    MeetingType,
+    RequestKind,
+    RequestStatus,
+)
+from app.models.investor_offer import InvestorOffer, OfferStatus  # noqa: E402
 from app.models.investor_search import (  # noqa: E402
     InvestorPreference,
     InvestorType,
@@ -1062,8 +1082,280 @@ STEP9E_DEALS: list[dict[str, object]] = [
     {"startup": "GreenLedger", "stage": "meeting", "ticket": "1500000", "probability": 45, "next_step": "Schedule follow-up call", "days_ago": 1, "owner": "investor@forma.dev"},
     {"startup": "Kavach Cyber", "stage": "data_room", "ticket": "2000000", "probability": 50, "next_step": "Send NDA", "days_ago": 6, "owner": "investor@forma.dev"},
     {"startup": "Northstar Health", "stage": "interested", "ticket": "1000000", "probability": 20, "next_step": "Initial outreach", "days_ago": 20, "owner": "investor@forma.dev"},
+    # Step 9m: a deal on the founder's own org so the startup investor hub
+    # (deals in pipeline, interested investors card) shows real data.
+    {"startup": "Northstar Labs Pvt Ltd", "stage": "intro", "ticket": "1500000", "probability": 35, "next_step": "Schedule first call", "days_ago": 3, "owner": "investor@forma.dev"},
     {"startup": "LogiPulse", "stage": "offer", "ticket": "2500000", "probability": 75, "next_step": "Final terms", "days_ago": 3, "owner": "investor@forma.dev"},
     {"startup": "RuralFlow", "stage": "intro", "ticket": "1200000", "probability": 35, "next_step": "Warm intro via mentor", "days_ago": 9, "owner": "investor@forma.dev"},
+]
+
+# ---------------------------------------------------------------------------
+# Steps 9f/9i/9j/9k/9l: demo records for the wired engagement, offers,
+# commitments/portfolio, diligence and dashboard pages — moved out of the
+# frontend's inline demo data so the dev UI is populated from the real
+# API. All keyed by the startup/round names seeded in 9a/9c above. Fill-only:
+# existing rows are never duplicated or overwritten.
+# ---------------------------------------------------------------------------
+
+# 9f: engagement requests + meetings. `startup` matches a STEP9C_STARTUPS
+# name (or the founder's Northstar Labs org). `days_ago` sets created_at.
+STEP9F_REQUESTS: list[dict[str, object]] = [
+    {
+        "startup": "Acme Studio",
+        "kind": RequestKind.intro,
+        "ask": "Request an introduction to the founding team.",
+        "message": "We back fintech ops tooling at seed stage and would love to learn more.",
+        "status": RequestStatus.pending,
+        "days_ago": 4,
+    },
+    {
+        "startup": "GreenLedger",
+        "kind": RequestKind.meeting,
+        "ask": "Request a follow-up diligence meeting.",
+        "message": "We'd like to walk through the carbon accounting model in detail.",
+        "status": RequestStatus.accepted,
+        "response_note": "Happy to meet — let's schedule for next week.",
+        "days_ago": 6,
+    },
+    # Step 9m: a pending request on the founder's own org so the hub's
+    # pending-requests stat and needs-reply list show real data.
+    {
+        "startup": "Northstar Labs Pvt Ltd",
+        "kind": RequestKind.intro,
+        "ask": "Request an introduction to the founding team.",
+        "message": "We back early-stage Indian SaaS and would love to learn more about Northstar Labs.",
+        "status": RequestStatus.pending,
+        "days_ago": 1,
+    },
+    {
+        "startup": "Kavach Cyber",
+        "kind": RequestKind.information,
+        "ask": "Request the investor information pack.",
+        "message": "Could you share your data room and current metrics?",
+        "status": RequestStatus.declined,
+        "decline_reason": "Not raising right now; revisiting in Q1.",
+        "days_ago": 12,
+    },
+]
+
+STEP9F_MEETINGS: list[dict[str, object]] = [
+    {
+        "startup": "Acme Studio",
+        "meeting_type": MeetingType.intro_call,
+        "status": MeetingStatus.confirmed,
+        "scheduled_in_days": 2,
+        "duration_minutes": 30,
+        "agenda": "Intro call — thesis, current traction and next steps.",
+        "location": "Zoom",
+        "days_ago": 1,
+    },
+    {
+        "startup": "GreenLedger",
+        "meeting_type": MeetingType.diligence,
+        "status": MeetingStatus.proposed,
+        "scheduled_in_days": 9,
+        "duration_minutes": 45,
+        "agenda": "Deep-dive on the carbon accounting model and unit economics.",
+        "location": "Zoom",
+        "days_ago": 2,
+    },
+    # Step 9m: an upcoming meeting on the founder's own org so the hub's
+    # meetings-this-month stat and upcoming-meetings card show real data.
+    {
+        "startup": "Northstar Labs Pvt Ltd",
+        "meeting_type": MeetingType.intro_call,
+        "status": MeetingStatus.confirmed,
+        "scheduled_in_days": 3,
+        "duration_minutes": 30,
+        "agenda": "Intro call — thesis, traction and next steps.",
+        "location": "Zoom",
+        "days_ago": 1,
+    },
+    {
+        "startup": "LogiPulse",
+        "meeting_type": MeetingType.follow_up,
+        "status": MeetingStatus.completed,
+        "scheduled_in_days": -5,
+        "duration_minutes": 30,
+        "agenda": "Follow-up on the freight optimisation pilot results.",
+        "location": "Zoom",
+        "days_ago": 8,
+    },
+]
+
+# 9i: offers. `round` matches a STEP9C_STARTUPS round name. For the countered
+# offer, the v2 row is linked to the v1 row via parent_offer_id (the same
+# shape the counter action produces).
+STEP9I_OFFERS: list[dict[str, object]] = [
+    {
+        "startup": "Acme Studio",
+        "round": "Seed Round",
+        "amount": "2500000",
+        "instrument": "equity",
+        "valuation_cap": "100000000",
+        "discount_pct": None,
+        "status": OfferStatus.sent,
+        "version": 1,
+        "expires_on": "2026-12-20",
+        "notes": "Seed equity offer at a ₹10 Cr cap.",
+        "days_ago": 9,
+    },
+    {
+        "startup": "Acme Studio",
+        "round": "Seed Round",
+        "amount": "2000000",
+        "instrument": "equity",
+        "valuation_cap": "120000000",
+        "discount_pct": 10,
+        "status": OfferStatus.countered,
+        "version": 2,
+        "parent_of": 0,  # index of the v1 offer above
+        "expires_on": "2026-12-20",
+        "notes": "Counter: raised the cap, added a 10% discount.",
+        "days_ago": 5,
+    },
+    {
+        "startup": "GreenLedger",
+        "round": "Pre-seed Round",
+        "amount": "1000000",
+        "instrument": "safe",
+        "valuation_cap": "50000000",
+        "discount_pct": None,
+        "status": OfferStatus.accepted,
+        "version": 1,
+        "expires_on": None,
+        "notes": "Pre-seed SAFE at a ₹5 Cr cap.",
+        "days_ago": 20,
+    },
+    {
+        "startup": "LogiPulse",
+        "round": "Seed Round",
+        "amount": "2500000",
+        "instrument": "equity",
+        "valuation_cap": None,
+        "discount_pct": None,
+        "status": OfferStatus.draft,
+        "version": 1,
+        "expires_on": None,
+        "notes": "Draft seed equity offer — not yet sent.",
+        "days_ago": 1,
+    },
+]
+
+# 9j: commitments + portfolio holdings. `round` matches a STEP9C_STARTUPS
+# round name; `offer` matches a STEP9I_OFFERS index (0-based) or None.
+STEP9J_COMMITMENTS: list[dict[str, object]] = [
+    {
+        "startup": "GreenLedger",
+        "round": "Pre-seed Round",
+        "offer_idx": 2,
+        "amount": "1000000",
+        "status": CommitmentStatus.funded,
+        "committed_on": "2026-10-31",
+        "funded_on": "2026-11-05",
+        "reference": "ZEN-GL-001",
+        "days_ago": 20,
+    },
+    {
+        "startup": "Acme Studio",
+        "round": "Seed Round",
+        "offer_idx": 0,
+        "amount": "2000000",
+        "status": CommitmentStatus.documented,
+        "committed_on": "2026-11-10",
+        "reference": "ZEN-AC-002",
+        "days_ago": 10,
+    },
+    {
+        "startup": "LogiPulse",
+        "round": "Seed Round",
+        "offer_idx": None,
+        "amount": "1500000",
+        "status": CommitmentStatus.pledged,
+        "committed_on": "2026-11-15",
+        "reference": "ZEN-LP-003",
+        "days_ago": 5,
+    },
+]
+
+STEP9J_HOLDINGS: list[dict[str, object]] = [
+    {
+        "startup": "GreenLedger",
+        "instrument": "safe",
+        "invested_amount": "1000000",
+        "ownership_pct": 1.8,
+        "invested_on": "2026-10-31",
+        "status": "active",
+        "days_ago": 20,
+    },
+    {
+        "startup": "Acme Studio",
+        "instrument": "equity",
+        "invested_amount": "2000000",
+        "ownership_pct": 2.4,
+        "invested_on": "2026-11-10",
+        "status": "active",
+        "days_ago": 10,
+    },
+    {
+        "startup": "LogiPulse",
+        "instrument": "equity",
+        "invested_amount": "1500000",
+        "ownership_pct": None,
+        "invested_on": "2026-08-15",
+        "status": "exited",
+        "exited_on": "2026-11-01",
+        "exit_value": "3200000",
+        "days_ago": 90,
+    },
+]
+
+# 9k: diligence checklists + items, one per startup. `overall` is one of the
+# DiligenceOverallStatus values; items carry item_type/severity/status.
+STEP9K_CHECKLISTS: list[dict[str, object]] = [
+    {
+        "startup": "Acme Studio",
+        "overall": "in_progress",
+        "notes": "Fintech ops thesis is strong; cap-table reconciliation still open.",
+        "items": [
+            {"item_type": "checklist", "title": "Business model understood", "status": "cleared", "severity": None, "response": None},
+            {"item_type": "checklist", "title": "Pricing and customer references", "status": "cleared", "severity": None, "response": None},
+            {"item_type": "checklist", "title": "Market size assumptions checked", "status": "cleared", "severity": None, "response": None},
+            {"item_type": "checklist", "title": "Financial statements reviewed", "status": "in_progress", "severity": None, "response": None},
+            {"item_type": "question", "title": "Can you share monthly revenue reconciliation for Q3?", "status": "answered", "severity": None, "response": "Reconciliation uploaded to the data room."},
+            {"item_type": "finding", "title": "Customer concentration", "status": "concern", "severity": "medium", "response": "Top 3 clients account for ~44% of revenue."},
+        ],
+    },
+    {
+        "startup": "GreenLedger",
+        "overall": "cleared",
+        "notes": "Carbon accounting model verified; ready to commit.",
+        "items": [
+            {"item_type": "checklist", "title": "Business model understood", "status": "cleared", "severity": None, "response": None},
+            {"item_type": "checklist", "title": "Market size assumptions checked", "status": "cleared", "severity": None, "response": None},
+            {"item_type": "finding", "title": "Strong cohort retention", "status": "cleared", "severity": "strength", "response": "94% net revenue retention across pilot customers."},
+        ],
+    },
+]
+
+# 9l: activity events for the primary investor firm. event_type uses the
+# ActivityEventType vocabulary; created_at is set relative to now.
+STEP9L_ACTIVITY: list[dict[str, object]] = [
+    {"event_type": "offer_created", "entity_type": "offer", "summary": "Created offer on Acme Studio seed round.", "days_ago": 9},
+    {"event_type": "offer_sent", "entity_type": "offer", "summary": "Sent offer to Acme Studio.", "days_ago": 9},
+    {"event_type": "offer_countered", "entity_type": "offer", "summary": "Acme Studio countered the seed offer (v2).", "days_ago": 5},
+    {"event_type": "offer_accepted", "entity_type": "offer", "summary": "GreenLedger accepted the pre-seed SAFE offer.", "days_ago": 20},
+    {"event_type": "deal_stage_changed", "entity_type": "deal", "summary": "Moved Acme Studio deal to the diligence stage.", "days_ago": 4},
+    {"event_type": "shortlist_added", "entity_type": "startup", "summary": "Added GreenLedger to the shortlist.", "days_ago": 7},
+]
+
+# Step 9m: audit events on the FOUNDER's org so the startup investor hub's
+# recent-activity list shows real rows (the 9l block above stamps events on
+# the investor firm's org, which the startup-scoped hub feed does not see).
+STEP9M_ACTIVITY: list[dict[str, object]] = [
+    {"event_type": "round_created", "entity_type": "funding_round", "summary": "Created the Pre-seed Round.", "days_ago": 40},
+    {"event_type": "engagement_request_accepted", "entity_type": "engagement_request", "summary": "Accepted an intro request from Zenith Capital.", "days_ago": 6},
+    {"event_type": "meeting_status_changed", "entity_type": "meeting", "summary": "Confirmed the intro call with Zenith Capital.", "days_ago": 1},
 ]
 
 # (email, display name, role, verified?)
@@ -2499,6 +2791,426 @@ async def seed() -> None:
             if deals_added:
                 await db.commit()
 
+        # -----------------------------------------------------------------
+        # Steps 9f/9i/9j/9k/9l: demo records for the wired engagement,
+        # offers, commitments/portfolio, diligence and dashboard pages.
+        # Fill-only: existing rows are never duplicated or overwritten.
+        # -----------------------------------------------------------------
+        eng_requests_added = 0
+        meetings_added = 0
+        offers_added = 0
+        commitments_added = 0
+        holdings_added = 0
+        checklists_added = 0
+        diligence_items_added = 0
+        activity_added = 0
+
+        if primary_firm is not None:
+            investor_user = (
+                await db.execute(
+                    select(User).where(User.primary_email == "investor@forma.dev")
+                )
+            ).scalar_one_or_none()
+
+            # Resolve each startup's round once (one open round per 9c spec).
+            async def _round_for(org_id: uuid.UUID, round_name: str):
+                return (
+                    await db.execute(
+                        select(FundingRound).where(
+                            FundingRound.org_id == org_id,
+                            FundingRound.name == round_name,
+                            FundingRound.deleted_at.is_(None),
+                        )
+                    )
+                ).scalars().first()
+
+            # 9f: engagement requests.
+            for spec in STEP9F_REQUESTS:
+                target = startup_by_name.get(str(spec["startup"]))
+                if target is None:
+                    continue
+                exists = (
+                    await db.execute(
+                        select(InvestorEngagementRequest.id).where(
+                            InvestorEngagementRequest.investor_org_id == primary_firm.id,
+                            InvestorEngagementRequest.startup_org_id == target.id,
+                            InvestorEngagementRequest.kind == spec["kind"],
+                            InvestorEngagementRequest.deleted_at.is_(None),
+                        )
+                    )
+                ).first()
+                if exists is not None:
+                    continue
+                owner_user = (
+                    await db.execute(
+                        select(User).where(User.primary_email == "investor@forma.dev")
+                    )
+                ).scalar_one_or_none()
+                db.add(
+                    InvestorEngagementRequest(
+                        investor_org_id=primary_firm.id,
+                        startup_org_id=target.id,
+                        kind=spec["kind"],
+                        ask=str(spec["ask"]),
+                        message=spec.get("message"),
+                        status=spec["status"],
+                        response_note=spec.get("response_note"),
+                        decline_reason=spec.get("decline_reason"),
+                        expires_on=now + timedelta(days=14),
+                        owner_id=owner_user.id if owner_user else None,
+                        created_by=owner_user.id if owner_user else None,
+                        created_at=now - timedelta(days=int(spec["days_ago"])),
+                    )
+                )
+                eng_requests_added += 1
+
+            # 9f: meetings.
+            for spec in STEP9F_MEETINGS:
+                target = startup_by_name.get(str(spec["startup"]))
+                if target is None:
+                    continue
+                exists = (
+                    await db.execute(
+                        select(InvestorMeeting.id).where(
+                            InvestorMeeting.investor_org_id == primary_firm.id,
+                            InvestorMeeting.startup_org_id == target.id,
+                            InvestorMeeting.meeting_type == spec["meeting_type"],
+                            InvestorMeeting.deleted_at.is_(None),
+                        )
+                    )
+                ).first()
+                if exists is not None:
+                    continue
+                owner_user = (
+                    await db.execute(
+                        select(User).where(User.primary_email == "investor@forma.dev")
+                    )
+                ).scalar_one_or_none()
+                db.add(
+                    InvestorMeeting(
+                        investor_org_id=primary_firm.id,
+                        startup_org_id=target.id,
+                        meeting_type=spec["meeting_type"],
+                        scheduled_at=(now + timedelta(days=int(spec["scheduled_in_days"]))).replace(
+                            second=0, microsecond=0
+                        ),
+                        duration_minutes=int(spec["duration_minutes"]),
+                        agenda=spec.get("agenda"),
+                        status=spec["status"],
+                        location=spec.get("location"),
+                        organizer_org_id=primary_firm.id,
+                        created_by=owner_user.id if owner_user else None,
+                        created_at=now - timedelta(days=int(spec["days_ago"])),
+                    )
+                )
+                meetings_added += 1
+            if eng_requests_added or meetings_added:
+                # Commit the 9f rows on their own: they must not depend on a
+                # later block committing (re-runs add nothing to 9i, which
+                # would otherwise leave these uncommitted).
+                await db.commit()
+
+            # 9i: offers (v2 row linked to its v1 parent for the counter).
+            offer_ids_by_idx: dict[int, uuid.UUID] = {}
+            for idx, spec in enumerate(STEP9I_OFFERS):
+                target = startup_by_name.get(str(spec["startup"]))
+                if target is None:
+                    continue
+                round_row = await _round_for(target.id, str(spec["round"]))
+                if round_row is None:
+                    continue
+                exists = (
+                    await db.execute(
+                        select(InvestorOffer.id).where(
+                            InvestorOffer.investor_org_id == primary_firm.id,
+                            InvestorOffer.round_id == round_row.id,
+                            InvestorOffer.version == int(spec["version"]),
+                            InvestorOffer.deleted_at.is_(None),
+                        )
+                    )
+                ).first()
+                if exists is not None:
+                    offer_ids_by_idx[idx] = exists
+                    continue
+                owner_user = (
+                    await db.execute(
+                        select(User).where(User.primary_email == "investor@forma.dev")
+                    )
+                ).scalar_one_or_none()
+                parent_id = None
+                parent_idx = spec.get("parent_of")
+                if parent_idx is not None and parent_idx in offer_ids_by_idx:
+                    parent_id = offer_ids_by_idx[int(parent_idx)]
+                expires = spec.get("expires_on")
+                offer_row = InvestorOffer(
+                    investor_org_id=primary_firm.id,
+                    round_id=round_row.id,
+                    amount=Decimal(str(spec["amount"])),
+                    currency="INR",
+                    instrument=str(spec["instrument"]),
+                    valuation_cap=(
+                        Decimal(str(spec["valuation_cap"]))
+                        if spec.get("valuation_cap") is not None
+                        else None
+                    ),
+                    discount_pct=(
+                        Decimal(str(spec["discount_pct"]))
+                        if spec.get("discount_pct") is not None
+                        else None
+                    ),
+                    version=int(spec["version"]),
+                    parent_offer_id=parent_id,
+                    status=spec["status"],
+                    expires_on=date.fromisoformat(str(expires)) if expires else None,
+                    owner_id=owner_user.id if owner_user else None,
+                    notes=spec.get("notes"),
+                    created_at=now - timedelta(days=int(spec["days_ago"])),
+                )
+                db.add(offer_row)
+                await db.flush()
+                offer_ids_by_idx[idx] = offer_row.id
+                offers_added += 1
+            if offers_added:
+                await db.commit()
+
+            # 9j: commitments (linked to the accepted offer where given).
+            for spec in STEP9J_COMMITMENTS:
+                target = startup_by_name.get(str(spec["startup"]))
+                if target is None:
+                    continue
+                round_row = await _round_for(target.id, str(spec["round"]))
+                if round_row is None:
+                    continue
+                exists = (
+                    await db.execute(
+                        select(Commitment.id).where(
+                            Commitment.investor_org_id == primary_firm.id,
+                            Commitment.round_id == round_row.id,
+                            Commitment.reference == str(spec["reference"]),
+                        )
+                    )
+                ).first()
+                if exists is not None:
+                    continue
+                offer_id = None
+                offer_idx = spec.get("offer_idx")
+                if offer_idx is not None and offer_idx in offer_ids_by_idx:
+                    offer_id = offer_ids_by_idx[int(offer_idx)]
+                funded_on = spec.get("funded_on")
+                wired_at = None
+                if funded_on:
+                    wired_at = datetime.now(UTC).replace(second=0, microsecond=0)
+                db.add(
+                    Commitment(
+                        investor_org_id=primary_firm.id,
+                        round_id=round_row.id,
+                        offer_id=offer_id,
+                        amount=Decimal(str(spec["amount"])),
+                        currency="INR",
+                        status=spec["status"],
+                        committed_on=date.fromisoformat(str(spec["committed_on"])),
+                        funded_on=date.fromisoformat(str(funded_on)) if funded_on else None,
+                        wired_at=wired_at,
+                        reference=str(spec["reference"]),
+                        created_at=now - timedelta(days=int(spec["days_ago"])),
+                    )
+                )
+                commitments_added += 1
+            if commitments_added:
+                await db.commit()
+
+            # 9j: portfolio holdings (linked to the matching commitment).
+            # Fetch the firm's commitments joined to their round once, keyed
+            # by (startup org, amount), so each holding links to the pledge
+            # it came from (commitments reference a round, not a startup).
+            commitment_lookup: dict[tuple[uuid.UUID, Decimal], uuid.UUID] = {}
+            for row in (
+                await db.execute(
+                    select(Commitment, FundingRound.org_id)
+                    .join(FundingRound, FundingRound.id == Commitment.round_id)
+                    .where(Commitment.investor_org_id == primary_firm.id)
+                )
+            ).all():
+                commitment, startup_org_id = row
+                commitment_lookup[(startup_org_id, commitment.amount)] = commitment.id
+            for spec in STEP9J_HOLDINGS:
+                target = startup_by_name.get(str(spec["startup"]))
+                if target is None:
+                    continue
+                exists = (
+                    await db.execute(
+                        select(PortfolioHolding.id).where(
+                            PortfolioHolding.investor_org_id == primary_firm.id,
+                            PortfolioHolding.startup_org_id == target.id,
+                            PortfolioHolding.invested_amount == Decimal(str(spec["invested_amount"])),
+                        )
+                    )
+                ).first()
+                if exists is not None:
+                    continue
+                commitment_id = commitment_lookup.get(
+                    (target.id, Decimal(str(spec["invested_amount"])))
+                )
+                db.add(
+                    PortfolioHolding(
+                        investor_org_id=primary_firm.id,
+                        startup_org_id=target.id,
+                        commitment_id=commitment_id,
+                        instrument=str(spec["instrument"]),
+                        invested_amount=Decimal(str(spec["invested_amount"])),
+                        currency="INR",
+                        ownership_pct=(
+                            Decimal(str(spec["ownership_pct"]))
+                            if spec.get("ownership_pct") is not None
+                            else None
+                        ),
+                        invested_on=date.fromisoformat(str(spec["invested_on"])),
+                        status=str(spec["status"]),
+                        exited_on=(
+                            date.fromisoformat(str(spec["exited_on"]))
+                            if spec.get("exited_on")
+                            else None
+                        ),
+                        exit_value=(
+                            Decimal(str(spec["exit_value"]))
+                            if spec.get("exit_value") is not None
+                            else None
+                        ),
+                        created_at=now - timedelta(days=int(spec["days_ago"])),
+                    )
+                )
+                holdings_added += 1
+            if holdings_added:
+                await db.commit()
+
+            # 9k: diligence checklists + items.
+            for spec in STEP9K_CHECKLISTS:
+                target = startup_by_name.get(str(spec["startup"]))
+                if target is None:
+                    continue
+                cl = (
+                    await db.execute(
+                        select(InvestorDiligenceChecklist).where(
+                            InvestorDiligenceChecklist.investor_org_id == primary_firm.id,
+                            InvestorDiligenceChecklist.startup_org_id == target.id,
+                            InvestorDiligenceChecklist.deleted_at.is_(None),
+                        )
+                    )
+                ).scalars().first()
+                if cl is None:
+                    owner_user = (
+                        await db.execute(
+                            select(User).where(User.primary_email == "investor@forma.dev")
+                        )
+                    ).scalar_one_or_none()
+                    cl = InvestorDiligenceChecklist(
+                        investor_org_id=primary_firm.id,
+                        startup_org_id=target.id,
+                        overall_status=spec["overall"],
+                        notes=spec.get("notes"),
+                        owner_id=owner_user.id if owner_user else None,
+                        created_by=owner_user.id if owner_user else None,
+                        created_at=now,
+                    )
+                    db.add(cl)
+                    await db.flush()
+                    checklists_added += 1
+                for item in spec["items"]:
+                    exists = (
+                        await db.execute(
+                            select(InvestorDiligenceItem.id).where(
+                                InvestorDiligenceItem.checklist_id == cl.id,
+                                InvestorDiligenceItem.title == str(item["title"]),
+                                InvestorDiligenceItem.deleted_at.is_(None),
+                            )
+                        )
+                    ).first()
+                    if exists is not None:
+                        continue
+                    db.add(
+                        InvestorDiligenceItem(
+                            checklist_id=cl.id,
+                            investor_org_id=primary_firm.id,
+                            startup_org_id=target.id,
+                            item_type=item["item_type"],
+                            title=str(item["title"]),
+                            severity=item.get("severity"),
+                            status=item["status"],
+                            response=item.get("response"),
+                            created_by=investor_user.id if investor_user else None,
+                            created_at=now,
+                        )
+                    )
+                    diligence_items_added += 1
+            if checklists_added or diligence_items_added:
+                await db.commit()
+
+            # 9l: activity events for the primary investor firm.
+            for spec in STEP9L_ACTIVITY:
+                entity_id = None
+                if spec.get("entity_type") == "offer":
+                    # Link to the most recent offer on that entity if any.
+                    entity_id = (
+                        await db.execute(
+                            select(InvestorOffer.id)
+                            .where(InvestorOffer.investor_org_id == primary_firm.id)
+                            .order_by(InvestorOffer.created_at.desc())
+                            .limit(1)
+                        )
+                    ).scalars().first()
+                exists = (
+                    await db.execute(
+                        select(ActivityEvent.id).where(
+                            ActivityEvent.org_id == primary_firm.id,
+                            ActivityEvent.summary == str(spec["summary"]),
+                        )
+                    )
+                ).first()
+                if exists is not None:
+                    continue
+                db.add(
+                    ActivityEvent(
+                        org_id=primary_firm.id,
+                        user_id=investor_user.id if investor_user else None,
+                        event_type=str(spec["event_type"]),
+                        entity_type=spec.get("entity_type"),
+                        entity_id=entity_id,
+                        summary=str(spec["summary"]),
+                        created_at=now - timedelta(days=int(spec["days_ago"])),
+                    )
+                )
+                activity_added += 1
+            if activity_added:
+                await db.commit()
+
+        # Step 9m: founder-org audit events for the startup investor hub's
+        # recent-activity list. Fill-only by summary; never overwrites.
+        hub_activity_added = 0
+        for spec in STEP9M_ACTIVITY:
+            exists = (
+                await db.execute(
+                    select(ActivityEvent.id).where(
+                        ActivityEvent.org_id == founder_org.id,  # type: ignore[union-attr]
+                        ActivityEvent.summary == str(spec["summary"]),
+                    )
+                )
+            ).first()  # type: ignore[assignment]
+            if exists is not None:
+                continue
+            db.add(
+                ActivityEvent(
+                    org_id=founder_org.id,  # type: ignore[union-attr]
+                    user_id=founder_user.id if founder_user else None,
+                    event_type=str(spec["event_type"]),
+                    entity_type=spec.get("entity_type"),
+                    summary=str(spec["summary"]),
+                    created_at=now - timedelta(days=int(spec["days_ago"])),  # type: ignore[call-overload]
+                )
+            )
+            hub_activity_added += 1
+        if hub_activity_added:
+            await db.commit()
+
     await engine.dispose()
 
     print("Seeded (dev only):")
@@ -2538,6 +3250,15 @@ async def seed() -> None:
     print(f"  + saved searches (9d): {saved_searches_added}")
     print(f"  + shortlist entries (9d): {shortlist_added}")
     print(f"  + pipeline deals (9e): {deals_added}")
+    print(f"  + engagement requests (9f): {eng_requests_added}")
+    print(f"  + meetings (9f): {meetings_added}")
+    print(f"  + offers (9i): {offers_added}")
+    print(f"  + commitments (9j): {commitments_added}")
+    print(f"  + portfolio holdings (9j): {holdings_added}")
+    print(f"  + diligence checklists (9k): {checklists_added}")
+    print(f"  + diligence items (9k): {diligence_items_added}")
+    print(f"  + activity events (9l): {activity_added}")
+    print(f"  + hub activity events (9m): {hub_activity_added}")
     print(f"\nPassword for all seeded accounts: {DEV_PASSWORD}")
 
 

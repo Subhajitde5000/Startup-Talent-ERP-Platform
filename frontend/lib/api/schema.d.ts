@@ -1115,6 +1115,700 @@ export interface paths {
         patch: operations["update_startup_deal_stage_api_v1_organizations__org_id__investor_deals__investor_org_id__patch"];
         trace?: never;
     };
+    "/api/v1/investors/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the investor's offers */
+        get: operations["list_offers_api_v1_investors_offers_get"];
+        put?: never;
+        /** Create offer version v1 (draft) */
+        post: operations["create_offer_api_v1_investors_offers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/offers/{offer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One offer version */
+        get: operations["get_offer_api_v1_investors_offers__offer_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update an offer (terms only; status is not writable) */
+        patch: operations["update_offer_api_v1_investors_offers__offer_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/investors/offers/{offer_id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a draft offer (draft -> sent) */
+        post: operations["send_offer_api_v1_investors_offers__offer_id__send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/offers/{offer_id}/counter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Counter with a new offer version */
+        post: operations["counter_offer_api_v1_investors_offers__offer_id__counter_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/offers/{offer_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw an offer */
+        post: operations["withdraw_offer_api_v1_investors_offers__offer_id__withdraw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/offers/{offer_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Version history of an offer */
+        get: operations["offer_history_api_v1_investors_offers__offer_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Offers on this startup's rounds (latest version per investor) */
+        get: operations["list_startup_offers_api_v1_organizations__org_id__investor_offers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-offers/{offer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One offer (latest version, investor-private fields stripped) */
+        get: operations["get_startup_offer_api_v1_organizations__org_id__investor_offers__offer_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-offers/{offer_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept the latest offer version */
+        post: operations["accept_offer_api_v1_organizations__org_id__investor_offers__offer_id__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-offers/{offer_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decline the latest offer version */
+        post: operations["decline_offer_api_v1_organizations__org_id__investor_offers__offer_id__decline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/commitments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the investor's commitments */
+        get: operations["list_commitments_api_v1_investors_commitments_get"];
+        put?: never;
+        /** Create a commitment (pledged) */
+        post: operations["create_commitment_api_v1_investors_commitments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/commitments/{commitment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One commitment */
+        get: operations["get_commitment_api_v1_investors_commitments__commitment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a commitment (reference, dates; status is not writable) */
+        patch: operations["update_commitment_api_v1_investors_commitments__commitment_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/investors/commitments/{commitment_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transition a commitment (documented / funded / cancelled) */
+        post: operations["transition_commitment_api_v1_investors_commitments__commitment_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/portfolio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the investor's portfolio holdings */
+        get: operations["list_holdings_api_v1_investors_portfolio_get"];
+        put?: never;
+        /** Create a portfolio holding (active) */
+        post: operations["create_holding_api_v1_investors_portfolio_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/portfolio/{holding_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One portfolio holding */
+        get: operations["get_holding_api_v1_investors_portfolio__holding_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a holding (terms; status is not writable) */
+        patch: operations["update_holding_api_v1_investors_portfolio__holding_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/investors/portfolio/{holding_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transition a holding (written_off / exited / partially_exited) */
+        post: operations["transition_holding_api_v1_investors_portfolio__holding_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the investor's engagement requests */
+        get: operations["list_requests_api_v1_investors_requests_get"];
+        put?: never;
+        /** Send an engagement request (intro/meeting/information) */
+        post: operations["create_request_api_v1_investors_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/requests/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One engagement request */
+        get: operations["get_request_api_v1_investors_requests__request_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit the investor's request */
+        patch: operations["update_request_api_v1_investors_requests__request_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/investors/requests/{request_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw an open request */
+        post: operations["withdraw_request_api_v1_investors_requests__request_id__withdraw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/meetings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the investor's meetings */
+        get: operations["list_meetings_api_v1_investors_meetings_get"];
+        put?: never;
+        /** Propose a meeting (proposed) */
+        post: operations["create_meeting_api_v1_investors_meetings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/meetings/{meeting_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One meeting */
+        get: operations["get_meeting_api_v1_investors_meetings__meeting_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit a proposed/confirmed meeting */
+        patch: operations["update_meeting_api_v1_investors_meetings__meeting_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/investors/meetings/{meeting_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change meeting status */
+        post: operations["transition_meeting_api_v1_investors_meetings__meeting_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Engagement requests received by this startup */
+        get: operations["list_startup_requests_api_v1_organizations__org_id__investor_requests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-requests/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One request received by this startup */
+        get: operations["get_startup_request_api_v1_organizations__org_id__investor_requests__request_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-requests/{request_id}/respond": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept or decline a request */
+        post: operations["respond_to_request_api_v1_organizations__org_id__investor_requests__request_id__respond_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-meetings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Meetings scheduled with this startup */
+        get: operations["list_startup_meetings_api_v1_organizations__org_id__investor_meetings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-meetings/{meeting_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit/re-propose a meeting (confirmed -> proposed) */
+        patch: operations["update_startup_meeting_api_v1_organizations__org_id__investor_meetings__meeting_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-meetings/{meeting_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change meeting status (startup side) */
+        post: operations["transition_startup_meeting_api_v1_organizations__org_id__investor_meetings__meeting_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/diligence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the investor's diligence checklists */
+        get: operations["list_checklists_api_v1_investors_diligence_get"];
+        put?: never;
+        /** Open a diligence workspace (idempotent per startup) */
+        post: operations["create_checklist_api_v1_investors_diligence_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/diligence/{checklist_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One diligence checklist */
+        get: operations["get_checklist_api_v1_investors_diligence__checklist_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update status, notes or scorecard */
+        patch: operations["update_checklist_api_v1_investors_diligence__checklist_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/investors/diligence/{checklist_id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List items of a checklist */
+        get: operations["list_items_api_v1_investors_diligence__checklist_id__items_get"];
+        put?: never;
+        /** Add a checklist line, question or finding */
+        post: operations["create_item_api_v1_investors_diligence__checklist_id__items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/diligence/{checklist_id}/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Soft-delete a diligence item */
+        delete: operations["delete_item_api_v1_investors_diligence__checklist_id__items__item_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update a diligence item */
+        patch: operations["update_item_api_v1_investors_diligence__checklist_id__items__item_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/investors/dashboard/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard top stat strip + sidebar cards */
+        get: operations["dashboard_summary_api_v1_investors_dashboard_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Descriptive platform + private funnel stats (no forecasts) */
+        get: operations["insights_api_v1_investors_insights_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The investor org's activity events */
+        get: operations["list_activity_api_v1_investors_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/activity/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Aggregate activity stats for the investor org */
+        get: operations["activity_stats_api_v1_investors_activity_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-hub/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Startup investor hub summary */
+        get: operations["hub_summary_api_v1_organizations__org_id__investor_hub_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-hub/rounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Hub rounds with investor progress */
+        get: operations["hub_rounds_api_v1_organizations__org_id__investor_hub_rounds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-hub/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Startup activity feed (paginated) */
+        get: operations["hub_activity_api_v1_organizations__org_id__investor_hub_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-hub/activity/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Startup activity aggregates */
+        get: operations["hub_activity_stats_api_v1_organizations__org_id__investor_hub_activity_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{org_id}/investors": {
         parameters: {
             query?: never;
@@ -2880,6 +3574,57 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActivityEventRead */
+        ActivityEventRead: {
+            /** Id */
+            id: number;
+            /** Org Id */
+            org_id: string | null;
+            /** User Id */
+            user_id: string | null;
+            /** Event Type */
+            event_type: string;
+            /** Entity Type */
+            entity_type: string | null;
+            /** Entity Id */
+            entity_id: string | null;
+            /** Summary */
+            summary: string;
+            /** Link Url */
+            link_url: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ActivityPage */
+        ActivityPage: {
+            /** Items */
+            items: components["schemas"]["ActivityEventRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * ActivityStats
+         * @description Aggregate activity stats for the investor's org (9l).
+         */
+        ActivityStats: {
+            /** Total Events */
+            total_events: number;
+            /** Events Last 7 Days */
+            events_last_7_days: number;
+            /** By Event Type */
+            by_event_type: {
+                [key: string]: number;
+            };
+            /** By Day */
+            by_day: components["schemas"]["DailyCount"][];
+        };
         /** AddRoleRequest */
         AddRoleRequest: {
             role: components["schemas"]["UserRole"];
@@ -3154,6 +3899,137 @@ export interface components {
             new_password: string;
         };
         /**
+         * CommitmentCreate
+         * @description Create a commitment (status starts ``pledged``).
+         *
+         *     ``investor_org_id`` is the caller's own firm (resolved server-side
+         *     from membership), never an input. ``offer_id``, if given, must be
+         *     an offer of this firm on the same round (validated in the service).
+         */
+        CommitmentCreate: {
+            /**
+             * Round Id
+             * Format: uuid
+             */
+            round_id: string;
+            /** Offer Id */
+            offer_id?: string | null;
+            /** Amount */
+            amount: number | string;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Committed On */
+            committed_on?: string | null;
+            /** Reference */
+            reference?: string | null;
+        };
+        /** CommitmentPage */
+        CommitmentPage: {
+            /** Items */
+            items: components["schemas"]["CommitmentRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * CommitmentRead
+         * @description Full commitment as the investor sees it (with startup + round
+         *     snapshot).
+         */
+        CommitmentRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Round Id
+             * Format: uuid
+             */
+            round_id: string;
+            /** Offer Id */
+            offer_id: string | null;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Startup Name */
+            startup_name: string;
+            /** Startup Slug */
+            startup_slug: string;
+            /** Startup Logo Initials */
+            startup_logo_initials: string | null;
+            /** Startup Logo Url */
+            startup_logo_url: string | null;
+            /** Startup Sector */
+            startup_sector: string | null;
+            /** Startup Tagline */
+            startup_tagline: string | null;
+            /** Round Target */
+            round_target: string | null;
+            /** Round Currency */
+            round_currency: string | null;
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            status: components["schemas"]["CommitmentStatus"];
+            /** Committed On */
+            committed_on: string | null;
+            /** Funded On */
+            funded_on: string | null;
+            /** Wired At */
+            wired_at: string | null;
+            /** Reference */
+            reference: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * CommitmentStatus
+         * @description schema.sql ``commitments.status``.
+         * @enum {string}
+         */
+        CommitmentStatus: "pledged" | "documented" | "funded" | "cancelled";
+        /**
+         * CommitmentStatusUpdate
+         * @description Target status for the transition endpoint.
+         */
+        CommitmentStatusUpdate: {
+            status: components["schemas"]["CommitmentStatus"];
+        };
+        /**
+         * CommitmentUpdate
+         * @description Editable commitment fields (PATCH). ``status`` is NOT writable —
+         *     transitions go through the dedicated endpoint.
+         */
+        CommitmentUpdate: {
+            /** Reference */
+            reference?: string | null;
+            /** Committed On */
+            committed_on?: string | null;
+        };
+        /**
          * CompetitorCreate
          * @description Add a competitor. Server-owned fields are absent, not ignored.
          */
@@ -3269,6 +4145,16 @@ export interface components {
          * @enum {string}
          */
         Confidence: "high" | "medium" | "low";
+        /** DailyCount */
+        DailyCount: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Count */
+            count: number;
+        };
         /**
          * DashboardActivityItem
          * @description One row of the recent-activity feed (newest first).
@@ -3371,37 +4257,6 @@ export interface components {
             exit_criteria_total: number;
             /** Exit Criteria Signed Off */
             exit_criteria_signed_off: number;
-        };
-        /**
-         * DashboardSummary
-         * @description The whole dashboard in one response.
-         */
-        DashboardSummary: {
-            /**
-             * Org Id
-             * Format: uuid
-             */
-            org_id: string;
-            /** Org Name */
-            org_name: string;
-            /** Org Slug */
-            org_slug: string;
-            my_role: components["schemas"]["OrgRole"];
-            /** My Display Name */
-            my_display_name: string | null;
-            stage: components["schemas"]["DashboardStage"];
-            readiness: components["schemas"]["DashboardReadiness"];
-            tasks: components["schemas"]["DashboardTaskSummary"];
-            milestones: components["schemas"]["DashboardMilestoneSummary"];
-            /** Metrics */
-            metrics: components["schemas"]["DashboardMetric"][];
-            team: components["schemas"]["DashboardTeam"];
-            /** Recent Activity */
-            recent_activity: components["schemas"]["DashboardActivityItem"][];
-            /** Unavailable */
-            unavailable: components["schemas"]["UnavailableCard"][];
-            /** Restricted */
-            restricted: string[];
         };
         /**
          * DashboardTaskItem
@@ -3635,6 +4490,180 @@ export interface components {
          * @enum {string}
          */
         Department: "engineering" | "product" | "design" | "sales" | "marketing" | "operations" | "finance" | "people" | "legal" | "support" | "other";
+        /** DiligenceChecklistCreate */
+        DiligenceChecklistCreate: {
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Round Id */
+            round_id?: string | null;
+            /** Deal Id */
+            deal_id?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** DiligenceChecklistPage */
+        DiligenceChecklistPage: {
+            /** Items */
+            items: components["schemas"]["DiligenceChecklistRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** DiligenceChecklistRead */
+        DiligenceChecklistRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Round Id */
+            round_id: string | null;
+            /** Deal Id */
+            deal_id: string | null;
+            /** Overall Status */
+            overall_status: string;
+            /** Notes */
+            notes: string | null;
+            /** Scorecard */
+            scorecard: {
+                [key: string]: unknown;
+            } | null;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Created By */
+            created_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** DiligenceChecklistUpdate */
+        DiligenceChecklistUpdate: {
+            /** Overall Status */
+            overall_status?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Scorecard */
+            scorecard?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** DiligenceItemCreate */
+        DiligenceItemCreate: {
+            /** Item Type */
+            item_type: string;
+            /** Title */
+            title: string;
+            /** Severity */
+            severity?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Due On */
+            due_on?: string | null;
+            /** Response */
+            response?: string | null;
+        };
+        /** DiligenceItemPage */
+        DiligenceItemPage: {
+            /** Items */
+            items: components["schemas"]["DiligenceItemRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** DiligenceItemRead */
+        DiligenceItemRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Checklist Id
+             * Format: uuid
+             */
+            checklist_id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Item Type */
+            item_type: string;
+            /** Title */
+            title: string;
+            /** Severity */
+            severity: string | null;
+            /** Status */
+            status: string;
+            /** Due On */
+            due_on: string | null;
+            /** Response */
+            response: string | null;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Created By */
+            created_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * DiligenceItemType
+         * @description What kind of diligence line an item is.
+         * @enum {string}
+         */
+        DiligenceItemType: "checklist" | "question" | "finding";
+        /** DiligenceItemUpdate */
+        DiligenceItemUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Severity */
+            severity?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Due On */
+            due_on?: string | null;
+            /** Response */
+            response?: string | null;
+        };
         /** EarningPage */
         EarningPage: {
             /** Items */
@@ -3712,6 +4741,172 @@ export interface components {
             session_count: number;
             /** Pending Count */
             pending_count: number;
+        };
+        /** EngagementRequestCreate */
+        EngagementRequestCreate: {
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Kind */
+            kind: string;
+            /** Ask */
+            ask: string;
+            /** Message */
+            message?: string | null;
+            /**
+             * Expires In Days
+             * @default 14
+             */
+            expires_in_days?: number;
+            /** Deal Id */
+            deal_id?: string | null;
+        };
+        /** EngagementRequestPage */
+        EngagementRequestPage: {
+            /** Items */
+            items: components["schemas"]["EngagementRequestRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** EngagementRequestRead */
+        EngagementRequestRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Startup Name */
+            startup_name: string;
+            /** Startup Slug */
+            startup_slug: string;
+            /** Deal Id */
+            deal_id: string | null;
+            /** Kind */
+            kind: string;
+            /** Ask */
+            ask: string;
+            /** Message */
+            message: string | null;
+            /** Status */
+            status: string;
+            /** Response Note */
+            response_note: string | null;
+            /** Decline Reason */
+            decline_reason: string | null;
+            /** Expires On */
+            expires_on: string | null;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Created By */
+            created_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * EngagementRequestRespond
+         * @description Startup-side response to a request (D2: accept | decline).
+         */
+        EngagementRequestRespond: {
+            /** Decision */
+            decision: string;
+            /** Response Note */
+            response_note?: string | null;
+            /** Decline Reason */
+            decline_reason?: string | null;
+        };
+        /** EngagementRequestStartupPage */
+        EngagementRequestStartupPage: {
+            /** Items */
+            items: components["schemas"]["EngagementRequestStartupRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * EngagementRequestStartupRead
+         * @description Startup-side view: no investor-private decline_reason.
+         */
+        EngagementRequestStartupRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Investor Name */
+            investor_name: string;
+            /** Investor Slug */
+            investor_slug: string;
+            /** Deal Id */
+            deal_id: string | null;
+            /** Kind */
+            kind: string;
+            /** Ask */
+            ask: string;
+            /** Message */
+            message: string | null;
+            /** Status */
+            status: string;
+            /** Response Note */
+            response_note: string | null;
+            /** Expires On */
+            expires_on: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * EngagementRequestUpdate
+         * @description Only the investor owning the request may change these fields.
+         */
+        EngagementRequestUpdate: {
+            /** Ask */
+            ask?: string | null;
+            /** Message */
+            message?: string | null;
         };
         /** ForgotPasswordRequest */
         ForgotPasswordRequest: {
@@ -3891,6 +5086,194 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * HoldingCreate
+         * @description Create a portfolio holding (status starts ``active``).
+         *
+         *     ``investor_org_id`` is the caller's own firm (resolved server-side
+         *     from membership), never an input. ``startup_org_id`` must be a live
+         *     startup that is not the investor itself (validated in the service,
+         *     plus the ``investor_org_id <> startup_org_id`` CHECK).
+         */
+        HoldingCreate: {
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Commitment Id */
+            commitment_id?: string | null;
+            /** Instrument */
+            instrument: string;
+            /** Invested Amount */
+            invested_amount: number | string;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Ownership Pct */
+            ownership_pct?: number | string | null;
+            /** Invested On */
+            invested_on?: string | null;
+        };
+        /** HoldingPage */
+        HoldingPage: {
+            /** Items */
+            items: components["schemas"]["HoldingRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * HoldingRead
+         * @description Full holding as the investor sees it (with startup snapshot and
+         *     the linked commitment's round).
+         */
+        HoldingRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Startup Name */
+            startup_name: string;
+            /** Startup Slug */
+            startup_slug: string;
+            /** Startup Logo Initials */
+            startup_logo_initials: string | null;
+            /** Startup Logo Url */
+            startup_logo_url: string | null;
+            /** Startup Sector */
+            startup_sector: string | null;
+            /** Startup Tagline */
+            startup_tagline: string | null;
+            /** Commitment Id */
+            commitment_id: string | null;
+            /** Instrument */
+            instrument: string;
+            /** Invested Amount */
+            invested_amount: string;
+            /** Currency */
+            currency: string;
+            /** Ownership Pct */
+            ownership_pct: string | null;
+            /** Invested On */
+            invested_on: string | null;
+            /** Status */
+            status: string;
+            /** Exited On */
+            exited_on: string | null;
+            /** Exit Value */
+            exit_value: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * HoldingStatusUpdate
+         * @description Target status for the transition endpoint. Exit transitions may
+         *     carry the exit date and value.
+         */
+        HoldingStatusUpdate: {
+            /** Status */
+            status: string;
+            /** Exited On */
+            exited_on?: string | null;
+            /** Exit Value */
+            exit_value?: number | string | null;
+        };
+        /**
+         * HoldingUpdate
+         * @description Editable holding fields (PATCH). ``status`` is NOT writable —
+         *     transitions go through the dedicated endpoint.
+         */
+        HoldingUpdate: {
+            /** Instrument */
+            instrument?: string | null;
+            /** Invested Amount */
+            invested_amount?: number | string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Ownership Pct */
+            ownership_pct?: number | string | null;
+            /** Invested On */
+            invested_on?: string | null;
+        };
+        /**
+         * HubNeedsReplyItem
+         * @description One pending engagement request the startup still needs to answer.
+         */
+        HubNeedsReplyItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /** Investor Name */
+            investor_name: string;
+            /** Kind */
+            kind: string;
+            /** Ask */
+            ask: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * HubUpcomingMeetingItem
+         * @description One upcoming meeting scheduled with this startup.
+         */
+        HubUpcomingMeetingItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /** Investor Name */
+            investor_name: string;
+            /** Meeting Type */
+            meeting_type: string;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /** Status */
+            status: string;
+        };
         /** ImpactRead */
         ImpactRead: {
             /** Startups Mentored */
@@ -3905,6 +5288,25 @@ export interface components {
             readiness_change?: null;
             /** Badges Attributed */
             badges_attributed?: null;
+        };
+        /**
+         * InsightsResponse
+         * @description Descriptive platform + private-funnel stats (9l, D1: no forecasts).
+         */
+        InsightsResponse: {
+            /** Startups By Stage */
+            startups_by_stage: {
+                [key: string]: number;
+            };
+            /** Startups By Stage Total */
+            startups_by_stage_total: number;
+            /** Monthly New Profiles */
+            monthly_new_profiles: components["schemas"]["MonthlyCount"][];
+            /** Monthly Round Launches */
+            monthly_round_launches: components["schemas"]["MonthlyCount"][];
+            your_funnel: components["schemas"]["YourFunnelStats"];
+            /** Cohort Threshold */
+            cohort_threshold: number;
         };
         /**
          * InstrumentType
@@ -4239,6 +5641,209 @@ export interface components {
             total: number;
             /** Verified */
             verified: number;
+        };
+        /**
+         * InvestorHubSummary
+         * @description The startup investor hub overview (9m ``/investor-hub/summary``).
+         *
+         *     Counts are derived from 9a–9j rows scoped to the resolved startup org.
+         *     ``primary_round`` is the active raise shown in the hub's round snapshot
+         *     card (the open round closing earliest, else the most recent round, else
+         *     ``None``). ``recent_activity`` is the startup's own recent audit events.
+         */
+        InvestorHubSummary: {
+            /** Open Rounds */
+            open_rounds: number;
+            /** Deals In Pipeline */
+            deals_in_pipeline: number;
+            /** Pending Requests */
+            pending_requests: number;
+            /** Meetings This Month */
+            meetings_this_month: number;
+            /** Offers Received */
+            offers_received: number;
+            /** Commitments Received */
+            commitments_received: number;
+            primary_round: components["schemas"]["RoundProgress"] | null;
+            /** Needs Reply */
+            needs_reply: components["schemas"]["HubNeedsReplyItem"][];
+            /** Upcoming Meetings */
+            upcoming_meetings: components["schemas"]["HubUpcomingMeetingItem"][];
+            /** Recent Activity */
+            recent_activity: components["schemas"]["ActivityEventRead"][];
+        };
+        /**
+         * InvestorOfferCounter
+         * @description Counter terms for the next offer version (status ``countered``).
+         *
+         *     The new row copies ``round_id`` / ``investor_org_id`` from the
+         *     parent, takes ``version`` = parent.version + 1 and
+         *     ``parent_offer_id`` = the parent's id (all server-controlled).
+         */
+        InvestorOfferCounter: {
+            /** Amount */
+            amount: number | string;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Instrument */
+            instrument: string;
+            /** Valuation Cap */
+            valuation_cap?: number | string | null;
+            /** Discount Pct */
+            discount_pct?: number | string | null;
+            /** Expires On */
+            expires_on?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /**
+         * InvestorOfferCreate
+         * @description Create offer version v1 (status ``draft``).
+         *
+         *     ``investor_org_id`` is the caller's own firm (resolved server-side
+         *     from membership), never an input. ``owner_id`` must be an active
+         *     member of that firm (validated in the service).
+         */
+        InvestorOfferCreate: {
+            /**
+             * Round Id
+             * Format: uuid
+             */
+            round_id: string;
+            /** Amount */
+            amount: number | string;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Instrument */
+            instrument: string;
+            /** Valuation Cap */
+            valuation_cap?: number | string | null;
+            /** Discount Pct */
+            discount_pct?: number | string | null;
+            /** Expires On */
+            expires_on?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** InvestorOfferPage */
+        InvestorOfferPage: {
+            /** Items */
+            items: components["schemas"]["InvestorOfferRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * InvestorOfferRead
+         * @description Full offer version as the investor sees it (with startup + round
+         *     snapshot, so the board renders without a second request).
+         */
+        InvestorOfferRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Round Id
+             * Format: uuid
+             */
+            round_id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Startup Name */
+            startup_name: string;
+            /** Startup Slug */
+            startup_slug: string;
+            /** Startup Logo Initials */
+            startup_logo_initials: string | null;
+            /** Startup Logo Url */
+            startup_logo_url: string | null;
+            /** Startup Sector */
+            startup_sector: string | null;
+            /** Startup Tagline */
+            startup_tagline: string | null;
+            /** Round Target */
+            round_target: string | null;
+            /** Round Currency */
+            round_currency: string | null;
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /** Instrument */
+            instrument: string;
+            /** Valuation Cap */
+            valuation_cap: string | null;
+            /** Discount Pct */
+            discount_pct: string | null;
+            /** Version */
+            version: number;
+            /** Parent Offer Id */
+            parent_offer_id: string | null;
+            status: components["schemas"]["OfferStatus"];
+            /** Expires On */
+            expires_on: string | null;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Owner Name */
+            owner_name: string | null;
+            /** Notes */
+            notes: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * InvestorOfferUpdate
+         * @description Editable offer fields (PATCH). ``status``/``version`` are NOT
+         *     writable — transitions go through the dedicated endpoints.
+         */
+        InvestorOfferUpdate: {
+            /** Amount */
+            amount?: number | string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Instrument */
+            instrument?: string | null;
+            /** Valuation Cap */
+            valuation_cap?: number | string | null;
+            /** Discount Pct */
+            discount_pct?: number | string | null;
+            /** Expires On */
+            expires_on?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Notes */
+            notes?: string | null;
         };
         /**
          * InvestorPreferenceRead
@@ -4687,6 +6292,135 @@ export interface components {
          * @enum {string}
          */
         MarketUnit: "currency" | "count";
+        /** MeetingCreate */
+        MeetingCreate: {
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Meeting Type */
+            meeting_type: string;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /**
+             * Duration Minutes
+             * @default 30
+             */
+            duration_minutes?: number;
+            /** Agenda */
+            agenda?: string | null;
+            /** Location */
+            location?: string | null;
+            /** Request Id */
+            request_id?: string | null;
+            /** Deal Id */
+            deal_id?: string | null;
+        };
+        /** MeetingPage */
+        MeetingPage: {
+            /** Items */
+            items: components["schemas"]["MeetingRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** MeetingRead */
+        MeetingRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Startup Name */
+            startup_name: string;
+            /** Startup Slug */
+            startup_slug: string;
+            /** Investor Name */
+            investor_name: string;
+            /** Investor Slug */
+            investor_slug: string;
+            /** Request Id */
+            request_id: string | null;
+            /** Deal Id */
+            deal_id: string | null;
+            /** Meeting Type */
+            meeting_type: string;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /** Duration Minutes */
+            duration_minutes: number;
+            /** Agenda */
+            agenda: string | null;
+            /** Status */
+            status: string;
+            /** Location */
+            location: string | null;
+            /**
+             * Organizer Org Id
+             * Format: uuid
+             */
+            organizer_org_id: string;
+            /** Created By */
+            created_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * MeetingStatus
+         * @description Lifecycle of a meeting.
+         * @enum {string}
+         */
+        MeetingStatus: "proposed" | "confirmed" | "cancelled" | "completed";
+        /** MeetingStatusUpdate */
+        MeetingStatusUpdate: {
+            /** Status */
+            status: string;
+        };
+        /**
+         * MeetingUpdate
+         * @description Both sides may edit a proposed meeting. Startup-side edits are
+         *     re-proposals (status returns to ``proposed`` — D5).
+         */
+        MeetingUpdate: {
+            /** Meeting Type */
+            meeting_type?: string | null;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /** Duration Minutes */
+            duration_minutes?: number | null;
+            /** Agenda */
+            agenda?: string | null;
+            /** Location */
+            location?: string | null;
+        };
         /**
          * MemberPage
          * @description Paginated member list (Step 3d item 10) — the same limit/offset
@@ -5667,6 +7401,40 @@ export interface components {
              */
             progress?: number;
         };
+        /** MonthlyCount */
+        MonthlyCount: {
+            /** Month */
+            month: string;
+            /** Count */
+            count: number;
+        };
+        /**
+         * NeedsReplyItem
+         * @description One 'needs your reply' entry (from pending engagement requests).
+         */
+        NeedsReplyItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Startup Name */
+            startup_name: string;
+            /** Kind */
+            kind: string;
+            /** Ask */
+            ask: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** NotificationPreferenceItem */
         NotificationPreferenceItem: {
             /** Category */
@@ -5688,6 +7456,59 @@ export interface components {
         NotificationPreferenceUpdate: {
             /** Items */
             items: components["schemas"]["NotificationPreferenceItem"][];
+        };
+        /** OfferHistoryPage */
+        OfferHistoryPage: {
+            /** Items */
+            items: components["schemas"]["OfferVersionItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * OfferStatus
+         * @description schema.sql ``offer_status``.
+         * @enum {string}
+         */
+        OfferStatus: "draft" | "sent" | "countered" | "accepted" | "declined" | "expired" | "withdrawn";
+        /**
+         * OfferVersionItem
+         * @description One version row of an offer's version chain.
+         */
+        OfferVersionItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version */
+            version: number;
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /** Instrument */
+            instrument: string;
+            /** Valuation Cap */
+            valuation_cap: string | null;
+            /** Discount Pct */
+            discount_pct: string | null;
+            status: components["schemas"]["OfferStatus"];
+            /** Parent Offer Id */
+            parent_offer_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /**
          * OrgRole
@@ -5983,6 +7804,12 @@ export interface components {
              */
             message?: string;
         };
+        /**
+         * RequestStatus
+         * @description Lifecycle of an engagement request.
+         * @enum {string}
+         */
+        RequestStatus: "pending" | "accepted" | "declined" | "withdrawn" | "expired";
         /** ResendVerificationRequest */
         ResendVerificationRequest: {
             /**
@@ -6060,6 +7887,55 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * RoundProgress
+         * @description One startup round with its investor-side progress (9m hub view).
+         */
+        RoundProgress: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Round Type */
+            round_type: string;
+            /** Target Amount */
+            target_amount: string | null;
+            /** Committed Amount */
+            committed_amount: string;
+            /** Currency */
+            currency: string;
+            /** Status */
+            status: string;
+            /** Progress Pct */
+            progress_pct: number | null;
+            /** Opens On */
+            opens_on: string | null;
+            /** Closes On */
+            closes_on: string | null;
+            /** Deal Count */
+            deal_count: number;
+            /** Offer Count */
+            offer_count: number;
+            /** Commitment Count */
+            commitment_count: number;
+        };
+        /**
+         * RoundProgressPage
+         * @description Paginated rounds-progress list (9m ``/investor-hub/rounds``).
+         */
+        RoundProgressPage: {
+            /** Items */
+            items: components["schemas"]["RoundProgress"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
         };
         /**
          * RoundStatus
@@ -6751,6 +8627,68 @@ export interface components {
             /** Active Count */
             active_count: number;
         };
+        /** StartupOfferPage */
+        StartupOfferPage: {
+            /** Items */
+            items: components["schemas"]["StartupOfferRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * StartupOfferRead
+         * @description An offer as the STARTUP sees it: investor-private fields stripped
+         *     (``notes``, ``owner_id``).
+         */
+        StartupOfferRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /** Investor Name */
+            investor_name: string;
+            /** Investor Slug */
+            investor_slug: string;
+            /**
+             * Round Id
+             * Format: uuid
+             */
+            round_id: string;
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /** Instrument */
+            instrument: string;
+            /** Valuation Cap */
+            valuation_cap: string | null;
+            /** Discount Pct */
+            discount_pct: string | null;
+            /** Version */
+            version: number;
+            status: components["schemas"]["OfferStatus"];
+            /** Expires On */
+            expires_on: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /**
          * StartupProfilePublicRead
          * @description Public/preview shape. Section fields are None when the caller may
@@ -7431,6 +9369,33 @@ export interface components {
             step: string | null;
         };
         /**
+         * UpcomingMeetingItem
+         * @description One 'upcoming meetings' entry.
+         */
+        UpcomingMeetingItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Startup Name */
+            startup_name: string;
+            /** Meeting Type */
+            meeting_type: string;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /** Status */
+            status: string;
+        };
+        /**
          * UserMeRead
          * @description GET /users/me: the full self view (Step 2 auth fields + Step 3a
          *     profile fields). Never contains password hashes or token material.
@@ -7633,6 +9598,79 @@ export interface components {
              * @default false
              */
             agreements_available?: boolean;
+        };
+        /**
+         * YourFunnelStats
+         * @description Private-to-you funnel counts (descriptive, no predictions).
+         */
+        YourFunnelStats: {
+            /** Profiles Reviewed */
+            profiles_reviewed: number;
+            /** Shortlisted */
+            shortlisted: number;
+            /** Intro Requests */
+            intro_requests: number;
+            /** Data Rooms Opened */
+            data_rooms_opened: number;
+            /** Offers Extended */
+            offers_extended: number;
+        };
+        /**
+         * DashboardSummary
+         * @description The whole dashboard in one response.
+         */
+        app__schemas__dashboard__DashboardSummary: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Org Name */
+            org_name: string;
+            /** Org Slug */
+            org_slug: string;
+            my_role: components["schemas"]["OrgRole"];
+            /** My Display Name */
+            my_display_name: string | null;
+            stage: components["schemas"]["DashboardStage"];
+            readiness: components["schemas"]["DashboardReadiness"];
+            tasks: components["schemas"]["DashboardTaskSummary"];
+            milestones: components["schemas"]["DashboardMilestoneSummary"];
+            /** Metrics */
+            metrics: components["schemas"]["DashboardMetric"][];
+            team: components["schemas"]["DashboardTeam"];
+            /** Recent Activity */
+            recent_activity: components["schemas"]["DashboardActivityItem"][];
+            /** Unavailable */
+            unavailable: components["schemas"]["UnavailableCard"][];
+            /** Restricted */
+            restricted: string[];
+        };
+        /**
+         * DashboardSummary
+         * @description The dashboard top stat strip + sidebar cards (9l).
+         */
+        app__schemas__investor_workspace__DashboardSummary: {
+            /** New Matches This Week */
+            new_matches_this_week: number;
+            /** Requests Awaiting Reply */
+            requests_awaiting_reply: number;
+            /** Meetings This Week */
+            meetings_this_week: number;
+            /** Startups In Pipeline */
+            startups_in_pipeline: number;
+            /** Pipeline Snapshot */
+            pipeline_snapshot: {
+                [key: string]: number;
+            };
+            /** Portfolio Holdings */
+            portfolio_holdings: number;
+            /** Portfolio Updates This Week */
+            portfolio_updates_this_week: number;
+            /** Needs Reply */
+            needs_reply: components["schemas"]["NeedsReplyItem"][];
+            /** Upcoming Meetings */
+            upcoming_meetings: components["schemas"]["UpcomingMeetingItem"][];
         };
         /**
          * ReadinessRead
@@ -10290,6 +12328,1897 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StartupInvestorDealRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_offers_api_v1_investors_offers_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["OfferStatus"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorOfferPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_offer_api_v1_investors_offers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvestorOfferCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorOfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_offer_api_v1_investors_offers__offer_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorOfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_offer_api_v1_investors_offers__offer_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvestorOfferUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorOfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_offer_api_v1_investors_offers__offer_id__send_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorOfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    counter_offer_api_v1_investors_offers__offer_id__counter_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvestorOfferCounter"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorOfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdraw_offer_api_v1_investors_offers__offer_id__withdraw_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    offer_history_api_v1_investors_offers__offer_id__history_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferHistoryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_startup_offers_api_v1_organizations__org_id__investor_offers_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupOfferPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_startup_offer_api_v1_organizations__org_id__investor_offers__offer_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupOfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_offer_api_v1_organizations__org_id__investor_offers__offer_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupOfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decline_offer_api_v1_organizations__org_id__investor_offers__offer_id__decline_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupOfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_commitments_api_v1_investors_commitments_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["CommitmentStatus"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitmentPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_commitment_api_v1_investors_commitments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitmentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitmentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_commitment_api_v1_investors_commitments__commitment_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                commitment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitmentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_commitment_api_v1_investors_commitments__commitment_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                commitment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitmentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitmentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transition_commitment_api_v1_investors_commitments__commitment_id__status_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                commitment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitmentStatusUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitmentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_holdings_api_v1_investors_portfolio_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoldingPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_holding_api_v1_investors_portfolio_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HoldingCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoldingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_holding_api_v1_investors_portfolio__holding_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                holding_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoldingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_holding_api_v1_investors_portfolio__holding_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                holding_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HoldingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoldingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transition_holding_api_v1_investors_portfolio__holding_id__status_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                holding_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HoldingStatusUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoldingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_requests_api_v1_investors_requests_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["RequestStatus"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngagementRequestPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_request_api_v1_investors_requests_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EngagementRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngagementRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_request_api_v1_investors_requests__request_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngagementRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_request_api_v1_investors_requests__request_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EngagementRequestUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngagementRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdraw_request_api_v1_investors_requests__request_id__withdraw_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngagementRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_meetings_api_v1_investors_meetings_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["MeetingStatus"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_meeting_api_v1_investors_meetings_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeetingCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_meeting_api_v1_investors_meetings__meeting_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                meeting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_meeting_api_v1_investors_meetings__meeting_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                meeting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeetingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transition_meeting_api_v1_investors_meetings__meeting_id__status_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                meeting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeetingStatusUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_startup_requests_api_v1_organizations__org_id__investor_requests_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["RequestStatus"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngagementRequestStartupPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_startup_request_api_v1_organizations__org_id__investor_requests__request_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngagementRequestStartupRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    respond_to_request_api_v1_organizations__org_id__investor_requests__request_id__respond_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EngagementRequestRespond"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngagementRequestStartupRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_startup_meetings_api_v1_organizations__org_id__investor_meetings_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["MeetingStatus"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_startup_meeting_api_v1_organizations__org_id__investor_meetings__meeting_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                meeting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeetingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transition_startup_meeting_api_v1_organizations__org_id__investor_meetings__meeting_id__status_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                meeting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeetingStatusUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_checklists_api_v1_investors_diligence_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiligenceChecklistPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_checklist_api_v1_investors_diligence_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiligenceChecklistCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiligenceChecklistRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_checklist_api_v1_investors_diligence__checklist_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                checklist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiligenceChecklistRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_checklist_api_v1_investors_diligence__checklist_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                checklist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiligenceChecklistUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiligenceChecklistRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_items_api_v1_investors_diligence__checklist_id__items_get: {
+        parameters: {
+            query?: {
+                item_type?: components["schemas"]["DiligenceItemType"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                checklist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiligenceItemPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_item_api_v1_investors_diligence__checklist_id__items_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                checklist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiligenceItemCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiligenceItemRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_item_api_v1_investors_diligence__checklist_id__items__item_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                checklist_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_item_api_v1_investors_diligence__checklist_id__items__item_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                checklist_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiligenceItemUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiligenceItemRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dashboard_summary_api_v1_investors_dashboard_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__schemas__investor_workspace__DashboardSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    insights_api_v1_investors_insights_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_activity_api_v1_investors_activity_get: {
+        parameters: {
+            query?: {
+                event_type?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    activity_stats_api_v1_investors_activity_stats_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityStats"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hub_summary_api_v1_organizations__org_id__investor_hub_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorHubSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hub_rounds_api_v1_organizations__org_id__investor_hub_rounds_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoundProgressPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hub_activity_api_v1_organizations__org_id__investor_hub_activity_get: {
+        parameters: {
+            query?: {
+                event_type?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hub_activity_stats_api_v1_organizations__org_id__investor_hub_activity_stats_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityStats"];
                 };
             };
             /** @description Validation Error */
@@ -14462,7 +18391,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DashboardSummary"];
+                    "application/json": components["schemas"]["app__schemas__dashboard__DashboardSummary"];
                 };
             };
             /** @description Validation Error */
