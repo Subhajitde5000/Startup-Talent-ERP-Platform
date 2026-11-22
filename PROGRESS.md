@@ -282,8 +282,8 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [x] B: /investor/pipeline, /startup/investors/pipeline wired to the 9e deal APIs (list/summary/create/update/delete, stage-only PATCH); Board/Table/Funnel from real deals; loading/empty/error states; demo data removed to `seed_dev.py`
 
 ### 9f Requests, introductions and meetings (GAP)
-- [ ] A: Intro, meeting and information requests between investors and startups; propose the model first
-- [ ] B: /investor/requests, /investor/meetings, /startup/meetings wired; demo data removed
+- [x] A: Intro, meeting and information requests between investors and startups; propose the model first
+- [x] B: /investor/requests, /investor/meetings, /startup/meetings (investor-app.jsx meetings branch) wired to the 9f engagement APIs; loading/empty/error states; demo data removed to `seed_dev.py`
 
 ### 9g Data room core (needs Step 4)
 - [ ] A: Folders, documents stored as files, visibility level per document, versions
@@ -294,20 +294,20 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [ ] B: /startup/data-room/requests, /investor/data-rooms, /investor/data-rooms/[startupId], /investor/data-rooms/[startupId]/nda wired; demo data removed
 
 ### 9i Offers
-- [ ] A: Offers with versions and counters; accept, decline, expire
-- [ ] B: /investor/offers, /investor/offers/new, /investor/offers/[offerId], offers shown to the startup wired; demo data removed
+- [x] A: Offers with versions and counters; accept, decline, expire
+- [x] B: /investor/offers, /investor/offers/new, /investor/offers/[offerId] wired to the 9i offer APIs (list/create/send/get/history/counter/withdraw); loading/empty/error states; demo data removed to `seed_dev.py`
 
 ### 9j Commitments and portfolio
-- [ ] A: Commitments with status and funding progress; portfolio holdings
-- [ ] B: /investor/commitments, /investor/commitments/[commitmentId], /investor/portfolio, /investor/portfolio/[startupId] wired; demo data removed
+- [x] A: Commitments with status and funding progress; portfolio holdings
+- [x] B: /investor/commitments, /investor/commitments/[commitmentId], /investor/portfolio, /investor/portfolio/[startupId] wired to the 9j commitment/holding APIs; loading/empty/error states; demo data removed to `seed_dev.py`
 
 ### 9k Diligence (GAP)
-- [ ] A: Diligence checklist and notes per startup; no table exists, propose first
-- [ ] B: /investor/startups/[startupId]/diligence wired; demo data removed
+- [x] A: Diligence checklist and notes per startup; no table exists, propose first
+- [x] B: /investor/startups/[startupId]/diligence wired to the 9k diligence APIs (checklist auto-created per startup; items CRUD; notes/scorecard/overall status); loading/empty/error states; demo data removed to `seed_dev.py`
 
 ### 9l Investor dashboard, insights and activity
-- [ ] A: Read-only aggregates and activity feed
-- [ ] B: /investor/dashboard, /investor/insights, /investor/activity wired; demo data removed
+- [x] A: Read-only aggregates and activity feed
+- [x] B: /investor/dashboard, /investor/insights, /investor/activity wired to the 9l workspace APIs (dashboard summary, insights, activity feed + stats); loading/empty/error states; demo data removed to `seed_dev.py`
 
 ### 9m Startup investor hub and visibility settings
 - [ ] A: Startup's investor overview (read-only aggregates from 9a to 9j) and the visibility settings page, which reuses the profile visibility API from 5a

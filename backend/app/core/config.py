@@ -152,6 +152,26 @@ class Settings(BaseSettings):
     # pipeline, so the cap matches the round/metrics write limits.
     INVESTOR_DEAL_WRITE_LIMIT: int = 60
     INVESTOR_DEAL_WRITE_WINDOW_SECONDS: int = 300
+    # Step 9i: offers are financial documents edited in bursts while an
+    # investor negotiates terms, so the cap matches the deal write limit.
+    OFFER_WRITE_LIMIT: int = 60
+    OFFER_WRITE_WINDOW_SECONDS: int = 300
+    # Step 9f: intro/meeting/information requests are the lightest
+    # investor action but still rate-limited; the demo page caps intro
+    # requests at 5 per day.
+    INVESTOR_REQUEST_DAILY_LIMIT: int = 5
+    INVESTOR_REQUEST_DAILY_WINDOW_SECONDS: int = 86400
+    ENGAGEMENT_WRITE_LIMIT: int = 60
+    ENGAGEMENT_WRITE_WINDOW_SECONDS: int = 300
+    # Step 9j: commitments and holdings are edited while a round closes.
+    COMMITMENT_WRITE_LIMIT: int = 60
+    COMMITMENT_WRITE_WINDOW_SECONDS: int = 300
+    PORTFOLIO_WRITE_LIMIT: int = 60
+    PORTFOLIO_WRITE_WINDOW_SECONDS: int = 300
+    # Step 9k: diligence checklists are edited in bursts while a deal
+    # advances through diligence.
+    DILIGENCE_WRITE_LIMIT: int = 60
+    DILIGENCE_WRITE_WINDOW_SECONDS: int = 300
     # Step 8h: commission and TDS withheld from a mentor's fee.
     #
     # BOTH DEFAULT TO 0 ON PURPOSE. BUILD_PLAN.md, schema.sql and this

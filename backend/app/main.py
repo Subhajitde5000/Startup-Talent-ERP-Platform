@@ -19,7 +19,9 @@ from app.routers import (
     analytics,
     auth,
     availability,
+    commitment,
     dashboard,
+    diligence,
     deliverable,
     discovery,
     earning,
@@ -27,6 +29,9 @@ from app.routers import (
     investor_deal,
     investor_directory,
     investor_discovery,
+    investor_engagement,
+    investor_offer,
+    investor_workspace,
     investor_search,
     invites,
     market,
@@ -124,6 +129,11 @@ def create_app() -> FastAPI:
     app.include_router(funding_round.router, prefix=settings.API_V1_PREFIX)
     app.include_router(investor_search.router, prefix=settings.API_V1_PREFIX)
     app.include_router(investor_deal.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(investor_offer.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(commitment.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(investor_engagement.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(diligence.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(investor_workspace.router, prefix=settings.API_V1_PREFIX)
     app.include_router(investor_directory.router, prefix=settings.API_V1_PREFIX)
     app.include_router(investor_discovery.router, prefix=settings.API_V1_PREFIX)
     app.include_router(tasks.router, prefix=settings.API_V1_PREFIX)

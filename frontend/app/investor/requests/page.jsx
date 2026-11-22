@@ -1,32 +1,63 @@
 'use client';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Inbox, X, Send } from 'lucide-react';
-import { InvestorShell, Card, Button } from '@/components';
+import { InvestorShell, Card, Button, StatusBadge } from '@/components';
+import { LoadingBlock, EmptyBlock, ErrorBlock } from '@/components/async-state';
+import { api } from '@/lib/api/client';
 import { InvestorDisclaimer } from '../investor-data';
+
+// Tab -> the request statuses it shows (the API lists by status).
+const TAB_STATUSES = {
+  Sent: ['pending', 'withdrawn'],
+  Accepted: ['accepted'],
+  'Declined and expired': ['declined', 'expired'],
+};
 
 export default function InvestorRequestsPage() {
   const [requestsTab, setRequestsTab] = useState('Received');
-  const [modal, setModal] = useState('');
-  const [selectedRequest, setSelectedRequest] = useState(null);
-  const [responseMsg, setResponseMsg] = useState('');
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [withdrawingId, setWithdrawingId] = useState('');
 
-  const receivedRequests = [
-    {
-      id: 'acme',
-      name: 'Acme Studio',
-      date: '4 days ago',
-      msg: 'We are building modern finance operations for growing businesses and would value a conversation regarding our seed round.',
-      ask: 'Intro call & seed discussion',
-    },
-    {
-      id: 'greenledger',
-      name: 'GreenLedger',
-      date: 'Yesterday',
-      msg: 'We would appreciate your strategic feedback on our early climate measurement and reporting methodology.',
-      ask: 'Feedback & advisory call',
-    },
-  ];
+  const load = useCallback(async (tab) => {
+    const statuses = TAB_STATUSES[tab];
+    if (!statuses) return; // "Received" has no investor-side data.
+    setLoading(true);
+    setError('');
+    try {
+      const pages = await Promise.all(
+        statuses.map((status) =>
+          api.engagement.listRequests({ status, limit: 50 }),
+        ),
+      );
+      const merged = pages
+        .flatMap((page) => page.items)
+        .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+      setItems(merged);
+    } catch (err) {
+      setError(err?.message || 'Could not load your requests.');
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load(requestsTab);
+  }, [requestsTab, load]);
+
+  const onWithdraw = async (req) => {
+    setWithdrawingId(req.id);
+    try {
+      await api.engagement.withdrawRequest(req.id);
+      await load(requestsTab);
+    } catch (err) {
+      setError(err?.message || 'Could not withdraw this request.');
+    } finally {
+      setWithdrawingId('');
+    }
+  };
 
   return (
     <InvestorShell
@@ -59,197 +90,101 @@ export default function InvestorRequestsPage() {
                 }`}
               >
                 {x}
-                {x === 'Received' && (
-                  <span className="ml-2 rounded-full bg-[#B8955A] px-2 py-0.5 text-xs font-bold text-ink">
-                    2
-                  </span>
-                )}
               </button>
             ))}
           </div>
 
           {requestsTab === 'Received' && (
-            <div className="space-y-4">
-              {receivedRequests.map((req) => (
-                <Card
-                  key={req.id}
-                  title={
-                    <div className="flex items-center gap-2">
-                      <span>{req.name}</span>
-                      <span className="rounded-full bg-[#F3EBDD] px-2.5 py-0.5 text-xs font-semibold text-[#806236]">
-                        Received
-                      </span>
-                    </div>
-                  }
-                  action={<span className="text-xs text-[#4A5568]">{req.date}</span>}
+            <EmptyBlock
+              title="No inbound requests on your investor account"
+              hint="Intro requests flow from investors to startups. Requests sent to you are managed on the startup side, so they don't appear in this inbox."
+            />
+          )}
+
+          {TAB_STATUSES[requestsTab] && (
+            <>
+              {loading && <LoadingBlock label="Loading requests…" />}
+              {!loading && error && (
+                <ErrorBlock message={error} onRetry={() => load(requestsTab)} />
+              )}
+              {!loading && !error && items.length === 0 && (
+                <EmptyBlock
+                  title="No requests here yet"
+                  hint="Requests you send to startups will appear here. Discover startups to start a conversation."
                 >
-                  <p className="text-xs font-medium text-[#4A5568]">
-                    Requesting: <span className="text-ink">{req.ask}</span>
-                  </p>
-                  <blockquote className="mt-3 rounded-lg bg-[#FAF8F4] p-3 text-sm italic text-ink border-l-2 border-[#B8955A]">
-                    “{req.msg}”
-                  </blockquote>
-
-                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#E5E1D8] pt-3">
-                    <Button
-                      onClick={() => {
-                        setSelectedRequest(req);
-                        setModal('accept');
-                      }}
-                    >
-                      Accept introduction
-                    </Button>
-                    <Button
-                      secondary
-                      onClick={() => {
-                        setSelectedRequest(req);
-                        setModal('question');
-                      }}
-                    >
-                      Ask a question
-                    </Button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedRequest(req);
-                        setModal('decline');
-                      }}
-                      className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
-                    >
-                      Decline
-                    </button>
-                    <Link
-                      href={`/investor/startups/${req.id}`}
-                      className="ml-auto text-xs font-semibold text-[#9A7A45] hover:underline"
-                    >
-                      View profile →
-                    </Link>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {requestsTab === 'Sent' && (
-            <Card title="Sent intro requests">
-              <div className="space-y-3">
-                {[
-                  { name: 'OrbitPay', status: 'Viewed · expires in 8 days' },
-                  { name: 'Acme Studio', status: 'Sent · expires in 12 days' },
-                ].map((item) => (
-                  <div
-                    key={item.name}
-                    className="flex items-center justify-between border-b border-[#E5E1D8] pb-3 last:border-0 last:pb-0"
+                  <Link
+                    href="/investor/discover"
+                    className="inline-flex min-h-9 items-center rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs font-semibold text-ink hover:bg-[#FAF8F4]"
                   >
-                    <div>
-                      <b className="block text-xs font-semibold text-ink">{item.name}</b>
-                      <span className="text-xs text-[#4A5568]">{item.status}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => notify(`Withdrew request to ${item.name}.`)}
-                      className="text-xs font-medium text-[#9A7A45] hover:underline"
+                    Discover startups
+                  </Link>
+                </EmptyBlock>
+              )}
+              {!loading && !error && items.length > 0 && (
+                <div className="space-y-4">
+                  {items.map((req) => (
+                    <Card
+                      key={req.id}
+                      title={
+                        <div className="flex items-center gap-2">
+                          <span>{req.startup_name || 'Unknown startup'}</span>
+                          <StatusBadge status={req.status} />
+                        </div>
+                      }
+                      action={
+                        <span className="text-xs text-[#4A5568]">
+                          {req.expires_on
+                            ? `Expires ${new Date(req.expires_on).toLocaleDateString()}`
+                            : 'No expiry'}
+                        </span>
+                      }
                     >
-                      Withdraw
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
+                      <p className="text-xs font-medium text-[#4A5568]">
+                        Requesting: <span className="text-ink">{req.ask}</span>
+                      </p>
+                      {req.message && (
+                        <blockquote className="mt-3 rounded-lg bg-[#FAF8F4] p-3 text-sm italic text-ink border-l-2 border-[#B8955A]">
+                          “{req.message}”
+                        </blockquote>
+                      )}
+                      {req.decline_reason && (
+                        <p className="mt-3 text-xs text-[#B42318]">
+                          Declined: {req.decline_reason}
+                        </p>
+                      )}
 
-          {requestsTab === 'Accepted' && (
-            <Card title="Accepted introductions">
-              <p className="text-xs text-[#4A5568]">
-                Accepted intros transition automatically into your messaging workspace and Pipeline.
-              </p>
-              <Link
-                href="/investor/messages"
-                className="mt-4 inline-block text-xs font-semibold text-[#9A7A45] hover:underline"
-              >
-                Go to Messages →
-              </Link>
-            </Card>
-          )}
-
-          {requestsTab === 'Declined and expired' && (
-            <Card title="Declined & expired requests">
-              <p className="text-xs text-[#4A5568]">No declined or expired intro requests on record.</p>
-            </Card>
+                      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#E5E1D8] pt-3">
+                        {req.status === 'pending' && (
+                          <Button
+                            onClick={() => onWithdraw(req)}
+                            disabled={withdrawingId === req.id}
+                          >
+                            {withdrawingId === req.id ? 'Withdrawing…' : 'Withdraw'}
+                          </Button>
+                        )}
+                        {req.status === 'accepted' && (
+                          <Link
+                            href="/investor/messages"
+                            className="text-xs font-semibold text-[#9A7A45] hover:underline"
+                          >
+                            Open conversation →
+                          </Link>
+                        )}
+                        <Link
+                          href={`/investor/startups/${req.startup_slug || req.startup_org_id}`}
+                          className="ml-auto text-xs font-semibold text-[#9A7A45] hover:underline"
+                        >
+                          View profile →
+                        </Link>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           <InvestorDisclaimer onLearnMore={() => notify('Platform disclaimer opened.')} />
-
-          {/* Modal */}
-          {modal && (
-            <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4 backdrop-blur-sm">
-              <section
-                role="dialog"
-                aria-modal="true"
-                className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="serif text-xl font-bold text-ink">
-                    {modal === 'accept'
-                      ? 'Accept introduction'
-                      : modal === 'question'
-                      ? 'Ask a question'
-                      : 'Decline introduction'}
-                  </h2>
-                  <button type="button" onClick={() => setModal('')}>
-                    <X size={18} />
-                  </button>
-                </div>
-
-                <p className="text-xs text-[#4A5568]">
-                  Startup: <b>{selectedRequest?.name}</b>
-                </p>
-
-                <div className="mt-4">
-                  <label htmlFor="req-resp-msg" className="block text-xs font-medium text-ink">
-                    {modal === 'accept'
-                      ? 'Optional note to founder'
-                      : modal === 'question'
-                      ? 'Question for the founder'
-                      : 'Optional feedback / reason (private)'}
-                  </label>
-                  <textarea
-                    id="req-resp-msg"
-                    rows={4}
-                    value={responseMsg}
-                    onChange={(e) => setResponseMsg(e.target.value)}
-                    placeholder="Type your message here..."
-                    className="mt-1 w-full rounded-lg border border-[#E5E1D8] p-3 text-xs focus:border-ink focus:outline-none"
-                  />
-                </div>
-
-                <div className="mt-6 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setModal('')}
-                    className="rounded-lg border px-3 py-2 text-xs font-medium text-[#4A5568]"
-                  >
-                    Cancel
-                  </button>
-                  <Button
-                    onClick={() => {
-                      if (modal === 'accept') {
-                        notify(`Accepted intro with ${selectedRequest?.name}. Conversation opened in Messages.`);
-                      } else if (modal === 'question') {
-                        notify(`Question sent to ${selectedRequest?.name}.`);
-                      } else {
-                        notify(`Declined intro request from ${selectedRequest?.name}.`);
-                      }
-                      setModal('');
-                      setResponseMsg('');
-                    }}
-                  >
-                    Confirm
-                  </Button>
-                </div>
-              </section>
-            </div>
-          )}
         </>
       )}
     </InvestorShell>

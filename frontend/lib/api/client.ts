@@ -135,8 +135,11 @@ export type TaskCommentRead = components["schemas"]["TaskCommentRead"];
 export type TaskCommentPage = components["schemas"]["TaskCommentPage"];
 export type TaskCommentCreate = components["schemas"]["TaskCommentCreate"];
 export type TaskCommentUpdate = components["schemas"]["TaskCommentUpdate"];
-// Step 5g: the one read-only dashboard payload.
-export type DashboardSummary = components["schemas"]["DashboardSummary"];
+// Step 5g: the one read-only dashboard payload (schema regenerated:
+// the startup-side DashboardSummary is module-qualified to disambiguate
+// it from the 9l investor-workspace one).
+export type DashboardSummary =
+  components["schemas"]["app__schemas__dashboard__DashboardSummary"];
 // Step 8a: the read-only mentor directory.
 export type MentorDirectoryItem = components["schemas"]["MentorDirectoryItem"];
 export type MentorDirectoryDetail = components["schemas"]["MentorDirectoryDetail"];
@@ -313,6 +316,90 @@ export type StartupInvestorDealListQuery = {
   limit?: number;
   offset?: number;
 };
+
+// --- Step 9f: engagement (investor requests + meetings) ------------------
+export type RequestStatus = components["schemas"]["RequestStatus"];
+export type EngagementRequestRead = components["schemas"]["EngagementRequestRead"];
+export type EngagementRequestCreate = components["schemas"]["EngagementRequestCreate"];
+export type EngagementRequestUpdate = components["schemas"]["EngagementRequestUpdate"];
+export type EngagementRequestPage = components["schemas"]["EngagementRequestPage"];
+export type EngagementRequestStartupRead = components["schemas"]["EngagementRequestStartupRead"];
+export type EngagementRequestStartupPage = components["schemas"]["EngagementRequestStartupPage"];
+export type EngagementRequestRespond = components["schemas"]["EngagementRequestRespond"];
+export type MeetingRead = components["schemas"]["MeetingRead"];
+export type MeetingCreate = components["schemas"]["MeetingCreate"];
+export type MeetingUpdate = components["schemas"]["MeetingUpdate"];
+export type MeetingStatus = components["schemas"]["MeetingStatus"];
+export type MeetingStatusUpdate = components["schemas"]["MeetingStatusUpdate"];
+export type MeetingPage = components["schemas"]["MeetingPage"];
+
+/** Whitelisted filters for `engagement.listRequests` / `engagement.listMeetings` (Step 9f). */
+export type EngagementListQuery = {
+  status?: RequestStatus | MeetingStatus;
+  limit?: number;
+  offset?: number;
+};
+
+// --- Step 9i: offers --------------------------------------------------------
+export type OfferStatus = components["schemas"]["OfferStatus"];
+export type InvestorOfferRead = components["schemas"]["InvestorOfferRead"];
+export type InvestorOfferCreate = components["schemas"]["InvestorOfferCreate"];
+export type InvestorOfferUpdate = components["schemas"]["InvestorOfferUpdate"];
+export type InvestorOfferCounter = components["schemas"]["InvestorOfferCounter"];
+export type InvestorOfferPage = components["schemas"]["InvestorOfferPage"];
+export type OfferVersionItem = components["schemas"]["OfferVersionItem"];
+export type OfferHistoryPage = components["schemas"]["OfferHistoryPage"];
+
+/** Whitelisted filters for `offers.list` (Step 9i). */
+export type OfferListQuery = {
+  status?: OfferStatus;
+  limit?: number;
+  offset?: number;
+};
+
+// --- Step 9j: commitments + portfolio --------------------------------------
+export type CommitmentStatus = components["schemas"]["CommitmentStatus"];
+export type CommitmentRead = components["schemas"]["CommitmentRead"];
+export type CommitmentCreate = components["schemas"]["CommitmentCreate"];
+export type CommitmentUpdate = components["schemas"]["CommitmentUpdate"];
+export type CommitmentStatusUpdate = components["schemas"]["CommitmentStatusUpdate"];
+export type CommitmentPage = components["schemas"]["CommitmentPage"];
+export type HoldingRead = components["schemas"]["HoldingRead"];
+export type HoldingCreate = components["schemas"]["HoldingCreate"];
+export type HoldingUpdate = components["schemas"]["HoldingUpdate"];
+export type HoldingStatusUpdate = components["schemas"]["HoldingStatusUpdate"];
+export type HoldingPage = components["schemas"]["HoldingPage"];
+
+/** Whitelisted filters for `commitments.list` (Step 9j). */
+export type CommitmentListQuery = {
+  status?: CommitmentStatus;
+  limit?: number;
+  offset?: number;
+};
+
+// --- Step 9k: diligence ----------------------------------------------------
+export type DiligenceChecklistRead = components["schemas"]["DiligenceChecklistRead"];
+export type DiligenceChecklistCreate = components["schemas"]["DiligenceChecklistCreate"];
+export type DiligenceChecklistUpdate = components["schemas"]["DiligenceChecklistUpdate"];
+export type DiligenceChecklistPage = components["schemas"]["DiligenceChecklistPage"];
+export type DiligenceItemRead = components["schemas"]["DiligenceItemRead"];
+export type DiligenceItemCreate = components["schemas"]["DiligenceItemCreate"];
+export type DiligenceItemUpdate = components["schemas"]["DiligenceItemUpdate"];
+export type DiligenceItemPage = components["schemas"]["DiligenceItemPage"];
+export type DiligenceItemType = components["schemas"]["DiligenceItemType"];
+
+// --- Step 9l: investor workspace (dashboard / insights / activity) --------
+export type InvestorDashboardSummary =
+  components["schemas"]["app__schemas__investor_workspace__DashboardSummary"];
+export type NeedsReplyItem = components["schemas"]["NeedsReplyItem"];
+export type UpcomingMeetingItem = components["schemas"]["UpcomingMeetingItem"];
+export type InsightsResponse = components["schemas"]["InsightsResponse"];
+export type MonthlyCount = components["schemas"]["MonthlyCount"];
+export type YourFunnelStats = components["schemas"]["YourFunnelStats"];
+export type ActivityEventRead = components["schemas"]["ActivityEventRead"];
+export type ActivityPage = components["schemas"]["ActivityPage"];
+export type ActivityStats = components["schemas"]["ActivityStats"];
+export type DailyCount = components["schemas"]["DailyCount"];
 
 /** Whitelisted filters for `startups.discover` (Step 5h). */
 export type StartupDiscoveryQuery = {
@@ -2206,6 +2293,431 @@ export const api = {
       apiRequest<SessionRead>(`/sessions/${sessionId}/no-show`, {
         method: "POST",
         body,
+      }),
+  },
+
+  // --- Step 9f: engagement (investor requests + meetings) -----------------
+  /**
+   * Step 9f: engagement requests and meetings.
+   *
+   * Requests: investor-side raise/edit/withdraw + the startup-side
+   * respond (accept/decline) surfaced by `startup.*`. Meetings: the
+   * investor proposes/edits and both sides transition status.
+   */
+  engagement: {
+    /** `GET /investors/requests` — the investor's own requests. */
+    listRequests: (
+      query?: EngagementListQuery,
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<EngagementRequestPage>("/investors/requests", {
+        method: "GET",
+        query: query as Record<string, string | number | boolean | undefined>,
+        signal,
+      }),
+
+    /** `POST /investors/requests` — send a request (intro/meeting/information). */
+    createRequest: (body: EngagementRequestCreate) =>
+      apiRequest<EngagementRequestRead>("/investors/requests", {
+        method: "POST",
+        body,
+      }),
+
+    /** `GET /investors/requests/{id}` — one request. */
+    getRequest: (requestId: string, signal?: AbortSignal) =>
+      apiRequest<EngagementRequestRead>(`/investors/requests/${requestId}`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** `PATCH /investors/requests/{id}` — edit ask/message (open only). */
+    updateRequest: (requestId: string, body: EngagementRequestUpdate) =>
+      apiRequest<EngagementRequestRead>(`/investors/requests/${requestId}`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /** `POST /investors/requests/{id}/withdraw` — withdraw an open request. */
+    withdrawRequest: (requestId: string) =>
+      apiRequest<EngagementRequestRead>(
+        `/investors/requests/${requestId}/withdraw`,
+        { method: "POST" },
+      ),
+
+    /** `GET /investors/meetings` — the investor's meetings, newest first. */
+    listMeetings: (
+      query?: EngagementListQuery,
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<MeetingPage>("/investors/meetings", {
+        method: "GET",
+        query: query as Record<string, string | number | boolean | undefined>,
+        signal,
+      }),
+
+    /** `POST /investors/meetings` — propose a meeting (status `proposed`). */
+    createMeeting: (body: MeetingCreate) =>
+      apiRequest<MeetingRead>("/investors/meetings", {
+        method: "POST",
+        body,
+      }),
+
+    /** `GET /investors/meetings/{id}` — one meeting. */
+    getMeeting: (meetingId: string, signal?: AbortSignal) =>
+      apiRequest<MeetingRead>(`/investors/meetings/${meetingId}`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** `PATCH /investors/meetings/{id}` — edit a proposed/confirmed meeting. */
+    updateMeeting: (meetingId: string, body: MeetingUpdate) =>
+      apiRequest<MeetingRead>(`/investors/meetings/${meetingId}`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /**
+     * `POST /investors/meetings/{id}/status` — confirm/cancel/complete.
+     * An illegal move is a 409.
+     */
+    transitionMeeting: (meetingId: string, status: MeetingStatus) =>
+      apiRequest<MeetingRead>(`/investors/meetings/${meetingId}/status`, {
+        method: "POST",
+        body: { status } satisfies MeetingStatusUpdate,
+      }),
+
+    /** `GET /organizations/{orgId}/investor-requests` — requests received. */
+    listStartupRequests: (
+      orgId: string,
+      query?: EngagementListQuery,
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<EngagementRequestStartupPage>(
+        `/organizations/${orgId}/investor-requests`,
+        {
+          method: "GET",
+          query: query as Record<string, string | number | boolean | undefined>,
+          signal,
+        },
+      ),
+
+    /** `GET /organizations/{orgId}/investor-requests/{id}` — one received. */
+    getStartupRequest: (orgId: string, requestId: string, signal?: AbortSignal) =>
+      apiRequest<EngagementRequestStartupRead>(
+        `/organizations/${orgId}/investor-requests/${requestId}`,
+        { method: "GET", signal },
+      ),
+
+    /**
+     * `POST /organizations/{orgId}/investor-requests/{id}/respond` —
+     * the startup accepts or declines (D2).
+     */
+    respondStartupRequest: (
+      orgId: string,
+      requestId: string,
+      body: EngagementRequestRespond,
+    ) =>
+      apiRequest<EngagementRequestStartupRead>(
+        `/organizations/${orgId}/investor-requests/${requestId}/respond`,
+        { method: "POST", body },
+      ),
+
+    /** `GET /organizations/{orgId}/investor-meetings` — meetings of this startup. */
+    listStartupMeetings: (
+      orgId: string,
+      query?: EngagementListQuery,
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<MeetingPage>(`/organizations/${orgId}/investor-meetings`, {
+        method: "GET",
+        query: query as Record<string, string | number | boolean | undefined>,
+        signal,
+      }),
+
+    /**
+     * `PATCH /organizations/{orgId}/investor-meetings/{id}` — the startup
+     * edits a proposed/confirmed meeting. Editing a confirmed meeting
+     * re-proposes it (status returns to `proposed`).
+     */
+    updateStartupMeeting: (
+      orgId: string,
+      meetingId: string,
+      body: MeetingUpdate,
+    ) =>
+      apiRequest<MeetingRead>(
+        `/organizations/${orgId}/investor-meetings/${meetingId}`,
+        { method: "PATCH", body },
+      ),
+
+    /** `POST /organizations/{orgId}/investor-meetings/{id}/status` — status transition. */
+    transitionStartupMeeting: (
+      orgId: string,
+      meetingId: string,
+      status: MeetingStatus,
+    ) =>
+      apiRequest<MeetingRead>(
+        `/organizations/${orgId}/investor-meetings/${meetingId}/status`,
+        { method: "POST", body: { status } satisfies MeetingStatusUpdate },
+      ),
+  },
+
+  // --- Step 9i: offers -----------------------------------------------------
+  /**
+   * Step 9i: offers. `send` moves draft → sent; `counter` creates a new
+   * version row (the parent is untouched, its status becomes `countered`);
+   * `offerHistory` returns every version of the chain.
+   */
+  offers: {
+    /** `GET /investors/offers` — the investor's offers, newest first. */
+    list: (query?: OfferListQuery, signal?: AbortSignal) =>
+      apiRequest<InvestorOfferPage>("/investors/offers", {
+        method: "GET",
+        query: query as Record<string, string | number | boolean | undefined>,
+        signal,
+      }),
+
+    /** `POST /investors/offers` — create version v1 (status `draft`). */
+    create: (body: InvestorOfferCreate) =>
+      apiRequest<InvestorOfferRead>("/investors/offers", {
+        method: "POST",
+        body,
+      }),
+
+    /** `GET /investors/offers/{id}` — one offer version. */
+    get: (offerId: string, signal?: AbortSignal) =>
+      apiRequest<InvestorOfferRead>(`/investors/offers/${offerId}`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** `PATCH /investors/offers/{id}` — edit fields (status/version immutable). */
+    update: (offerId: string, body: InvestorOfferUpdate) =>
+      apiRequest<InvestorOfferRead>(`/investors/offers/${offerId}`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /** `POST /investors/offers/{id}/send` — draft → sent. */
+    send: (offerId: string) =>
+      apiRequest<InvestorOfferRead>(`/investors/offers/${offerId}/send`, {
+        method: "POST",
+      }),
+
+    /** `POST /investors/offers/{id}/counter` — a new version row. */
+    counter: (offerId: string, body: InvestorOfferCounter) =>
+      apiRequest<InvestorOfferRead>(`/investors/offers/${offerId}/counter`, {
+        method: "POST",
+        body,
+      }),
+
+    /** `POST /investors/offers/{id}/withdraw` — withdraw an open offer. */
+    withdraw: (offerId: string) =>
+      apiRequest<InvestorOfferRead>(`/investors/offers/${offerId}/withdraw`, {
+        method: "POST",
+      }),
+
+    /** `GET /investors/offers/{id}/history` — the full version chain. */
+    history: (offerId: string, signal?: AbortSignal) =>
+      apiRequest<OfferHistoryPage>(`/investors/offers/${offerId}/history`, {
+        method: "GET",
+        signal,
+      }),
+  },
+
+  // --- Step 9j: commitments + portfolio ------------------------------------
+  /**
+   * Step 9j: commitments and portfolio holdings. Status transitions go
+   * through the dedicated endpoints (`status` is not PATCHable); exit
+   * transitions on holdings may carry the exit date/value.
+   */
+  commitments: {
+    /** `GET /investors/commitments` — the investor's commitments. */
+    list: (query?: CommitmentListQuery, signal?: AbortSignal) =>
+      apiRequest<CommitmentPage>("/investors/commitments", {
+        method: "GET",
+        query: query as Record<string, string | number | boolean | undefined>,
+        signal,
+      }),
+
+    /** `POST /investors/commitments` — record a commitment. */
+    create: (body: CommitmentCreate) =>
+      apiRequest<CommitmentRead>("/investors/commitments", {
+        method: "POST",
+        body,
+      }),
+
+    /** `GET /investors/commitments/{id}` — one commitment. */
+    get: (commitmentId: string, signal?: AbortSignal) =>
+      apiRequest<CommitmentRead>(`/investors/commitments/${commitmentId}`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** `PATCH /investors/commitments/{id}` — edit reference/committed_on. */
+    update: (commitmentId: string, body: CommitmentUpdate) =>
+      apiRequest<CommitmentRead>(`/investors/commitments/${commitmentId}`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /**
+     * `POST /investors/commitments/{id}/status` — pledge/document/fund/
+     * cancel transition. An illegal move is a 409.
+     */
+    changeStatus: (commitmentId: string, status: CommitmentStatus) =>
+      apiRequest<CommitmentRead>(
+        `/investors/commitments/${commitmentId}/status`,
+        { method: "POST", body: { status } satisfies CommitmentStatusUpdate },
+      ),
+
+    /** `GET /investors/portfolio` — the investor's holdings. */
+    listHoldings: (query?: CommitmentListQuery, signal?: AbortSignal) =>
+      apiRequest<HoldingPage>("/investors/portfolio", {
+        method: "GET",
+        query: query as Record<string, string | number | boolean | undefined>,
+        signal,
+      }),
+
+    /** `POST /investors/portfolio` — add a holding. */
+    createHolding: (body: HoldingCreate) =>
+      apiRequest<HoldingRead>("/investors/portfolio", {
+        method: "POST",
+        body,
+      }),
+
+    /** `GET /investors/portfolio/{holdingId}` — one holding. */
+    getHolding: (holdingId: string, signal?: AbortSignal) =>
+      apiRequest<HoldingRead>(`/investors/portfolio/${holdingId}`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** `PATCH /investors/portfolio/{holdingId}` — edit holding fields. */
+    updateHolding: (holdingId: string, body: HoldingUpdate) =>
+      apiRequest<HoldingRead>(`/investors/portfolio/${holdingId}`, {
+        method: "PATCH",
+        body,
+      }),
+
+    /**
+     * `POST /investors/portfolio/{holdingId}/status` — status transition.
+     * Exit transitions may carry `exited_on`/`exit_value`.
+     */
+    changeHoldingStatus: (holdingId: string, body: HoldingStatusUpdate) =>
+      apiRequest<HoldingRead>(`/investors/portfolio/${holdingId}/status`, {
+        method: "POST",
+        body,
+      }),
+  },
+
+  // --- Step 9k: diligence --------------------------------------------------
+  /**
+   * Step 9k: diligence checklists. `createChecklist` is idempotent per
+   * startup (a second POST for the same startup returns the existing one);
+   * items are investor-only and soft-deleted.
+   */
+  diligence: {
+    /** `GET /investors/diligence` — the investor's checklists. */
+    listChecklists: (query?: { limit?: number; offset?: number }, signal?: AbortSignal) =>
+      apiRequest<DiligenceChecklistPage>("/investors/diligence", {
+        method: "GET",
+        query,
+        signal,
+      }),
+
+    /**
+     * `POST /investors/diligence` — create (idempotent per startup:
+     * re-POSTing for the same startup returns the existing checklist).
+     */
+    createChecklist: (body: DiligenceChecklistCreate) =>
+      apiRequest<DiligenceChecklistRead>("/investors/diligence", {
+        method: "POST",
+        body,
+      }),
+
+    /** `GET /investors/diligence/{checklistId}` — one checklist. */
+    getChecklist: (checklistId: string, signal?: AbortSignal) =>
+      apiRequest<DiligenceChecklistRead>(
+        `/investors/diligence/${checklistId}`,
+        { method: "GET", signal },
+      ),
+
+    /** `PATCH /investors/diligence/{checklistId}` — overall status/notes/scorecard. */
+    updateChecklist: (checklistId: string, body: DiligenceChecklistUpdate) =>
+      apiRequest<DiligenceChecklistRead>(
+        `/investors/diligence/${checklistId}`,
+        { method: "PATCH", body },
+      ),
+
+    /** `GET /investors/diligence/{checklistId}/items` — the item list. */
+    listItems: (
+      checklistId: string,
+      query?: { limit?: number; offset?: number },
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<DiligenceItemPage>(
+        `/investors/diligence/${checklistId}/items`,
+        { method: "GET", query, signal },
+      ),
+
+    /** `POST /investors/diligence/{checklistId}/items` — add an item. */
+    createItem: (checklistId: string, body: DiligenceItemCreate) =>
+      apiRequest<DiligenceItemRead>(
+        `/investors/diligence/${checklistId}/items`,
+        { method: "POST", body },
+      ),
+
+    /** `PATCH …/items/{itemId}` — edit an item's fields. */
+    updateItem: (checklistId: string, itemId: string, body: DiligenceItemUpdate) =>
+      apiRequest<DiligenceItemRead>(
+        `/investors/diligence/${checklistId}/items/${itemId}`,
+        { method: "PATCH", body },
+      ),
+
+    /** `DELETE …/items/{itemId}` — soft-delete an item. */
+    deleteItem: (checklistId: string, itemId: string) =>
+      apiRequest<void>(
+        `/investors/diligence/${checklistId}/items/${itemId}`,
+        { method: "DELETE" },
+      ),
+  },
+
+  // --- Step 9l: investor workspace -----------------------------------------
+  /**
+   * Step 9l: the investor workspace read surfaces — dashboard summary,
+   * insights, activity feed and its stats. All are paramless reads.
+   */
+  workspace: {
+    /** `GET /investors/dashboard/summary` — top strip + sidebar cards. */
+    dashboardSummary: (signal?: AbortSignal) =>
+      apiRequest<InvestorDashboardSummary>("/investors/dashboard/summary", {
+        method: "GET",
+        signal,
+      }),
+
+    /** `GET /investors/insights` — descriptive stats (no forecasts). */
+    insights: (signal?: AbortSignal) =>
+      apiRequest<InsightsResponse>("/investors/insights", {
+        method: "GET",
+        signal,
+      }),
+
+    /** `GET /investors/activity` — paginated activity feed. */
+    activity: (
+      query?: { event_type?: string; limit?: number; offset?: number },
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<ActivityPage>("/investors/activity", {
+        method: "GET",
+        query,
+        signal,
+      }),
+
+    /** `GET /investors/activity/stats` — totals/7-day/by-type/by-day. */
+    activityStats: (signal?: AbortSignal) =>
+      apiRequest<ActivityStats>("/investors/activity/stats", {
+        method: "GET",
+        signal,
       }),
   },
 };
