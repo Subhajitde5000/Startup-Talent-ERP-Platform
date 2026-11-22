@@ -126,6 +126,61 @@ const investors = [
   },
 ];
 
+// Step 9m: the 5a profile_visibility values and their display labels.
+// The settings radio offers three of the API's four levels; the UI keeps
+// its current radio set (no redesign).
+const VISIBILITY_LABELS = {
+  private: 'Private',
+  mentors: 'Mentors only',
+  mentors_and_investors: 'Mentors and verified investors',
+  public: 'Public',
+};
+const VISIBILITY_VALUES = {
+  'Private': 'private',
+  'Mentors only': 'mentors',
+  'Mentors and verified investors': 'mentors_and_investors',
+};
+
+// Step 9m: display labels for hub rows (engagement request kinds and
+// meeting types) and a compact meeting date/time renderer.
+const KIND_LABELS = {
+  intro: 'Intro request',
+  meeting: 'Meeting invitation',
+  information: 'Information request',
+};
+const MEETING_TYPE_LABELS = {
+  intro_call: 'Intro call',
+  pitch: 'Pitch',
+  diligence: 'Diligence',
+  follow_up: 'Follow-up',
+};
+
+function formatMeetingWhen(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) + ' · ' +
+    d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Step 9m: share of the profile's key fields that are filled, derived
+// from the real 5a profile — never an invented number.
+function profileCompleteness(profile) {
+  const fields = [
+    profile.tagline,
+    profile.sector,
+    profile.business_model,
+    profile.problem,
+    profile.solution,
+    profile.market,
+    profile.traction_summary,
+    profile.pitch_deck_url,
+    profile.demo_url,
+  ];
+  const filled = fields.filter((f) => typeof f === 'string' && f.trim() !== '').length;
+  return Math.round((filled / fields.length) * 100);
+}
+
 // Step 9e: the backend PipelineStage enum values, in board order, with
 // display labels. The deal rows carry the raw stage value.
 const PIPELINE_STAGE_ORDER = ['interested', 'intro', 'meeting', 'data_room', 'diligence', 'offer', 'committed'];
@@ -167,6 +222,20 @@ function formatTicketRange(min, max, currency = 'INR') {
   if (lo) return lo;
   if (hi) return hi;
   return 'Not shared';
+}
+
+// Step 9m: relative time for hub activity rows ("2h ago"). Purely
+// presentational — the timestamp is the server's own value.
+function timeAgo(iso) {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const mins = Math.max(0, Math.round((Date.now() - then) / 60000));
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
 }
 
 function StatusBadge({ status }) {
@@ -238,6 +307,30 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const [toggles, setToggles] = useState({ summary: true, traction: true, team: true, funding: false, round: false, readiness: true });
   const [mobileNav, setMobileNav] = useState(false);
   const [compact, setCompact] = useState(false);
+
+  // Step 9m: startup investor hub (page="hub"). Summary + the interested
+  // investors card (real 9e deal rows) + the readiness board for the
+  // prepare/readiness cards. Gated to page="hub"; every other page in
+  // this shared component keeps its demo data.
+  const [hubSummary, setHubSummary] = useState(null); // InvestorHubSummary
+  const [hubPhase, setHubPhase] = useState('loading'); // loading|ready|error|none
+  const [hubError, setHubError] = useState('');
+  const [hubDeals, setHubDeals] = useState([]); // StartupInvestorDealRead[]
+  const [hubDealsPhase, setHubDealsPhase] = useState('loading'); // loading|ready|error|none
+  const [hubDealsError, setHubDealsError] = useState('');
+  const [hubReloadKey, setHubReloadKey] = useState(0);
+  const [hubReadiness, setHubReadiness] = useState(null); // ReadinessBoard
+
+  // Step 9m: visibility settings (page="settings") — the 5a startup
+  // profile is the single source of truth for the visibility radio, the
+  // section toggles and the pause control.
+  const [profile, setProfile] = useState(null); // StartupProfileRead
+  const [profilePhase, setProfilePhase] = useState('loading'); // loading|ready|error
+  const [profileError, setProfileError] = useState('');
+  const [profileReloadKey, setProfileReloadKey] = useState(0);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileFormErrors, setProfileFormErrors] = useState({});
+  const [canEditVisibility, setCanEditVisibility] = useState(false); // owner/admin/member
 
   // Step 9a: real rounds data (only loaded for the rounds/round-detail pages).
   const { user } = useAuth();
@@ -457,6 +550,70 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, user?.id]);
 
+  // Step 9m: the startup profile drives the hub banner, the prepare
+  // card and the settings form. Gated to page="hub"/"settings"; every
+  // other page in this shared component keeps its demo data.
+  useEffect(() => {
+    if (page !== 'hub' && page !== 'settings') return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const orgs = await api.organizations.mine();
+        const startup = orgs.find((o) => o.type === 'startup') || null;
+        if (cancelled) return;
+        if (!startup) {
+          setOrg(null);
+          setProfilePhase('error');
+          setProfileError('No startup organization found for your account.');
+          return;
+        }
+        setOrg(startup);
+        setCanEditRounds(['owner', 'admin', 'member'].includes(startup.my_role));
+        setCanEditVisibility(['owner', 'admin', 'member'].includes(startup.my_role));
+        await loadProfile(startup.id);
+      } catch (err) {
+        if (cancelled) return;
+        setProfilePhase('error');
+        setProfileError(err instanceof ApiError ? err.message : 'Could not load your visibility settings.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, user?.id, profileReloadKey]);
+
+  // Step 9m: the hub page's data (summary + interested investors +
+  // readiness). Gated to page="hub".
+  useEffect(() => {
+    if (page !== 'hub') return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const orgs = await api.organizations.mine();
+        const startup = orgs.find((o) => o.type === 'startup') || null;
+        if (cancelled) return;
+        if (!startup) {
+          setOrg(null);
+          setHubPhase('none');
+          setHubDealsPhase('none');
+          return;
+        }
+        setOrg(startup);
+        setCanEditRounds(['owner', 'admin', 'member'].includes(startup.my_role));
+        await loadHub(startup.id);
+      } catch (err) {
+        if (cancelled) return;
+        setHubPhase('error');
+        setHubError(err instanceof ApiError ? err.message : 'Could not load your investor hub.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, user?.id, hubReloadKey]);
+
   const loadDirectory = async (orgId, q) => {
     setDirectoryPhase('loading');
     setDirectoryError('');
@@ -522,6 +679,139 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
       if (cancelledRef.current) return;
       setMeetingsPhase('error');
       setMeetingsError(err instanceof ApiError ? err.message : 'Could not load your meetings.');
+    }
+  };
+
+  // Step 9m: load the 5a startup profile (visibility radio + section
+  // toggles + the hub's visibility banner). Read by any active member.
+  const loadProfile = async (orgId) => {
+    setProfilePhase('loading');
+    setProfileError('');
+    try {
+      const prof = await api.startupProfile.get(orgId);
+      if (cancelledRef.current) return;
+      setProfile(prof);
+      // Drive the shared banner/pause controls from the server's values.
+      setVisible(prof.profile_visibility === 'mentors_and_investors');
+      setVis(VISIBILITY_LABELS[prof.profile_visibility] || prof.profile_visibility);
+      setToggles({
+        summary: prof.summary_public,
+        traction: prof.traction_public,
+        team: prof.team_public,
+        funding: prof.funding_public,
+        round: prof.round_public,
+        readiness: prof.readiness_public,
+      });
+      setProfilePhase('ready');
+    } catch (err) {
+      if (cancelledRef.current) return;
+      setProfilePhase('error');
+      setProfileError(err instanceof ApiError ? err.message : 'Could not load your visibility settings.');
+    }
+  };
+
+  // Step 9m: startup investor hub. Loads the hub summary (stat strip,
+  // primary round, needs-reply, upcoming meetings), the interested
+  // investors card (real 9e deal rows) and the readiness board (prepare
+  // + readiness cards). Gated to page="hub".
+  const loadHub = async (orgId) => {
+    setHubPhase('loading');
+    setHubError('');
+    try {
+      const summary = await api.investorHub.summary(orgId);
+      if (cancelledRef.current) return;
+      setHubSummary(summary);
+      setHubPhase('ready');
+    } catch (err) {
+      if (cancelledRef.current) return;
+      setHubPhase('error');
+      setHubError(err instanceof ApiError ? err.message : 'Could not load your investor hub.');
+    }
+    try {
+      const deals = await api.startupInvestorDeals.list(orgId, { limit: 3 });
+      if (cancelledRef.current) return;
+      setHubDeals(deals.items);
+      setHubDealsPhase('ready');
+    } catch (err) {
+      if (cancelledRef.current) return;
+      setHubDealsPhase('error');
+      setHubDealsError(err instanceof ApiError ? err.message : 'Could not load interested investors.');
+    }
+    try {
+      const board = await api.readiness.board(orgId);
+      if (cancelledRef.current) return;
+      setHubReadiness(board);
+    } catch {
+      if (cancelledRef.current) return;
+      setHubReadiness(null);
+    }
+  };
+
+  // Step 9m: persist visibility changes. Only owner/admin/member may
+  // patch (viewer -> 403); server 422s surface as field errors.
+  const saveVisibility = async (body, { silent = false } = {}) => {
+    if (!org) return;
+    setSavingProfile(true);
+    setProfileFormErrors({});
+    try {
+      const updated = await api.startupProfile.update(org.id, body);
+      if (cancelledRef.current) return;
+      setProfile(updated);
+      setVisible(updated.profile_visibility === 'mentors_and_investors');
+      setVis(VISIBILITY_LABELS[updated.profile_visibility] || updated.profile_visibility);
+      if (!silent) notify('Investor visibility settings saved.');
+      return true;
+    } catch (err) {
+      if (cancelledRef.current) return false;
+      if (err instanceof ApiError && err.status === 422) {
+        setProfileFormErrors(fieldErrorsFrom(err));
+      } else if (err instanceof ApiError && err.status === 403) {
+        notify('You need an owner, admin or member role to change visibility.');
+      } else {
+        notify(err instanceof ApiError ? err.message : 'Could not save your visibility settings.');
+      }
+      return false;
+    } finally {
+      if (!cancelledRef.current) setSavingProfile(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!org || savingProfile) return;
+    await saveVisibility({
+      profile_visibility: VISIBILITY_VALUES[vis] || vis,
+      summary_public: toggles.summary,
+      traction_public: toggles.traction,
+      team_public: toggles.team,
+      funding_public: toggles.funding,
+      round_public: toggles.round,
+      readiness_public: toggles.readiness,
+    });
+  };
+
+  const handlePauseVisibility = async () => {
+    if (!org || savingProfile) return;
+    const next = visible ? 'private' : 'mentors_and_investors';
+    // Optimistic local flip, rolled back if the server rejects.
+    setVisible(!visible);
+    setVis(!visible ? 'Private' : 'Mentors and verified investors');
+    const ok = await saveVisibility({ profile_visibility: next }, { silent: true });
+    if (!ok) {
+      setVisible(visible);
+      setVis(VISIBILITY_LABELS[profile?.profile_visibility] || 'Mentors and verified investors');
+      notify(profileFormErrors.profile_visibility ? profileFormErrors.profile_visibility : 'Could not change visibility.');
+    } else {
+      notify(visible ? 'Investor visibility paused.' : 'Investor visibility resumed.');
+    }
+  };
+
+  const handlePreviewAsInvestor = async () => {
+    if (!org) return;
+    try {
+      const preview = await api.startupProfile.preview(org.id);
+      notify(preview.visible_to_public ? 'Investor preview: your profile is visible to the public.' : 'Investor preview: your profile is not visible to the public.');
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : 'Could not open the investor preview.');
     }
   };
 
@@ -695,60 +985,6 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
 
   const readinessLocked = !showAnyway;
 
-  const investorCard = (x) => (
-    <article key={x.id} className="rounded-xl border border-[#E5E1D8] bg-white p-4 sm:p-5">
-      <div className="flex flex-wrap items-start gap-3">
-        <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#F3EBDD] font-serif text-lg font-semibold text-[#806236]">
-          {x.initial}
-        </span>
-        <div className="min-w-[180px] flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/startup/investors/${x.id}`} className="font-semibold hover:underline">
-              {x.name}
-            </Link>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#F3EBDD] px-2 py-1 text-[10px] font-semibold text-[#806236]">
-              <ShieldCheck size={12} />{x.verified}
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-[#4A5568]">{x.firm} · {x.type} · {x.location}</p>
-          <p className="mt-1 text-xs"><b>Typical ticket:</b> {x.ticket}</p>
-        </div>
-        <span className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[10px] text-[#4A5568]">{x.status}</span>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {x.focus.map(t => (
-          <span key={t} className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px]">{t}</span>
-        ))}
-      </div>
-      <p className="mt-3 text-xs leading-5 text-[#4A5568]">{x.fit}</p>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E1D8] pt-3">
-        <small className="text-[10px] text-[#4A5568]">{x.rating}</small>
-        <div className="flex gap-2">
-          <Link href={`/startup/investors/${x.id}`} className="inline-flex min-h-9 items-center rounded-lg border border-[#E5E1D8] px-3 text-xs font-semibold">
-            View profile
-          </Link>
-          <button
-            type="button"
-            onClick={() => setSaved(saved.includes(x.id) ? saved.filter(s => s !== x.id) : [...saved, x.id])}
-            className="min-h-9 rounded-lg border border-[#E5E1D8] px-3 text-xs"
-          >
-            <Bookmark className="mr-1 inline" size={12} />
-            {saved.includes(x.id) ? 'Saved' : 'Save'}
-          </button>
-          <button
-            type="button"
-            disabled={readinessLocked}
-            title={readinessLocked ? 'Complete readiness or choose Show me anyway first.' : ''}
-            onClick={() => setModal(`intro-${x.id}`)}
-            className="min-h-9 rounded-lg bg-ink px-3 text-xs font-semibold text-white disabled:opacity-40"
-          >
-            Request intro
-          </button>
-        </div>
-      </div>
-    </article>
-  );
-
   // Step 9b: render a real directory item. Only org-level public fields
   // are shown — never the firm's members, emails or pipeline state.
   const directoryCard = (x) => (
@@ -876,15 +1112,41 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
               </Link>
             )}
             {visBanner}
-            {!showAnyway && (
+            {hubPhase === 'loading' && <LoadingBlock label="Loading your investor hub…" rows={4} />}
+            {hubPhase === 'error' && (
+              <ErrorBlock
+                title="Could not load your investor hub"
+                message={hubError || 'Something went wrong while loading the hub.'}
+                onRetry={() => setHubReloadKey((k) => k + 1)}
+              />
+            )}
+            {hubPhase === 'none' && (
+              <EmptyBlock title="No investor hub yet" hint="Your startup organization has no investor hub data yet.">
+                <Link href="/startup/rounds" className="rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white">Go to rounds</Link>
+              </EmptyBlock>
+            )}
+            {hubPhase === 'ready' && hubSummary && !showAnyway && (
               <Card title="Prepare for investor conversations">
                 <p className="mb-4 text-sm text-[#4A5568]">Finish the essentials before you start reaching out. You can preview the hub while you prepare.</p>
                 <div className="space-y-3">
                   {[
-                    ['Earn the Investment Ready badge', '4 of 6 items signed off', '/startup/readiness'],
-                    ['Complete your public profile', '78% complete', '/startup/profile'],
-                    ['Prepare your data room', '3 items missing', '/startup/data-room'],
-                    ['Choose investor visibility', visible ? 'Visible to verified investors' : 'Private', '/startup/investors/settings'],
+                    [
+                      'Earn the Investment Ready badge',
+                      hubReadiness
+                        ? `${hubReadiness.summary.criteria_signed_off} of ${hubReadiness.summary.criteria_total} items signed off`
+                        : 'Checking readiness…',
+                      '/startup/readiness',
+                    ],
+                    [
+                      'Complete your public profile',
+                      profile ? `${profileCompleteness(profile)}% complete` : 'Checking profile…',
+                      '/startup/profile',
+                    ],
+                    [
+                      'Choose investor visibility',
+                      visible ? 'Visible to verified investors' : 'Private',
+                      '/startup/investors/settings',
+                    ],
                   ].map(([x, y, u], i) => (
                     <Link key={x} href={u} className="flex items-center gap-3 rounded-lg border border-[#E5E1D8] p-3 hover:bg-[#FAF8F4]">
                       <span className={`grid h-7 w-7 place-items-center rounded-full ${i < 2 ? 'bg-[#E7F3EC] text-[#286749]' : 'bg-[#F3F4F6] text-[#4A5568]'}`}>
@@ -908,15 +1170,16 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                 </div>
               </Card>
             )}
-            {showAnyway && (
+            {hubPhase === 'ready' && hubSummary && showAnyway && (
               <>
                 <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
                   {[
-                    ['Profile views', '46'],
-                    ['Shortlisted by', '7'],
-                    ['Conversations', '5'],
-                    ['Meetings this month', '3'],
-                    ['Data room visitors', '4'],
+                    ['Open rounds', hubSummary.open_rounds],
+                    ['Deals in pipeline', hubSummary.deals_in_pipeline],
+                    ['Pending requests', hubSummary.pending_requests],
+                    ['Meetings this month', hubSummary.meetings_this_month],
+                    ['Offers received', hubSummary.offers_received],
+                    ['Commitments received', hubSummary.commitments_received],
                   ].map(([n, v]) => (
                     <div key={n} className="rounded-xl border border-[#E5E1D8] bg-white p-4">
                       <p className="text-xs text-[#4A5568]">{n}</p>
@@ -927,79 +1190,136 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                 <div className="grid items-start gap-5 xl:grid-cols-3">
                   <div className="space-y-5 xl:col-span-2">
                     <Card title="Needs your reply" action={<Link href="/startup/messages" className="text-xs font-semibold text-[#9A7A45]">Open inbox</Link>}>
-                      <div className="space-y-2">
-                        {[
-                          ['Mira Shah', 'Intro request · 1 day ago'],
-                          ['Northstar Capital', 'Data room access request · 3 hours ago'],
-                          ['SeedSpring Fund', 'Meeting invitation · yesterday'],
-                        ].map(([n, d]) => (
-                          <div key={n} className="flex items-center gap-3 rounded-lg border border-[#E5E1D8] p-3">
-                            <Mail className="text-[#9A7A45]" size={17} />
-                            <span className="flex-1">
-                              <b className="block text-xs">{n}</b>
-                              <small className="text-[10px] text-[#4A5568]">{d}</small>
-                            </span>
-                            <button type="button" onClick={() => notify(`Opening ${n} conversation.`)} className="text-xs font-semibold text-[#9A7A45]">
-                              Open <ArrowRight className="inline" size={12} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
+                      {hubSummary.needs_reply.length === 0 ? (
+                        <p className="text-xs text-[#4A5568]">Nothing is waiting on you right now.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {hubSummary.needs_reply.map((item) => (
+                            <div key={item.id} className="flex items-center gap-3 rounded-lg border border-[#E5E1D8] p-3">
+                              <Mail className="text-[#9A7A45]" size={17} />
+                              <span className="flex-1">
+                                <b className="block text-xs">{item.investor_name}</b>
+                                <small className="text-[10px] text-[#4A5568]">
+                                  {KIND_LABELS[item.kind] || item.kind} · {timeAgo(item.created_at)}
+                                </small>
+                              </span>
+                              <Link href="/startup/messages" className="text-xs font-semibold text-[#9A7A45]">
+                                Open <ArrowRight className="inline" size={12} />
+                              </Link>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </Card>
 
                     <Card title="Interested investors" action={<Link href="/startup/investors/pipeline" className="text-xs font-semibold text-[#9A7A45]">View pipeline</Link>}>
-                      <div className="space-y-3">{investors.slice(0, 3).map(investorCard)}</div>
-                    </Card>
-
-                    <Card title="Investor interest trend">
-                      <p className="mb-3 text-xs text-[#4A5568]">Profile views are trending up this month.</p>
-                      <div className="flex h-32 items-end gap-3 border-b border-[#E5E1D8]">
-                        {[32, 44, 38, 56, 70, 64, 90, 76, 100, 82, 94, 100].map((h, i) => (
-                          <div key={i} className={`flex-1 rounded-t ${i === 11 ? 'bg-[#B8955A]' : 'bg-ink'}`} style={{ height: `${h}%` }} />
-                        ))}
-                      </div>
-                      <div className="mt-2 flex justify-between text-[10px] text-[#4A5568]">
-                        <span>Oct 06</span>
-                        <span>Nov 05</span>
-                      </div>
-                      <p className="mt-3 text-[10px] text-[#4A5568]">Demo interest activity · last 30 days</p>
+                      {hubDealsPhase === 'loading' && <LoadingBlock label="Loading interested investors…" rows={2} />}
+                      {hubDealsPhase === 'error' && (
+                        <ErrorBlock
+                          title="Could not load interested investors"
+                          message={hubDealsError || 'Something went wrong while loading the pipeline preview.'}
+                          onRetry={() => setHubReloadKey((k) => k + 1)}
+                        />
+                      )}
+                      {hubDealsPhase === 'ready' && hubDeals.length === 0 && (
+                        <EmptyBlock title="No interested investors yet" hint="Investors who engage with your startup appear here.">
+                          <Link href="/startup/investors/pipeline" className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs font-semibold">Open pipeline</Link>
+                        </EmptyBlock>
+                      )}
+                      {hubDealsPhase === 'ready' && hubDeals.length > 0 && (
+                        <div className="space-y-3">
+                          {hubDeals.map((deal) => (
+                            <article key={deal.id} className="rounded-xl border border-[#E5E1D8] bg-white p-4">
+                              <div className="flex flex-wrap items-start gap-3">
+                                <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#F3EBDD] font-serif text-lg font-semibold text-[#806236]">
+                                  {(deal.investor_name || '?').charAt(0).toUpperCase()}
+                                </span>
+                                <div className="min-w-[180px] flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <Link href={`/startup/investors/${deal.investor_org_id}`} className="font-semibold hover:underline">
+                                      {deal.investor_name}
+                                    </Link>
+                                    <span className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px] text-[#4A5568]">
+                                      {PIPELINE_STAGE_LABELS[deal.stage] || deal.stage}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-xs">
+                                    <b>Ticket:</b> {formatMoney(deal.ticket_size, deal.currency)}
+                                  </p>
+                                  {deal.next_step && <p className="mt-1 text-xs text-[#4A5568]">Next: {deal.next_step}</p>}
+                                </div>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      )}
                     </Card>
                   </div>
 
                   <aside className="space-y-5">
                     <Card title="Round snapshot">
-                      <div className="flex justify-between text-xs">
-                        <span>Pre-seed target</span>
-                        <b>₹2.5 Cr</b>
-                      </div>
-                      <div className="mt-2 h-2 rounded-full bg-[#E5E1D8]">
-                        <div className="h-full w-[32%] rounded-full bg-[#B8955A]" />
-                      </div>
-                      <p className="mt-2 text-xs text-[#4A5568]">₹0.8 Cr committed · 32%</p>
-                      <p className="mt-2 text-xs">3 investors in talks · closes Mar 31</p>
-                      <Link href="/startup/rounds" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
-                        View round <ArrowRight className="inline" size={12} />
-                      </Link>
+                      {hubSummary.primary_round ? (
+                        <>
+                          <div className="flex justify-between text-xs">
+                            <span>{hubSummary.primary_round.name} target</span>
+                            <b>{formatMoney(hubSummary.primary_round.target_amount, hubSummary.primary_round.currency)}</b>
+                          </div>
+                          <div className="mt-2 h-2 rounded-full bg-[#E5E1D8]">
+                            <div
+                              className="h-full rounded-full bg-[#B8955A]"
+                              style={{ width: `${Math.min(100, Math.max(0, hubSummary.primary_round.progress_pct || 0))}%` }}
+                            />
+                          </div>
+                          <p className="mt-2 text-xs text-[#4A5568]">
+                            {formatMoney(hubSummary.primary_round.committed_amount, hubSummary.primary_round.currency)} committed · {hubSummary.primary_round.progress_pct ?? 0}%
+                          </p>
+                          <p className="mt-2 text-xs">
+                            {hubSummary.primary_round.commitment_count} commitment{hubSummary.primary_round.commitment_count === 1 ? '' : 's'} · closes {hubSummary.primary_round.closes_on || '—'}
+                          </p>
+                          <Link href="/startup/rounds" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
+                            View round <ArrowRight className="inline" size={12} />
+                          </Link>
+                        </>
+                      ) : (
+                        <EmptyBlock title="No open round" hint="Open a fundraising round to show progress here.">
+                          <Link href="/startup/rounds" className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs font-semibold">Go to rounds</Link>
+                        </EmptyBlock>
+                      )}
                     </Card>
 
                     <Card title="Upcoming meetings">
-                      <p className="text-xs">
-                        <b>SeedSpring Fund</b>
-                        <small className="mt-1 block text-[#4A5568]">Nov 10 · 11:00 AM · Pitch</small>
-                      </p>
-                      <div className="mt-3 flex gap-2">
-                        <Link href="/startup/meetings" className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs font-semibold">
-                          Prepare
-                        </Link>
-                        <button type="button" onClick={() => notify('Join opens 10 minutes before meeting.')} className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
-                          Join
-                        </button>
-                      </div>
+                      {hubSummary.upcoming_meetings.length === 0 ? (
+                        <p className="text-xs text-[#4A5568]">No upcoming meetings.</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {hubSummary.upcoming_meetings.map((meeting) => (
+                            <div key={meeting.id}>
+                              <p className="text-xs">
+                                <b>{meeting.investor_name}</b>
+                                <small className="mt-1 block text-[#4A5568]">
+                                  {formatMeetingWhen(meeting.scheduled_at)} · {MEETING_TYPE_LABELS[meeting.meeting_type] || meeting.meeting_type}
+                                </small>
+                              </p>
+                              <div className="mt-3 flex gap-2">
+                                <Link href="/startup/meetings" className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs font-semibold">
+                                  Prepare
+                                </Link>
+                                <Link href="/startup/meetings" className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
+                                  Join
+                                </Link>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </Card>
 
                     <Card title="Readiness">
-                      <span className="rounded-full bg-[#FFF3D6] px-2 py-1 text-[10px] font-semibold text-[#8A5700]">Preparing · 4 of 6</span>
-                      <p className="mt-3 text-xs leading-5 text-[#4A5568]">Financial projections were last updated 5 months ago. Refresh before sharing.</p>
+                      <span className="rounded-full bg-[#FFF3D6] px-2 py-1 text-[10px] font-semibold text-[#8A5700]">
+                        {hubReadiness
+                          ? `Preparing · ${hubReadiness.summary.criteria_signed_off} of ${hubReadiness.summary.criteria_total}`
+                          : 'Checking readiness…'}
+                      </span>
                       <Link href="/startup/readiness" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
                         Review readiness <ArrowRight className="inline" size={12} />
                       </Link>
@@ -2221,117 +2541,103 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
         {page === 'settings' && (
           <>
             {head(
-              <Btn onClick={() => notify('Investor visibility settings saved.')}>Save changes</Btn>
+              <Btn
+                onClick={handleSaveProfile}
+                disabled={profilePhase !== 'ready' || savingProfile || !canEditVisibility}
+                title={canEditVisibility ? '' : 'Only owners, admins and members can change visibility.'}
+              >
+                {savingProfile ? 'Saving…' : 'Save changes'}
+              </Btn>
             )}
-            <div className="grid items-start gap-5 xl:grid-cols-3">
-              <div className="space-y-5 xl:col-span-2">
-                <Card title="Who can see my startup">
-                  <fieldset className="space-y-3">
-                    {['Private', 'Mentors only', 'Mentors and verified investors'].map(x => (
-                      <label key={x} className="flex cursor-pointer items-start gap-3 rounded-lg border border-[#E5E1D8] p-3">
-                        <input
-                          type="radio"
-                          name="visibility"
-                          checked={vis === x}
-                          onChange={() => {
-                            setVis(x);
-                            setVisible(x === 'Mentors and verified investors');
-                          }}
-                          className="mt-1 accent-ink"
-                        />
-                        <span>
-                          <b className="block text-sm">{x}</b>
-                          <small className="text-xs text-[#4A5568]">
-                            {x === 'Private'
-                              ? 'Only your team can view your startup.'
-                              : x === 'Mentors only'
-                              ? 'Your assigned mentors can see shared information.'
-                              : 'Approved, verified investors can discover your public profile.'}
-                          </small>
-                        </span>
-                      </label>
-                    ))}
-                  </fieldset>
-                </Card>
+            {profilePhase === 'loading' && <LoadingBlock label="Loading visibility settings…" rows={3} />}
+            {profilePhase === 'error' && (
+              <ErrorBlock
+                title="Could not load visibility settings"
+                message={profileError || 'Something went wrong while loading your profile.'}
+                onRetry={() => setProfileReloadKey((k) => k + 1)}
+              />
+            )}
+            {profilePhase === 'ready' && profile && (
+              <>
+                <div className="grid items-start gap-5 xl:grid-cols-3">
+                  <div className="space-y-5 xl:col-span-2">
+                    <Card title="Who can see my startup">
+                      <fieldset className="space-y-3">
+                        {['Private', 'Mentors only', 'Mentors and verified investors'].map(x => (
+                          <label key={x} className="flex cursor-pointer items-start gap-3 rounded-lg border border-[#E5E1D8] p-3">
+                            <input
+                              type="radio"
+                              name="visibility"
+                              checked={vis === x}
+                              disabled={!canEditVisibility}
+                              onChange={() => {
+                                setVis(x);
+                                setVisible(x === 'Mentors and verified investors');
+                              }}
+                              className="mt-1 accent-ink"
+                            />
+                            <span className="flex-1">
+                              <b className="block text-sm">{x}</b>
+                              <small className="text-xs text-[#4A5568]">
+                                {x === 'Private'
+                                  ? 'Only your team can view your startup.'
+                                  : x === 'Mentors only'
+                                  ? 'Your assigned mentors can see shared information.'
+                                  : 'Approved, verified investors can discover your public profile.'}
+                              </small>
+                              {profileFormErrors.profile_visibility && <FieldError>{profileFormErrors.profile_visibility}</FieldError>}
+                            </span>
+                          </label>
+                        ))}
+                      </fieldset>
+                      {!canEditVisibility && (
+                        <p className="mt-3 text-xs text-[#4A5568]">
+                          You are a viewer in this organization. Visibility changes are saved by owners, admins and members.
+                        </p>
+                      )}
+                    </Card>
 
-                <Card title="What investors can see">
-                  {Object.entries({
-                    summary: 'Profile summary',
-                    traction: 'Traction numbers',
-                    team: 'Team details',
-                    funding: 'Funding details',
-                    round: 'Round information',
-                    readiness: 'Readiness score and badge',
-                  }).map(([key, label]) => (
-                    <label key={key} className="flex min-h-11 items-center justify-between border-b border-[#E5E1D8] text-sm">
-                      {label}
-                      <input
-                        type="checkbox"
-                        checked={toggles[key]}
-                        onChange={() => setToggles({ ...toggles, [key]: !toggles[key] })}
-                        className="h-4 w-4 accent-ink"
-                      />
-                    </label>
-                  ))}
-                  <button type="button" onClick={() => notify('Investor preview opened.')} className="mt-4 text-xs font-semibold text-[#9A7A45]">
-                    Preview as investor <ArrowUpRight className="inline" size={12} />
-                  </button>
-                </Card>
+                    <Card title="What investors can see">
+                      {Object.entries({
+                        summary: 'Profile summary',
+                        traction: 'Traction numbers',
+                        team: 'Team details',
+                        funding: 'Funding details',
+                        round: 'Round information',
+                        readiness: 'Readiness score and badge',
+                      }).map(([key, label]) => (
+                        <div key={key} className="flex min-h-11 items-center justify-between border-b border-[#E5E1D8] text-sm">
+                          <span>{label}</span>
+                          <input
+                            type="checkbox"
+                            checked={toggles[key]}
+                            disabled={!canEditVisibility}
+                            onChange={() => setToggles({ ...toggles, [key]: !toggles[key] })}
+                            className="h-4 w-4 accent-ink"
+                          />
+                        </div>
+                      ))}
+                      <button type="button" onClick={handlePreviewAsInvestor} className="mt-4 text-xs font-semibold text-[#9A7A45]">
+                        Preview as investor <ArrowUpRight className="inline" size={12} />
+                      </button>
+                    </Card>
 
-                <Card title="Pause investor visibility">
-                  <p className="text-xs leading-5 text-[#4A5568]">Temporarily hide your profile without deleting information or past activity.</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setVisible(!visible);
-                      setVis(visible ? 'Private' : 'Mentors and verified investors');
-                      notify(visible ? 'Investor visibility paused.' : 'Investor visibility resumed.');
-                    }}
-                    className={`mt-3 rounded-lg px-4 py-2.5 text-xs font-semibold ${visible ? 'border border-[#E5E1D8]' : 'bg-[#B42318] text-white'}`}
-                  >
-                    {visible ? 'Pause visibility' : 'Resume visibility'}
-                  </button>
-                </Card>
-              </div>
-
-              <aside className="space-y-5">
-                <Card title="Investor controls">
-                  <p className="text-xs text-[#4A5568]">Blocked investors</p>
-                  <p className="mt-2 text-xs">No blocked investors.</p>
-                  <button type="button" onClick={() => notify('Investor preferences opened.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
-                    Preferred sectors and ticket range
-                  </button>
-                </Card>
-
-                <Card title="Data room defaults">
-                  <label className="block text-xs">
-                    Download policy
-                    <select className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3">
-                      <option>View only (recommended)</option>
-                      <option>Allow for selected investors</option>
-                    </select>
-                  </label>
-                  <label className="mt-3 flex items-center justify-between text-xs">
-                    Watermark documents
-                    <input type="checkbox" defaultChecked className="accent-ink" />
-                  </label>
-                  <label className="mt-3 flex items-center justify-between text-xs">
-                    Require NDA
-                    <input type="checkbox" defaultChecked className="accent-ink" />
-                  </label>
-                </Card>
-
-                <Card title="Notifications">
-                  {['Profile views', 'Shortlists', 'Messages', 'Access requests', 'Offers'].map(x => (
-                    <label key={x} className="flex min-h-9 items-center justify-between text-xs">
-                      {x}
-                      <input type="checkbox" defaultChecked className="accent-ink" />
-                    </label>
-                  ))}
-                </Card>
-              </aside>
-            </div>
-            {disclaimer}
+                    <Card title="Pause investor visibility">
+                      <p className="text-xs leading-5 text-[#4A5568]">Temporarily hide your profile without deleting information or past activity.</p>
+                      <button
+                        type="button"
+                        onClick={handlePauseVisibility}
+                        disabled={!canEditVisibility || savingProfile}
+                        className={`mt-3 rounded-lg px-4 py-2.5 text-xs font-semibold ${visible ? 'border border-[#E5E1D8]' : 'bg-[#B42318] text-white'} disabled:opacity-40`}
+                      >
+                        {visible ? 'Pause visibility' : 'Resume visibility'}
+                      </button>
+                    </Card>
+                  </div>
+                </div>
+                {disclaimer}
+              </>
+            )}
           </>
         )}
       </main>

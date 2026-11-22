@@ -1741,6 +1741,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/{org_id}/investor-hub/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Startup investor hub summary */
+        get: operations["hub_summary_api_v1_organizations__org_id__investor_hub_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-hub/rounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Hub rounds with investor progress */
+        get: operations["hub_rounds_api_v1_organizations__org_id__investor_hub_rounds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-hub/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Startup activity feed (paginated) */
+        get: operations["hub_activity_api_v1_organizations__org_id__investor_hub_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-hub/activity/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Startup activity aggregates */
+        get: operations["hub_activity_stats_api_v1_organizations__org_id__investor_hub_activity_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{org_id}/investors": {
         parameters: {
             query?: never;
@@ -4723,6 +4791,10 @@ export interface components {
              * Format: uuid
              */
             startup_org_id: string;
+            /** Startup Name */
+            startup_name: string;
+            /** Startup Slug */
+            startup_slug: string;
             /** Deal Id */
             deal_id: string | null;
             /** Kind */
@@ -4797,6 +4869,10 @@ export interface components {
              * Format: uuid
              */
             startup_org_id: string;
+            /** Investor Name */
+            investor_name: string;
+            /** Investor Slug */
+            investor_slug: string;
             /** Deal Id */
             deal_id: string | null;
             /** Kind */
@@ -5143,6 +5219,60 @@ export interface components {
             ownership_pct?: number | string | null;
             /** Invested On */
             invested_on?: string | null;
+        };
+        /**
+         * HubNeedsReplyItem
+         * @description One pending engagement request the startup still needs to answer.
+         */
+        HubNeedsReplyItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /** Investor Name */
+            investor_name: string;
+            /** Kind */
+            kind: string;
+            /** Ask */
+            ask: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * HubUpcomingMeetingItem
+         * @description One upcoming meeting scheduled with this startup.
+         */
+        HubUpcomingMeetingItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /** Investor Name */
+            investor_name: string;
+            /** Meeting Type */
+            meeting_type: string;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /** Status */
+            status: string;
         };
         /** ImpactRead */
         ImpactRead: {
@@ -5511,6 +5641,36 @@ export interface components {
             total: number;
             /** Verified */
             verified: number;
+        };
+        /**
+         * InvestorHubSummary
+         * @description The startup investor hub overview (9m ``/investor-hub/summary``).
+         *
+         *     Counts are derived from 9a–9j rows scoped to the resolved startup org.
+         *     ``primary_round`` is the active raise shown in the hub's round snapshot
+         *     card (the open round closing earliest, else the most recent round, else
+         *     ``None``). ``recent_activity`` is the startup's own recent audit events.
+         */
+        InvestorHubSummary: {
+            /** Open Rounds */
+            open_rounds: number;
+            /** Deals In Pipeline */
+            deals_in_pipeline: number;
+            /** Pending Requests */
+            pending_requests: number;
+            /** Meetings This Month */
+            meetings_this_month: number;
+            /** Offers Received */
+            offers_received: number;
+            /** Commitments Received */
+            commitments_received: number;
+            primary_round: components["schemas"]["RoundProgress"] | null;
+            /** Needs Reply */
+            needs_reply: components["schemas"]["HubNeedsReplyItem"][];
+            /** Upcoming Meetings */
+            upcoming_meetings: components["schemas"]["HubUpcomingMeetingItem"][];
+            /** Recent Activity */
+            recent_activity: components["schemas"]["ActivityEventRead"][];
         };
         /**
          * InvestorOfferCounter
@@ -6188,6 +6348,14 @@ export interface components {
              * Format: uuid
              */
             startup_org_id: string;
+            /** Startup Name */
+            startup_name: string;
+            /** Startup Slug */
+            startup_slug: string;
+            /** Investor Name */
+            investor_name: string;
+            /** Investor Slug */
+            investor_slug: string;
             /** Request Id */
             request_id: string | null;
             /** Deal Id */
@@ -7719,6 +7887,55 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * RoundProgress
+         * @description One startup round with its investor-side progress (9m hub view).
+         */
+        RoundProgress: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Round Type */
+            round_type: string;
+            /** Target Amount */
+            target_amount: string | null;
+            /** Committed Amount */
+            committed_amount: string;
+            /** Currency */
+            currency: string;
+            /** Status */
+            status: string;
+            /** Progress Pct */
+            progress_pct: number | null;
+            /** Opens On */
+            opens_on: string | null;
+            /** Closes On */
+            closes_on: string | null;
+            /** Deal Count */
+            deal_count: number;
+            /** Offer Count */
+            offer_count: number;
+            /** Commitment Count */
+            commitment_count: number;
+        };
+        /**
+         * RoundProgressPage
+         * @description Paginated rounds-progress list (9m ``/investor-hub/rounds``).
+         */
+        RoundProgressPage: {
+            /** Items */
+            items: components["schemas"]["RoundProgress"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
         };
         /**
          * RoundStatus
@@ -13852,6 +14069,145 @@ export interface operations {
                 authorization?: string | null;
             };
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityStats"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hub_summary_api_v1_organizations__org_id__investor_hub_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorHubSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hub_rounds_api_v1_organizations__org_id__investor_hub_rounds_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoundProgressPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hub_activity_api_v1_organizations__org_id__investor_hub_activity_get: {
+        parameters: {
+            query?: {
+                event_type?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hub_activity_stats_api_v1_organizations__org_id__investor_hub_activity_stats_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
