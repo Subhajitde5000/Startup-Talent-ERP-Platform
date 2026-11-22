@@ -293,6 +293,12 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const [startupDealsPhase, setStartupDealsPhase] = useState('loading'); // loading|ready|error|none
   const [startupDealsError, setStartupDealsError] = useState('');
 
+  // Step 9f: startup-side investor meetings. Only for page="meetings".
+  const [meetings, setMeetings] = useState([]); // MeetingRead[]
+  const [meetingsPhase, setMeetingsPhase] = useState('loading'); // loading|ready|error|none
+  const [meetingsError, setMeetingsError] = useState('');
+  const [meetingBusyId, setMeetingBusyId] = useState('');
+
   const cancelledRef = useRef(false);
   useEffect(() => {
     cancelledRef.current = false;
@@ -421,6 +427,36 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, id, user?.id]);
 
+  // Step 9f: resolve the startup org and load its investor meetings.
+  // Gated to page="meetings"; every other page in this shared component
+  // keeps its demo data.
+  useEffect(() => {
+    if (page !== 'meetings') return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const orgs = await api.organizations.mine();
+        const startup = orgs.find((o) => o.type === 'startup') || null;
+        if (cancelled) return;
+        if (!startup) {
+          setOrg(null);
+          setMeetingsPhase('none');
+          return;
+        }
+        setOrg(startup);
+        await loadMeetings(startup.id);
+      } catch (err) {
+        if (cancelled) return;
+        setMeetingsPhase('error');
+        setMeetingsError(err instanceof ApiError ? err.message : 'Could not load your meetings.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, user?.id]);
+
   const loadDirectory = async (orgId, q) => {
     setDirectoryPhase('loading');
     setDirectoryError('');
@@ -470,6 +506,22 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
       if (cancelledRef.current) return;
       setStartupDealsPhase('error');
       setStartupDealsError(err instanceof ApiError ? err.message : 'Could not load your investor pipeline.');
+    }
+  };
+
+  // Step 9f: load this startup's investor meetings (all statuses).
+  const loadMeetings = async (orgId) => {
+    setMeetingsPhase('loading');
+    setMeetingsError('');
+    try {
+      const result = await api.engagement.listStartupMeetings(orgId, { limit: 100 });
+      if (cancelledRef.current) return;
+      setMeetings(result.items);
+      setMeetingsPhase('ready');
+    } catch (err) {
+      if (cancelledRef.current) return;
+      setMeetingsPhase('error');
+      setMeetingsError(err instanceof ApiError ? err.message : 'Could not load your meetings.');
     }
   };
 
@@ -1622,7 +1674,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
         {page === 'meetings' && (
           <>
             {head(
-              <Btn onClick={() => setModal('meeting')}><Plus size={15} /> Schedule meeting</Btn>
+              <Btn onClick={() => notify('Scheduling is done from the investor side; meetings proposed to you appear here.')}><Plus size={15} /> Schedule meeting</Btn>
             )}
             <div className="mb-4 flex gap-2">
               {['Upcoming', 'Requests', 'Past', 'Calendar'].map(x => (
@@ -1637,65 +1689,147 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
               ))}
             </div>
 
-            {meetingTab === 'Calendar' ? (
-              <Card title="November 2026">
-                <div className="grid grid-cols-7 gap-px bg-[#E5E1D8]">
-                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', ...Array.from({ length: 35 }, (_, i) => String(i + 1))].map((x, i) => (
-                    <div key={i} className={`min-h-16 bg-white p-2 text-xs ${i < 7 ? 'font-semibold text-[#4A5568]' : ''}`}>
-                      {x}{i === 9 && <small className="mt-1 block rounded bg-[#F3EBDD] p-1 text-[9px]">Investor pitch</small>}
+            {meetingsPhase === 'loading' && <LoadingBlock label="Loading your meetings…" rows={2} />}
+            {meetingsPhase === 'error' && (
+              <ErrorBlock message={meetingsError || 'Could not load your meetings.'} onRetry={() => org && loadMeetings(org.id)} />
+            )}
+            {meetingsPhase === 'none' && (
+              <EmptyBlock
+                title="No startup workspace yet"
+                hint="Create or join a startup to see investor meetings."
+              />
+            )}
+            {meetingsPhase === 'ready' && (
+              <>
+                {meetingTab === 'Calendar' ? (
+                  <Card title={`Meetings · ${new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`}>
+                    <div className="grid grid-cols-7 gap-px bg-[#E5E1D8]">
+                      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', ...Array.from({ length: 35 }, (_, i) => String(i + 1))].map((x, i) => {
+                        const dayNum = i >= 7 ? Number(x) : null;
+                        const key = dayNum
+                          ? `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`
+                          : null;
+                        const dayMeetings = key
+                          ? meetings.filter((m) => new Date(m.scheduled_at).toISOString().slice(0, 10) === key)
+                          : [];
+                        return (
+                          <div key={i} className={`min-h-16 bg-white p-2 text-xs ${i < 7 ? 'font-semibold text-[#4A5568]' : ''}`}>
+                            {x}
+                            {dayMeetings.length > 0 && (
+                              <small className="mt-1 block rounded bg-[#F3EBDD] p-1 text-[9px]">{dayMeetings.length} meet</small>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
-              </Card>
-            ) : meetingTab === 'Requests' ? (
-              <Card title="Meeting requests">
-                <div className="space-y-3">
-                  {[
-                    ['SeedSpring Fund', 'Pitch meeting', 'Nov 10 · 11:00 AM or Nov 11 · 2:00 PM'],
-                    ['Mira Shah', 'Intro call', 'Nov 13 · 10:00 AM'],
-                  ].map(([n, t, d]) => (
-                    <div key={n} className="flex flex-wrap items-center gap-3 rounded-lg border border-[#E5E1D8] p-4">
-                      <CalendarDays size={17} className="text-[#9A7A45]" />
-                      <span className="flex-1">
-                        <b className="block text-sm">{n} · {t}</b>
-                        <small className="text-xs text-[#4A5568]">Proposed: {d}</small>
-                      </span>
-                      <button type="button" onClick={() => notify('Meeting time accepted.')} className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
-                        Accept
-                      </button>
-                      <button type="button" onClick={() => notify('Alternative time proposed.')} className="rounded-lg border px-3 py-2 text-xs">
-                        Propose another
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {[
-                  ['Nov 10 · 11:00 AM', 'SeedSpring Fund', 'Pitch meeting', '45 min · Confirmed'],
-                  ['Nov 13 · 2:30 PM', 'Northstar Capital', 'Diligence follow-up', '30 min · Scheduled'],
-                  ['Nov 18 · 10:00 AM', 'Mira Shah', 'Intro call', '30 min · Confirmed'],
-                ].map(([d, n, t, s], i) => (
-                  <article key={d} className="flex flex-wrap items-center gap-4 rounded-xl border border-[#E5E1D8] bg-white p-4">
-                    <div className="rounded-lg bg-[#F3EBDD] p-3 text-center">
-                      <CalendarDays className="mx-auto mb-1 text-[#806236]" size={18} />
-                      <b className="text-xs">{d}</b>
-                      <small className="block text-[10px] text-[#4A5568]">Asia/Kolkata</small>
-                    </div>
-                    <span className="flex-1">
-                      <b className="text-sm">{n}</b>
-                      <small className="mt-1 block text-xs text-[#4A5568]">{t} · {s}</small>
-                    </span>
-                    <button type="button" onClick={() => notify('Meeting prep opened.')} className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs">
-                      Prepare
-                    </button>
-                    <button type="button" onClick={() => notify(i === 0 ? 'Join opens 10 minutes before start.' : 'Meeting details opened.')} className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
-                      {i === 0 ? 'Join' : 'Details'}
-                    </button>
-                  </article>
-                ))}
-              </div>
+                    {meetings.length === 0 && (
+                      <p className="mt-3 text-xs text-[#4A5568]">No meetings scheduled this month.</p>
+                    )}
+                  </Card>
+                ) : meetingTab === 'Requests' ? (
+                  <Card title="Meeting requests">
+                    {meetings.filter((m) => m.status === 'proposed').length === 0 ? (
+                      <EmptyBlock title="No meeting requests" hint="Proposed meetings from investors will appear here for you to accept." />
+                    ) : (
+                      <div className="space-y-3">
+                        {meetings
+                          .filter((m) => m.status === 'proposed')
+                          .map((m) => (
+                            <div key={m.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-[#E5E1D8] p-4">
+                              <CalendarDays size={17} className="text-[#9A7A45]" />
+                              <span className="flex-1">
+                                <b className="block text-sm">{m.investor_name || 'Investor'} · {m.meeting_type}</b>
+                                <small className="text-xs text-[#4A5568]">
+                                  Proposed: {new Date(m.scheduled_at).toLocaleString()} · {m.duration_minutes} min
+                                </small>
+                              </span>
+                              <button
+                                type="button"
+                                disabled={meetingBusyId === m.id}
+                                onClick={async () => {
+                                  setMeetingBusyId(m.id);
+                                  try {
+                                    await api.engagement.transitionStartupMeeting(org.id, m.id, 'confirmed');
+                                    notify('Meeting time accepted.');
+                                    await loadMeetings(org.id);
+                                  } catch (err) {
+                                    notify(err instanceof ApiError ? err.message : 'Could not accept this meeting.');
+                                  } finally {
+                                    setMeetingBusyId('');
+                                  }
+                                }}
+                                className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => notify('Alternative time proposal opens from the meeting details.')}
+                                className="rounded-lg border px-3 py-2 text-xs"
+                              >
+                                Propose another
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </Card>
+                ) : meetingTab === 'Past' ? (
+                  <div className="space-y-3">
+                    {meetings.filter((m) => m.status === 'completed').length === 0 ? (
+                      <EmptyBlock title="No past meetings" hint="Completed meetings will be archived here." />
+                    ) : (
+                      meetings
+                        .filter((m) => m.status === 'completed')
+                        .map((m) => (
+                          <article key={m.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-[#E5E1D8] bg-white p-4">
+                            <div className="rounded-lg bg-[#F3EBDD] p-3 text-center">
+                              <CalendarDays className="mx-auto mb-1 text-[#806236]" size={18} />
+                              <b className="text-xs">{new Date(m.scheduled_at).toLocaleDateString()}</b>
+                              <small className="block text-[10px] text-[#4A5568]">{m.meeting_type}</small>
+                            </div>
+                            <span className="flex-1">
+                              <b className="text-sm">{m.investor_name || 'Investor'}</b>
+                              <small className="mt-1 block text-xs text-[#4A5568]">Completed · {m.duration_minutes} min</small>
+                            </span>
+                            <button type="button" onClick={() => notify('Meeting details opened.')} className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
+                              Details
+                            </button>
+                          </article>
+                        ))
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {meetings.filter((m) => (m.status === 'proposed' || m.status === 'confirmed') && new Date(m.scheduled_at).getTime() >= Date.now()).length === 0 ? (
+                      <EmptyBlock title="No upcoming meetings" hint="Proposed and confirmed meetings with a future time appear here." />
+                    ) : (
+                      meetings
+                        .filter((m) => (m.status === 'proposed' || m.status === 'confirmed') && new Date(m.scheduled_at).getTime() >= Date.now())
+                        .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))
+                        .map((m) => (
+                          <article key={m.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-[#E5E1D8] bg-white p-4">
+                            <div className="rounded-lg bg-[#F3EBDD] p-3 text-center">
+                              <CalendarDays className="mx-auto mb-1 text-[#806236]" size={18} />
+                              <b className="text-xs">{new Date(m.scheduled_at).toLocaleDateString()}</b>
+                              <small className="block text-[10px] text-[#4A5568]">{new Date(m.scheduled_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</small>
+                            </div>
+                            <span className="flex-1">
+                              <b className="text-sm">{m.investor_name || 'Investor'}</b>
+                              <small className="mt-1 block text-xs text-[#4A5568]">{m.meeting_type} · {m.duration_minutes} min · {m.status}</small>
+                            </span>
+                            <button type="button" onClick={() => notify('Meeting prep opened.')} className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs">
+                              Prepare
+                            </button>
+                            <button type="button" onClick={() => notify(m.status === 'confirmed' ? 'Join opens 10 minutes before start.' : 'Meeting details opened.')} className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
+                              {m.status === 'confirmed' ? 'Join' : 'Details'}
+                            </button>
+                          </article>
+                        ))
+                    )}
+                  </div>
+                )}
+              </>
             )}
             {disclaimer}
           </>

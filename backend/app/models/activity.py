@@ -86,6 +86,41 @@ class ActivityEventType(enum.StrEnum):
     deal_updated = "deal_updated"
     deal_stage_changed = "deal_stage_changed"
     deal_deleted = "deal_deleted"
+    # Step 9i: an offer is financial data both sides act on, so every
+    # version action is audited in the same transaction as the write.
+    offer_created = "offer_created"
+    offer_updated = "offer_updated"
+    offer_sent = "offer_sent"
+    offer_countered = "offer_countered"
+    offer_accepted = "offer_accepted"
+    offer_declined = "offer_declined"
+    offer_withdrawn = "offer_withdrawn"
+    offer_expired = "offer_expired"
+    # Step 9j: commitments and holdings are financial records the
+    # investor manages, so every mutation is audited in the same
+    # transaction as the write.
+    commitment_created = "commitment_created"
+    commitment_updated = "commitment_updated"
+    commitment_status_changed = "commitment_status_changed"
+    holding_created = "holding_created"
+    holding_updated = "holding_updated"
+    holding_status_changed = "holding_status_changed"
+    # Step 9f — engagement requests and meetings.
+    engagement_request_created = "engagement_request_created"
+    engagement_request_updated = "engagement_request_updated"
+    engagement_request_accepted = "engagement_request_accepted"
+    engagement_request_declined = "engagement_request_declined"
+    engagement_request_withdrawn = "engagement_request_withdrawn"
+    engagement_request_expired = "engagement_request_expired"
+    meeting_created = "meeting_created"
+    meeting_updated = "meeting_updated"
+    meeting_status_changed = "meeting_status_changed"
+    # Step 9k — diligence checklists and items.
+    diligence_checklist_created = "diligence_checklist_created"
+    diligence_checklist_updated = "diligence_checklist_updated"
+    diligence_item_created = "diligence_item_created"
+    diligence_item_updated = "diligence_item_updated"
+    diligence_item_deleted = "diligence_item_deleted"
 
 
 class ActivityEvent(Base):

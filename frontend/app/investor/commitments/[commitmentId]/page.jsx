@@ -1,21 +1,66 @@
 'use client';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Wallet, Check, AlertCircle, X } from 'lucide-react';
-import { InvestorShell, Card, Button } from '@/components';
+import { AlertCircle, X } from 'lucide-react';
+import { InvestorShell, Card, Button, StatusBadge } from '@/components';
+import { LoadingBlock, EmptyBlock, ErrorBlock } from '@/components/async-state';
+import { api, ApiError } from '@/lib/api/client';
 import { InvestorDisclaimer } from '../../investor-data';
 
 export default function InvestorCommitmentDetailPage({ params }) {
-  const commitmentId = params?.commitmentId || 'acme-seed';
+  const commitmentId = params?.commitmentId;
+  const [commitment, setCommitment] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [modal, setModal] = useState('');
-  const [fundsAmount, setFundsAmount] = useState('₹15,00,000');
-  const [tranche2Sent, setTranche2Sent] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!commitmentId) {
+      setError('No commitment id in the URL.');
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const data = await api.commitments.get(commitmentId);
+      setCommitment(data);
+    } catch (err) {
+      setError(err?.message || 'Could not load this commitment.');
+      setCommitment(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [commitmentId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const transition = async (status) => {
+    setBusy(true);
+    try {
+      const updated = await api.commitments.changeStatus(commitment.id, status);
+      setCommitment(updated);
+      setModal('');
+    } catch (err) {
+      setModal('');
+      setError(err instanceof ApiError ? err.message : 'Could not update this commitment.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const canDocument = commitment?.status === 'pledged';
+  const canFund = commitment?.status === 'documented';
+  const canCancel = commitment && ['pledged', 'documented'].includes(commitment.status);
 
   return (
     <InvestorShell
       active="Commitments"
       module="Deal flow"
-      title="Commitment execution"
+      title={commitment ? `Commitment · ${commitment.startup_name}` : 'Commitment execution'}
       description="Closing checklist, legal documentation execution and funds transfer records."
       backHref="/investor/commitments"
       backLabel="← Back to Commitments"
@@ -27,203 +72,183 @@ export default function InvestorCommitmentDetailPage({ params }) {
           >
             ← Commitments
           </Link>
-          <Button onClick={() => setModal('record-funds')}>
-            Record funds sent
-          </Button>
+          {commitment && canFund && (
+            <Button onClick={() => setModal('funds')} disabled={busy}>
+              Record funds sent
+            </Button>
+          )}
+          {commitment && canDocument && (
+            <Button secondary onClick={() => transition('documented')} disabled={busy}>
+              Mark documented
+            </Button>
+          )}
         </div>
       }
     >
       {({ notify }) => (
         <>
-          <div className="grid items-start gap-6 xl:grid-cols-3">
-            <div className="space-y-6 xl:col-span-2">
-              <Card title="Commitment summary">
-                <div className="rounded-xl bg-[#FAF8F4] p-4 border border-[#E5E1D8]">
-                  <p className="text-sm font-bold text-ink">
-                    Acme Studio · Seed Round · ₹25L SAFE
-                  </p>
-                  <p className="mt-1 text-xs text-[#4A5568]">
-                    Linked offer: <span className="font-semibold text-ink">offer-104 (v2)</span> · Expected closing: Nov 30, 2026 · Target ownership: 2.4% est.
-                  </p>
-                </div>
-              </Card>
+          {loading && <LoadingBlock label="Loading commitment…" rows={2} />}
+          {!loading && error && !commitment && <ErrorBlock message={error} onRetry={load} />}
 
-              <Card title="Definitive closing checklist">
-                <div className="space-y-3 text-xs">
-                  {[
-                    ['Term sheet countersigned', true],
-                    ['Commercial diligence completed', true],
-                    ['Definitive investment agreement signed', true],
-                    ['Corporate board & shareholder consents approved', true],
-                    ['Regulatory filings and notices prepared', false],
-                    ['KYC and AML investor verification cleared', false],
-                    ['Payment wire instructions confirmed over independent channel', false],
-                    ['Tranche 1 funds wired & verified', true],
-                    ['Tranche 2 funds wired', tranche2Sent],
-                    ['Share certificate / SAFE instrument issued', false],
-                    ['Cap table officially updated by company secretary', false],
-                  ].map(([task, done]) => (
-                    <label
-                      key={task}
-                      className="flex items-center justify-between border-b border-[#E5E1D8] pb-2.5 cursor-pointer"
-                    >
-                      <span className="flex items-center gap-2.5 font-medium text-ink">
-                        <input
-                          type="checkbox"
-                          defaultChecked={done}
-                          className="h-4 w-4 rounded accent-ink"
-                        />
-                        <span>{task}</span>
-                      </span>
-                      <span
-                        className={`text-xs font-semibold ${
-                          done ? 'text-[#286749]' : 'text-[#8A5700]'
-                        }`}
+          {!loading && commitment && (
+            <>
+              <div className="grid items-start gap-6 xl:grid-cols-3">
+                <div className="space-y-6 xl:col-span-2">
+                  <Card title="Commitment summary">
+                    <div className="rounded-xl bg-[#FAF8F4] p-4 border border-[#E5E1D8]">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-bold text-ink">
+                          {commitment.startup_name}
+                          {commitment.round_target ? (
+                            <span className="ml-2 text-xs font-normal text-[#4A5568]">
+                              · {commitment.round_target} {commitment.round_currency || ''}
+                            </span>
+                          ) : null}
+                        </p>
+                        <StatusBadge status={commitment.status} />
+                      </div>
+                      <p className="mt-1 text-xs text-[#4A5568]">
+                        {commitment.amount} {commitment.currency}
+                        {commitment.offer_id ? (
+                          <>
+                            {' · '}Linked offer:{' '}
+                            <Link
+                              href={`/investor/offers/${commitment.offer_id}`}
+                              className="font-semibold text-ink hover:underline"
+                            >
+                              View offer
+                            </Link>
+                          </>
+                        ) : null}
+                      </p>
+                    </div>
+                  </Card>
+
+                  <Card title="Definitive closing checklist">
+                    <EmptyBlock
+                      title="Closing checklist arrives later"
+                      hint="Definitive-document signing tasks are tracked with the commitments/data-room step (a later step), not on this commitment record."
+                    />
+                  </Card>
+
+                  <Card title="Capital & funds tracker">
+                    <div className="space-y-3 text-xs">
+                      <div className="rounded-lg border border-[#E5E1D8] p-3.5 flex items-center justify-between">
+                        <div>
+                          <b className="text-ink">Committed amount</b>
+                          <span className="block text-[#4A5568]">
+                            {commitment.amount} {commitment.currency}
+                          </span>
+                        </div>
+                        <StatusBadge status={commitment.status} />
+                      </div>
+                      <div className="rounded-lg border border-[#E5E1D8] p-3.5 flex items-center justify-between">
+                        <div>
+                          <b className="text-ink">Committed on</b>
+                          <span className="block text-[#4A5568]">
+                            {commitment.committed_on
+                              ? new Date(commitment.committed_on).toLocaleDateString()
+                              : '—'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-[#E5E1D8] p-3.5 flex items-center justify-between">
+                        <div>
+                          <b className="text-ink">Funds wired</b>
+                          <span className="block text-[#4A5568]">
+                            {commitment.funded_on
+                              ? `Wired ${new Date(commitment.funded_on).toLocaleDateString()}`
+                              : 'Not yet wired'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 rounded-lg bg-[#FFF8E8] p-3 text-xs text-[#806236] border border-[#E7D4B0]">
+                      <AlertCircle size={14} className="mr-1.5 inline" />
+                      The platform does not hold, move or escrow funds. Always verify bank accounts through an independent verbal telephone call.
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Sidebar dates & actions */}
+                <aside className="space-y-6">
+                  <Card title="Key dates">
+                    <dl className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <dt className="text-[#4A5568]">Committed on</dt>
+                        <dd className="font-semibold text-ink">
+                          {commitment.committed_on
+                            ? new Date(commitment.committed_on).toLocaleDateString()
+                            : '—'}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt className="text-[#4A5568]">Funded on</dt>
+                        <dd className="font-semibold text-ink">
+                          {commitment.funded_on
+                            ? new Date(commitment.funded_on).toLocaleDateString()
+                            : '—'}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt className="text-[#4A5568]">Wired at</dt>
+                        <dd className="font-semibold text-ink">
+                          {commitment.wired_at
+                            ? new Date(commitment.wired_at).toLocaleString()
+                            : '—'}
+                        </dd>
+                      </div>
+                    </dl>
+                  </Card>
+
+                  {commitment.reference && (
+                    <Card title="Reference">
+                      <p className="text-xs text-ink">{commitment.reference}</p>
+                    </Card>
+                  )}
+
+                  {commitment.offer_id && (
+                    <Card title="Associated files">
+                      <Link
+                        href={`/investor/offers/${commitment.offer_id}`}
+                        className="block text-xs font-semibold text-[#9A7A45] hover:underline"
                       >
-                        {done ? 'Completed' : 'Pending'}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </Card>
+                        View linked offer →
+                      </Link>
+                    </Card>
+                  )}
+                </aside>
+              </div>
 
-              <Card title="Capital tranches & funds tracker">
-                <div className="space-y-3 text-xs">
-                  <div className="rounded-lg border border-[#E5E1D8] p-3.5 flex items-center justify-between">
-                    <div>
-                      <b className="text-ink">Tranche 1 · ₹10,00,000</b>
-                      <span className="block text-[#4A5568]">Wired Nov 02, 2026 · Verified by company</span>
+              <InvestorDisclaimer onLearnMore={() => notify('Platform disclaimer opened.')} />
+
+              {/* Confirm funds modal */}
+              {modal === 'funds' && (
+                <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4 backdrop-blur-sm">
+                  <section role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+                    <div className="mb-4 flex items-center justify-between">
+                      <h2 className="serif text-xl font-bold text-ink">Record funds sent</h2>
+                      <button type="button" onClick={() => setModal('')}>
+                        <X size={18} />
+                      </button>
                     </div>
-                    <span className="rounded-full bg-[#E7F3EC] px-2.5 py-0.5 font-semibold text-[#286749]">
-                      Settled
-                    </span>
-                  </div>
-
-                  <div className="rounded-lg border border-[#E5E1D8] p-3.5 flex items-center justify-between">
-                    <div>
-                      <b className="text-ink">Tranche 2 · ₹15,00,000</b>
-                      <span className="block text-[#4A5568]">
-                        Due Nov 20, 2026 · {tranche2Sent ? 'Sent · Awaiting company receipt' : 'Pending wire transfer'}
-                      </span>
+                    <p className="text-xs text-[#4A5568]">
+                      Recording funds marks this commitment as funded and stamps the wiring date. The
+                      startup will be notified to confirm receipt.
+                    </p>
+                    <div className="mt-6 flex justify-end gap-2">
+                      <button type="button" onClick={() => setModal('')} className="rounded-lg border px-3 py-2 text-xs font-medium text-[#4A5568]">
+                        Cancel
+                      </button>
+                      <Button onClick={() => transition('funded')} disabled={busy}>
+                        {busy ? 'Recording…' : 'Confirm funds sent'}
+                      </Button>
                     </div>
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 font-semibold ${
-                        tranche2Sent
-                          ? 'bg-[#E7F3EC] text-[#286749]'
-                          : 'bg-[#FFF3D6] text-[#8A5700]'
-                      }`}
-                    >
-                      {tranche2Sent ? 'Awaiting receipt' : 'Pending'}
-                    </span>
-                  </div>
+                  </section>
                 </div>
-
-                <div className="mt-4 rounded-lg bg-[#FFF8E8] p-3 text-xs text-[#806236] border border-[#E7D4B0]">
-                  <AlertCircle size={14} className="mr-1.5 inline" />
-                  The platform does not hold, move or escrow funds. Always verify bank accounts through an independent verbal telephone call.
-                </div>
-              </Card>
-            </div>
-
-            {/* Sidebar dates & actions */}
-            <aside className="space-y-6">
-              <Card title="Key dates">
-                <dl className="space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <dt className="text-[#4A5568]">Tranche 2 Due</dt>
-                    <dd className="font-semibold text-ink">Nov 20, 2026</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-[#4A5568]">Target Close</dt>
-                    <dd className="font-semibold text-ink">Nov 30, 2026</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-[#4A5568]">Long-stop Date</dt>
-                    <dd className="font-semibold text-ink">Dec 15, 2026</dd>
-                  </div>
-                </dl>
-              </Card>
-
-              <Card title="Associated files">
-                <Link
-                  href="/investor/offers/offer-104"
-                  className="block text-xs font-semibold text-[#9A7A45] hover:underline"
-                >
-                  View signed term sheet (v2) →
-                </Link>
-                <Link
-                  href="/investor/data-rooms/acme"
-                  className="mt-2 block text-xs font-semibold text-[#9A7A45] hover:underline"
-                >
-                  Inspect legal data room →
-                </Link>
-              </Card>
-            </aside>
-          </div>
-
-          <InvestorDisclaimer onLearnMore={() => notify('Platform disclaimer opened.')} />
-
-          {/* Record Funds Modal */}
-          {modal === 'record-funds' && (
-            <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4 backdrop-blur-sm">
-              <section
-                role="dialog"
-                aria-modal="true"
-                className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="serif text-xl font-bold text-ink">Record funds transfer</h2>
-                  <button type="button" onClick={() => setModal('')}>
-                    <X size={18} />
-                  </button>
-                </div>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setTranche2Sent(true);
-                    notify('Funds transfer of ₹15,00,000 recorded. Startup notified for confirmation.');
-                    setModal('');
-                  }}
-                  className="space-y-3"
-                >
-                  <div>
-                    <label htmlFor="funds-amount" className="block text-xs font-medium text-ink">
-                      Wired amount
-                    </label>
-                    <input
-                      id="funds-amount"
-                      value={fundsAmount}
-                      onChange={(e) => setFundsAmount(e.target.value)}
-                      className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs focus:border-ink focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="funds-ref" className="block text-xs font-medium text-ink">
-                      Bank reference / UTR code (masked)
-                    </label>
-                    <input
-                      id="funds-ref"
-                      placeholder="e.g. HDFC••••1942"
-                      required
-                      className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs focus:border-ink focus:outline-none"
-                    />
-                  </div>
-                  <p className="text-[11px] text-[#4A5568]">
-                    This records your transfer. Status updates to Settled once acknowledged by the startup.
-                  </p>
-                  <div className="flex justify-end gap-2 pt-3">
-                    <button
-                      type="button"
-                      onClick={() => setModal('')}
-                      className="rounded-lg border px-3 py-2 text-xs font-medium text-[#4A5568]"
-                    >
-                      Cancel
-                    </button>
-                    <Button type="submit">Confirm funds sent</Button>
-                  </div>
-                </form>
-              </section>
-            </div>
+              )}
+            </>
           )}
         </>
       )}
