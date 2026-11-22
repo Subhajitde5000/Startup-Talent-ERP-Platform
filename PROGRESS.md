@@ -310,8 +310,8 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [x] B: /investor/dashboard, /investor/insights, /investor/activity wired to the 9l workspace APIs (dashboard summary, insights, activity feed + stats); loading/empty/error states; demo data removed to `seed_dev.py`
 
 ### 9m Startup investor hub and visibility settings
-- [ ] A: Startup's investor overview (read-only aggregates from 9a to 9j) and the visibility settings page, which reuses the profile visibility API from 5a
-- [ ] B: /startup/investors (hub), /startup/investors/settings wired; demo data removed
+- [x] A: Startup's investor overview (read-only aggregates from 9a to 9j) — `GET /organizations/{org_id}/investor-hub/summary|rounds|activity|activity/stats`, any active member incl. viewer; no new tables/migration; visibility reuses the 5a startup-profile GET/PATCH (no second copy). Activity feed is org-scoped to the startup's own `activity_events.org_id` (investor-side actions are stamped on the investor firm's org and do not appear — open item for the frontend pass).
+- [x] B: /startup/investors (hub), /startup/investors/settings wired in the shared `investor-app.jsx`; hub shows real 9m summary/rounds/needs-reply/upcoming-meetings/readiness data (interest-trend chart hidden as 5h analytics, not built); "Interested investors" reuses the 9e deals API (limit 3); settings binds real 5a profile visibility + `*_public` toggles with PATCH (changed fields only, 422 → field errors), viewer role read-only; three sidebar cards without APIs hidden; demo data removed; hub records added to `seed_dev.py` (dev-only: pending intro request, confirmed meeting, Zenith Capital deal on the founder's Pre-seed round, 3 startup-org activity events)
 
 ### 9n Step 9 test pass
 - [ ] Click-through done, no leftover demo data on wired pages

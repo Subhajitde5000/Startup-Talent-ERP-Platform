@@ -1082,6 +1082,9 @@ STEP9E_DEALS: list[dict[str, object]] = [
     {"startup": "GreenLedger", "stage": "meeting", "ticket": "1500000", "probability": 45, "next_step": "Schedule follow-up call", "days_ago": 1, "owner": "investor@forma.dev"},
     {"startup": "Kavach Cyber", "stage": "data_room", "ticket": "2000000", "probability": 50, "next_step": "Send NDA", "days_ago": 6, "owner": "investor@forma.dev"},
     {"startup": "Northstar Health", "stage": "interested", "ticket": "1000000", "probability": 20, "next_step": "Initial outreach", "days_ago": 20, "owner": "investor@forma.dev"},
+    # Step 9m: a deal on the founder's own org so the startup investor hub
+    # (deals in pipeline, interested investors card) shows real data.
+    {"startup": "Northstar Labs Pvt Ltd", "stage": "intro", "ticket": "1500000", "probability": 35, "next_step": "Schedule first call", "days_ago": 3, "owner": "investor@forma.dev"},
     {"startup": "LogiPulse", "stage": "offer", "ticket": "2500000", "probability": 75, "next_step": "Final terms", "days_ago": 3, "owner": "investor@forma.dev"},
     {"startup": "RuralFlow", "stage": "intro", "ticket": "1200000", "probability": 35, "next_step": "Warm intro via mentor", "days_ago": 9, "owner": "investor@forma.dev"},
 ]
@@ -1114,6 +1117,16 @@ STEP9F_REQUESTS: list[dict[str, object]] = [
         "response_note": "Happy to meet — let's schedule for next week.",
         "days_ago": 6,
     },
+    # Step 9m: a pending request on the founder's own org so the hub's
+    # pending-requests stat and needs-reply list show real data.
+    {
+        "startup": "Northstar Labs Pvt Ltd",
+        "kind": RequestKind.intro,
+        "ask": "Request an introduction to the founding team.",
+        "message": "We back early-stage Indian SaaS and would love to learn more about Northstar Labs.",
+        "status": RequestStatus.pending,
+        "days_ago": 1,
+    },
     {
         "startup": "Kavach Cyber",
         "kind": RequestKind.information,
@@ -1145,6 +1158,18 @@ STEP9F_MEETINGS: list[dict[str, object]] = [
         "agenda": "Deep-dive on the carbon accounting model and unit economics.",
         "location": "Zoom",
         "days_ago": 2,
+    },
+    # Step 9m: an upcoming meeting on the founder's own org so the hub's
+    # meetings-this-month stat and upcoming-meetings card show real data.
+    {
+        "startup": "Northstar Labs Pvt Ltd",
+        "meeting_type": MeetingType.intro_call,
+        "status": MeetingStatus.confirmed,
+        "scheduled_in_days": 3,
+        "duration_minutes": 30,
+        "agenda": "Intro call — thesis, traction and next steps.",
+        "location": "Zoom",
+        "days_ago": 1,
     },
     {
         "startup": "LogiPulse",
@@ -1322,6 +1347,15 @@ STEP9L_ACTIVITY: list[dict[str, object]] = [
     {"event_type": "offer_accepted", "entity_type": "offer", "summary": "GreenLedger accepted the pre-seed SAFE offer.", "days_ago": 20},
     {"event_type": "deal_stage_changed", "entity_type": "deal", "summary": "Moved Acme Studio deal to the diligence stage.", "days_ago": 4},
     {"event_type": "shortlist_added", "entity_type": "startup", "summary": "Added GreenLedger to the shortlist.", "days_ago": 7},
+]
+
+# Step 9m: audit events on the FOUNDER's org so the startup investor hub's
+# recent-activity list shows real rows (the 9l block above stamps events on
+# the investor firm's org, which the startup-scoped hub feed does not see).
+STEP9M_ACTIVITY: list[dict[str, object]] = [
+    {"event_type": "round_created", "entity_type": "funding_round", "summary": "Created the Pre-seed Round.", "days_ago": 40},
+    {"event_type": "engagement_request_accepted", "entity_type": "engagement_request", "summary": "Accepted an intro request from Zenith Capital.", "days_ago": 6},
+    {"event_type": "meeting_status_changed", "entity_type": "meeting", "summary": "Confirmed the intro call with Zenith Capital.", "days_ago": 1},
 ]
 
 # (email, display name, role, verified?)
@@ -2870,6 +2904,11 @@ async def seed() -> None:
                     )
                 )
                 meetings_added += 1
+            if eng_requests_added or meetings_added:
+                # Commit the 9f rows on their own: they must not depend on a
+                # later block committing (re-runs add nothing to 9i, which
+                # would otherwise leave these uncommitted).
+                await db.commit()
 
             # 9i: offers (v2 row linked to its v1 parent for the counter).
             offer_ids_by_idx: dict[int, uuid.UUID] = {}
@@ -3144,6 +3183,34 @@ async def seed() -> None:
             if activity_added:
                 await db.commit()
 
+        # Step 9m: founder-org audit events for the startup investor hub's
+        # recent-activity list. Fill-only by summary; never overwrites.
+        hub_activity_added = 0
+        for spec in STEP9M_ACTIVITY:
+            exists = (
+                await db.execute(
+                    select(ActivityEvent.id).where(
+                        ActivityEvent.org_id == founder_org.id,  # type: ignore[union-attr]
+                        ActivityEvent.summary == str(spec["summary"]),
+                    )
+                )
+            ).first()  # type: ignore[assignment]
+            if exists is not None:
+                continue
+            db.add(
+                ActivityEvent(
+                    org_id=founder_org.id,  # type: ignore[union-attr]
+                    user_id=founder_user.id if founder_user else None,
+                    event_type=str(spec["event_type"]),
+                    entity_type=spec.get("entity_type"),
+                    summary=str(spec["summary"]),
+                    created_at=now - timedelta(days=int(spec["days_ago"])),  # type: ignore[call-overload]
+                )
+            )
+            hub_activity_added += 1
+        if hub_activity_added:
+            await db.commit()
+
     await engine.dispose()
 
     print("Seeded (dev only):")
@@ -3191,6 +3258,7 @@ async def seed() -> None:
     print(f"  + diligence checklists (9k): {checklists_added}")
     print(f"  + diligence items (9k): {diligence_items_added}")
     print(f"  + activity events (9l): {activity_added}")
+    print(f"  + hub activity events (9m): {hub_activity_added}")
     print(f"\nPassword for all seeded accounts: {DEV_PASSWORD}")
 
 

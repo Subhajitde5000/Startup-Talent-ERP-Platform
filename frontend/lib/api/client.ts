@@ -401,6 +401,13 @@ export type ActivityPage = components["schemas"]["ActivityPage"];
 export type ActivityStats = components["schemas"]["ActivityStats"];
 export type DailyCount = components["schemas"]["DailyCount"];
 
+// --- Step 9m: startup investor hub (read-only aggregates) ------------------
+export type InvestorHubSummary = components["schemas"]["InvestorHubSummary"];
+export type RoundProgress = components["schemas"]["RoundProgress"];
+export type RoundProgressPage = components["schemas"]["RoundProgressPage"];
+export type HubNeedsReplyItem = components["schemas"]["HubNeedsReplyItem"];
+export type HubUpcomingMeetingItem = components["schemas"]["HubUpcomingMeetingItem"];
+
 /** Whitelisted filters for `startups.discover` (Step 5h). */
 export type StartupDiscoveryQuery = {
   limit?: number;
@@ -2716,6 +2723,53 @@ export const api = {
     /** `GET /investors/activity/stats` — totals/7-day/by-type/by-day. */
     activityStats: (signal?: AbortSignal) =>
       apiRequest<ActivityStats>("/investors/activity/stats", {
+        method: "GET",
+        signal,
+      }),
+  },
+
+  // --- Step 9m: startup investor hub ----------------------------------------
+  /**
+   * Step 9m: the startup's investor hub — read-only aggregates over the
+   * startup's own rounds, deals, requests, meetings and audit activity.
+   * Any active org member may read (viewers included); there is no write
+   * surface here (visibility settings reuse the 5a profile PATCH).
+   */
+  investorHub: {
+    /** `GET /organizations/{org_id}/investor-hub/summary` — the hub page. */
+    summary: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<InvestorHubSummary>(`/organizations/${orgId}/investor-hub/summary`, {
+        method: "GET",
+        signal,
+      }),
+
+    /** `GET /organizations/{org_id}/investor-hub/rounds` — paginated rounds. */
+    rounds: (
+      orgId: string,
+      query?: { limit?: number; offset?: number },
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<RoundProgressPage>(`/organizations/${orgId}/investor-hub/rounds`, {
+        method: "GET",
+        query,
+        signal,
+      }),
+
+    /** `GET /organizations/{org_id}/investor-hub/activity` — paginated feed. */
+    activity: (
+      orgId: string,
+      query?: { event_type?: string; limit?: number; offset?: number },
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<ActivityPage>(`/organizations/${orgId}/investor-hub/activity`, {
+        method: "GET",
+        query,
+        signal,
+      }),
+
+    /** `GET /organizations/{org_id}/investor-hub/activity/stats` — aggregates. */
+    activityStats: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<ActivityStats>(`/organizations/${orgId}/investor-hub/activity/stats`, {
         method: "GET",
         signal,
       }),
