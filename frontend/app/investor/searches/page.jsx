@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { Plus, X } from 'lucide-react';
 import { InvestorShell, Card, Button } from '@/components';
@@ -40,6 +40,7 @@ export default function InvestorSearchesPage() {
   const [newSearchName, setNewSearchName] = useState('');
   const [newSearchStage, setNewSearchStage] = useState('');
   const [newSearchSector, setNewSearchSector] = useState('');
+  const notifyRef = useRef(null);
 
   const load = async () => {
     setPhase('loading');
@@ -74,7 +75,8 @@ export default function InvestorSearchesPage() {
 
   const totalMatches = Object.values(matchCounts).reduce((a, b) => a + b, 0);
 
-  const createSearch = async () => {
+  const createSearch = async (notify) => {
+    const notifyFn = typeof notify === 'function' ? notify : notifyRef.current;
     if (!newSearchName.trim()) return;
     try {
       await api.investorSearches.create({
@@ -85,14 +87,14 @@ export default function InvestorSearchesPage() {
           investment_ready_only: false,
         },
       });
-      notify(`Saved search "${newSearchName.trim()}" created.`);
+      notifyFn?.(`Saved search "${newSearchName.trim()}" created.`);
       setNewSearchName('');
       setNewSearchStage('');
       setNewSearchSector('');
       setModal('');
       load();
     } catch (err) {
-      notify(err instanceof ApiError ? err.message : 'Could not create the search.');
+      notifyFn?.(err instanceof ApiError ? err.message : 'Could not create the search.');
     }
   };
 
@@ -108,8 +110,10 @@ export default function InvestorSearchesPage() {
         </Button>
       }
     >
-      {({ notify }) => (
-        <>
+      {({ notify }) => {
+        notifyRef.current = notify;
+        return (
+          <>
           {phase === 'loading' && <LoadingBlock label="Loading saved searches…" />}
 
           {phase === 'error' && <ErrorBlock message={error} />}
@@ -342,7 +346,7 @@ export default function InvestorSearchesPage() {
                         >
                           Cancel
                         </button>
-                        <Button onClick={createSearch}>Create search</Button>
+                        <Button onClick={() => createSearch(notify)}>Create search</Button>
                       </div>
                     </div>
                   </section>
@@ -351,7 +355,8 @@ export default function InvestorSearchesPage() {
             </>
           )}
         </>
-      )}
+      );
+    }}
     </InvestorShell>
   );
 }

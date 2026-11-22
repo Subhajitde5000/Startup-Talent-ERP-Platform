@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import {
   Settings,
@@ -33,6 +33,7 @@ export default function InvestorSettingsPage() {
     Object.fromEntries(NOTIF_CATEGORIES.map((label) => [label, [true, true, false]]));
   const [notif, setNotif] = useState(defaultNotif);
   const [notifLoading, setNotifLoading] = useState(false);
+  const notifyRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,9 +75,9 @@ export default function InvestorSettingsPage() {
         );
       }
       await api.notificationPreferences.update(items);
-      notify('Notification preferences saved.');
+      notifyRef.current?.('Notification preferences saved.');
     } catch (err) {
-      notify(err instanceof ApiError ? err.message : 'Could not save preferences.');
+      notifyRef.current?.(err instanceof ApiError ? err.message : 'Could not save preferences.');
     } finally {
       setNotifLoading(false);
     }
@@ -104,9 +105,9 @@ export default function InvestorSettingsPage() {
         timezone: account.timezone,
       });
       await refreshUser();
-      notify('Account profile details updated.');
+      notifyRef.current?.('Account profile details updated.');
     } catch (err) {
-      notify(err instanceof ApiError ? err.message : 'Could not save your profile.');
+      notifyRef.current?.(err instanceof ApiError ? err.message : 'Could not save your profile.');
     } finally {
       setSaving(false);
     }
@@ -118,19 +119,19 @@ export default function InvestorSettingsPage() {
     try {
       await api.users.updateMe({ profile_public: next });
       await refreshUser();
-      notify('Visibility updated.');
+      notifyRef.current?.('Visibility updated.');
     } catch (err) {
       setProfilePublic(!next);
-      notify(err instanceof ApiError ? err.message : 'Could not save visibility.');
+      notifyRef.current?.(err instanceof ApiError ? err.message : 'Could not save visibility.');
     }
   };
 
   const submitDeleteRequest = async () => {
     try {
       await api.users.createDeleteRequest();
-      notify('Deletion request submitted.');
+      notifyRef.current?.('Deletion request submitted.');
     } catch (err) {
-      notify(
+      notifyRef.current?.(
         err instanceof ApiError && err.code === 'CONFLICT'
           ? 'You already have an open data request.'
           : err instanceof ApiError
@@ -148,8 +149,10 @@ export default function InvestorSettingsPage() {
       title="Investor workspace settings"
       description="Configure your investor account, security, organization members, notification digests and privacy."
     >
-      {({ notify }) => (
-        <>
+      {({ notify }) => {
+        notifyRef.current = notify;
+        return (
+          <>
           <div className="mb-6 rounded-lg bg-[#E7F3EC] p-3 text-xs text-[#286749] border border-[#C3E4D1] flex items-center justify-between">
             <span>✓ Verified Institutional & Individual Investor Status: <b>Active & Compliant</b></span>
             <span className="font-semibold text-xs">Full Access Level</span>
@@ -552,7 +555,8 @@ export default function InvestorSettingsPage() {
             </div>
           )}
         </>
-      )}
+      );
+    }}
     </InvestorShell>
   );
 }
