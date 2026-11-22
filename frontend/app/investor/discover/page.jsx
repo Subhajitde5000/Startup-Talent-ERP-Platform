@@ -1,44 +1,115 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Search,
   Plus,
-  SlidersHorizontal,
-  Bookmark,
   MoreHorizontal,
   X,
-  Building2,
-  CheckCircle2,
 } from 'lucide-react';
 import { InvestorShell, Card, Button } from '@/components';
+import { useAuth } from '@/lib/auth-context';
+import { api, ApiError } from '@/lib/api/client';
 import {
-  startups,
+  LoadingBlock,
+  EmptyBlock,
+  ErrorBlock,
+} from '@/components/async-state';
+import {
   InvestorBadge,
   InvestorDisclaimer,
 } from '../investor-data';
 
+function formatMoney(value, currency = 'INR') {
+  if (value === null || value === undefined || value === '') return '—';
+  const num = Number(value);
+  if (Number.isNaN(num)) return '—';
+  const sym = currency === 'INR' ? '₹' : currency + ' ';
+  if (num >= 1e7) return sym + (num / 1e7).toFixed(2).replace(/\.?0+$/, '') + ' Cr';
+  if (num >= 1e5) return sym + (num / 1e5).toFixed(2).replace(/\.?0+$/, '') + ' L';
+  return sym + num.toLocaleString('en-IN');
+}
+
+const STAGE_LABELS = {
+  idea: 'Idea',
+  prototype: 'Prototype',
+  early_revenue: 'Early revenue',
+  growth: 'Growth',
+  mature: 'Mature',
+};
+
+function stageLabel(stage) {
+  return STAGE_LABELS[stage] || stage;
+}
+
+function commitPct(target, committed) {
+  if (target == null || target === 0 || committed == null) return '—';
+  return Math.round((Number(committed) / Number(target)) * 100) + '%';
+}
+
 export default function InvestorDiscoverPage() {
-  const [filterStage, setFilterStage] = useState('All stages');
-  const [sector, setSector] = useState('All sectors');
+  const { user } = useAuth();
+  const [filterStage, setFilterStage] = useState('');
+  const [sector, setSector] = useState('');
+  const [city, setCity] = useState('');
   const [readyOnly, setReadyOnly] = useState(false);
   const [query, setQuery] = useState('');
   const [view, setView] = useState('Cards');
-  const [saved, setSaved] = useState(['greenledger']);
-  const [passed, setPassed] = useState([]);
   const [drawer, setDrawer] = useState(null);
   const [modal, setModal] = useState('');
-  const [message, setMessage] = useState('');
-  const [searchName, setSearchName] = useState('Fintech · India');
+  const [searchName, setSearchName] = useState('');
+  const [shortlistedIds, setShortlistedIds] = useState(new Set());
 
-  const available = startups.filter(
-    (s) =>
-      !passed.includes(s.id) &&
-      (!query || `${s.name} ${s.sector} ${s.loc}`.toLowerCase().includes(query.toLowerCase())) &&
-      (filterStage === 'All stages' || s.stage === filterStage) &&
-      (sector === 'All sectors' || s.sector.includes(sector)) &&
-      (!readyOnly || s.badge)
-  );
+  // Real 9c data: list, facets and loading/empty/error state.
+  const [phase, setPhase] = useState('loading'); // loading|ready|error
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [facets, setFacets] = useState({ stages: [], sectors: [] });
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setPhase('loading');
+      setError('');
+      try {
+        const [page, filters] = await Promise.all([
+          api.investorDiscovery.list({
+            stage: filterStage || undefined,
+            sector: sector || undefined,
+            city: city || undefined,
+            q: query || undefined,
+            investment_ready_only: readyOnly || undefined,
+            limit: 50,
+          }),
+          api.investorDiscovery.filters(),
+        ]);
+        if (cancelled) return;
+        setItems(page.items);
+        setTotal(page.total);
+        setFacets(filters);
+        setPhase('ready');
+        // Reflect the current shortlist membership for the saved badges.
+        try {
+          const shortlist = await api.investorShortlist.list();
+          if (cancelled) return;
+          setShortlistedIds(new Set(shortlist.map((e) => e.startup_org_id)));
+        } catch {
+          // Shortlist is best-effort; the badges simply stay unset.
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setPhase('error');
+        setError(err instanceof ApiError ? err.message : 'Could not load startups.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [filterStage, sector, city, readyOnly, query, user?.id]);
+
+  // The server applies the stage/sector/keyword/ready filters; the list
+  // returned is already the filtered, visible set.
+  const available = items;
 
   return (
     <InvestorShell
@@ -75,41 +146,61 @@ export default function InvestorDiscoverPage() {
       }
     >
       {({ notify }) => {
-        const toggleSave = (id) => {
-          setSaved((prev) =>
-            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-          );
-          notify(saved.includes(id) ? 'Removed from shortlist.' : 'Saved to shortlist.');
+        const toggleSave = async (startup) => {
+          const id = startup.slug;
+          try {
+            if (shortlistedIds.has(id)) {
+              const entries = await api.investorShortlist.list();
+              const target = entries.find((e) => e.startup_slug === id);
+              if (target) {
+                await api.investorShortlist.remove(target.id);
+                setShortlistedIds((prev) => {
+                  const next = new Set(prev);
+                  next.delete(id);
+                  return next;
+                });
+                notify('Removed from shortlist.');
+                return;
+              }
+            }
+            await api.investorShortlist.add({ startup_org_id: startup.org_id });
+            setShortlistedIds((prev) => new Set(prev).add(id));
+            notify('Saved to shortlist.');
+          } catch (err) {
+            notify(err instanceof ApiError ? err.message : 'Could not update the shortlist.');
+          }
         };
 
         const startupCard = (s) => (
           <article
-            key={s.id}
+            key={s.slug}
             className="rounded-xl border border-[#E5E1D8] bg-white p-5 transition hover:shadow-sm"
           >
             <div className="flex items-start gap-3">
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#F3EBDD] text-lg font-semibold text-ink">
-                {s.logo}
+                {(s.name || '?').charAt(0).toUpperCase()}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <Link
-                    href={`/investor/startups/${s.id}`}
+                    href={`/investor/startups/${s.slug}`}
                     className="text-sm font-semibold text-ink hover:underline"
                   >
                     {s.name}
                   </Link>
-                  {s.verified && <InvestorBadge>Verified startup</InvestorBadge>}
-                  {s.badge && <InvestorBadge gold>Investment Ready</InvestorBadge>}
+                  {s.mentor_verified && <InvestorBadge>Verified startup</InvestorBadge>}
+                  {s.investment_ready && <InvestorBadge gold>Investment Ready</InvestorBadge>}
                 </div>
-                <p className="mt-1 text-xs text-[#4A5568]">{s.tag}</p>
+                <p className="mt-1 text-xs text-[#4A5568]">{s.tagline}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <span className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-xs text-[#4A5568]">
-                    {s.stage}
+                    {stageLabel(s.stage)}
                   </span>
-                  <span className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-xs text-[#4A5568]">
-                    {s.sector}
-                  </span>
+                  {s.sector && (
+                    <span className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-xs text-[#4A5568]">
+                      {s.sector}
+                    </span>
+                  )}
                 </div>
               </div>
               <button
@@ -124,56 +215,59 @@ export default function InvestorDiscoverPage() {
 
             <div className="mt-4 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
               <div>
-                <span className="block text-xs text-[#4A5568]">Location · Team</span>
-                <b className="font-semibold">{s.loc} · {s.team}</b>
+                <span className="block text-xs text-[#4A5568]">Location</span>
+                <b className="font-semibold">{s.city || 'Not shared'}</b>
               </div>
               <div>
                 <span className="block text-xs text-[#4A5568]">Readiness</span>
                 <b className="font-semibold text-ink">
-                  {s.ready}/100 {s.badge && <span className="text-[#9A7A45]">✓</span>}
+                  {s.readiness_score != null ? `${s.readiness_score}/100` : 'Not shared'}
+                  {s.investment_ready && <span className="text-[#9A7A45]"> ✓</span>}
                 </b>
               </div>
               <div>
-                <span className="block text-xs text-[#4A5568]">MRR · Growth</span>
-                <b className="font-semibold">{s.mrr} · {s.growth}</b>
+                <span className="block text-xs text-[#4A5568]">Traction</span>
+                <b className="font-semibold">{s.traction_summary || 'Not shared'}</b>
               </div>
               <div>
                 <span className="block text-xs text-[#4A5568]">Round</span>
-                <b className="font-semibold">{s.raise} · {s.committed}</b>
+                <b className="font-semibold">
+                  {s.round_visible
+                    ? `${formatMoney(s.round_target, s.round_currency)} · ${commitPct(s.round_target, s.round_committed)} committed`
+                    : 'Round not shared'}
+                </b>
               </div>
             </div>
 
             <div className="mt-3 rounded-lg bg-[#FAF8F4] p-2.5 text-xs">
-              <b className="text-[#806236]">Why this fit</b> · {s.fit}
+              <b className="text-[#806236]">Profile</b> · {s.traction_summary || 'Details shared by the founder.'}
             </div>
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E1D8] pt-3">
               <span className="text-xs text-[#4A5568]">
-                {s.badge ? 'Mentor-verified readiness' : 'Profile updated'} · {s.updated}
+                {s.investment_ready ? 'Mentor-verified readiness' : 'Profile shared'}
+                {s.updated_at ? ` · Updated ${new Date(s.updated_at).toLocaleDateString()}` : ''}
               </span>
               <div className="flex items-center gap-2">
                 <Link
-                  href={`/investor/startups/${s.id}`}
+                  href={`/investor/startups/${s.slug}`}
                   className="rounded-lg border border-[#E5E1D8] bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-[#FAF8F4]"
                 >
                   View profile
                 </Link>
                 <button
                   type="button"
-                  onClick={() => toggleSave(s.id)}
+                  onClick={() => toggleSave(s)}
                   className="rounded-lg border border-[#E5E1D8] bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-[#FAF8F4]"
                 >
-                  {saved.includes(s.id) ? 'Saved' : 'Save'}
+                  {shortlistedIds.has(s.slug) ? 'Saved' : 'Save'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setDrawer(s);
-                    setModal('intro');
-                  }}
+                  onClick={() => setDrawer(s)}
                   className="rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1C2B42]"
                 >
-                  Request intro
+                  Quick preview
                 </button>
               </div>
             </div>
@@ -213,9 +307,9 @@ export default function InvestorDiscoverPage() {
                         onChange={(e) => setFilterStage(e.target.value)}
                         className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs focus:border-ink focus:outline-none"
                       >
-                        <option>All stages</option>
-                        {['Idea', 'Prototype', 'Early revenue', 'Mature'].map((x) => (
-                          <option key={x}>{x}</option>
+                        <option value="">All stages</option>
+                        {facets.stages.map((x) => (
+                          <option key={x} value={x}>{stageLabel(x)}</option>
                         ))}
                       </select>
                     </div>
@@ -230,11 +324,10 @@ export default function InvestorDiscoverPage() {
                         onChange={(e) => setSector(e.target.value)}
                         className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs focus:border-ink focus:outline-none"
                       >
-                        <option>All sectors</option>
-                        <option>Fintech</option>
-                        <option>Climate</option>
-                        <option>EdTech</option>
-                        <option>B2B SaaS</option>
+                        <option value="">All sectors</option>
+                        {facets.sectors.map((x) => (
+                          <option key={x} value={x}>{x}</option>
+                        ))}
                       </select>
                     </div>
 
@@ -244,18 +337,9 @@ export default function InvestorDiscoverPage() {
                       </label>
                       <input
                         id="filter-loc"
-                        placeholder="Country, state or city"
-                        className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs focus:border-ink focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="filter-raise" className="block text-xs font-medium text-ink">
-                        Raise target
-                      </label>
-                      <input
-                        id="filter-raise"
-                        placeholder="e.g. ₹25L – ₹2 Cr"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder="City or region"
                         className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs focus:border-ink focus:outline-none"
                       />
                     </div>
@@ -276,8 +360,9 @@ export default function InvestorDiscoverPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          setFilterStage('All stages');
-                          setSector('All sectors');
+                          setFilterStage('');
+                          setSector('');
+                          setCity('');
                           setReadyOnly(false);
                           setQuery('');
                           notify('Filters reset.');
@@ -307,53 +392,93 @@ export default function InvestorDiscoverPage() {
               <div>
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <span className="text-sm font-semibold text-ink">
-                    {available.length} opted-in startup{available.length === 1 ? '' : 's'}
+                    {total} opted-in startup{total === 1 ? '' : 's'}
                   </span>
                   <div className="flex items-center gap-2">
-                    <label htmlFor="sort-startups" className="sr-only">
-                      Sort startups
+                    <label htmlFor="view-toggle" className="sr-only">
+                      Toggle view
                     </label>
-                    <select
-                      id="sort-startups"
-                      className="h-9 rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs focus:border-ink focus:outline-none"
-                    >
-                      <option>Best fit · Investment Ready first</option>
-                      <option>Recently updated</option>
-                      <option>Highest readiness score</option>
-                      <option>Raise size</option>
-                    </select>
+                    <div className="flex items-center rounded-lg border border-[#E5E1D8] bg-white p-1">
+                      <button
+                        type="button"
+                        onClick={() => setView('Cards')}
+                        className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+                          view === 'Cards' ? 'bg-ink text-white' : 'text-[#4A5568] hover:text-ink'
+                        }`}
+                      >
+                        Cards
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setView('Table')}
+                        className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+                          view === 'Table' ? 'bg-ink text-white' : 'text-[#4A5568] hover:text-ink'
+                        }`}
+                      >
+                        Table
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {view === 'Cards' ? (
+                {phase === 'loading' && <LoadingBlock label="Loading startups…" />}
+
+                {phase === 'error' && <ErrorBlock message={error} />}
+
+                {phase === 'ready' && available.length === 0 && (
+                  <EmptyBlock
+                    title="No matching startups"
+                    description="No opted-in startups match the current filters. Try widening the stage or sector, or clear the search."
+                    action={
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFilterStage('');
+                          setSector('');
+                          setCity('');
+                          setReadyOnly(false);
+                          setQuery('');
+                        }}
+                        className="rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white hover:bg-[#1C2B42]"
+                      >
+                        Clear filters
+                      </button>
+                    }
+                  />
+                )}
+
+                {phase === 'ready' && available.length > 0 && view === 'Cards' && (
                   <div className="space-y-4">
-                    {available.filter((s) => s.badge).length > 0 && (
+                    {available.filter((s) => s.investment_ready).length > 0 && (
                       <div>
                         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#806236]">
-                          Investment Ready ({available.filter((s) => s.badge).length})
+                          Investment Ready ({available.filter((s) => s.investment_ready).length})
                         </p>
                         <div className="space-y-4">
                           {available
-                            .filter((s) => s.badge)
+                            .filter((s) => s.investment_ready)
                             .map((s) => startupCard(s))}
                         </div>
                       </div>
                     )}
 
-                    {available.filter((s) => !s.badge).length > 0 && (
+                    {available.filter((s) => !s.investment_ready).length > 0 && (
                       <div className="pt-4">
                         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#4A5568]">
-                          Other opted-in startups ({available.filter((s) => !s.badge).length})
+                          Other opted-in startups
+                          ({available.filter((s) => !s.investment_ready).length})
                         </p>
                         <div className="space-y-4">
                           {available
-                            .filter((s) => !s.badge)
+                            .filter((s) => !s.investment_ready)
                             .map((s) => startupCard(s))}
                         </div>
                       </div>
                     )}
                   </div>
-                ) : (
+                )}
+
+                {phase === 'ready' && available.length > 0 && view === 'Table' && (
                   <div className="overflow-x-auto rounded-xl border border-[#E5E1D8] bg-white">
                     <table className="w-full min-w-[800px] text-left text-xs">
                       <thead>
@@ -363,8 +488,7 @@ export default function InvestorDiscoverPage() {
                             'Stage',
                             'Sector',
                             'Readiness',
-                            'MRR',
-                            'Growth',
+                            'Traction',
                             'Raise',
                             'Committed',
                             'Location',
@@ -378,37 +502,44 @@ export default function InvestorDiscoverPage() {
                       </thead>
                       <tbody className="divide-y divide-[#E5E1D8]">
                         {available.map((s) => (
-                          <tr key={s.id} className="hover:bg-[#FAF8F4]/50">
+                          <tr key={s.slug} className="hover:bg-[#FAF8F4]/50">
                             <td className="p-3 font-semibold">
                               <Link
-                                href={`/investor/startups/${s.id}`}
+                                href={`/investor/startups/${s.slug}`}
                                 className="text-ink hover:underline"
                               >
                                 {s.name}
                               </Link>
                             </td>
-                            <td className="p-3">{s.stage}</td>
-                            <td className="p-3">{s.sector}</td>
-                            <td className="p-3 font-medium text-ink">{s.ready}/100</td>
-                            <td className="p-3">{s.mrr}</td>
-                            <td className="p-3">{s.growth}</td>
-                            <td className="p-3">{s.raise}</td>
-                            <td className="p-3">{s.committed}</td>
-                            <td className="p-3">{s.loc}</td>
+                            <td className="p-3">{stageLabel(s.stage)}</td>
+                            <td className="p-3">{s.sector || '—'}</td>
+                            <td className="p-3 font-medium text-ink">
+                              {s.readiness_score != null ? `${s.readiness_score}/100` : '—'}
+                            </td>
+                            <td className="p-3">{s.traction_summary || '—'}</td>
+                            <td className="p-3">
+                              {s.round_visible ? formatMoney(s.round_target, s.round_currency) : '—'}
+                            </td>
+                            <td className="p-3">
+                              {s.round_visible
+                                ? commitPct(s.round_target, s.round_committed)
+                                : '—'}
+                            </td>
+                            <td className="p-3">{s.city || '—'}</td>
                             <td className="p-3">
                               <div className="flex items-center gap-2">
                                 <Link
-                                  href={`/investor/startups/${s.id}`}
+                                  href={`/investor/startups/${s.slug}`}
                                   className="text-xs font-semibold text-[#9A7A45] hover:underline"
                                 >
                                   View
                                 </Link>
                                 <button
                                   type="button"
-                                  onClick={() => toggleSave(s.id)}
+                                  onClick={() => toggleSave(s)}
                                   className="text-xs text-[#4A5568] hover:text-ink"
                                 >
-                                  {saved.includes(s.id) ? 'Saved' : 'Save'}
+                                  {shortlistedIds.has(s.slug) ? 'Saved' : 'Save'}
                                 </button>
                               </div>
                             </td>
@@ -417,26 +548,6 @@ export default function InvestorDiscoverPage() {
                       </tbody>
                     </table>
                   </div>
-                )}
-
-                {available.length === 0 && (
-                  <Card title="No startups match those criteria">
-                    <p className="text-xs text-[#4A5568]">
-                      Try broadening your filters or resetting sector criteria to browse more opted-in companies.
-                    </p>
-                    <Button
-                      secondary
-                      className="mt-4"
-                      onClick={() => {
-                        setFilterStage('All stages');
-                        setSector('All sectors');
-                        setReadyOnly(false);
-                        setQuery('');
-                      }}
-                    >
-                      Reset all filters
-                    </Button>
-                  </Card>
                 )}
               </div>
             </div>
@@ -467,66 +578,81 @@ export default function InvestorDiscoverPage() {
                   </div>
 
                   <h2 className="serif mt-4 text-2xl font-bold text-ink">{drawer.name}</h2>
-                  <p className="mt-1 text-sm text-[#4A5568]">{drawer.tag}</p>
+                  <p className="mt-1 text-sm text-[#4A5568]">{drawer.tagline}</p>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {drawer.badge && <InvestorBadge gold>Investment Ready</InvestorBadge>}
+                    {drawer.investment_ready && (
+                      <InvestorBadge gold>Investment Ready</InvestorBadge>
+                    )}
+                    {drawer.mentor_verified && <InvestorBadge>Verified startup</InvestorBadge>}
                     <span className="rounded-full bg-[#F3F4F6] px-2.5 py-0.5 text-xs text-[#4A5568]">
-                      {drawer.stage}
+                      {stageLabel(drawer.stage)}
                     </span>
-                    <span className="rounded-full bg-[#F3F4F6] px-2.5 py-0.5 text-xs text-[#4A5568]">
-                      {drawer.sector}
-                    </span>
+                    {drawer.sector && (
+                      <span className="rounded-full bg-[#F3F4F6] px-2.5 py-0.5 text-xs text-[#4A5568]">
+                        {drawer.sector}
+                      </span>
+                    )}
                   </div>
 
-                  <p className="mt-5 text-xs leading-relaxed text-ink">{drawer.summary}</p>
+                  <p className="mt-5 text-xs leading-relaxed text-ink">
+                    {drawer.traction_summary || 'This startup has opted in to investor discovery.'}
+                  </p>
 
                   <div className="mt-4 grid grid-cols-2 gap-2">
-                    {drawer.items.map(([x, y, src]) => (
-                      <div key={x} className="rounded-lg border border-[#E5E1D8] bg-white p-3">
-                        <span className="block text-xs text-[#4A5568]">{x}</span>
-                        <b className="block text-sm font-semibold text-ink">{y}</b>
-                        <span className="text-xs text-[#9A7A45]">{src}</span>
-                      </div>
-                    ))}
+                    <div className="rounded-lg border border-[#E5E1D8] bg-white p-3">
+                      <span className="block text-xs text-[#4A5568]">Location</span>
+                      <b className="block text-sm font-semibold text-ink">{drawer.city || 'Not shared'}</b>
+                    </div>
+                    <div className="rounded-lg border border-[#E5E1D8] bg-white p-3">
+                      <span className="block text-xs text-[#4A5568]">Readiness</span>
+                      <b className="block text-sm font-semibold text-ink">
+                        {drawer.readiness_score != null ? `${drawer.readiness_score}/100` : 'Not shared'}
+                      </b>
+                    </div>
+                    <div className="rounded-lg border border-[#E5E1D8] bg-white p-3">
+                      <span className="block text-xs text-[#4A5568]">Round target</span>
+                      <b className="block text-sm font-semibold text-ink">
+                        {drawer.round_visible
+                          ? formatMoney(drawer.round_target, drawer.round_currency)
+                          : 'Not shared'}
+                      </b>
+                    </div>
+                    <div className="rounded-lg border border-[#E5E1D8] bg-white p-3">
+                      <span className="block text-xs text-[#4A5568]">Committed</span>
+                      <b className="block text-sm font-semibold text-ink">
+                        {drawer.round_visible
+                          ? commitPct(drawer.round_target, drawer.round_committed)
+                          : '—'}
+                      </b>
+                    </div>
                   </div>
 
                   <div className="mt-4 rounded-lg bg-white p-3 text-xs border border-[#E5E1D8]">
-                    <b className="text-[#806236]">Why this fit:</b> {drawer.fit}
+                    <b className="text-[#806236]">Traction:</b>{' '}
+                    {drawer.traction_summary || 'Not shared by the founder.'}
                   </div>
 
                   <div className="mt-6 flex flex-wrap gap-3">
                     <Link
-                      href={`/investor/startups/${drawer.id}`}
+                      href={`/investor/startups/${drawer.slug}`}
                       className="rounded-lg border border-[#E5E1D8] bg-white px-4 py-2 text-xs font-semibold text-ink hover:bg-[#FAF8F4]"
                     >
                       View full profile →
                     </Link>
                     <button
                       type="button"
-                      onClick={() => toggleSave(drawer.id)}
+                      onClick={() => toggleSave(drawer)}
                       className="rounded-lg border border-[#E5E1D8] bg-white px-4 py-2 text-xs font-semibold text-ink hover:bg-[#FAF8F4]"
                     >
-                      {saved.includes(drawer.id) ? 'Saved' : 'Save'}
+                      {shortlistedIds.has(drawer.slug) ? 'Saved' : 'Save'}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setModal('intro')}
+                    <Link
+                      href={`/investor/startups/${drawer.slug}`}
                       className="rounded-lg bg-ink px-4 py-2 text-xs font-semibold text-white hover:bg-[#1C2B42]"
                     >
-                      Request intro
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPassed((p) => [...p, drawer.id]);
-                        setDrawer(null);
-                        notify('Passed on this startup. Undo available for 8 seconds.');
-                      }}
-                      className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs text-[#4A5568] hover:text-ink"
-                    >
-                      Pass
-                    </button>
+                      Request intro →
+                    </Link>
                   </div>
                 </aside>
               </div>
@@ -556,19 +682,10 @@ export default function InvestorDiscoverPage() {
                     className="mt-1 h-10 w-full rounded-lg border border-[#E5E1D8] px-3 text-xs focus:border-ink focus:outline-none"
                   />
                   <p className="mt-3 text-xs text-[#4A5568]">
-                    Active criteria: <b>{filterStage}</b> · <b>{sector}</b> · Investment Ready{' '}
+                    Active criteria: <b>{filterStage || 'Any stage'}</b> ·{' '}
+                    <b>{sector || 'Any sector'}</b> · Investment Ready{' '}
                     <b>{readyOnly ? 'only' : 'included'}</b>
                   </p>
-                  <div className="mt-4 flex gap-4 text-xs">
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" defaultChecked className="accent-ink" />
-                      In-app alerts
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" defaultChecked className="accent-ink" />
-                      Daily email digest
-                    </label>
-                  </div>
                   <div className="mt-6 flex justify-end gap-2">
                     <button
                       type="button"
@@ -578,66 +695,33 @@ export default function InvestorDiscoverPage() {
                       Cancel
                     </button>
                     <Button
-                      onClick={() => {
-                        notify(`Saved search "${searchName}" created.`);
-                        setModal('');
+                      onClick={async () => {
+                        if (!searchName.trim()) {
+                          notify('Give the search a name first.');
+                          return;
+                        }
+                        try {
+                          await api.investorSearches.create({
+                            name: searchName.trim(),
+                            criteria: {
+                              stage: filterStage || undefined,
+                              sector: sector || undefined,
+                              city: city || undefined,
+                              q: query || undefined,
+                              investment_ready_only: readyOnly,
+                            },
+                          });
+                          notify(`Saved search "${searchName.trim()}" created.`);
+                          setSearchName('');
+                          setModal('');
+                        } catch (err) {
+                          notify(
+                            err instanceof ApiError ? err.message : 'Could not save the search.'
+                          );
+                        }
                       }}
                     >
                       Save search
-                    </Button>
-                  </div>
-                </section>
-              </div>
-            )}
-
-            {/* Intro Modal */}
-            {modal === 'intro' && (
-              <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4 backdrop-blur-sm">
-                <section
-                  role="dialog"
-                  aria-modal="true"
-                  className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
-                >
-                  <div className="mb-4 flex items-center justify-between">
-                    <h2 className="serif text-xl font-bold text-ink">Request an introduction</h2>
-                    <button type="button" onClick={() => setModal('')}>
-                      <X size={18} />
-                    </button>
-                  </div>
-                  <p className="text-xs text-[#4A5568]">
-                    To: <b>{drawer?.name || 'Selected startup'}</b> · Investor: Arjun Mehta (Forma)
-                  </p>
-                  <label htmlFor="intro-msg" className="mt-4 block text-xs font-medium text-ink">
-                    Message (50–500 characters)
-                  </label>
-                  <textarea
-                    id="intro-msg"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    rows={4}
-                    placeholder="Describe who you are, what you invest in, why this startup and what you’d like next..."
-                    className="mt-1 w-full rounded-lg border border-[#E5E1D8] p-3 text-xs focus:border-ink focus:outline-none"
-                  />
-                  <div className="mt-4 flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setModal('')}
-                      className="rounded-lg border px-3 py-2 text-xs font-medium text-[#4A5568]"
-                    >
-                      Cancel
-                    </button>
-                    <Button
-                      onClick={() => {
-                        if (message.length < 20) {
-                          notify('Please write a slightly longer note for the founder.');
-                          return;
-                        }
-                        notify('Intro request sent! The startup will review and respond.');
-                        setModal('');
-                        setMessage('');
-                      }}
-                    >
-                      Send intro request
                     </Button>
                   </div>
                 </section>

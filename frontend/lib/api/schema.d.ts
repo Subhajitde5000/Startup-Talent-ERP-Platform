@@ -881,6 +881,376 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/investors/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get my investor preferences
+         * @description Any active member of the caller's investor firm.
+         */
+        get: operations["get_preferences_api_v1_investors_me_preferences_get"];
+        /**
+         * Replace my investor preferences
+         * @description Owner/admin/member; a viewer gets 403.
+         */
+        put: operations["update_preferences_api_v1_investors_me_preferences_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/me/saved-searches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my saved searches */
+        get: operations["list_saved_searches_api_v1_investors_me_saved_searches_get"];
+        put?: never;
+        /**
+         * Create a saved search
+         * @description Owner/admin/member; a viewer gets 403.
+         */
+        post: operations["create_saved_search_api_v1_investors_me_saved_searches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/me/saved-searches/{search_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a saved search */
+        delete: operations["delete_saved_search_api_v1_investors_me_saved_searches__search_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit a saved search
+         * @description Foreign or deleted searches are a 404 (no existence oracle).
+         */
+        patch: operations["update_saved_search_api_v1_investors_me_saved_searches__search_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/investors/me/saved-searches/{search_id}/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current matches for a saved search
+         * @description Re-runs the saved criteria through the shared 9c discovery query.
+         */
+        get: operations["saved_search_matches_api_v1_investors_me_saved_searches__search_id__matches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/me/shortlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my shortlist */
+        get: operations["list_shortlist_api_v1_investors_me_shortlist_get"];
+        put?: never;
+        /**
+         * Add a startup to my shortlist
+         * @description Owner/admin/member; a viewer gets 403. Already shortlisted -> 409.
+         */
+        post: operations["create_shortlist_entry_api_v1_investors_me_shortlist_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/me/shortlist/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a shortlist entry */
+        delete: operations["delete_shortlist_entry_api_v1_investors_me_shortlist__entry_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit a shortlist entry
+         * @description Foreign or deleted entries are a 404 (no existence oracle).
+         */
+        patch: operations["update_shortlist_entry_api_v1_investors_me_shortlist__entry_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/investors/deals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the investor's deals */
+        get: operations["list_deals_api_v1_investors_deals_get"];
+        put?: never;
+        /** Create a deal */
+        post: operations["create_deal_api_v1_investors_deals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/deals/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deal counts per stage */
+        get: operations["summary_api_v1_investors_deals_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/deals/{deal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One deal */
+        get: operations["get_deal_api_v1_investors_deals__deal_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete a deal */
+        delete: operations["delete_deal_api_v1_investors_deals__deal_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update a deal */
+        patch: operations["update_deal_api_v1_investors_deals__deal_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/investors/deals/{deal_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stage history of a deal */
+        get: operations["deal_history_api_v1_investors_deals__deal_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-deals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List investors dealing with this startup */
+        get: operations["list_startup_deals_api_v1_organizations__org_id__investor_deals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investor-deals/{investor_org_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One investor's deal with this startup */
+        get: operations["get_startup_deal_api_v1_organizations__org_id__investor_deals__investor_org_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update the shared deal stage (startup side) */
+        patch: operations["update_startup_deal_stage_api_v1_organizations__org_id__investor_deals__investor_org_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search the investor directory */
+        get: operations["list_investors_api_v1_organizations__org_id__investors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investors/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Directory header counts */
+        get: operations["summary_api_v1_organizations__org_id__investors_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investors/filters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Directory filter facets */
+        get: operations["filters_api_v1_organizations__org_id__investors_filters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/investors/{investor_org_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One investor firm */
+        get: operations["get_investor_api_v1_organizations__org_id__investors__investor_org_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/startups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Discover startups (investor view) */
+        get: operations["list_startups_api_v1_investors_startups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/startups/filters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Discovery filter facets */
+        get: operations["filters_api_v1_investors_startups_filters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/startups/{identifier}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One startup (investor view) */
+        get: operations["get_startup_api_v1_investors_startups__identifier__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investors/startups/{identifier}/rounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A startup's funding rounds (investor view) */
+        get: operations["list_rounds_api_v1_investors_startups__identifier__rounds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{org_id}/tasks": {
         parameters: {
             query?: never;
@@ -3542,6 +3912,582 @@ export interface components {
          * @enum {string}
          */
         InstrumentType: "equity" | "safe" | "convertible_note" | "ccd" | "ccps" | "debt" | "other";
+        /**
+         * InvestorDealCreate
+         * @description Create a deal on the investor's board.
+         *
+         *     ``investor_org_id`` is the caller's own firm (resolved server-side
+         *     from their membership), never an input. ``owner_id`` must be an
+         *     active member of that firm (validated in the service).
+         */
+        InvestorDealCreate: {
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Round Id */
+            round_id?: string | null;
+            /** @default interested */
+            stage?: components["schemas"]["PipelineStage"];
+            /** Probability */
+            probability?: number | null;
+            /** Ticket Size */
+            ticket_size?: number | string | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Fit Note */
+            fit_note?: string | null;
+            /** Next Step */
+            next_step?: string | null;
+            /** Next Step On */
+            next_step_on?: string | null;
+            /** Passed Reason */
+            passed_reason?: string | null;
+        };
+        /** InvestorDealHistoryItem */
+        InvestorDealHistoryItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Deal Id
+             * Format: uuid
+             */
+            deal_id: string;
+            from_stage: components["schemas"]["PipelineStage"] | null;
+            to_stage: components["schemas"]["PipelineStage"];
+            /** Changed By */
+            changed_by: string | null;
+            /**
+             * Changed At
+             * Format: date-time
+             */
+            changed_at: string;
+            /** Note */
+            note: string | null;
+        };
+        /** InvestorDealHistoryPage */
+        InvestorDealHistoryPage: {
+            /** Items */
+            items: components["schemas"]["InvestorDealHistoryItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** InvestorDealPage */
+        InvestorDealPage: {
+            /** Items */
+            items: components["schemas"]["InvestorDealRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * InvestorDealRead
+         * @description Full deal as the investor sees it (with startup summary).
+         *
+         *     Carries a small public snapshot of the target startup (logo, sector,
+         *     tagline, readiness) plus the round target, so the board card can
+         *     render without a second request. ``owner_name`` resolves the deal
+         *     owner's display name (``owner_id`` is the FK).
+         */
+        InvestorDealRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Startup Name */
+            startup_name: string;
+            /** Startup Slug */
+            startup_slug: string;
+            /** Startup Logo Initials */
+            startup_logo_initials: string | null;
+            /** Startup Logo Url */
+            startup_logo_url: string | null;
+            /** Startup Sector */
+            startup_sector: string | null;
+            /** Startup Tagline */
+            startup_tagline: string | null;
+            /** Startup Readiness Score */
+            startup_readiness_score: number | null;
+            /** Round Id */
+            round_id: string | null;
+            /** Round Target */
+            round_target: string | null;
+            /** Round Currency */
+            round_currency: string | null;
+            stage: components["schemas"]["PipelineStage"];
+            /** Probability */
+            probability: number | null;
+            /** Ticket Size */
+            ticket_size: string | null;
+            /** Currency */
+            currency: string;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Owner Name */
+            owner_name: string | null;
+            /** Fit Note */
+            fit_note: string | null;
+            /** Next Step */
+            next_step: string | null;
+            /** Next Step On */
+            next_step_on: string | null;
+            /** Last Activity At */
+            last_activity_at: string | null;
+            /** Passed Reason */
+            passed_reason: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * InvestorDealSummary
+         * @description Deal counts per stage for the investor's board header.
+         */
+        InvestorDealSummary: {
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Total */
+            total: number;
+        };
+        /**
+         * InvestorDealUpdate
+         * @description Editable deal fields (PATCH). ``stage`` changes are logged.
+         */
+        InvestorDealUpdate: {
+            /** Round Id */
+            round_id?: string | null;
+            stage?: components["schemas"]["PipelineStage"] | null;
+            /** Probability */
+            probability?: number | null;
+            /** Ticket Size */
+            ticket_size?: number | string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Fit Note */
+            fit_note?: string | null;
+            /** Next Step */
+            next_step?: string | null;
+            /** Next Step On */
+            next_step_on?: string | null;
+            /** Passed Reason */
+            passed_reason?: string | null;
+        };
+        /**
+         * InvestorDirectoryDetail
+         * @description The public investor page (same org-level fields as the card).
+         */
+        InvestorDirectoryDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            investor_type: components["schemas"]["InvestorType"] | null;
+            /** Summary */
+            summary: string | null;
+            /** Logo Url */
+            logo_url: string | null;
+            /** Logo Initials */
+            logo_initials: string | null;
+            /** Website */
+            website: string | null;
+            /** City */
+            city: string | null;
+            /** Region */
+            region: string | null;
+            /** Country */
+            country: string | null;
+            /** Founded Year */
+            founded_year: number | null;
+            /** Verified */
+            verified: boolean;
+            /** Sectors */
+            sectors: string[];
+            /** Stage Focus */
+            stage_focus: components["schemas"]["StartupStage"][];
+            /** Min Ticket */
+            min_ticket: string | null;
+            /** Max Ticket */
+            max_ticket: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * InvestorDirectoryFacets
+         * @description Filter facet values among listed investor firms.
+         *
+         *     Computed over the base set (active investor firms), independent of
+         *     the other filters, so the checkboxes stay stable while narrowing.
+         */
+        InvestorDirectoryFacets: {
+            /** Sectors */
+            sectors: string[];
+            /** Stage Focus */
+            stage_focus: components["schemas"]["StartupStage"][];
+            /** Types */
+            types: components["schemas"]["InvestorType"][];
+        };
+        /**
+         * InvestorDirectoryItem
+         * @description One investor firm as shown in the directory cards.
+         */
+        InvestorDirectoryItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            investor_type: components["schemas"]["InvestorType"] | null;
+            /** Summary */
+            summary: string | null;
+            /** Logo Url */
+            logo_url: string | null;
+            /** Logo Initials */
+            logo_initials: string | null;
+            /** Website */
+            website: string | null;
+            /** City */
+            city: string | null;
+            /** Region */
+            region: string | null;
+            /** Country */
+            country: string | null;
+            /** Founded Year */
+            founded_year: number | null;
+            /** Verified */
+            verified: boolean;
+            /** Sectors */
+            sectors: string[];
+            /** Stage Focus */
+            stage_focus: components["schemas"]["StartupStage"][];
+            /** Min Ticket */
+            min_ticket: string | null;
+            /** Max Ticket */
+            max_ticket: string | null;
+        };
+        /** InvestorDirectoryPage */
+        InvestorDirectoryPage: {
+            /** Items */
+            items: components["schemas"]["InvestorDirectoryItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * InvestorDirectorySummary
+         * @description Header counts for the directory page (one aggregate query).
+         */
+        InvestorDirectorySummary: {
+            /** Total */
+            total: number;
+            /** Verified */
+            verified: number;
+        };
+        /**
+         * InvestorPreferenceRead
+         * @description An investor firm's thesis filters as returned by the API.
+         */
+        InvestorPreferenceRead: {
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            investor_type: components["schemas"]["InvestorType"] | null;
+            /** Sectors */
+            sectors: string[];
+            /** Stage Focus */
+            stage_focus: components["schemas"]["StartupStage"][];
+            /** Min Ticket */
+            min_ticket: string | null;
+            /** Max Ticket */
+            max_ticket: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * InvestorPreferenceUpdate
+         * @description Full replace of the thesis filters (one row per investor firm).
+         *
+         *     Every field is optional: a missing field resets to its empty default
+         *     (that is what "replace" means here). ``investor_org_id`` and the
+         *     timestamps stay out (server-controlled).
+         */
+        InvestorPreferenceUpdate: {
+            investor_type?: components["schemas"]["InvestorType"] | null;
+            /** Sectors */
+            sectors?: string[];
+            /** Stage Focus */
+            stage_focus?: components["schemas"]["StartupStage"][];
+            /** Min Ticket */
+            min_ticket?: number | string | null;
+            /** Max Ticket */
+            max_ticket?: number | string | null;
+        };
+        /**
+         * InvestorRoundItem
+         * @description One funding round of a startup, as shown to an investor.
+         */
+        InvestorRoundItem: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            round_type: components["schemas"]["FundingRoundType"];
+            /** Target Amount */
+            target_amount: string | null;
+            /** Committed Amount */
+            committed_amount: string;
+            /** Currency */
+            currency: string;
+            /** Pre Money Valuation */
+            pre_money_valuation: string | null;
+            /** Instrument */
+            instrument: string | null;
+            status: components["schemas"]["RoundStatus"];
+            /** Opens On */
+            opens_on: string | null;
+            /** Closes On */
+            closes_on: string | null;
+            /** Min Raise */
+            min_raise: string | null;
+            /** Min Ticket */
+            min_ticket: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** InvestorRoundPage */
+        InvestorRoundPage: {
+            /** Items */
+            items: components["schemas"]["InvestorRoundItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * InvestorStartupDetail
+         * @description The investor detail view of one startup.
+         *
+         *     Same raise/readiness facts as the list item, plus the public
+         *     profile copy (problem/solution) and org identity for the detail
+         *     page. Round aggregates are present only when the startup opted in
+         *     (``round_visible``).
+         */
+        InvestorStartupDetail: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Tagline */
+            tagline: string | null;
+            stage: components["schemas"]["StartupStage"];
+            /** Sector */
+            sector: string | null;
+            /** City */
+            city: string | null;
+            /** Region */
+            region: string | null;
+            /** Country */
+            country: string | null;
+            /** Founded Year */
+            founded_year: number | null;
+            /** Website */
+            website: string | null;
+            /** Logo Url */
+            logo_url: string | null;
+            /** Logo Initials */
+            logo_initials: string | null;
+            /** Summary */
+            summary: string | null;
+            /** Problem */
+            problem: string | null;
+            /** Solution */
+            solution: string | null;
+            /** Market */
+            market: string | null;
+            /** Business Model */
+            business_model: string | null;
+            /** Traction Summary */
+            traction_summary: string | null;
+            /** Mentor Verified */
+            mentor_verified: boolean;
+            /** Readiness Score */
+            readiness_score: number | null;
+            /** Investment Ready */
+            investment_ready: boolean;
+            /** Round Visible */
+            round_visible: boolean;
+            /** Round Target */
+            round_target: string | null;
+            /** Round Committed */
+            round_committed: string | null;
+            /** Round Currency */
+            round_currency: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * InvestorStartupFilters
+         * @description Distinct facet values among startups visible to the caller.
+         */
+        InvestorStartupFilters: {
+            /** Stages */
+            stages: components["schemas"]["StartupStage"][];
+            /** Sectors */
+            sectors: string[];
+        };
+        /**
+         * InvestorStartupItem
+         * @description One startup row in an investor-facing list (9c list / 9d matches).
+         */
+        InvestorStartupItem: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Tagline */
+            tagline: string | null;
+            stage: components["schemas"]["StartupStage"];
+            /** Sector */
+            sector: string | null;
+            /** City */
+            city: string | null;
+            /** Founded Year */
+            founded_year: number | null;
+            /** Website */
+            website: string | null;
+            /** Mentor Verified */
+            mentor_verified: boolean;
+            /** Readiness Score */
+            readiness_score: number | null;
+            /** Investment Ready */
+            investment_ready: boolean;
+            /** Round Visible */
+            round_visible: boolean;
+            /** Round Target */
+            round_target: string | null;
+            /** Round Committed */
+            round_committed: string | null;
+            /** Round Currency */
+            round_currency: string | null;
+            /** Traction Summary */
+            traction_summary: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** InvestorStartupPage */
+        InvestorStartupPage: {
+            /** Items */
+            items: components["schemas"]["InvestorStartupItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * InvestorType
+         * @description Investor sub-type (9b directory "Type" filter).
+         *
+         *     ``schema.sql`` defines no investor type anywhere; the directory's
+         *     Type filter (Angel / Angel group / Fund) needs one, so it is stored
+         *     on ``investor_preferences`` (9d plan D1).
+         * @enum {string}
+         */
+        InvestorType: "angel" | "angel_group" | "fund" | "other";
         /** InviteCreate */
         InviteCreate: {
             /**
@@ -4885,6 +5831,15 @@ export interface components {
             logo_url?: string | null;
         };
         /**
+         * PipelineStage
+         * @description schema.sql ``pipeline_stage``, with ``diligence`` added (D5).
+         *
+         *     ``diligence`` sits between ``data_room`` and ``offer``: after the
+         *     data room opens and before an offer is made.
+         * @enum {string}
+         */
+        PipelineStage: "interested" | "intro" | "meeting" | "data_room" | "diligence" | "offer" | "committed" | "passed" | "closed";
+        /**
          * ProfileVisibility
          * @description Who may discover the startup profile (schema.sql CHECK values).
          * @enum {string}
@@ -5112,6 +6067,60 @@ export interface components {
          * @enum {string}
          */
         RoundStatus: "draft" | "open" | "paused" | "closed" | "cancelled";
+        /** SavedSearchCreate */
+        SavedSearchCreate: {
+            /** Name */
+            name: string;
+            /** Criteria */
+            criteria?: {
+                [key: string]: unknown;
+            };
+        };
+        /** SavedSearchRead */
+        SavedSearchRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /** Name */
+            name: string;
+            /** Criteria */
+            criteria: {
+                [key: string]: unknown;
+            };
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * SavedSearchUpdate
+         * @description Editable fields; ``id``/``investor_org_id`` stay out.
+         */
+        SavedSearchUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Criteria */
+            criteria?: {
+                [key: string]: unknown;
+            } | null;
+            /** Is Active */
+            is_active?: boolean | null;
+        };
         /** ScopedReadinessBoard */
         ScopedReadinessBoard: {
             /**
@@ -5324,6 +6333,81 @@ export interface components {
          * @enum {string}
          */
         SessionStatus: "proposed" | "scheduled" | "confirmed" | "completed" | "cancelled" | "no_show";
+        /**
+         * ShortlistEntryCreate
+         * @description Bookmark a startup. ``startup_org_id`` must be a live startup.
+         */
+        ShortlistEntryCreate: {
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Note */
+            note?: string | null;
+            status?: components["schemas"]["ShortlistStatus"] | null;
+        };
+        /**
+         * ShortlistEntryRead
+         * @description A shortlist entry plus the startup summary the card renders.
+         *
+         *     The startup fields are read-only joins (never writable through this
+         *     API); the investor's ``note`` is private and never exposed to the
+         *     startup side.
+         */
+        ShortlistEntryRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Note */
+            note: string | null;
+            status: components["schemas"]["ShortlistStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Startup Name */
+            startup_name: string;
+            /** Startup Slug */
+            startup_slug: string;
+            startup_stage: components["schemas"]["StartupStage"];
+            /** Startup Sector */
+            startup_sector: string | null;
+            /** Startup Readiness Score */
+            startup_readiness_score: number | null;
+            /** Startup Investment Ready */
+            startup_investment_ready: boolean;
+        };
+        /** ShortlistEntryUpdate */
+        ShortlistEntryUpdate: {
+            /** Note */
+            note?: string | null;
+            status?: components["schemas"]["ShortlistStatus"] | null;
+        };
+        /**
+         * ShortlistStatus
+         * @description Review status shown on the shortlist page.
+         * @enum {string}
+         */
+        ShortlistStatus: "new" | "reviewing" | "follow_up" | "waiting_for_startup";
         /**
          * SkillRead
          * @description One searchable skill (read-only; creation is admin-only, Step 7).
@@ -5599,6 +6683,67 @@ export interface components {
             limit: number;
             /** Offset */
             offset: number;
+        };
+        /** StartupInvestorDealPage */
+        StartupInvestorDealPage: {
+            /** Items */
+            items: components["schemas"]["StartupInvestorDealRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * StartupInvestorDealRead
+         * @description A deal as the STARTUP sees it: private investor fields stripped.
+         */
+        StartupInvestorDealRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Investor Org Id
+             * Format: uuid
+             */
+            investor_org_id: string;
+            /** Investor Name */
+            investor_name: string;
+            /** Investor Slug */
+            investor_slug: string;
+            stage: components["schemas"]["PipelineStage"];
+            /** Round Id */
+            round_id: string | null;
+            /** Ticket Size */
+            ticket_size: string | null;
+            /** Currency */
+            currency: string;
+            /** Next Step */
+            next_step: string | null;
+            /** Next Step On */
+            next_step_on: string | null;
+            /** Last Activity At */
+            last_activity_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * StartupInvestorDealStageUpdate
+         * @description The startup updates the shared deal stage (stage-only).
+         */
+        StartupInvestorDealStageUpdate: {
+            stage: components["schemas"]["PipelineStage"];
         };
         /** StartupMentorshipOverview */
         StartupMentorshipOverview: {
@@ -8428,6 +9573,1011 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FundingRoundRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_preferences_api_v1_investors_me_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorPreferenceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_preferences_api_v1_investors_me_preferences_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvestorPreferenceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorPreferenceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_saved_searches_api_v1_investors_me_saved_searches_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_saved_search_api_v1_investors_me_saved_searches_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedSearchCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_saved_search_api_v1_investors_me_saved_searches__search_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                search_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_saved_search_api_v1_investors_me_saved_searches__search_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                search_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedSearchUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saved_search_matches_api_v1_investors_me_saved_searches__search_id__matches_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                search_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorStartupPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_shortlist_api_v1_investors_me_shortlist_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShortlistEntryRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_shortlist_entry_api_v1_investors_me_shortlist_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShortlistEntryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShortlistEntryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_shortlist_entry_api_v1_investors_me_shortlist__entry_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_shortlist_entry_api_v1_investors_me_shortlist__entry_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShortlistEntryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShortlistEntryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_deals_api_v1_investors_deals_get: {
+        parameters: {
+            query?: {
+                stage?: components["schemas"]["PipelineStage"] | null;
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorDealPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_deal_api_v1_investors_deals_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvestorDealCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorDealRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    summary_api_v1_investors_deals_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorDealSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_deal_api_v1_investors_deals__deal_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                deal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorDealRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_deal_api_v1_investors_deals__deal_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                deal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_deal_api_v1_investors_deals__deal_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                deal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvestorDealUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorDealRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deal_history_api_v1_investors_deals__deal_id__history_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                deal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorDealHistoryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_startup_deals_api_v1_organizations__org_id__investor_deals_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupInvestorDealPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_startup_deal_api_v1_organizations__org_id__investor_deals__investor_org_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                investor_org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupInvestorDealRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_startup_deal_stage_api_v1_organizations__org_id__investor_deals__investor_org_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                investor_org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartupInvestorDealStageUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupInvestorDealRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_investors_api_v1_organizations__org_id__investors_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                investor_type?: components["schemas"]["InvestorType"] | null;
+                sector?: string | null;
+                stage_focus?: components["schemas"]["StartupStage"] | null;
+                ticket_min?: number | string | null;
+                ticket_max?: number | string | null;
+                location?: string | null;
+                verified_only?: boolean;
+                sort?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorDirectoryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    summary_api_v1_organizations__org_id__investors_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorDirectorySummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    filters_api_v1_organizations__org_id__investors_filters_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorDirectoryFacets"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_investor_api_v1_organizations__org_id__investors__investor_org_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                investor_org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorDirectoryDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_startups_api_v1_investors_startups_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                sort?: "recent" | "name" | "stage";
+                order?: "asc" | "desc";
+                stage?: components["schemas"]["StartupStage"] | null;
+                sector?: string | null;
+                city?: string | null;
+                q?: string | null;
+                raise_min?: number | string | null;
+                raise_max?: number | string | null;
+                investment_ready_only?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorStartupPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    filters_api_v1_investors_startups_filters_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorStartupFilters"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_startup_api_v1_investors_startups__identifier__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorStartupDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rounds_api_v1_investors_startups__identifier__rounds_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorRoundPage"];
                 };
             };
             /** @description Validation Error */

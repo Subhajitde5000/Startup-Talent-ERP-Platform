@@ -72,6 +72,20 @@ class ActivityEventType(enum.StrEnum):
     round_updated = "round_updated"
     round_status_changed = "round_status_changed"
     round_deleted = "round_deleted"
+    # Step 9d: saved searches and shortlist entries are user content the
+    # investor creates and deletes (the D-9b create/delete rule); the
+    # deal family in 9e adds update/stage events because deals are
+    # financial data.
+    saved_search_created = "saved_search_created"
+    saved_search_deleted = "saved_search_deleted"
+    shortlist_added = "shortlist_added"
+    shortlist_removed = "shortlist_removed"
+    # Step 9e: a deal is the investor's private pipeline data, so every
+    # mutation is audited in the same transaction as the write.
+    deal_created = "deal_created"
+    deal_updated = "deal_updated"
+    deal_stage_changed = "deal_stage_changed"
+    deal_deleted = "deal_deleted"
 
 
 class ActivityEvent(Base):

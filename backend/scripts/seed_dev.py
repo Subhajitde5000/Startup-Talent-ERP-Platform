@@ -47,6 +47,14 @@ from app.models.funding_round import (  # noqa: E402
     InstrumentType,
     RoundStatus,
 )
+from app.models.investor_deal import InvestorDeal, PipelineStage  # noqa: E402
+from app.models.investor_search import (  # noqa: E402
+    InvestorPreference,
+    InvestorType,
+    SavedSearch,
+    ShortlistEntry,
+    ShortlistStatus,
+)
 from app.models.mentorship import (  # noqa: E402
     BUSY_STATUSES,
     Mentorship,
@@ -776,6 +784,195 @@ STEP5L_COMPETITORS: list[dict[str, object]] = [
     },
 ]
 
+# Step 9b/9d: demo investor firms for the investor directory (9b) and the
+# investor's thesis preferences (9d). The directory reads each
+# investor_firm org joined with its investor_preferences row, so both are
+# seeded together. Fill-only: an existing org is never duplicated, and an
+# existing preference row is left untouched.
+STEP9B_INVESTOR_FIRMMS: list[dict[str, object]] = [
+    {
+        "owner_email": "investor@forma.dev",
+        "name": "Zenith Capital",
+        "city": "Mumbai, India",
+        "investor_type": InvestorType.fund,
+        "sectors": ["B2B SaaS", "Fintech Infrastructure", "Developer Tools & Cloud"],
+        "stage_focus": ["prototype", "early_revenue", "growth"],
+        "min_ticket": Decimal("2500000.00"),
+        "max_ticket": Decimal("25000000.00"),
+        "summary": (
+            "Early-stage B2B SaaS fund writing first cheques into Indian and "
+            "cross-border founders, with follow-on capacity through Series A."
+        ),
+    },
+    {
+        "owner_email": "angel@forma.dev",
+        "name": "Forma Angel Syndicate",
+        "city": "Bengaluru, India",
+        "investor_type": InvestorType.angel_group,
+        "sectors": ["Fintech", "Climate", "DeepTech"],
+        "stage_focus": ["idea", "prototype", "early_revenue"],
+        "min_ticket": Decimal("500000.00"),
+        "max_ticket": Decimal("5000000.00"),
+        "summary": (
+            "A syndicate of operators backing pre-seed founders with domain "
+            "expertise, customer introductions and clean first-round structuring."
+        ),
+    },
+    {
+        "owner_email": "seed@forma.dev",
+        "name": "Meridian Seed Fund",
+        "city": "Hyderabad, India",
+        "investor_type": InvestorType.fund,
+        "sectors": ["B2B SaaS", "Healthcare", "EdTech"],
+        "stage_focus": ["early_revenue", "growth"],
+        "min_ticket": Decimal("1000000.00"),
+        "max_ticket": Decimal("10000000.00"),
+        "summary": (
+            "Seed-stage investor focused on revenue-positive B2B companies "
+            "with strong unit economics and clear product-market fit."
+        ),
+    },
+]
+
+# Step 9c: demo opted-in startups for the investor discovery list. Each is a
+# startup org with a public profile + one open round so the discovery card
+# shows the same fields the old inline demo did (traction, readiness, round
+# target/committed). Fill-only by org name; the round is keyed by name.
+STEP9C_STARTUPS: list[dict[str, object]] = [
+    {
+        "name": "Acme Studio",
+        "city": "Bengaluru, India",
+        "slug_hint": "acme",
+        "profile": {
+            "tagline": "Making financial operations effortless for growing businesses.",
+            "stage": StartupStage.prototype,
+            "sector": "Fintech",
+            "business_model": "B2B SaaS · SaaS Subscription",
+            "problem": "SMBs make high-stakes decisions on fragmented financial data and spreadsheets.",
+            "solution": "A live workspace connecting accounts, forecasting runway and turning signals into next steps.",
+            "market": "SMB finance software · India first",
+            "traction_summary": "₹4.8L MRR · 126 paying customers · 12% MoM growth",
+            "mentor_verified": True,
+            "readiness_score": 82,
+            "profile_visibility": ProfileVisibility.public,
+        },
+        "round": {
+            "name": "Seed Round",
+            "round_type": FundingRoundType.seed,
+            "target_amount": Decimal("20000000.00"),
+            "committed_amount": Decimal("8000000.00"),
+            "currency": "INR",
+            "instrument": InstrumentType.equity,
+            "status": RoundStatus.open,
+            "opens_on": date(2026, 10, 10),
+            "closes_on": date(2027, 3, 31),
+            "min_raise": Decimal("15000000.00"),
+            "min_ticket": Decimal("1000000.00"),
+        },
+    },
+    {
+        "name": "GreenLedger",
+        "city": "Pune, India",
+        "slug_hint": "greenledger",
+        "profile": {
+            "tagline": "Carbon accounting that turns emissions data into audit-ready reports.",
+            "stage": StartupStage.early_revenue,
+            "sector": "Climate",
+            "business_model": "B2B SaaS · Subscription + usage",
+            "problem": "Founders cannot reliably measure or report Scope 1 and 2 emissions.",
+            "solution": "Automated emissions tracking and audit-ready reporting for mid-market firms.",
+            "market": "Carbon accounting · India + EU",
+            "traction_summary": "₹12L MRR · 34 enterprise customers · 18% MoM growth",
+            "mentor_verified": True,
+            "readiness_score": 76,
+            "profile_visibility": ProfileVisibility.public,
+        },
+        "round": {
+            "name": "Pre-seed Round",
+            "round_type": FundingRoundType.pre_seed,
+            "target_amount": Decimal("7500000.00"),
+            "committed_amount": Decimal("1350000.00"),
+            "currency": "INR",
+            "instrument": InstrumentType.safe,
+            "status": RoundStatus.open,
+            "opens_on": date(2026, 9, 15),
+            "closes_on": date(2027, 1, 31),
+            "min_raise": Decimal("5000000.00"),
+            "min_ticket": Decimal("500000.00"),
+        },
+    },
+    {
+        "name": "Northstar Health",
+        "city": "Hyderabad, India",
+        "slug_hint": "northstar-health",
+        "profile": {
+            "tagline": "Patient intake and scheduling for outpatient clinics.",
+            "stage": StartupStage.idea,
+            "sector": "Healthcare",
+            "business_model": "B2B SaaS · Per-clinic subscription",
+            "problem": "Outpatient clinics run on paper and phone queues, losing bookings and staff time.",
+            "solution": "A lightweight intake and scheduling layer that plugs into existing clinic workflows.",
+            "market": "Outpatient clinic ops · India first",
+            "traction_summary": "Prototype in pilot with 2 clinics; first paying customer pending.",
+            "mentor_verified": False,
+            "readiness_score": 68,
+            "profile_visibility": ProfileVisibility.public,
+        },
+        "round": {
+            "name": "Idea Stage Round",
+            "round_type": FundingRoundType.pre_seed,
+            "target_amount": Decimal("4000000.00"),
+            "committed_amount": Decimal("0"),
+            "currency": "INR",
+            "instrument": InstrumentType.safe,
+            "status": RoundStatus.draft,
+            "opens_on": None,
+            "closes_on": date(2027, 5, 31),
+            "min_raise": None,
+            "min_ticket": None,
+        },
+    },
+]
+
+# Step 9d: demo saved searches and shortlist entries for the primary
+# investor firm (Zenith Capital). Fill-only by name / (firm, startup).
+STEP9D_SAVED_SEARCHES: list[dict[str, object]] = [
+    {
+        "name": "Pre-seed fintech · India",
+        "criteria": {
+            "stage": "prototype",
+            "sector": "Fintech",
+            "investment_ready_only": False,
+        },
+    },
+    {
+        "name": "Climate · Seed",
+        "criteria": {
+            "stage": "early_revenue",
+            "sector": "Climate",
+            "investment_ready_only": True,
+        },
+    },
+]
+
+STEP9D_SHORTLIST: list[dict[str, object]] = [
+    {"startup": "Acme Studio", "note": "Strong fintech ops thesis; request intro.", "status": "reviewing"},
+    {"startup": "GreenLedger", "note": "Climate angle fits our thesis.", "status": "new"},
+]
+
+# Step 9e: demo pipeline deals for the primary investor firm, spread across
+# the active stages so the board/table/funnel all render. `days_ago` sets
+# last_activity_at; `startup` matches a STEP9C_STARTUPS name (or the
+# founder's Northstar Labs org). Fill-only by (firm, startup, stage).
+STEP9E_DEALS: list[dict[str, object]] = [
+    {"startup": "Acme Studio", "stage": "diligence", "ticket": "3000000", "probability": 60, "next_step": "Review data room", "days_ago": 2, "owner": "investor@forma.dev"},
+    {"startup": "GreenLedger", "stage": "meeting", "ticket": "1500000", "probability": 45, "next_step": "Schedule follow-up call", "days_ago": 1, "owner": "investor@forma.dev"},
+    {"startup": "Acme Studio", "stage": "data_room", "ticket": "2000000", "probability": 50, "next_step": "Send NDA", "days_ago": 6, "owner": "investor@forma.dev"},
+    {"startup": "Northstar Health", "stage": "interested", "ticket": "1000000", "probability": 20, "next_step": "Initial outreach", "days_ago": 20, "owner": "investor@forma.dev"},
+    {"startup": "GreenLedger", "stage": "offer", "ticket": "2500000", "probability": 75, "next_step": "Final terms", "days_ago": 3, "owner": "investor@forma.dev"},
+    {"startup": "Acme Studio", "stage": "intro", "ticket": "2500000", "probability": 35, "next_step": "Warm intro via mentor", "days_ago": 9, "owner": "investor@forma.dev"},
+]
+
 # (email, display name, role, verified?)
 SEED_USERS = [
     ("founder@forma.dev", "Aarav Sharma", UserRole.startup, True),
@@ -784,6 +981,9 @@ SEED_USERS = [
     ("admin@forma.dev", "Platform Admin", UserRole.admin, True),
     ("mentor@forma.dev", "Meera Iyer", UserRole.mentor, True),
     ("investor@forma.dev", "Rohan Kapoor", UserRole.investor, True),
+    # Step 9b: two more investor-firm owners so the directory has a real list.
+    ("angel@forma.dev", "Sanjana Rao", UserRole.investor, True),
+    ("seed@forma.dev", "Dev Kapadia", UserRole.investor, True),
     ("jobseeker@forma.dev", "Priya Nair", UserRole.jobseeker, True),
     ("employer@forma.dev", "Vikram Singh", UserRole.employer, True),
     ("pending@forma.dev", "Unverified User", UserRole.startup, False),
@@ -1955,6 +2155,258 @@ async def seed() -> None:
                                 await session_review_service._recompute(db, profile)
             await db.commit()
 
+        # -----------------------------------------------------------------
+        # Steps 9b/9c/9d/9e: demo records for the wired investor-deal-flow
+        # pages, moved out of the frontend's inline demo data. Dev-only and
+        # fill-only throughout: existing orgs/profiles/rounds are never
+        # duplicated or overwritten.
+        # -----------------------------------------------------------------
+        inv_firms_added = 0
+        inv_prefs_added = 0
+        disc_startups_added = 0
+        disc_rounds_added = 0
+        saved_searches_added = 0
+        shortlist_added = 0
+        deals_added = 0
+
+        # 9b/9d: investor-firm orgs + their thesis preferences.
+        firm_by_email: dict[str, Organization] = {}
+        for spec in STEP9B_INVESTOR_FIRMMS:
+            owner_email = str(spec["owner_email"])
+            owner = (
+                await db.execute(select(User).where(User.primary_email == owner_email))
+            ).scalar_one_or_none()
+            if owner is None:
+                continue
+            org = (
+                await db.execute(
+                    select(Organization)
+                    .join(OrganizationMember, OrganizationMember.org_id == Organization.id)
+                    .where(
+                        OrganizationMember.user_id == owner.id,
+                        Organization.type == "investor_firm",
+                        Organization.deleted_at.is_(None),
+                    )
+                )
+            ).scalars().first()
+            if org is None:
+                base_slug = re.sub(r"[^a-z0-9]+", "-", str(spec["name"]).lower()).strip("-")[:180]
+                slug, suffix = base_slug, 1
+                while (
+                    await db.execute(select(Organization.id).where(Organization.slug == slug))
+                ).first() is not None:
+                    suffix += 1
+                    slug = f"{base_slug}-{suffix}"
+                org = Organization(
+                    name=str(spec["name"]), slug=slug, type="investor_firm", city=str(spec["city"])
+                )
+                db.add(org)
+                await db.flush()
+                db.add(
+                    OrganizationMember(
+                        org_id=org.id,
+                        user_id=owner.id,
+                        role=OrgRole.owner,
+                        status=MemberStatus.active,
+                        is_founder=True,
+                        joined_at=now,
+                        last_active_at=now,
+                    )
+                )
+                inv_firms_added += 1
+            if org.summary is None:
+                org.summary = str(spec["summary"])
+            firm_by_email[owner_email] = org
+
+            # 9d: thesis preferences (one row per firm). Fill-only.
+            pref = (
+                await db.execute(
+                    select(InvestorPreference).where(InvestorPreference.investor_org_id == org.id)
+                )
+            ).scalar_one_or_none()
+            if pref is None:
+                db.add(
+                    InvestorPreference(
+                        investor_org_id=org.id,
+                        investor_type=spec["investor_type"],
+                        sectors=spec["sectors"],
+                        stage_focus=spec["stage_focus"],
+                        min_ticket=spec["min_ticket"],
+                        max_ticket=spec["max_ticket"],
+                    )
+                )
+                inv_prefs_added += 1
+        if inv_firms_added or inv_prefs_added:
+            await db.commit()
+
+        # 9c: demo opted-in startups (org + public profile + open round).
+        startup_by_name: dict[str, Organization] = {}
+        if founder_org is not None:
+            startup_by_name[founder_org.name] = founder_org
+        for spec in STEP9C_STARTUPS:
+            name = str(spec["name"])
+            org = (
+                await db.execute(
+                    select(Organization).where(
+                        Organization.name == name,
+                        Organization.type == "startup",
+                        Organization.deleted_at.is_(None),
+                    )
+                )
+            ).scalars().first()
+            if org is None:
+                base_slug = re.sub(r"[^a-z0-9]+", "-", str(spec["slug_hint"])).strip("-")[:180]
+                slug, suffix = base_slug, 1
+                while (
+                    await db.execute(select(Organization.id).where(Organization.slug == slug))
+                ).first() is not None:
+                    suffix += 1
+                    slug = f"{base_slug}-{suffix}"
+                org = Organization(
+                    name=name, slug=slug, type="startup", city=str(spec["city"])
+                )
+                db.add(org)
+                await db.flush()
+                disc_startups_added += 1
+            startup_by_name[name] = org
+
+            profile = (
+                await db.execute(
+                    select(StartupProfile).where(StartupProfile.org_id == org.id)
+                )
+            ).scalar_one_or_none()
+            if profile is None:
+                db.add(StartupProfile(org_id=org.id, **spec["profile"]))  # type: ignore[arg-type]
+            else:
+                # Fill only the fields the discovery card renders, and only
+                # where still empty, so dev edits survive a re-run.
+                for key, value in spec["profile"].items():  # type: ignore[union-attr]
+                    if getattr(profile, key) in (None, "", False):
+                        setattr(profile, key, value)
+
+            round_spec = spec["round"]
+            exists = (
+                await db.execute(
+                    select(FundingRound.id).where(
+                        FundingRound.org_id == org.id,
+                        FundingRound.name == str(round_spec["name"]),
+                        FundingRound.deleted_at.is_(None),
+                    )
+                )
+            ).first()
+            if exists is None:
+                instrument = round_spec["instrument"]
+                db.add(
+                    FundingRound(
+                        org_id=org.id,
+                        name=str(round_spec["name"]),
+                        round_type=round_spec["round_type"],
+                        target_amount=round_spec["target_amount"],
+                        committed_amount=round_spec["committed_amount"],
+                        currency=str(round_spec["currency"]),
+                        pre_money_valuation=None,
+                        instrument=instrument if instrument is not None else None,
+                        status=round_spec["status"],
+                        opens_on=round_spec["opens_on"],
+                        closes_on=round_spec["closes_on"],
+                        min_raise=round_spec["min_raise"],
+                        min_ticket=round_spec["min_ticket"],
+                    )
+                )
+                disc_rounds_added += 1
+        if disc_startups_added or disc_rounds_added:
+            await db.commit()
+
+        # 9d: saved searches + shortlist for the primary investor firm.
+        primary_firm = firm_by_email.get("investor@forma.dev")
+        if primary_firm is not None:
+            for spec in STEP9D_SAVED_SEARCHES:
+                exists = (
+                    await db.execute(
+                        select(SavedSearch.id).where(
+                            SavedSearch.investor_org_id == primary_firm.id,
+                            SavedSearch.name == str(spec["name"]),
+                            SavedSearch.deleted_at.is_(None),
+                        )
+                    )
+                ).first()
+                if exists is not None:
+                    continue
+                db.add(
+                    SavedSearch(
+                        investor_org_id=primary_firm.id,
+                        name=str(spec["name"]),
+                        criteria=spec["criteria"],
+                        is_active=True,
+                    )
+                )
+                saved_searches_added += 1
+
+            for spec in STEP9D_SHORTLIST:
+                target = startup_by_name.get(str(spec["startup"]))
+                if target is None:
+                    continue
+                exists = (
+                    await db.execute(
+                        select(ShortlistEntry.id).where(
+                            ShortlistEntry.investor_org_id == primary_firm.id,
+                            ShortlistEntry.startup_org_id == target.id,
+                            ShortlistEntry.deleted_at.is_(None),
+                        )
+                    )
+                ).first()
+                if exists is not None:
+                    continue
+                db.add(
+                    ShortlistEntry(
+                        investor_org_id=primary_firm.id,
+                        startup_org_id=target.id,
+                        note=spec["note"],
+                        status=ShortlistStatus(str(spec["status"])),
+                    )
+                )
+                shortlist_added += 1
+            if saved_searches_added or shortlist_added:
+                await db.commit()
+
+            # 9e: demo pipeline deals for the primary investor firm.
+            for spec in STEP9E_DEALS:
+                target = startup_by_name.get(str(spec["startup"]))
+                if target is None:
+                    continue
+                exists = (
+                    await db.execute(
+                        select(InvestorDeal.id).where(
+                            InvestorDeal.investor_org_id == primary_firm.id,
+                            InvestorDeal.startup_org_id == target.id,
+                            InvestorDeal.stage == PipelineStage(str(spec["stage"])),
+                            InvestorDeal.deleted_at.is_(None),
+                        )
+                    )
+                ).first()
+                if exists is not None:
+                    continue
+                owner_user = (
+                    await db.execute(select(User).where(User.primary_email == str(spec["owner"])))
+                ).scalar_one_or_none()
+                db.add(
+                    InvestorDeal(
+                        investor_org_id=primary_firm.id,
+                        startup_org_id=target.id,
+                        stage=PipelineStage(str(spec["stage"])),
+                        probability=int(spec["probability"]),  # type: ignore[call-overload]
+                        ticket_size=Decimal(str(spec["ticket"])),
+                        currency="INR",
+                        owner_id=owner_user.id if owner_user is not None else None,
+                        next_step=spec["next_step"],
+                        last_activity_at=now
+                        - timedelta(days=int(spec["days_ago"])),  # type: ignore[call-overload]
+                    )
+                )
+                deals_added += 1
+            if deals_added:
+                await db.commit()
+
     await engine.dispose()
 
     print("Seeded (dev only):")
@@ -1987,6 +2439,13 @@ async def seed() -> None:
     print(f"  + competitors (5l): {competitors_added}")
     print(f"  + talent profile: {talent_added}")
     print(f"  + mentor profile: {mentor_added}")
+    print(f"  + investor firms (9b): {inv_firms_added}")
+    print(f"  + investor preferences (9d): {inv_prefs_added}")
+    print(f"  + discovery startups (9c): {disc_startups_added}")
+    print(f"  + discovery rounds (9c): {disc_rounds_added}")
+    print(f"  + saved searches (9d): {saved_searches_added}")
+    print(f"  + shortlist entries (9d): {shortlist_added}")
+    print(f"  + pipeline deals (9e): {deals_added}")
     print(f"\nPassword for all seeded accounts: {DEV_PASSWORD}")
 
 
