@@ -1,4 +1,4 @@
-# Forma Backend: Detailed Build Plan (v2)
+# Forma Backend: Detailed Build Plan (v3)
 
 Stack: Python, FastAPI, async SQLAlchemy 2.0, Alembic, PostgreSQL.
 Roles: startup member/founder, mentor, investor, job seeker, employer, admin.
@@ -22,6 +22,8 @@ The frontend currently uses only demo data. For every step that has pages, do th
 ## Decisions already made
 
 UUID primary keys. Multi-role users (`user_roles`). Startups, employers and investor firms are all `organizations`. Cloudflare R2 for files. Resend in production, Gmail SMTP or Mailpit locally (`EMAIL_PROVIDER` + one `send_email()`). Own JWT auth. Redis (Upstash) for rate limiting. Messaging by polling first. PostgreSQL full-text search first.
+
+AI layer: LangChain (`init_chat_model`) so the provider can be switched from `.env` (`LLM_PROVIDER`, `LLM_MODEL`). Gemini API for testing now, Claude API later if the results are good. Only the AI service layer (7v) talks to LangChain; routers and other services never import it. Provider keys stay on the server.
 
 Still open: payment provider (Razorpay proposed), background jobs (FastAPI BackgroundTasks first, worker later).
 
@@ -399,7 +401,7 @@ Done when: connections work between allowed pairs and blocks are respected by pr
 
 ---
 
-## STEP 7: Hiring: employer side and job seeker side (split into 7a to 7u)
+## STEP 7: Hiring: employer side and job seeker side (split into 7a to 7x)
 
 Employer and job seeker pages share the same tables, so both sides are built together in the order a real hiring flow runs. **Do not give the agent "Step 7" as one task; give it one sub-step at a time.** Already done in Step 3: employer organization profile and settings, job seeker profile and settings, talent profile and skills, readiness score.
 
@@ -428,6 +430,9 @@ Rules from Step 5 apply to every sub-step here: the sizing rule (about 5 tables,
 | **7s** Startup hiring: interviews and offers | Wire the startup interviews and offers pages to 7f and 7g | none new (uses 7f, 7g) | 2 | /startup/hiring/interviews, /startup/hiring/offers |
 | **7t** Startup hiring: talent search, requests and employer page | Wire talent search (7j), hiring requests (7i) and the startup's public employer page (organization page plus its open jobs) | none new (uses 7i, 7j, Step 3 and 7b) | 3 | /startup/hiring/talent, /startup/hiring/requests/new, /startup/hiring/employer-page |
 | **7u** Job seeker dashboard and Step 7 test pass | Job seeker dashboard from 7a to 7q, then a click-through of every employer, startup hiring and job seeker page above | none | 1 | /jobseeker/dashboard, then all pages from 7a to 7t |
+| **7v** AI layer foundation | LangChain model factory driven by `.env`, Pydantic output schemas, prompt templates, one service layer (`app/ai`, `app/services`), per-user rate limits and usage metering, logging of AI calls without personal data in the logs, a small eval set (10 to 15 samples) to compare Gemini and Claude before switching. Used by 7w, 7x, 7o, 7p, 7q and Step 19 | `ai_usage_events` (propose first: user, feature, model, token counts, created_at) | 1 | none (admin usage view can come with 15o) |
+| **7w** AI resume generation, profile first | Generate a resume from data already on the platform (user, talent profile, skills, experience from Step 3) and ask only for what is missing. One `REQUIRED_FIELDS` config decides what counts as missing; `GET /resumes/requirements` returns only the missing fields and a completeness percentage. Extra answers are saved back to the profile only if the user ticks a box. Optional pasted job description tailors wording. Editable preview and PDF export | none new (writes into the 7n resume tables; additive columns such as `source` and `perspective` by migration) | 5 | /jobseeker/resumes/new (generate flow), /jobseeker/resumes/[resumeId] (preview, export) |
+| **7x** Company-perspective resume (GAP) | The employer or startup view of a candidate: a standard resume in the company's template, aligned to one job posting, with gaps listed separately instead of hidden. Only for candidates who applied to that job (7c) or who consented to share. Propose the model first (for example `perspective`, `job_id` and `application_id` on resumes, and a company resume template table) | propose first | 6 | /employer/jobs/[jobId]/applicants/[applicantId], /startup/hiring/[jobId]/applicants/[applicantId], /employer/templates (resume template part) |
 
 Build the sub-steps in this order. A sub-step marked GAP has no table in `schema.sql`: propose the table in the plan and wait for my answer; do not invent it.
 
@@ -438,7 +443,10 @@ Notes:
 - **7g and 7i**: the UI shows several approvers, but `hiring_requests` and offers have one `approver_id`. Propose a small approval table or settle on one approver, and wait for my answer.
 - **7h**: needs Step 4 for documents. If Step 4 is not built yet, build the checklist part and leave documents for later.
 - **7j**: only job seekers with `is_searchable` and `profile_public` appear. Respect `hide_current_employer`. Rate-limit contact and exports.
-- **7o and 7q**: use rule-based scoring first. Sending resume text or interview answers to an AI provider needs a decision on provider, cost and user consent (DPDP) before it is built.
+- **7o and 7q**: use rule-based scoring first. The provider decision is made (LangChain, Gemini for testing, Claude later, see 7v). Sending resume text or interview answers to an AI provider still needs cost approval and user consent (DPDP) before it is built, and every call goes through the 7v service layer.
+- **7v**: build it before 7w and before any AI part of 7o, 7p, 7q or Step 19. Pin the LangChain versions. Use structured output (Pydantic) instead of parsing free text. Rate-limit every AI endpoint per user and meter usage so plan limits (Step 14b) can be applied later. User text goes only in the user message, never in the system prompt (prompt-injection rule). Cap input lengths (job description, answers, transcripts). Do not log full prompts that contain personal data.
+- **7w**: the AI may use only facts from the profile and the user's answers; it must never invent employers, degrees or numbers. Show an editable preview before saving. The completeness check must never ask for something already on the profile. Empty optional sections (for example projects) are skipped unless the target job needs them. Saving answers to the profile is opt-in and goes through the same Step 3 profile validation.
+- **7x**: confirm the meaning first. "Company perspective" is assumed to be the employer-side view of a candidate; if it means something else (for example a company profile document), change this sub-step before building. Candidate private data (phone, email, salary expectation) follows the 7d rules. Blind-review mode from 7d must also hide name, photo and school in the company resume. Every endpoint checks membership of the hiring organization (employer or startup) and the candidate's application or consent.
 - **Startup hiring (7r to 7t):** the startup role has its own hiring pages (`/startup/hiring/*`, one 1,500-line file `startup/hiring/hiring-app.jsx` with inline demo jobs and candidates). They use the same API as the employer pages, because a startup is an organization. Wire only what those pages show; do not add the extra employer features (scorecards, hires, templates) to the startup UI. In 7a to 7j every hiring endpoint must accept both organization types (employer and startup) and check the caller's membership of that organization.
 - Not part of Step 7: `/employer/billing` (Step 14), `/employer/trust` (15d), messages (Step 11), community (Step 10), profile and settings (done in Step 3).
 
@@ -693,9 +701,44 @@ Parts:
 
 ---
 
+## STEP 19: Meeting summary and minutes (split into 19a to 19f)
+
+After a meeting, one click produces a summary and formal minutes. It works on every kind of meeting the platform already has: mentoring sessions (8d), investor meetings (9f) and interviews (7f). **Give the agent one sub-step at a time.** Needs 7v (AI layer) first.
+
+Rules from Step 5 apply to every sub-step here: the sizing rule (about 5 tables, 12 endpoints, 3 pages), ownership checks on every row, cross-organization reference tests, server-controlled fields that clients never write, mass-assignment tests, paginated lists, and demo records moved to the dev seed script. Backend phase A first, then I approve, then frontend phase B for that sub-step only.
+
+Design:
+- One generic model for all meeting types: each row points to its meeting with `source_type` (`mentoring_session`, `investor_meeting`, `interview`) and `source_id`. The service checks that the caller is an attendee or a permitted member of the right organization for that source type. Do not build three copies.
+- Output (`MeetingMinutes`, structured): summary, agenda topics, discussion points, decisions, action items (task, owner, due date), open questions, attendees, date and duration.
+- Long transcripts: split into chunks, summarize each, then merge, so nothing is cut off. Input length is capped.
+- One current minutes per meeting; regenerating creates a new version and keeps the old one.
+- The transcript is data, not instructions (prompt-injection rule from 7v).
+
+| Sub-step | Scope | Tables | About endpoints | Frontend pages (phase B) |
+|---|---|---|---|---|
+| **19a** Transcript and notes | Attach a transcript or notes to a meeting (paste or text file), edit, delete; who may add and read; recording-consent flag per meeting | `meeting_transcripts` (source_type, source_id, source, text, created_by) | 6 | transcript and notes panel on the meeting pages below |
+| **19b** One-click generation | "Generate summary and minutes" button: validates attendee and transcript, calls the 7v chain with chunking, saves a draft with status, handles failure and retry, regenerate as a new version | `meeting_minutes` (source_type, source_id, version, content JSON, status, generated_by, edited_by) | 5 | button and draft view on the meeting pages below |
+| **19c** Edit, approve, share, export | Edit the draft, mark approved, share with attendees (notification in Step 12), PDF export; action items listed with owner and due date | `meeting_minutes_shares` (or reuse notifications; decide in the plan) | 6 | minutes view, share and export on the meeting pages below |
+| **19d** Audio or video to transcript (needs Step 4) | Upload a recording, speech-to-text (Whisper, Deepgram or Gemini audio; decide the provider and cost first), result saved as a transcript; consent record required before processing | `meeting_recordings` (propose first) | 5 | upload and status on the meeting pages below |
+| **19e** Action items to tasks | A button turns one action item into a task (5c) only when the owner is an active member of the startup; never automatic | none new (uses 5c) | 2 | action item list on the minutes view |
+| **19f** Step 19 test pass | Click through as a mentor, founder, team member, investor, employer, interviewer, candidate and an outsider | none | 0 | all pages below |
+
+Meeting pages that get the button and panels: /mentor/sessions/[sessionId], /startup/sessions/[sessionId] (8d), /investor/meetings, /startup/meetings (9f), /employer/interviews, /startup/hiring/interviews (7f).
+
+Notes:
+- **Order:** 19a to 19c can start with mentoring sessions as soon as 7v exists, because 8d is already built. Investor meetings wait for 9f, interviews wait for 7f; add each source type when its meeting model exists. 19d waits for Step 4.
+- **Do not overwrite manual notes:** 8d sessions already have their own summary and action items. The AI draft lives in `meeting_minutes` and is copied into the session only when the user clicks to accept it.
+- **Who can see minutes:** only attendees and permitted roles of that meeting. Interview minutes are visible to the employer-side interviewers only; sharing with the candidate is a separate, explicit action. Interview feedback and scorecards (7e, 7f) are never put into minutes automatically.
+- **Consent (DPDP):** show a notice in the meeting UI before any recording or transcription; store who consented and when; no processing without it. Sending transcripts to an external AI provider needs the same consent and a retention rule (decide how long transcripts are kept).
+- **Accuracy:** owners and due dates only if they were actually said in the meeting, otherwise left empty. The UI labels minutes as AI-generated drafts until approved.
+- **Abuse and cost:** per-user and per-organization rate limits, input size cap, and usage metering through 7v. A meeting can have only one generation running at a time.
+- **Tests:** outsider and non-attendee rejected for every endpoint, cross-organization source ids rejected, regenerate keeps the old version, a failed generation leaves no half-saved minutes, mass-assignment cannot set `status`, `generated_by` or `version`.
+
+---
+
 ## Order summary and recommended build order
 
-Step numbers: 0 Paper review, 1 Foundation, 2 Auth, 3 Profiles and organizations, 4 Files, 5 Startup workspace (5a to 5n), 6 Connections, 7 Hiring (7a to 7u), 8 Mentors (8a to 8k), 9 Investors and data room (9a to 9n), 10 Community and events, 11 Messaging, 12 Notifications, 13 Search, 14 Billing (14a to 14i), 15 Admin console (15a to 15r), 16 Frontend final sweep, 17 Hardening, 18 Deployment.
+Step numbers: 0 Paper review, 1 Foundation, 2 Auth, 3 Profiles and organizations, 4 Files, 5 Startup workspace (5a to 5n), 6 Connections, 7 Hiring (7a to 7x), 8 Mentors (8a to 8k), 9 Investors and data room (9a to 9n), 10 Community and events, 11 Messaging, 12 Notifications, 13 Search, 14 Billing (14a to 14i), 15 Admin console (15a to 15r), 16 Frontend final sweep, 17 Hardening, 18 Deployment, 19 Meeting summary and minutes (19a to 19f).
 
 Recommended build order, because of dependencies:
 1. Steps 0 to 3 (3d team management still open) and Step 5 (5a to 5n, in progress).
@@ -706,5 +749,7 @@ Recommended build order, because of dependencies:
 6. **Step 14** (billing), with the payment provider decided before 14c.
 7. The rest of the admin console: 15d to 15r, once the data they manage exists.
 8. Steps 16, 17, 18.
+
+AI features: build **7v** (AI layer) early, any time after Step 3, because 7w, 7x, 7o to 7q and Step 19 all use it. **7w** comes after 7n and 7v. **7x** comes after 7c, 7d and 7w. **Step 19a to 19c** can start with mentoring sessions as soon as 7v exists (8d is built); add investor meetings after 9f and interviews after 7f; 19d needs Step 4.
 
 Pause for a real frontend click-through at the end of each step (the "test pass" sub-step). Use the same two prompts for every sub-step: "Do <sub-step> backend phase only", then "Do <sub-step> frontend wiring".

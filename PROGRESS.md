@@ -1,6 +1,6 @@
 # Backend Progress Map: Forma
 
-Matches BUILD_PLAN.md v2 (step numbers are the same). For every step that has pages, two phases: (A) backend done and tested, (B) frontend wired, demo data removed, dev seed script updated. Tick both. Finish and test each step before the next. The agent ticks boxes after each finished step.
+Matches BUILD_PLAN.md v3 (step numbers are the same). For every step that has pages, two phases: (A) backend done and tested, (B) frontend wired, demo data removed, dev seed script updated. Tick both. Finish and test each step before the next. The agent ticks boxes after each finished step.
 
 ## Setup
 - [x] AGENTS.md, BUILD_PLAN.md, PROGRESS.md in the project root
@@ -213,6 +213,19 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 ### 7u Job seeker dashboard and Step 7 test pass
 - [ ] A: Job seeker dashboard from 7a to 7q, then a click-through of every employer, startup hiring and job seeker page above
 - [ ] B: /jobseeker/dashboard, then all pages from 7a to 7t wired; demo data removed
+
+### 7v AI layer foundation
+- [ ] A: LangChain model factory from `.env` (Gemini for testing, Claude later), Pydantic output schemas, prompt templates, service layer, per-user rate limits and usage metering (`ai_usage_events`, propose first), AI call logging without personal data, eval set to compare Gemini and Claude
+- [ ] B: no page of its own (admin usage view later in 15o)
+
+### 7w AI resume generation, profile first
+- [ ] A: Generate a resume from the existing profile and ask only for missing fields (`GET /resumes/requirements` with one `REQUIRED_FIELDS` config), opt-in save of answers back to the profile, no invented facts, optional job description tailoring
+- [ ] B: /jobseeker/resumes/new (generate flow), /jobseeker/resumes/[resumeId] (editable preview, PDF export) wired; demo data removed
+
+### 7x Company-perspective resume (GAP)
+- [ ] Confirm what "company perspective" means (assumed: employer-side view of a candidate, job-aligned, gaps shown separately)
+- [ ] A: model proposed first and approved; company template; only for candidates who applied (7c) or consented; blind-review respected
+- [ ] B: /employer/jobs/[jobId]/applicants/[applicantId], /startup/hiring/[jobId]/applicants/[applicantId], /employer/templates (resume template part) wired; demo data removed
 
 ## Step 8: Mentors (one sub-step at a time; A = backend, B = frontend wired)
 
@@ -474,3 +487,29 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [ ] Domain, HTTPS, admin subdomain
 - [ ] Domain email (SPF, DKIM, DMARC), provider switched to Resend
 - [ ] Launch checklist and rollback plan
+
+## Step 19: Meeting summary and minutes (one sub-step at a time; A = backend, B = frontend wired)
+Needs 7v first. Works for mentoring sessions (8d), investor meetings (9f) and interviews (7f) through one generic `source_type` + `source_id` model.
+
+### 19a Transcript and notes
+- [ ] A: `meeting_transcripts`, attach, edit, delete, attendee-only access, recording-consent flag
+- [ ] B: transcript and notes panel on the meeting pages wired; demo data removed
+
+### 19b One-click generation
+- [ ] A: `meeting_minutes`, generate with chunking and structured output, status and retry, regenerate as a new version, one generation at a time
+- [ ] B: "Generate summary and minutes" button and draft view wired
+
+### 19c Edit, approve, share, export
+- [ ] A: edit draft, approve, share with attendees, PDF export; manual 8d session notes never overwritten
+- [ ] B: minutes view, share and export wired; AI-draft label until approved
+
+### 19d Audio or video to transcript (needs Step 4)
+- [ ] A: recording upload, speech-to-text provider decided, consent record required (`meeting_recordings`, propose first)
+- [ ] B: upload and status wired
+
+### 19e Action items to tasks
+- [ ] A: convert one action item into a task (5c) on click, owner must be an active member
+- [ ] B: action item list wired
+
+### 19f Step 19 test pass
+- [ ] Click-through as mentor, founder, member, investor, employer, interviewer, candidate and outsider; no leftover demo data
