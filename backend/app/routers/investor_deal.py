@@ -46,7 +46,7 @@ async def list_deals(
     user: Annotated[User, Depends(get_current_user)],
     stage: PipelineStage | None = None,
     q: Annotated[str | None, Query(max_length=100)] = None,
-    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> InvestorDealPage:
     items, total = await investor_deal_service.list_deals(
@@ -131,7 +131,7 @@ async def deal_history(
     deal_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
-    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> InvestorDealHistoryPage:
     return await investor_deal_service.deal_history(
@@ -151,7 +151,7 @@ async def list_startup_deals(
     org_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
-    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> StartupInvestorDealPage:
     items, total = await investor_deal_service.list_startup_deals(
