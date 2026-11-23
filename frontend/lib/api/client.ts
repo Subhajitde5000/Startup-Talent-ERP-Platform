@@ -349,10 +349,18 @@ export type InvestorOfferCounter = components["schemas"]["InvestorOfferCounter"]
 export type InvestorOfferPage = components["schemas"]["InvestorOfferPage"];
 export type OfferVersionItem = components["schemas"]["OfferVersionItem"];
 export type OfferHistoryPage = components["schemas"]["OfferHistoryPage"];
+export type StartupOfferRead = components["schemas"]["StartupOfferRead"];
+export type StartupOfferPage = components["schemas"]["StartupOfferPage"];
 
 /** Whitelisted filters for `offers.list` (Step 9i). */
 export type OfferListQuery = {
   status?: OfferStatus;
+  limit?: number;
+  offset?: number;
+};
+
+export type StartupOfferListQuery = {
+  round_id?: string;
   limit?: number;
   offset?: number;
 };
@@ -2650,6 +2658,39 @@ export const api = {
         method: "GET",
         signal,
       }),
+
+    /** `GET /organizations/{orgId}/investor-offers` — offers received by startup. */
+    listForStartup: (
+      orgId: string,
+      query?: StartupOfferListQuery,
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<StartupOfferPage>(`/organizations/${orgId}/investor-offers`, {
+        method: "GET",
+        query: query as Record<string, string | number | boolean | undefined>,
+        signal,
+      }),
+
+    /** `GET /organizations/{orgId}/investor-offers/{id}` — one offer. */
+    getForStartup: (orgId: string, offerId: string, signal?: AbortSignal) =>
+      apiRequest<StartupOfferRead>(
+        `/organizations/${orgId}/investor-offers/${offerId}`,
+        { method: "GET", signal },
+      ),
+
+    /** `POST /organizations/{orgId}/investor-offers/{id}/accept` — accept offer. */
+    accept: (orgId: string, offerId: string) =>
+      apiRequest<StartupOfferRead>(
+        `/organizations/${orgId}/investor-offers/${offerId}/accept`,
+        { method: "POST" },
+      ),
+
+    /** `POST /organizations/{orgId}/investor-offers/{id}/decline` — decline offer. */
+    decline: (orgId: string, offerId: string) =>
+      apiRequest<StartupOfferRead>(
+        `/organizations/${orgId}/investor-offers/${offerId}/decline`,
+        { method: "POST" },
+      ),
   },
 
   // --- Step 9j: commitments + portfolio ------------------------------------

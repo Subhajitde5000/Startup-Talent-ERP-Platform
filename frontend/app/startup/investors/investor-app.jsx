@@ -310,7 +310,17 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     );
     return match || 'Upcoming';
   });
-  const [roundTab, setRoundTab] = useState('Overview');
+  const [roundTab, setRoundTab] = useState(() => {
+    const q = searchParams?.get('tab');
+    if (!q) return 'Overview';
+    if (q.toLowerCase() === 'offers' || q.toLowerCase() === 'offers and commitments') {
+      return 'Offers and commitments';
+    }
+    const match = ['Overview', 'Offers and commitments', 'Term sheets', 'Cap table impact', 'Documents', 'Activity'].find(
+      (t) => t.toLowerCase() === q.toLowerCase()
+    );
+    return match || 'Overview';
+  });
   const [messagesTab, setMessagesTab] = useState('Investors');
 
   const [vis, setVis] = useState('Mentors and verified investors');
@@ -379,6 +389,13 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const [editRoundErrors, setEditRoundErrors] = useState({});
   const [savingEditRound, setSavingEditRound] = useState(false);
 
+  // Step 9i: round offers (startup view on round-detail).
+  const [roundOffers, setRoundOffers] = useState([]);
+  const [roundOffersPhase, setRoundOffersPhase] = useState('loading'); // loading|ready|error|none
+  const [roundOffersError, setRoundOffersError] = useState('');
+  const [selectedOfferModal, setSelectedOfferModal] = useState(null); // { offer, action: 'accept' | 'decline' }
+  const [offerActionSubmitting, setOfferActionSubmitting] = useState(false);
+
   // Step 9b: investor directory (startup view). Only loaded for the
   // discover and investor-detail pages; every other page keeps its demo data.
   const [directoryPhase, setDirectoryPhase] = useState('loading'); // loading|ready|error|none
@@ -436,6 +453,14 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
       (t) => t.toLowerCase() === q.toLowerCase()
     );
     if (match) setMeetingTab(match);
+    if (q.toLowerCase() === 'offers' || q.toLowerCase() === 'offers and commitments') {
+      setRoundTab('Offers and commitments');
+    } else {
+      const roundMatch = ['Overview', 'Offers and commitments', 'Term sheets', 'Cap table impact', 'Documents', 'Activity'].find(
+        (t) => t.toLowerCase() === q.toLowerCase()
+      );
+      if (roundMatch) setRoundTab(roundMatch);
+    }
   }, [searchParams]);
 
   useEffect(() => {
@@ -483,6 +508,43 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     }
   };
 
+  const loadRoundOffers = async (orgId, roundId) => {
+    setRoundOffersPhase('loading');
+    setRoundOffersError('');
+    try {
+      const result = await api.offers.listForStartup(orgId);
+      if (cancelledRef.current) return;
+      const relevant = (result.items || []).filter((o) => !roundId || o.round_id === roundId);
+      setRoundOffers(relevant);
+      setRoundOffersPhase('ready');
+    } catch (err) {
+      if (cancelledRef.current) return;
+      setRoundOffersPhase('error');
+      setRoundOffersError(err instanceof ApiError ? err.message : 'Could not load offers for this round.');
+    }
+  };
+
+  const handleConfirmOfferAction = async () => {
+    if (!org || !selectedOfferModal || offerActionSubmitting) return;
+    const { offer, action } = selectedOfferModal;
+    setOfferActionSubmitting(true);
+    try {
+      if (action === 'accept') {
+        await api.offers.accept(org.id, offer.id);
+        notify('Offer accepted.');
+      } else {
+        await api.offers.decline(org.id, offer.id);
+        notify('Offer declined.');
+      }
+      setSelectedOfferModal(null);
+      await Promise.all([loadRound(org.id, id), loadRoundOffers(org.id, id)]);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : `Failed to ${action} offer.`);
+    } finally {
+      if (!cancelledRef.current) setOfferActionSubmitting(false);
+    }
+  };
+
   // Resolve the startup org and load this page's rounds. Gated to the two
   // Step 9a pages; every other page in this shared component keeps its demo data.
   useEffect(() => {
@@ -497,6 +559,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
           setOrg(null);
           setRoundsPhase('none');
           setRoundPhase('none');
+          setRoundOffersPhase('none');
           return;
         }
         setOrg(startup);
@@ -504,12 +567,13 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
         if (page === 'rounds') {
           await loadRounds(startup.id);
         } else {
-          await loadRound(startup.id, id);
+          await Promise.all([loadRound(startup.id, id), loadRoundOffers(startup.id, id)]);
         }
       } catch {
         if (!cancelled) {
           setRoundsPhase('error');
           setRoundPhase('error');
+          setRoundOffersPhase('error');
         }
       }
     })();
@@ -1262,19 +1326,35 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
             )}
             {hubPhase === 'ready' && hubSummary && showAnyway && (
               <>
-                <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
                   {[
-                    ['Open rounds', hubSummary.open_rounds],
-                    ['Deals in pipeline', hubSummary.deals_in_pipeline],
-                    ['Pending requests', hubSummary.pending_requests],
-                    ['Meetings this month', hubSummary.meetings_this_month],
-                    ['Offers received', hubSummary.offers_received],
-                    ['Commitments received', hubSummary.commitments_received],
-                  ].map(([n, v]) => (
-                    <div key={n} className="rounded-xl border border-[#E5E1D8] bg-white p-4">
+                    ['Open rounds', hubSummary.open_rounds, '/startup/rounds'],
+                    ['Deals in pipeline', hubSummary.deals_in_pipeline, '/startup/investors/pipeline'],
+                    ['Pending requests', hubSummary.pending_requests, '/startup/meetings?tab=requests'],
+                    ['Meetings this month', hubSummary.meetings_this_month, '/startup/meetings'],
+                    [
+                      'Offers received',
+                      hubSummary.offers_received,
+                      hubSummary.primary_round
+                        ? `/startup/rounds/${hubSummary.primary_round.id}?tab=offers`
+                        : '/startup/rounds',
+                    ],
+                    [
+                      'Commitments received',
+                      hubSummary.commitments_received,
+                      hubSummary.primary_round
+                        ? `/startup/rounds/${hubSummary.primary_round.id}?tab=offers`
+                        : '/startup/rounds',
+                    ],
+                  ].map(([n, v, href]) => (
+                    <Link
+                      key={n}
+                      href={href}
+                      className="block rounded-xl border border-[#E5E1D8] bg-white p-4 transition hover:border-[#9A7A45] hover:shadow-xs"
+                    >
                       <p className="text-xs text-[#4A5568]">{n}</p>
                       <b className="serif mt-1 block text-2xl">{v}</b>
-                    </div>
+                    </Link>
                   ))}
                 </div>
                 <div className="grid items-start gap-5 xl:grid-cols-3">
@@ -1726,13 +1806,23 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                             {label}<span className="text-[#4A5568]">{stageDeals.length}</span>
                           </h2>
                           {stageDeals.map(d => (
-                            <Link href={`/startup/investors/${d.investor_org_id}`} key={d.id} className="mb-2 block rounded-lg border border-[#E5E1D8] bg-white p-3 hover:border-[#A0A7B4]">
-                              <b className="text-xs">{d.investor_name}</b>
+                            <div key={d.id} className="mb-2 block rounded-lg border border-[#E5E1D8] bg-white p-3 hover:border-[#A0A7B4]">
+                              <Link href={`/startup/investors/${d.investor_org_id}`} className="block text-xs font-semibold hover:underline">
+                                {d.investor_name}
+                              </Link>
                               <p className="mt-1 text-[10px] text-[#4A5568]">
                                 {d.ticket_size != null ? formatMoney(d.ticket_size, d.currency) : 'Ticket not shared'}
                               </p>
                               {d.next_step && <p className="mt-2 text-[10px] text-[#4A5568]">{d.next_step}</p>}
-                            </Link>
+                              {d.stage === 'offer' && (
+                                <Link
+                                  href={d.round_id ? `/startup/rounds/${d.round_id}?tab=offers` : '/startup/rounds'}
+                                  className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold text-[#9A7A45] hover:underline"
+                                >
+                                  View offer <ArrowRight size={10} />
+                                </Link>
+                              )}
+                            </div>
                           ))}
                         </section>
                       );
@@ -1763,7 +1853,18 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                                 <td>{PIPELINE_STAGE_LABELS[d.stage] || d.stage}</td>
                                 <td>{d.last_activity_at ? new Date(d.last_activity_at).toLocaleDateString() : '—'}</td>
                                 <td>{d.ticket_size != null ? formatMoney(d.ticket_size, d.currency) : '—'}</td>
-                                <td>{d.next_step || '—'}</td>
+                                <td>
+                                  {d.stage === 'offer' ? (
+                                    <Link
+                                      href={d.round_id ? `/startup/rounds/${d.round_id}?tab=offers` : '/startup/rounds'}
+                                      className="font-medium text-[#9A7A45] hover:underline"
+                                    >
+                                      View offer →
+                                    </Link>
+                                  ) : (
+                                    d.next_step || '—'
+                                  )}
+                                </td>
                               </tr>
                             ))}
                         </tbody>
@@ -2660,10 +2761,86 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                       </p>
                     </>
                   ) : roundTab === 'Offers and commitments' ? (
-                    <EmptyBlock
-                      title="Offers and commitments arrive later"
-                      hint="Offers are recorded with the offers step (a later step); none exist yet for this round."
-                    />
+                    roundOffersPhase === 'loading' ? (
+                      <LoadingBlock message="Loading offers for this round…" />
+                    ) : roundOffersPhase === 'error' ? (
+                      <ErrorBlock
+                        message={roundOffersError || 'Could not load offers.'}
+                        onRetry={() => loadRoundOffers(org?.id, id)}
+                      />
+                    ) : roundOffers.length === 0 ? (
+                      <EmptyBlock
+                        title="No offers received yet"
+                        hint="Offers sent by interested investors for this round will appear here with terms, instrument, and acceptance controls."
+                      />
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[700px] text-left text-xs">
+                          <thead className="border-b text-[#4A5568]">
+                            <tr>
+                              {['Investor', 'Offer amount', 'Instrument', 'Cap / Valuation', 'Discount', 'Status', 'Expires', 'Actions'].map((h) => (
+                                <th key={h} className="py-3 font-semibold">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#E5E1D8]">
+                            {roundOffers.map((offer) => {
+                              const isOpen = ['sent', 'countered'].includes(offer.status);
+                              return (
+                                <tr key={offer.id} className="hover:bg-[#FAF8F4]/60">
+                                  <td className="py-3">
+                                    <div className="font-semibold text-ink">{offer.investor_name}</div>
+                                    <div className="text-[10px] text-[#4A5568]">v{offer.version}</div>
+                                  </td>
+                                  <td className="py-3 font-semibold text-ink">
+                                    {formatMoney(offer.amount, offer.currency)}
+                                  </td>
+                                  <td className="py-3 uppercase text-[#4A5568]">
+                                    {offer.instrument.replace(/_/g, ' ')}
+                                  </td>
+                                  <td className="py-3">
+                                    {offer.valuation_cap != null ? formatMoney(offer.valuation_cap, offer.currency) : '—'}
+                                  </td>
+                                  <td className="py-3">
+                                    {offer.discount_pct != null ? `${offer.discount_pct}%` : '—'}
+                                  </td>
+                                  <td className="py-3">
+                                    <StatusBadge status={offer.status.charAt(0).toUpperCase() + offer.status.slice(1)} />
+                                  </td>
+                                  <td className="py-3 text-[#4A5568]">
+                                    {offer.expires_on || '—'}
+                                  </td>
+                                  <td className="py-3">
+                                    {isOpen && canEditRounds ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <button
+                                          type="button"
+                                          onClick={() => setSelectedOfferModal({ offer, action: 'accept' })}
+                                          className="rounded-md bg-ink px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-black transition"
+                                        >
+                                          Accept
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setSelectedOfferModal({ offer, action: 'decline' })}
+                                          className="rounded-md border border-[#E5E1D8] bg-white px-2.5 py-1 text-[11px] font-medium text-stone-700 hover:bg-stone-50 transition"
+                                        >
+                                          Decline
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[11px] capitalize text-[#4A5568]">
+                                        {offer.status}
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
                   ) : roundTab === 'Term sheets' ? (
                     <EmptyBlock
                       title="Term sheets arrive later"
@@ -3635,6 +3812,101 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
               )}
             </div>
           </section>
+        </div>
+      )}
+
+      {/* Offer Action Modal (Accept / Decline) */}
+      {selectedOfferModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-[#E5E1D8] bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-[#F4F1EA] pb-3">
+              <h2 className="text-base font-semibold text-ink">
+                {selectedOfferModal.action === 'accept' ? 'Accept Investment Offer' : 'Decline Investment Offer'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => !offerActionSubmitting && setSelectedOfferModal(null)}
+                aria-label="Close"
+                className="text-[#4A5568] hover:text-ink"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-3.5 text-xs">
+                <div className="flex justify-between py-1">
+                  <span className="text-[#4A5568]">Investor</span>
+                  <span className="font-semibold text-ink">{selectedOfferModal.offer.investor_name}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-[#4A5568]">Offer amount</span>
+                  <span className="font-semibold text-ink">
+                    {formatMoney(selectedOfferModal.offer.amount, selectedOfferModal.offer.currency)}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-[#4A5568]">Instrument</span>
+                  <span className="font-semibold uppercase text-ink">
+                    {selectedOfferModal.offer.instrument.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                {selectedOfferModal.offer.valuation_cap != null && (
+                  <div className="flex justify-between py-1">
+                    <span className="text-[#4A5568]">Valuation Cap</span>
+                    <span className="font-semibold text-ink">
+                      {formatMoney(selectedOfferModal.offer.valuation_cap, selectedOfferModal.offer.currency)}
+                    </span>
+                  </div>
+                )}
+                {selectedOfferModal.offer.discount_pct != null && (
+                  <div className="flex justify-between py-1">
+                    <span className="text-[#4A5568]">Discount</span>
+                    <span className="font-semibold text-ink">
+                      {selectedOfferModal.offer.discount_pct}%
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-[#4A5568] leading-relaxed">
+                {selectedOfferModal.action === 'accept'
+                  ? 'Accepting this offer confirms the terms with the investor and advances this deal to the commitment stage. This action cannot be undone.'
+                  : 'Declining this offer will notify the investor that the startup has decided not to proceed with these terms.'}
+              </p>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setSelectedOfferModal(null)}
+                disabled={offerActionSubmitting}
+                className="rounded-lg border border-[#E5E1D8] bg-white px-4 py-2 text-xs font-semibold text-[#4A5568] hover:bg-[#FAF8F4]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmOfferAction}
+                disabled={offerActionSubmitting}
+                className={`rounded-lg px-4 py-2 text-xs font-semibold text-white transition ${
+                  selectedOfferModal.action === 'accept'
+                    ? 'bg-ink hover:bg-black'
+                    : 'bg-[#B42318] hover:bg-[#912014]'
+                }`}
+              >
+                {offerActionSubmitting
+                  ? 'Processing…'
+                  : selectedOfferModal.action === 'accept'
+                  ? 'Confirm & Accept'
+                  : 'Confirm & Decline'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

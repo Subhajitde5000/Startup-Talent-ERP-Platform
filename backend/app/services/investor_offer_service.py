@@ -629,7 +629,11 @@ async def _latest_offer_or_404(
             InvestorOffer.investor_org_id == investor_org_id,
             InvestorOffer.deleted_at.is_(None),
         )
-        .order_by(InvestorOffer.version.desc(), InvestorOffer.id.desc())
+        .order_by(
+            InvestorOffer.created_at.desc(),
+            InvestorOffer.version.desc(),
+            InvestorOffer.id.desc(),
+        )
     )
     offer = result.scalars().first()
     if offer is None:
