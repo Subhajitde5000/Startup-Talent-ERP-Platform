@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import StepProgress from '../components/StepProgress';
 import CelebrationModal from '../components/CelebrationModal';
 import { useAuth } from '@/lib/auth-context';
-import { api, ApiError } from '@/lib/api/client';
+import { api, ApiError, fileFieldErrors } from '@/lib/api/client';
+import FileUploadControl from '@/components/files/FileUploadControl';
 import {
   initialStepFor,
   saveOnboardingStep,
@@ -69,6 +70,11 @@ export default function StartupOnboarding() {
   const [saving, setSaving] = useState(false);
   const [ready, setReady] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [uploadOrg, setUploadOrg] = useState(null);
+  const [deckFileId, setDeckFileId] = useState(undefined);
+  const [deckFile, setDeckFile] = useState(null);
+  const [deckError, setDeckError] = useState('');
+  const [fileBusy, setFileBusy] = useState(false);
   const [isInvitedMember, setIsInvitedMember] = useState(false);
   const [invitedOrgName, setInvitedOrgName] = useState('');
 
@@ -123,6 +129,7 @@ export default function StartupOnboarding() {
             setStep(5);
           }
           const prof = await api.startupProfile.get(startup.id);
+          if (!cancelled) { setUploadOrg(startup); setDeckFileId(prof.pitch_deck_file_id); }
           server = {
             startupName: startup.name || '',
             website: startup.website || '',
@@ -144,7 +151,8 @@ export default function StartupOnboarding() {
           if (prof.ecosystem_goals?.length) server.goals = prof.ecosystem_goals;
         }
       } catch {
-        // No org yet (or request failed): defaults + draft still work.
+        // Keep the existing attachment unchanged if hydration failed.
+        if (!cancelled) setDeckError('Could not load the saved deck selection. Retry saving the startup before uploading.');
       }
       if (cancelled) return;
       let draft = null;
@@ -164,6 +172,33 @@ export default function StartupOnboarding() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setDeckFile(null); setDeckError('');
+    if (deckFileId) api.files.get(deckFileId, controller.signal)
+      .then(file => { if (!controller.signal.aborted) setDeckFile(file); })
+      .catch(error => { if (!controller.signal.aborted) setDeckError(error instanceof ApiError ? error.message : 'Could not load the uploaded deck.'); });
+    return () => controller.abort();
+  }, [deckFileId]);
+
+  const saveUploadOrganization = async () => {
+    if (fileBusy) return;
+    setDeckError(''); setFileBusy(true);
+    try {
+      // Explicit save, never silently create an org merely by opening this page.
+      const organizations = await api.organizations.mine();
+      let startup = organizations.find(org => org.type === 'startup');
+      if (!startup) {
+        if (!formData.startupName.trim()) throw new Error('Enter your startup name in Fundamentals before saving.');
+        startup = await api.organizations.create({name: formData.startupName.trim(), type: 'startup'});
+      }
+      const profile = await api.startupProfile.get(startup.id);
+      setUploadOrg(startup); setDeckFileId(profile.pitch_deck_file_id);
+    } catch (error) {
+      setDeckError(Object.values(fileFieldErrors(error)).join(' ') || error.message || 'Could not save the startup for uploading.');
+    } finally { setFileBusy(false); }
+  };
 
   // Save draft whenever formData changes
   useEffect(() => {
@@ -188,6 +223,7 @@ export default function StartupOnboarding() {
 
   const handleNext = async (e) => {
     e.preventDefault();
+    if (fileBusy || saving) return;
     setSaveError('');
     if (step < STEPS.length && !isInvitedMember) {
       setStep((prev) => prev + 1);
@@ -228,6 +264,7 @@ export default function StartupOnboarding() {
             mrr_range: formData.mrrRange || null,
             funding_status: formData.fundingStatus || null,
             pitch_deck_url: formData.deckUrl.trim() || null,
+            ...(deckFileId !== undefined ? {pitch_deck_file_id: deckFileId} : {}),
             dpiit_status: formData.dpiitStatus || null,
             ecosystem_goals: formData.goals.filter(Boolean),
             legal_entity: formData.legalEntity || null,
@@ -275,7 +312,7 @@ export default function StartupOnboarding() {
     <div className="space-y-6">
       {/* Step Header */}
       {!isInvitedMember ? (
-        <StepProgress steps={STEPS} currentStep={step} onStepClick={setStep} />
+        <StepProgress steps={STEPS} currentStep={step} onStepClick={fileBusy ? undefined : setStep} />
       ) : (
         <div className="rounded-2xl border border-[#E5E1D8] bg-[#FAF8F4] p-4 text-xs text-[#4A5568] flex items-center justify-between">
           <span>You joined <b>{invitedOrgName}</b>. Complete your personal profile below to start working with your team.</span>
@@ -590,7 +627,7 @@ export default function StartupOnboarding() {
               {/* Pitch deck box */}
               <div>
                 <label className="block text-xs font-semibold text-[#0F1B2D] mb-1.5">
-                  Pitch Deck (URL or Document Link)
+                  Pitch Deck (Upload or External Link)
                 </label>
                 <div className="rounded-2xl border-2 border-dashed border-[#E5E1D8] bg-[#FAF8F4] p-5 text-center">
                   <Upload size={22} className="mx-auto text-[#9A7A45]" />
@@ -598,8 +635,35 @@ export default function StartupOnboarding() {
                     Provide your pitch deck link (DocSend, Google Drive, Pitch.com)
                   </p>
                   <p className="text-[11px] text-[#4A5568]">
-                    You can restrict access to approved investors later in your Data Room.
+                    Uploaded files are organization-only. Investor sharing and NDA controls are not available yet.
                   </p>
+                  <div className="mt-3 text-left">
+                    {!uploadOrg ? <button type="button" disabled={fileBusy || !ready} onClick={saveUploadOrganization} className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs disabled:opacity-50">{fileBusy ? 'Saving…' : 'Save startup to enable deck uploads'}</button>
+                    : ['owner', 'admin', 'member'].includes(uploadOrg.my_role) ? <FileUploadControl
+                      key={uploadOrg.id} orgId={uploadOrg.id} kind="pitch_deck" label="Upload pitch deck (PDF or PPTX)" onBusyChange={setFileBusy}
+                      onReady={async file => {
+                        const profile = await api.startupProfile.update(uploadOrg.id, {pitch_deck_file_id: file.id});
+                        setDeckFileId(profile.pitch_deck_file_id); setDeckFile(file);
+                      }}
+                    /> : <p className="text-xs text-[#4A5568]">Your organization role is read-only; uploading is disabled.</p>}
+                    {deckFileId && !deckFile && !deckError && <p role="status" className="mt-2 text-xs">Loading uploaded deck…</p>}
+                    {deckFile && <div className="mt-2 text-xs">
+                      <span className="break-all">Selected private deck: {deckFile.file_name}</span>
+                      <button type="button" disabled={fileBusy} className="ml-2 underline disabled:opacity-50" onClick={async () => {
+                        try { const link = await api.files.download(deckFile.id); window.location.assign(link.url); }
+                        catch (error) { setDeckError(error.message || 'Could not download the deck.'); }
+                      }}>Download</button>
+                      {uploadOrg && ['owner', 'admin', 'member'].includes(uploadOrg.my_role) && <button type="button" disabled={fileBusy} className="ml-2 underline disabled:opacity-50" onClick={async () => {
+                        setFileBusy(true); setDeckError('');
+                        try { await api.startupProfile.update(uploadOrg.id, {pitch_deck_file_id: null}); setDeckFileId(null); setDeckFile(null); }
+                        catch (error) { setDeckError(Object.values(fileFieldErrors(error)).join(' ') || error.message || 'Could not unselect the deck.'); }
+                        finally { setFileBusy(false); }
+                      }}>Unselect deck</button>}
+                    </div>}
+                    {!deckFileId && uploadOrg && <p className="mt-2 text-xs text-[#4A5568]">No uploaded deck selected. Files stay private to your organization.</p>}
+                    {deckError && <p role="alert" className="mt-2 text-xs text-red-700">{deckError}</p>}
+                    <p className="mt-3 text-xs text-[#4A5568]">Or keep an external deck link (stored separately):</p>
+                  </div>
                   <input
                     type="url"
                     value={formData.deckUrl}
@@ -762,6 +826,7 @@ export default function StartupOnboarding() {
               <button
                 type="button"
                 onClick={handleBack}
+                disabled={fileBusy || saving}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5E1D8] px-4 py-2.5 text-xs font-semibold text-[#4A5568] hover:bg-[#FAF8F4] transition"
               >
                 <ArrowLeft size={14} /> Back
@@ -774,7 +839,7 @@ export default function StartupOnboarding() {
               {saveError && <p role="alert" className="mb-2 text-xs text-red-600">{saveError}</p>}
               <button
                 type="submit"
-                disabled={saving || !ready}
+                disabled={saving || fileBusy || !ready}
                 className="inline-flex items-center gap-2 rounded-xl bg-[#0F1B2D] px-6 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1A2E4C] disabled:opacity-60"
               >
                 {!ready ? 'Loading…' : saving ? 'Saving…' : step === STEPS.length ? 'Complete Setup & Launch' : 'Continue'}

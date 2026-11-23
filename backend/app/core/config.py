@@ -8,7 +8,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,13 +20,34 @@ class Settings(BaseSettings):
     )
 
     APP_NAME: str = "Forma API"
-    ENVIRONMENT: Literal["dev", "test", "prod"] = "dev"
+    ENVIRONMENT: Literal["dev", "development", "test", "prod"] = "dev"
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
 
     # Database: production uses PostgreSQL (asyncpg). Tests override with SQLite.
     # Default is a local SQLite file so the app starts without Postgres in dev/sandbox.
     DATABASE_URL: str = "sqlite+aiosqlite:///./forma.db"
+
+    # Step 4: private Cloudflare R2, accessed only by the server.
+    R2_ACCOUNT_ID: str = Field(default="", pattern=r"^([a-f0-9]{32})?$")
+    R2_ACCESS_KEY_ID: str = ""
+    R2_SECRET_ACCESS_KEY: str = ""
+    R2_BUCKET: str = ""
+    FILE_SCANNER: Literal["unconfigured", "dev_clean"] = "unconfigured"
+    FILE_UPLOAD_TTL_SECONDS: int = Field(default=300, ge=30, le=900)
+    FILE_DOWNLOAD_TTL_SECONDS: int = Field(default=60, ge=10, le=300)
+    FILE_UPLOAD_USER_LIMIT: int = Field(default=20, ge=1)
+    FILE_UPLOAD_ORG_LIMIT: int = Field(default=100, ge=1)
+    FILE_ACTION_LIMIT: int = Field(default=60, ge=1)
+    FILE_DOWNLOAD_LIMIT: int = Field(default=120, ge=1)
+    FILE_PENDING_LIMIT: int = Field(default=10, ge=1)
+    FILE_RETENTION_HOURS: int = Field(default=24, ge=1)
+
+    @model_validator(mode="after")
+    def _safe_file_scanner(self) -> "Settings":
+        if self.ENVIRONMENT == "prod" and self.FILE_SCANNER == "dev_clean":
+            raise ValueError("dev_clean file scanner is forbidden in production")
+        return self
 
     # JWT
     JWT_SECRET: str = Field(

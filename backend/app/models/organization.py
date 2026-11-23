@@ -89,6 +89,12 @@ class Organization(Base):
     )
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     logo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Named/use_alter breaks organizations <-> files DDL dependency cycle.
+    logo_file_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("files.id", name="fk_organizations_logo_file", ondelete="SET NULL", use_alter=True),
+        nullable=True, index=True,
+    )
     logo_initials: Mapped[str | None] = mapped_column(String(3), nullable=True)
     website: Mapped[str | None] = mapped_column(Text, nullable=True)
     city: Mapped[str | None] = mapped_column(Text, nullable=True)
