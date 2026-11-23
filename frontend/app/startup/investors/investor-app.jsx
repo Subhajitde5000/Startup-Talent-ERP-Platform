@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import StartupDataRoom from '@/components/data-room/startup';
 import { StartupSidebar, Btn, Card, SubNavTabs } from '../../../components';
 import { useAuth } from '@/lib/auth-context';
 import { api, ApiError } from '@/lib/api/client';
@@ -293,16 +294,10 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const [saved, setSaved] = useState([]);
   const [modal, setModal] = useState('');
   const [investorStatus, setInvestorStatus] = useState(investors.map(x => x.stage));
-  const [folder, setFolder] = useState('Pitch');
-  const [accessTab, setAccessTab] = useState('Pending');
   const [meetingTab, setMeetingTab] = useState('Upcoming');
   const [roundTab, setRoundTab] = useState('Overview');
   const [messagesTab, setMessagesTab] = useState('Investors');
-  const [files, setFiles] = useState([
-    { name: 'Pitch deck v3.pdf', type: 'PDF', size: '4.2 MB', updated: 'Today', access: 'Per investor', views: 8 },
-    { name: 'Financial model.xlsx', type: 'XLSX', size: '1.8 MB', updated: 'Nov 02', access: 'Private', views: 3 },
-    { name: 'Product brief.pdf', type: 'PDF', size: '2.1 MB', updated: 'Oct 30', access: 'Public to approved investors', views: 12 },
-  ]);
+
   const [vis, setVis] = useState('Mentors and verified investors');
   const [toggles, setToggles] = useState({ summary: true, traction: true, team: true, funding: false, round: false, readiness: true });
   const [mobileNav, setMobileNav] = useState(false);
@@ -955,7 +950,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const head = (actions) => (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p className="text-sm text-[#4A5568]">Acme Studio <span className="mx-2 text-[#B8955A]">·</span> Investors</p>
+        <p className="text-sm text-[#4A5568]">{isDataRoom ? 'Startup workspace' : 'Acme Studio'} <span className="mx-2 text-[#B8955A]">·</span> Investors</p>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="serif mt-1 text-[30px] font-semibold">{pageTitle}</h1>
           {page === 'round-detail' && round && <StatusBadge status={round.status} />}
@@ -1071,16 +1066,18 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
         <div className="flex items-center gap-3">
           <button
             type="button"
+            disabled={isDataRoom}
+            title={isDataRoom ? 'Notifications are not loaded in this view' : undefined}
             onClick={() => notify('You’re all caught up.')}
             aria-label="Notifications"
             className="relative grid h-10 w-10 place-items-center"
           >
             <Bell size={19} />
-            <i className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#B8955A]" />
+            {!isDataRoom && <i className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#B8955A]" />}
           </button>
           <span className="flex items-center gap-2 text-xs">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-ink font-semibold text-white">AK</span>
-            <span className="hidden sm:block">Aarav Kapoor</span>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-ink font-semibold text-white">{isDataRoom ? (user?.display_name?.slice(0, 2).toUpperCase() || '—') : 'AK'}</span>
+            <span className="hidden sm:block">{isDataRoom ? user?.display_name : 'Aarav Kapoor'}</span>
             <ChevronDown size={14} />
           </span>
         </div>
@@ -1703,208 +1700,8 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
           </>
         )}
 
-        {page === 'data-room' && (
-          <>
-            {head(
-              <div className="flex gap-2">
-                <Btn secondary onClick={() => notify('Investor preview opened.')}><Eye size={15} /> Preview as investor</Btn>
-                <Btn onClick={() => setModal('upload')}><Upload size={15} /> Upload</Btn>
-              </div>
-            )}
-            <div className="mb-5 rounded-xl border border-[#E5E1D8] bg-white p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <b className="text-sm">Data room completeness · 76%</b>
-                  <p className="mt-1 text-xs text-[#4A5568]">3 checklist items missing · NDA required before protected documents open</p>
-                </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => notify('Watermark and NDA settings opened.')} className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs">
-                    Settings
-                  </button>
-                  <Link href="/startup/data-room/requests" className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
-                    Access requests
-                  </Link>
-                </div>
-              </div>
-              <div className="mt-3 h-2 rounded-full bg-[#E5E1D8]">
-                <div className="h-full w-[76%] rounded-full bg-[#B8955A]" />
-              </div>
-            </div>
-
-            <div className="grid items-start gap-5 xl:grid-cols-4">
-              <aside className="rounded-xl border border-[#E5E1D8] bg-white p-4">
-                <h2 className="mb-3 text-sm font-semibold">Folders</h2>
-                {['Corporate', 'Financials', 'Legal', 'Product', 'Team', 'Customers', 'Pitch'].map(x => (
-                  <button
-                    type="button"
-                    onClick={() => setFolder(x)}
-                    key={x}
-                    className={`mb-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs ${
-                      folder === x ? 'bg-[#F3EBDD] font-semibold text-[#806236]' : 'hover:bg-[#FAF8F4]'
-                    }`}
-                  >
-                    <Folder size={15} />{x}
-                    <span className="ml-auto text-[10px] text-[#4A5568]">{x === 'Pitch' ? 2 : x === 'Financials' ? 1 : 0}</span>
-                  </button>
-                ))}
-              </aside>
-
-              <div className="xl:col-span-3">
-                <Card
-                  title={`${folder} documents`}
-                  action={
-                    <button type="button" onClick={() => notify('New folder created.')} className="text-xs font-semibold text-[#9A7A45]">
-                      + New folder
-                    </button>
-                  }
-                >
-                  <div className="mb-3 rounded-lg bg-[#FAF8F4] p-3 text-xs text-[#4A5568]">
-                    <LockKeyhole className="mr-1 inline" size={13} />
-                    View-only by default · watermark on · investors must sign NDA before opening restricted files.
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[650px] text-left text-xs">
-                      <thead className="border-b text-[#4A5568]">
-                        <tr>
-                          {['Name', 'Size', 'Updated', 'Access', 'Views', ''].map(x => (
-                            <th key={x} className="py-3">{x}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {files.map((f, i) => (
-                          <tr key={f.name} className="border-b border-[#E5E1D8]">
-                            <td className="py-3">
-                              <FileText className="mr-2 inline text-[#9A7A45]" size={15} />{f.name}
-                            </td>
-                            <td>{f.size}</td>
-                            <td>{f.updated}</td>
-                            <td>
-                              <select
-                                value={f.access}
-                                onChange={e => setFiles(files.map((x, j) => j === i ? { ...x, access: e.target.value } : x))}
-                                className="rounded border bg-white px-2 py-1"
-                              >
-                                <option>Private</option>
-                                <option>Per investor</option>
-                                <option>Public to approved investors</option>
-                              </select>
-                            </td>
-                            <td>{f.views}</td>
-                            <td>
-                              <button type="button" onClick={() => notify(`Previewing ${f.name}; access logged.`)} className="text-[#9A7A45]">
-                                Preview
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                    {[
-                      ['Cap table', 'Missing'],
-                      ['Financial projections', 'Missing'],
-                      ['Pitch deck', 'Uploaded'],
-                    ].map(([a, b]) => (
-                      <button key={a} type="button" onClick={() => notify(`${a} upload selected.`)} className="rounded-lg border border-dashed border-[#E5E1D8] p-3 text-left text-xs">
-                        <b>{a}</b>
-                        <small className="mt-1 block text-[#4A5568]">{b}</small>
-                      </button>
-                    ))}
-                  </div>
-                </Card>
-
-                <Card title="Access log">
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[550px] text-left text-xs">
-                      <thead className="border-b text-[#4A5568]">
-                        <tr>
-                          {['Investor', 'Document', 'Action', 'Time', 'Duration'].map(x => (
-                            <th key={x} className="py-2">{x}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          ['Northstar Capital', 'Pitch deck v3.pdf', 'Viewed', 'Today · 10:20', '4m'],
-                          ['SeedSpring Fund', 'Product brief.pdf', 'Viewed', 'Nov 02 · 14:42', '3m'],
-                          ['Mira Shah', 'Pitch deck v3.pdf', 'Viewed', 'Nov 01 · 09:12', '7m'],
-                        ].map(r => (
-                          <tr key={r[0]} className="border-b">
-                            <td className="py-3">{r[0]}</td>
-                            {r.slice(1).map((x, i) => (
-                              <td key={i}>{x}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <button type="button" onClick={() => notify('Audit log exported.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
-                    Export audit log <Download className="inline" size={13} />
-                  </button>
-                </Card>
-              </div>
-            </div>
-            {disclaimer}
-          </>
-        )}
-
-        {page === 'access' && (
-          <>
-            {head(null)}
-            <div className="mb-4 flex gap-2">
-              {['Pending', 'Approved', 'Declined'].map(x => (
-                <button
-                  key={x}
-                  type="button"
-                  onClick={() => setAccessTab(x)}
-                  className={`min-h-10 rounded-lg px-4 text-xs ${accessTab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
-                >
-                  {x}
-                </button>
-              ))}
-            </div>
-            <Card title={`${accessTab} data room requests`}>
-              {accessTab === 'Pending' ? (
-                <div className="space-y-3">
-                  {[
-                    ['Northstar Capital', 'Pitch, Financials', 'We are evaluating your seed round and would like to review your projections.', 'Signed NDA · 2 hours ago'],
-                    ['Mira Shah', 'Pitch', 'Interested in learning more about your customer validation.', 'NDA pending · 1 day ago'],
-                  ].map(([n, s, m, d]) => (
-                    <article key={n} className="rounded-xl border border-[#E5E1D8] p-4">
-                      <div className="flex flex-wrap items-start gap-3">
-                        <span className="grid h-10 w-10 place-items-center rounded-lg bg-[#F3EBDD] font-semibold">{n[0]}</span>
-                        <div className="flex-1">
-                          <b className="text-sm">{n}</b>
-                          <p className="mt-1 text-xs text-[#4A5568]">Requested scope: {s}</p>
-                          <p className="mt-2 text-xs">“{m}”</p>
-                          <small className="mt-2 block text-[10px] text-[#4A5568]">{d} · Verified investor</small>
-                        </div>
-                        <span className="rounded-full bg-[#FFF3D6] px-2 py-1 text-[10px] text-[#8A5700]">Pending</span>
-                      </div>
-                      <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-[#E5E1D8] pt-3">
-                        <button type="button" onClick={() => notify('Question sent to investor.')} className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs">
-                          Ask a question
-                        </button>
-                        <button type="button" onClick={() => notify('Request declined.')} className="rounded-lg px-3 py-2 text-xs text-[#B42318]">
-                          Decline
-                        </button>
-                        <button type="button" onClick={() => setModal(`grant-${n}`)} className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
-                          Approve with scope
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <p className="py-8 text-center text-sm text-[#4A5568]">No {accessTab.toLowerCase()} requests yet.</p>
-              )}
-            </Card>
-            {disclaimer}
-          </>
-        )}
+        {page === 'data-room' && <>{head(null)}<StartupDataRoom /></>}
+        {page === 'access' && <>{head(null)}<StartupDataRoom requests /></>}
 
         {page === 'messages' && (
           <>
@@ -2658,8 +2455,6 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   ? 'Edit round terms'
                   : modal === 'offer'
                   ? 'Record an offer'
-                  : modal.startsWith('grant')
-                  ? 'Approve data room access'
                   : 'Add investor to pipeline'}
               </h2>
               <button type="button" onClick={() => setModal('')} aria-label="Close">
@@ -2926,22 +2721,6 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   </select>
                 </label>
               </div>
-            ) : modal.startsWith('grant') ? (
-              <div className="space-y-3">
-                <p className="text-sm">Choose the folders this investor can access after signing the NDA.</p>
-                {['Pitch', 'Financials', 'Product'].map(x => (
-                  <label key={x} className="flex gap-2 text-sm">
-                    <input type="checkbox" defaultChecked={x === 'Pitch'} className="accent-ink" />{x} folder
-                  </label>
-                ))}
-                <label className="block text-sm">
-                  Access expires
-                  <input type="date" className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3" />
-                </label>
-                <label className="flex gap-2 text-xs">
-                  <input type="checkbox" defaultChecked className="accent-ink" />Require signed NDA first
-                </label>
-              </div>
             ) : (
               <div className="space-y-3">
                 <label className="block text-sm">
@@ -2977,8 +2756,6 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                       ? 'Intro request sent.'
                       : modal === 'meeting'
                       ? 'Meeting invitation prepared.'
-                      : modal.startsWith('grant')
-                      ? 'NDA sent; access pending signature.'
                       : 'Saved.'
                   );
                 }}
@@ -2989,8 +2766,6 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   ? 'Send request'
                   : modal === 'meeting'
                   ? 'Send invite'
-                  : modal.startsWith('grant')
-                  ? 'Approve scope'
                   : modal === 'offer'
                   ? 'Save offer'
                   : modal === 'round'

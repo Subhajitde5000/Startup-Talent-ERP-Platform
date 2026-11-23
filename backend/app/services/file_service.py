@@ -245,8 +245,20 @@ async def download(
 async def delete_file(db: AsyncSession, user: User, file_id: uuid.UUID) -> None:
     row = await file_access(db, user, file_id, action="delete")
     await enforce_limit(f"file_action:{user.id}", get_settings().FILE_ACTION_LIMIT, 300)
+    from app.models.data_room import DataRoom, DataRoomDocumentVersion
+    from app.models.data_room_access import DataRoomAccessRequest
     from app.models.organization import Organization
     from app.models.startup import StartupProfile
+
+    # Retained versions and pinned NDA evidence must never lose their bytes.
+    references = (
+        select(DataRoomDocumentVersion.id).where(DataRoomDocumentVersion.file_id == row.id),
+        select(DataRoom.id).where(DataRoom.nda_file_id == row.id),
+        select(DataRoomAccessRequest.id).where(DataRoomAccessRequest.nda_file_id == row.id),
+    )
+    for query in references:
+        if (await db.execute(query.limit(1))).first():
+            raise conflict("File is retained by a data room or NDA record.", "FILE_IN_USE")
 
     # Soft deletion must detach selected files in the SAME transaction.
     await db.execute(

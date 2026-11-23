@@ -60,6 +60,7 @@ export default function InvestorShell({
       {/* Reusable Investor Top Header */}
       <InvestorHeader
         compact={compact}
+        liveIdentity={active === 'Data rooms'}
         onToggleMobile={() => setMobileOpen(!mobileOpen)}
         onAction={notify}
         backHref={backHref}
@@ -78,6 +79,7 @@ export default function InvestorShell({
         {(title || actions) && (
           <PageHeader
             module={module || 'Investor workspace'}
+            workspaceName={active === 'Data rooms' ? 'Investor workspace' : undefined}
             title={title}
             description={description}
             actions={actions}

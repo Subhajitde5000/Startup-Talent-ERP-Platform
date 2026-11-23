@@ -203,6 +203,13 @@ class Settings(BaseSettings):
     MENTOR_COMMISSION_PCT: Decimal = Decimal("0")
     MENTOR_TDS_PCT: Decimal = Decimal("0")
 
+    # Step 9g/9h: reuse the shared limiter, independently bounded policies.
+    DATA_ROOM_WRITE_LIMIT: int = Field(default=60, ge=1)
+    DATA_ROOM_ORG_WRITE_LIMIT: int = Field(default=300, ge=1)
+    DATA_ROOM_REQUEST_LIMIT: int = Field(default=10, ge=1)
+    DATA_ROOM_NDA_LIMIT: int = Field(default=10, ge=1)
+    DATA_ROOM_CONTENT_LIMIT: int = Field(default=120, ge=1)
+
     # CORS: explicit allow-list only, never "*" with credentials.
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])
 

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
 import {
   LayoutDashboard,
   Search,
@@ -66,6 +67,8 @@ export default function InvestorSidebar({
   onAction,
 }) {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const liveRoom = pathname?.startsWith('/investor/data-rooms');
   const [localCompact, setLocalCompact] = useState(false);
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
 
@@ -123,7 +126,7 @@ export default function InvestorSidebar({
             )}
             <Icon size={17} className={`shrink-0 ${isCurrent ? 'text-[#B8955A]' : 'text-white/70 group-hover:text-white'}`} />
             {!isCompact && <span className="truncate">{name}</span>}
-            {!isCompact && hasBadge && (
+            {!isCompact && hasBadge && !liveRoom && (
               <span className="ml-auto rounded-full bg-[#B8955A] px-2 py-0.5 text-[10px] font-semibold text-ink">
                 3
               </span>
@@ -166,11 +169,11 @@ export default function InvestorSidebar({
           className="flex w-full items-center gap-2.5 rounded-lg border border-white/15 bg-white/5 p-2.5 text-left transition hover:bg-white/10"
         >
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#F3EBDD] text-xs font-bold text-ink">
-            AM
+            {liveRoom ? (user?.display_name?.slice(0, 2).toUpperCase() || '—') : 'AM'}
           </span>
           {!isCompact && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-white">Arjun Mehta</p>
+              <p className="truncate text-xs font-semibold text-white">{liveRoom ? user?.display_name : 'Arjun Mehta'}</p>
               <p className="text-[10px] text-white/60">Investor · Forma</p>
             </div>
           )}
