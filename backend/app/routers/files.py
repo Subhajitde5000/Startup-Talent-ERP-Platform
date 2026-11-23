@@ -24,7 +24,64 @@ from app.schemas.file import (
 )
 from app.services import file_processing_service, file_service
 from app.services.file_processing_service import Scanner, get_scanner
-from app.services.storage_service import Storage, get_storage
+from app.services.storage_service import LocalStorage, Storage, StorageInvalid, StorageMissing, get_storage
+from urllib.parse import quote
+
+
+Store = Annotated[Storage, Depends(get_storage)]
+
+# ---------------------------------------------------------------------------
+# Local-storage endpoints (dev only — bypassed in production when R2 is set)
+# ---------------------------------------------------------------------------
+# Plain APIRoute so it can stream raw file bytes (FileRoute restricts to 8 KiB).
+local_router = APIRouter(tags=["files-local"])
+
+
+@local_router.put(
+    "/files/local-upload/{token}",
+    status_code=204,
+    summary="[Dev only] Receive a local-storage upload",
+    include_in_schema=False,
+)
+async def local_upload(token: str, request: Request, storage: Store) -> None:
+    """Writes the request body to disk. Only active when LocalStorage backend is used."""
+    if not isinstance(storage, LocalStorage):
+        raise AppException("NOT_FOUND", "Endpoint not available.", 404)
+    try:
+        payload = storage.verify_upload_token(token)
+    except StorageInvalid as exc:
+        raise AppException("FORBIDDEN", str(exc), 403) from exc
+    data = await request.body()
+    await storage.put(payload["k"], data, payload["m"])
+
+
+@local_router.get(
+    "/files/local-serve/{token}",
+    summary="[Dev only] Serve a local-storage file",
+    include_in_schema=False,
+)
+async def local_serve(token: str, storage: Store) -> Response:
+    """Streams file bytes from disk. Only active when LocalStorage backend is used."""
+    if not isinstance(storage, LocalStorage):
+        raise AppException("NOT_FOUND", "Endpoint not available.", 404)
+    try:
+        payload = storage.verify_download_token(token)
+    except StorageInvalid as exc:
+        raise AppException("FORBIDDEN", str(exc), 403) from exc
+    try:
+        data, _ = await storage.read(payload["k"], 100 * 1024 * 1024)  # 100 MB dev cap
+    except StorageMissing:
+        raise AppException("NOT_FOUND", "File not found.", 404)
+    name = payload.get("n", "file")
+    disposition = "inline" if payload.get("img") else "attachment"
+    return Response(
+        content=data,
+        media_type=payload["m"],
+        headers={
+            "Content-Disposition": f'{disposition}; filename*=UTF-8\'\'{quote(name, safe="")}',
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 class FileRoute(APIRoute):
@@ -65,7 +122,6 @@ router = APIRouter(
 )
 DB = Annotated[AsyncSession, Depends(get_db)]
 Actor = Annotated[User, Depends(get_current_user)]
-Store = Annotated[Storage, Depends(get_storage)]
 
 
 @router.post(

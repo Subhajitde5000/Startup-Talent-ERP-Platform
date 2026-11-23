@@ -127,6 +127,7 @@ def create_app() -> FastAPI:
     app.include_router(data_room.router, prefix=settings.API_V1_PREFIX)
     app.include_router(data_room_access.router, prefix=settings.API_V1_PREFIX)
     app.include_router(files.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(files.local_router, prefix=settings.API_V1_PREFIX)
     app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
     app.include_router(users.router, prefix=settings.API_V1_PREFIX)
     app.include_router(skills.router, prefix=settings.API_V1_PREFIX)

@@ -228,6 +228,16 @@ class Settings(BaseSettings):
     def is_test(self) -> bool:
         return self.ENVIRONMENT == "test"
 
+    @property
+    def is_r2_configured(self) -> bool:
+        """True when all R2 credentials are present (R2 storage is usable)."""
+        return bool(
+            self.R2_ACCOUNT_ID
+            and self.R2_ACCESS_KEY_ID
+            and self.R2_SECRET_ACCESS_KEY
+            and self.R2_BUCKET
+        )
+
 
 @lru_cache
 def get_settings() -> Settings:
