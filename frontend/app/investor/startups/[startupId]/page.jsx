@@ -71,7 +71,9 @@ export default function InvestorStartupProfilePage({ params }) {
     return match || 'Overview';
   });
   const [shortlisted, setShortlisted] = useState(false);
-  const [shortlistPhase, setShortlistPhase] = useState('idle');
+  const [shortlistEntryId, setShortlistEntryId] = useState(null);
+  const [shortlistPhase, setShortlistPhase] = useState('loading');
+  const [shortlistError, setShortlistError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +84,20 @@ export default function InvestorStartupProfilePage({ params }) {
         const detail = await api.investorDiscovery.get(startupId);
         if (cancelled) return;
         setStartup(detail);
+        setShortlisted(false);
+        setShortlistEntryId(null);
+        setShortlistPhase('loading');
+        try {
+          const entries = await api.investorShortlist.list();
+          if (cancelled) return;
+          const target = entries.find((entry) => entry.startup_org_id === detail.org_id);
+          setShortlisted(Boolean(target));
+          setShortlistEntryId(target?.id || null);
+        } catch {
+          // Shortlist status is supplementary; discovery remains usable if it fails.
+        } finally {
+          if (!cancelled) setShortlistPhase('idle');
+        }
         // Best-effort rounds for the "Round" tab.
         try {
           const roundList = await api.investorDiscovery.rounds(startupId);
@@ -103,25 +119,39 @@ export default function InvestorStartupProfilePage({ params }) {
   }, [startupId, user?.id]);
 
   const toggleSave = async () => {
-    if (!startup) return;
+    if (!startup || shortlistPhase === 'loading' || shortlistPhase === 'saving') return;
     setShortlistPhase('saving');
+    setShortlistError('');
     try {
       if (shortlisted) {
-        const entries = await api.investorShortlist.list();
-        const target = entries.find((e) => e.startup_org_id === startup.org_id);
-        if (target) {
-          await api.investorShortlist.remove(target.id);
-        }
+        if (!shortlistEntryId) throw new Error('SHORTLIST_ENTRY_MISSING');
+        await api.investorShortlist.remove(shortlistEntryId);
         setShortlisted(false);
+        setShortlistEntryId(null);
       } else {
-        await api.investorShortlist.add({ startup_org_id: startup.org_id });
+        const entry = await api.investorShortlist.add({ startup_org_id: startup.org_id });
         setShortlisted(true);
+        setShortlistEntryId(entry.id);
       }
     } catch (err) {
-      setShortlistPhase('error');
-      setError(err instanceof ApiError ? err.message : 'Could not update the shortlist.');
+      if (err instanceof ApiError && err.status === 409) {
+        try {
+          const entries = await api.investorShortlist.list();
+          const target = entries.find((entry) => entry.startup_org_id === startup.org_id);
+          setShortlisted(Boolean(target));
+          setShortlistEntryId(target?.id || null);
+        } catch {
+          setShortlistError('Could not verify the shortlist status.');
+        }
+      } else if (err?.message === 'SHORTLIST_ENTRY_MISSING') {
+        setShortlistError('The saved shortlist entry could not be found. Refresh and try again.');
+      } else {
+        setShortlistError(
+          err instanceof ApiError ? err.message : 'Could not update the shortlist.'
+        );
+      }
     } finally {
-      if (shortlistPhase !== 'error') setShortlistPhase('idle');
+      setShortlistPhase('idle');
     }
   };
 
@@ -151,10 +181,19 @@ export default function InvestorStartupProfilePage({ params }) {
           >
             ← Discover
           </Link>
-          <Button secondary onClick={toggleSave} disabled={shortlistPhase === 'saving'}>
-            <Bookmark size={14} />
-            {shortlisted ? 'Saved' : 'Save to shortlist'}
+          <Button
+            secondary
+            onClick={toggleSave}
+            disabled={shortlistPhase === 'loading' || shortlistPhase === 'saving'}
+          >
+            <Bookmark size={14} fill={shortlisted ? 'currentColor' : 'none'} />
+            {shortlistPhase === 'saving' ? 'Saving…' : shortlisted ? 'Saved' : 'Save to shortlist'}
           </Button>
+          {shortlistError && (
+            <span className="max-w-48 text-right text-[11px] text-[#B42318]" role="alert">
+              {shortlistError}
+            </span>
+          )}
         </div>
       }
     >
@@ -461,7 +500,7 @@ export default function InvestorStartupProfilePage({ params }) {
                 <aside className="space-y-6">
                   <Card title="Thesis fit summary">
                     <p className="text-xs text-[#4A5568]">
-                      Deal-fit scoring and your team's thesis notes are computed in a later step.
+                      Deal-fit scoring and your team&apos;s thesis notes are computed in a later step.
                     </p>
                   </Card>
 
