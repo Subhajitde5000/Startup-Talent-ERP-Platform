@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import StartupDataRoom from '@/components/data-room/startup';
 import { StartupSidebar, Btn, Card, SubNavTabs } from '../../../components';
 import { useAuth } from '@/lib/auth-context';
 import { api, ApiError } from '@/lib/api/client';
@@ -139,7 +141,12 @@ const VISIBILITY_VALUES = {
   'Private': 'private',
   'Mentors only': 'mentors',
   'Mentors and verified investors': 'mentors_and_investors',
+  'Public': 'public',
 };
+
+function investorVisibilityEnabled(profileVisibility) {
+  return profileVisibility === 'public' || profileVisibility === 'mentors_and_investors';
+}
 
 // Step 9m: display labels for hub rows (engagement request kinds and
 // meeting types) and a compact meeting date/time renderer.
@@ -293,16 +300,29 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const [saved, setSaved] = useState([]);
   const [modal, setModal] = useState('');
   const [investorStatus, setInvestorStatus] = useState(investors.map(x => x.stage));
-  const [folder, setFolder] = useState('Pitch');
-  const [accessTab, setAccessTab] = useState('Pending');
-  const [meetingTab, setMeetingTab] = useState('Upcoming');
-  const [roundTab, setRoundTab] = useState('Overview');
+
+  const searchParams = useSearchParams();
+  const [meetingTab, setMeetingTab] = useState(() => {
+    const q = searchParams?.get('tab');
+    if (!q) return 'Upcoming';
+    const match = ['Upcoming', 'Requests', 'Past', 'Calendar'].find(
+      (t) => t.toLowerCase() === q.toLowerCase()
+    );
+    return match || 'Upcoming';
+  });
+  const [roundTab, setRoundTab] = useState(() => {
+    const q = searchParams?.get('tab');
+    if (!q) return 'Overview';
+    if (q.toLowerCase() === 'offers' || q.toLowerCase() === 'offers and commitments') {
+      return 'Offers and commitments';
+    }
+    const match = ['Overview', 'Offers and commitments', 'Term sheets', 'Cap table impact', 'Documents', 'Activity'].find(
+      (t) => t.toLowerCase() === q.toLowerCase()
+    );
+    return match || 'Overview';
+  });
   const [messagesTab, setMessagesTab] = useState('Investors');
-  const [files, setFiles] = useState([
-    { name: 'Pitch deck v3.pdf', type: 'PDF', size: '4.2 MB', updated: 'Today', access: 'Per investor', views: 8 },
-    { name: 'Financial model.xlsx', type: 'XLSX', size: '1.8 MB', updated: 'Nov 02', access: 'Private', views: 3 },
-    { name: 'Product brief.pdf', type: 'PDF', size: '2.1 MB', updated: 'Oct 30', access: 'Public to approved investors', views: 12 },
-  ]);
+
   const [vis, setVis] = useState('Mentors and verified investors');
   const [toggles, setToggles] = useState({ summary: true, traction: true, team: true, funding: false, round: false, readiness: true });
   const [mobileNav, setMobileNav] = useState(false);
@@ -369,6 +389,13 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const [editRoundErrors, setEditRoundErrors] = useState({});
   const [savingEditRound, setSavingEditRound] = useState(false);
 
+  // Step 9i: round offers (startup view on round-detail).
+  const [roundOffers, setRoundOffers] = useState([]);
+  const [roundOffersPhase, setRoundOffersPhase] = useState('loading'); // loading|ready|error|none
+  const [roundOffersError, setRoundOffersError] = useState('');
+  const [selectedOfferModal, setSelectedOfferModal] = useState(null); // { offer, action: 'accept' | 'decline' }
+  const [offerActionSubmitting, setOfferActionSubmitting] = useState(false);
+
   // Step 9b: investor directory (startup view). Only loaded for the
   // discover and investor-detail pages; every other page keeps its demo data.
   const [directoryPhase, setDirectoryPhase] = useState('loading'); // loading|ready|error|none
@@ -392,6 +419,16 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const [meetingsError, setMeetingsError] = useState('');
   const [meetingBusyId, setMeetingBusyId] = useState('');
 
+  // Step 9f: startup-side investor engagement requests (intro/meeting/information).
+  const [startupRequests, setStartupRequests] = useState([]); // EngagementRequestStartupRead[]
+  const [requestsSubTab, setRequestsSubTab] = useState('Pending'); // 'Pending' | 'Accepted' | 'Declined & expired' | 'Proposed meetings'
+  const [selectedRequest, setSelectedRequest] = useState(null); // EngagementRequestStartupRead | null
+  const [responseAction, setResponseAction] = useState('accept'); // 'accept' | 'decline'
+  const [responseNote, setResponseNote] = useState('');
+  const [declineReason, setDeclineReason] = useState('Not actively raising at this time');
+  const [respondingBusy, setRespondingBusy] = useState(false);
+  const [respondError, setRespondError] = useState('');
+
   const cancelledRef = useRef(false);
   useEffect(() => {
     cancelledRef.current = false;
@@ -408,6 +445,35 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [modal]);
+
+  useEffect(() => {
+    const q = searchParams?.get('tab');
+    if (!q) return;
+    const match = ['Upcoming', 'Requests', 'Past', 'Calendar'].find(
+      (t) => t.toLowerCase() === q.toLowerCase()
+    );
+    if (match) setMeetingTab(match);
+    if (q.toLowerCase() === 'offers' || q.toLowerCase() === 'offers and commitments') {
+      setRoundTab('Offers and commitments');
+    } else {
+      const roundMatch = ['Overview', 'Offers and commitments', 'Term sheets', 'Cap table impact', 'Documents', 'Activity'].find(
+        (t) => t.toLowerCase() === q.toLowerCase()
+      );
+      if (roundMatch) setRoundTab(roundMatch);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const reqId = searchParams?.get('requestId');
+    if (!reqId || startupRequests.length === 0) return;
+    const target = startupRequests.find((r) => r.id === reqId);
+    if (target) {
+      setSelectedRequest(target);
+      setResponseAction('accept');
+      setResponseNote(target.response_note || '');
+      setRespondError('');
+    }
+  }, [searchParams, startupRequests]);
 
   const notify = (s) => {
     setToast(s);
@@ -442,6 +508,43 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     }
   };
 
+  const loadRoundOffers = async (orgId, roundId) => {
+    setRoundOffersPhase('loading');
+    setRoundOffersError('');
+    try {
+      const result = await api.offers.listForStartup(orgId);
+      if (cancelledRef.current) return;
+      const relevant = (result.items || []).filter((o) => !roundId || o.round_id === roundId);
+      setRoundOffers(relevant);
+      setRoundOffersPhase('ready');
+    } catch (err) {
+      if (cancelledRef.current) return;
+      setRoundOffersPhase('error');
+      setRoundOffersError(err instanceof ApiError ? err.message : 'Could not load offers for this round.');
+    }
+  };
+
+  const handleConfirmOfferAction = async () => {
+    if (!org || !selectedOfferModal || offerActionSubmitting) return;
+    const { offer, action } = selectedOfferModal;
+    setOfferActionSubmitting(true);
+    try {
+      if (action === 'accept') {
+        await api.offers.accept(org.id, offer.id);
+        notify('Offer accepted.');
+      } else {
+        await api.offers.decline(org.id, offer.id);
+        notify('Offer declined.');
+      }
+      setSelectedOfferModal(null);
+      await Promise.all([loadRound(org.id, id), loadRoundOffers(org.id, id)]);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : `Failed to ${action} offer.`);
+    } finally {
+      if (!cancelledRef.current) setOfferActionSubmitting(false);
+    }
+  };
+
   // Resolve the startup org and load this page's rounds. Gated to the two
   // Step 9a pages; every other page in this shared component keeps its demo data.
   useEffect(() => {
@@ -456,6 +559,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
           setOrg(null);
           setRoundsPhase('none');
           setRoundPhase('none');
+          setRoundOffersPhase('none');
           return;
         }
         setOrg(startup);
@@ -463,12 +567,13 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
         if (page === 'rounds') {
           await loadRounds(startup.id);
         } else {
-          await loadRound(startup.id, id);
+          await Promise.all([loadRound(startup.id, id), loadRoundOffers(startup.id, id)]);
         }
       } catch {
         if (!cancelled) {
           setRoundsPhase('error');
           setRoundPhase('error');
+          setRoundOffersPhase('error');
         }
       }
     })();
@@ -499,6 +604,10 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
           return;
         }
         setOrg(startup);
+        setCanEditVisibility(['owner', 'admin', 'member'].includes(startup.my_role));
+        if (page === 'discover' || page === 'investor') {
+          await loadProfile(startup.id);
+        }
         if (page === 'discover') {
           await loadDirectory(startup.id, directoryQuery);
         } else if (page === 'investor') {
@@ -666,19 +775,45 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
     }
   };
 
-  // Step 9f: load this startup's investor meetings (all statuses).
+  // Step 9f: load this startup's investor meetings and inbound requests.
   const loadMeetings = async (orgId) => {
     setMeetingsPhase('loading');
     setMeetingsError('');
     try {
-      const result = await api.engagement.listStartupMeetings(orgId, { limit: 100 });
+      const [meetingsResult, requestsResult] = await Promise.all([
+        api.engagement.listStartupMeetings(orgId, { limit: 100 }),
+        api.engagement.listStartupRequests(orgId, { limit: 100 }),
+      ]);
       if (cancelledRef.current) return;
-      setMeetings(result.items);
+      setMeetings(meetingsResult.items || []);
+      setStartupRequests(requestsResult.items || []);
       setMeetingsPhase('ready');
     } catch (err) {
       if (cancelledRef.current) return;
       setMeetingsPhase('error');
-      setMeetingsError(err instanceof ApiError ? err.message : 'Could not load your meetings.');
+      setMeetingsError(err instanceof ApiError ? err.message : 'Could not load your meetings and requests.');
+    }
+  };
+
+  const handleRespondRequest = async (e) => {
+    e?.preventDefault?.();
+    if (!org || !selectedRequest || respondingBusy) return;
+    setRespondingBusy(true);
+    setRespondError('');
+    try {
+      await api.engagement.respondStartupRequest(org.id, selectedRequest.id, {
+        decision: responseAction,
+        response_note: responseNote.trim() || null,
+        decline_reason: responseAction === 'decline' ? (declineReason.trim() || null) : null,
+      });
+      notify(responseAction === 'accept' ? 'Request accepted.' : 'Request declined.');
+      setSelectedRequest(null);
+      setResponseNote('');
+      await loadMeetings(org.id);
+    } catch (err) {
+      setRespondError(err instanceof ApiError ? err.message : (err?.message || 'Could not update request.'));
+    } finally {
+      setRespondingBusy(false);
     }
   };
 
@@ -692,7 +827,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
       if (cancelledRef.current) return;
       setProfile(prof);
       // Drive the shared banner/pause controls from the server's values.
-      setVisible(prof.profile_visibility === 'mentors_and_investors');
+      setVisible(investorVisibilityEnabled(prof.profile_visibility));
       setVis(VISIBILITY_LABELS[prof.profile_visibility] || prof.profile_visibility);
       setToggles({
         summary: prof.summary_public,
@@ -757,7 +892,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
       const updated = await api.startupProfile.update(org.id, body);
       if (cancelledRef.current) return;
       setProfile(updated);
-      setVisible(updated.profile_visibility === 'mentors_and_investors');
+      setVisible(investorVisibilityEnabled(updated.profile_visibility));
       setVis(VISIBILITY_LABELS[updated.profile_visibility] || updated.profile_visibility);
       if (!silent) notify('Investor visibility settings saved.');
       return true;
@@ -792,9 +927,8 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const handlePauseVisibility = async () => {
     if (!org || savingProfile) return;
     const next = visible ? 'private' : 'mentors_and_investors';
-    // Optimistic local flip, rolled back if the server rejects.
-    setVisible(!visible);
-    setVis(!visible ? 'Private' : 'Mentors and verified investors');
+    setVisible(next === 'mentors_and_investors');
+    setVis(VISIBILITY_LABELS[next]);
     const ok = await saveVisibility({ profile_visibility: next }, { silent: true });
     if (!ok) {
       setVisible(visible);
@@ -955,7 +1089,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const head = (actions) => (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p className="text-sm text-[#4A5568]">Acme Studio <span className="mx-2 text-[#B8955A]">·</span> Investors</p>
+        <p className="text-sm text-[#4A5568]">{isDataRoom ? 'Startup workspace' : 'Acme Studio'} <span className="mx-2 text-[#B8955A]">·</span> Investors</p>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="serif mt-1 text-[30px] font-semibold">{pageTitle}</h1>
           {page === 'round-detail' && round && <StatusBadge status={round.status} />}
@@ -975,11 +1109,28 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
 
   const visBanner = (
     <div className="mb-5 flex flex-wrap items-center gap-2 rounded-lg border border-[#E5E1D8] bg-white p-3 text-xs">
-      <span className={`h-2 w-2 rounded-full ${visible ? 'bg-[#B8955A]' : 'bg-[#A0A7B4]'}`} />
-      {visible ? 'Visible to verified investors' : 'Your profile is private. Investors can’t find you.'}
-      <Link href="/startup/investors/settings" className="ml-auto font-semibold text-[#9A7A45]">
-        {visible ? 'Manage' : 'Change visibility'} <ArrowRight className="inline" size={12} />
-      </Link>
+      {profilePhase === 'loading' ? (
+        <>
+          <span className="h-2 w-2 rounded-full bg-[#A0A7B4]" />
+          Loading visibility status…
+        </>
+      ) : profilePhase === 'error' ? (
+        <>
+          <span className="h-2 w-2 rounded-full bg-[#B42318]" />
+          Couldn’t verify visibility.
+          <Link href="/startup/investors/settings" className="ml-auto font-semibold text-[#9A7A45]">
+            Manage visibility <ArrowRight className="inline" size={12} />
+          </Link>
+        </>
+      ) : (
+        <>
+          <span className={`h-2 w-2 rounded-full ${visible ? 'bg-[#B8955A]' : 'bg-[#A0A7B4]'}`} />
+          {visible ? 'Visible to verified investors' : 'Your profile is private. Investors can’t find you.'}
+          <Link href="/startup/investors/settings" className="ml-auto font-semibold text-[#9A7A45]">
+            {visible ? 'Manage' : 'Change visibility'} <ArrowRight className="inline" size={12} />
+          </Link>
+        </>
+      )}
     </div>
   );
 
@@ -1071,16 +1222,18 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
         <div className="flex items-center gap-3">
           <button
             type="button"
+            disabled={isDataRoom}
+            title={isDataRoom ? 'Notifications are not loaded in this view' : undefined}
             onClick={() => notify('You’re all caught up.')}
             aria-label="Notifications"
             className="relative grid h-10 w-10 place-items-center"
           >
             <Bell size={19} />
-            <i className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#B8955A]" />
+            {!isDataRoom && <i className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#B8955A]" />}
           </button>
           <span className="flex items-center gap-2 text-xs">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-ink font-semibold text-white">AK</span>
-            <span className="hidden sm:block">Aarav Kapoor</span>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-ink font-semibold text-white">{isDataRoom ? (user?.display_name?.slice(0, 2).toUpperCase() || '—') : 'AK'}</span>
+            <span className="hidden sm:block">{isDataRoom ? user?.display_name : 'Aarav Kapoor'}</span>
             <ChevronDown size={14} />
           </span>
         </div>
@@ -1099,6 +1252,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   ['Hub', '/startup/investors', page === 'hub'],
                   ['Find investors', '/startup/investors/discover', page === 'discover'],
                   ['Pipeline', '/startup/investors/pipeline', page === 'pipeline'],
+                  ['Meetings', '/startup/meetings', page === 'meetings'],
                   ['Rounds', '/startup/rounds', page === 'rounds' || page === 'round-detail'],
                   ['Visibility settings', '/startup/investors/settings', page === 'settings'],
                 ]
@@ -1172,38 +1326,64 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
             )}
             {hubPhase === 'ready' && hubSummary && showAnyway && (
               <>
-                <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
                   {[
-                    ['Open rounds', hubSummary.open_rounds],
-                    ['Deals in pipeline', hubSummary.deals_in_pipeline],
-                    ['Pending requests', hubSummary.pending_requests],
-                    ['Meetings this month', hubSummary.meetings_this_month],
-                    ['Offers received', hubSummary.offers_received],
-                    ['Commitments received', hubSummary.commitments_received],
-                  ].map(([n, v]) => (
-                    <div key={n} className="rounded-xl border border-[#E5E1D8] bg-white p-4">
+                    ['Open rounds', hubSummary.open_rounds, '/startup/rounds'],
+                    ['Deals in pipeline', hubSummary.deals_in_pipeline, '/startup/investors/pipeline'],
+                    ['Pending requests', hubSummary.pending_requests, '/startup/meetings?tab=requests'],
+                    ['Meetings this month', hubSummary.meetings_this_month, '/startup/meetings'],
+                    [
+                      'Offers received',
+                      hubSummary.offers_received,
+                      hubSummary.primary_round
+                        ? `/startup/rounds/${hubSummary.primary_round.id}?tab=offers`
+                        : '/startup/rounds',
+                    ],
+                    [
+                      'Commitments received',
+                      hubSummary.commitments_received,
+                      hubSummary.primary_round
+                        ? `/startup/rounds/${hubSummary.primary_round.id}?tab=offers`
+                        : '/startup/rounds',
+                    ],
+                  ].map(([n, v, href]) => (
+                    <Link
+                      key={n}
+                      href={href}
+                      className="block rounded-xl border border-[#E5E1D8] bg-white p-4 transition hover:border-[#9A7A45] hover:shadow-xs"
+                    >
                       <p className="text-xs text-[#4A5568]">{n}</p>
                       <b className="serif mt-1 block text-2xl">{v}</b>
-                    </div>
+                    </Link>
                   ))}
                 </div>
                 <div className="grid items-start gap-5 xl:grid-cols-3">
                   <div className="space-y-5 xl:col-span-2">
-                    <Card title="Needs your reply" action={<Link href="/startup/messages" className="text-xs font-semibold text-[#9A7A45]">Open inbox</Link>}>
+                    <Card
+                      title="Needs your reply"
+                      action={
+                        <Link href="/startup/meetings?tab=requests" className="text-xs font-semibold text-[#9A7A45] hover:underline">
+                          View all requests
+                        </Link>
+                      }
+                    >
                       {hubSummary.needs_reply.length === 0 ? (
                         <p className="text-xs text-[#4A5568]">Nothing is waiting on you right now.</p>
                       ) : (
                         <div className="space-y-2">
                           {hubSummary.needs_reply.map((item) => (
-                            <div key={item.id} className="flex items-center gap-3 rounded-lg border border-[#E5E1D8] p-3">
+                            <div key={item.id} className="flex items-center gap-3 rounded-lg border border-[#E5E1D8] p-3 hover:border-[#D1CBBE] transition-colors">
                               <Mail className="text-[#9A7A45]" size={17} />
                               <span className="flex-1">
-                                <b className="block text-xs">{item.investor_name}</b>
+                                <b className="block text-xs text-ink">{item.investor_name}</b>
                                 <small className="text-[10px] text-[#4A5568]">
                                   {KIND_LABELS[item.kind] || item.kind} · {timeAgo(item.created_at)}
                                 </small>
                               </span>
-                              <Link href="/startup/messages" className="text-xs font-semibold text-[#9A7A45]">
+                              <Link
+                                href={`/startup/meetings?tab=requests&requestId=${item.id}`}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-[#9A7A45] hover:text-ink transition-colors"
+                              >
                                 Open <ArrowRight className="inline" size={12} />
                               </Link>
                             </div>
@@ -1626,13 +1806,23 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                             {label}<span className="text-[#4A5568]">{stageDeals.length}</span>
                           </h2>
                           {stageDeals.map(d => (
-                            <Link href={`/startup/investors/${d.investor_org_id}`} key={d.id} className="mb-2 block rounded-lg border border-[#E5E1D8] bg-white p-3 hover:border-[#A0A7B4]">
-                              <b className="text-xs">{d.investor_name}</b>
+                            <div key={d.id} className="mb-2 block rounded-lg border border-[#E5E1D8] bg-white p-3 hover:border-[#A0A7B4]">
+                              <Link href={`/startup/investors/${d.investor_org_id}`} className="block text-xs font-semibold hover:underline">
+                                {d.investor_name}
+                              </Link>
                               <p className="mt-1 text-[10px] text-[#4A5568]">
                                 {d.ticket_size != null ? formatMoney(d.ticket_size, d.currency) : 'Ticket not shared'}
                               </p>
                               {d.next_step && <p className="mt-2 text-[10px] text-[#4A5568]">{d.next_step}</p>}
-                            </Link>
+                              {d.stage === 'offer' && (
+                                <Link
+                                  href={d.round_id ? `/startup/rounds/${d.round_id}?tab=offers` : '/startup/rounds'}
+                                  className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold text-[#9A7A45] hover:underline"
+                                >
+                                  View offer <ArrowRight size={10} />
+                                </Link>
+                              )}
+                            </div>
                           ))}
                         </section>
                       );
@@ -1663,7 +1853,18 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                                 <td>{PIPELINE_STAGE_LABELS[d.stage] || d.stage}</td>
                                 <td>{d.last_activity_at ? new Date(d.last_activity_at).toLocaleDateString() : '—'}</td>
                                 <td>{d.ticket_size != null ? formatMoney(d.ticket_size, d.currency) : '—'}</td>
-                                <td>{d.next_step || '—'}</td>
+                                <td>
+                                  {d.stage === 'offer' ? (
+                                    <Link
+                                      href={d.round_id ? `/startup/rounds/${d.round_id}?tab=offers` : '/startup/rounds'}
+                                      className="font-medium text-[#9A7A45] hover:underline"
+                                    >
+                                      View offer →
+                                    </Link>
+                                  ) : (
+                                    d.next_step || '—'
+                                  )}
+                                </td>
                               </tr>
                             ))}
                         </tbody>
@@ -1703,208 +1904,8 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
           </>
         )}
 
-        {page === 'data-room' && (
-          <>
-            {head(
-              <div className="flex gap-2">
-                <Btn secondary onClick={() => notify('Investor preview opened.')}><Eye size={15} /> Preview as investor</Btn>
-                <Btn onClick={() => setModal('upload')}><Upload size={15} /> Upload</Btn>
-              </div>
-            )}
-            <div className="mb-5 rounded-xl border border-[#E5E1D8] bg-white p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <b className="text-sm">Data room completeness · 76%</b>
-                  <p className="mt-1 text-xs text-[#4A5568]">3 checklist items missing · NDA required before protected documents open</p>
-                </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => notify('Watermark and NDA settings opened.')} className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs">
-                    Settings
-                  </button>
-                  <Link href="/startup/data-room/requests" className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
-                    Access requests
-                  </Link>
-                </div>
-              </div>
-              <div className="mt-3 h-2 rounded-full bg-[#E5E1D8]">
-                <div className="h-full w-[76%] rounded-full bg-[#B8955A]" />
-              </div>
-            </div>
-
-            <div className="grid items-start gap-5 xl:grid-cols-4">
-              <aside className="rounded-xl border border-[#E5E1D8] bg-white p-4">
-                <h2 className="mb-3 text-sm font-semibold">Folders</h2>
-                {['Corporate', 'Financials', 'Legal', 'Product', 'Team', 'Customers', 'Pitch'].map(x => (
-                  <button
-                    type="button"
-                    onClick={() => setFolder(x)}
-                    key={x}
-                    className={`mb-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs ${
-                      folder === x ? 'bg-[#F3EBDD] font-semibold text-[#806236]' : 'hover:bg-[#FAF8F4]'
-                    }`}
-                  >
-                    <Folder size={15} />{x}
-                    <span className="ml-auto text-[10px] text-[#4A5568]">{x === 'Pitch' ? 2 : x === 'Financials' ? 1 : 0}</span>
-                  </button>
-                ))}
-              </aside>
-
-              <div className="xl:col-span-3">
-                <Card
-                  title={`${folder} documents`}
-                  action={
-                    <button type="button" onClick={() => notify('New folder created.')} className="text-xs font-semibold text-[#9A7A45]">
-                      + New folder
-                    </button>
-                  }
-                >
-                  <div className="mb-3 rounded-lg bg-[#FAF8F4] p-3 text-xs text-[#4A5568]">
-                    <LockKeyhole className="mr-1 inline" size={13} />
-                    View-only by default · watermark on · investors must sign NDA before opening restricted files.
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[650px] text-left text-xs">
-                      <thead className="border-b text-[#4A5568]">
-                        <tr>
-                          {['Name', 'Size', 'Updated', 'Access', 'Views', ''].map(x => (
-                            <th key={x} className="py-3">{x}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {files.map((f, i) => (
-                          <tr key={f.name} className="border-b border-[#E5E1D8]">
-                            <td className="py-3">
-                              <FileText className="mr-2 inline text-[#9A7A45]" size={15} />{f.name}
-                            </td>
-                            <td>{f.size}</td>
-                            <td>{f.updated}</td>
-                            <td>
-                              <select
-                                value={f.access}
-                                onChange={e => setFiles(files.map((x, j) => j === i ? { ...x, access: e.target.value } : x))}
-                                className="rounded border bg-white px-2 py-1"
-                              >
-                                <option>Private</option>
-                                <option>Per investor</option>
-                                <option>Public to approved investors</option>
-                              </select>
-                            </td>
-                            <td>{f.views}</td>
-                            <td>
-                              <button type="button" onClick={() => notify(`Previewing ${f.name}; access logged.`)} className="text-[#9A7A45]">
-                                Preview
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                    {[
-                      ['Cap table', 'Missing'],
-                      ['Financial projections', 'Missing'],
-                      ['Pitch deck', 'Uploaded'],
-                    ].map(([a, b]) => (
-                      <button key={a} type="button" onClick={() => notify(`${a} upload selected.`)} className="rounded-lg border border-dashed border-[#E5E1D8] p-3 text-left text-xs">
-                        <b>{a}</b>
-                        <small className="mt-1 block text-[#4A5568]">{b}</small>
-                      </button>
-                    ))}
-                  </div>
-                </Card>
-
-                <Card title="Access log">
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[550px] text-left text-xs">
-                      <thead className="border-b text-[#4A5568]">
-                        <tr>
-                          {['Investor', 'Document', 'Action', 'Time', 'Duration'].map(x => (
-                            <th key={x} className="py-2">{x}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          ['Northstar Capital', 'Pitch deck v3.pdf', 'Viewed', 'Today · 10:20', '4m'],
-                          ['SeedSpring Fund', 'Product brief.pdf', 'Viewed', 'Nov 02 · 14:42', '3m'],
-                          ['Mira Shah', 'Pitch deck v3.pdf', 'Viewed', 'Nov 01 · 09:12', '7m'],
-                        ].map(r => (
-                          <tr key={r[0]} className="border-b">
-                            <td className="py-3">{r[0]}</td>
-                            {r.slice(1).map((x, i) => (
-                              <td key={i}>{x}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <button type="button" onClick={() => notify('Audit log exported.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
-                    Export audit log <Download className="inline" size={13} />
-                  </button>
-                </Card>
-              </div>
-            </div>
-            {disclaimer}
-          </>
-        )}
-
-        {page === 'access' && (
-          <>
-            {head(null)}
-            <div className="mb-4 flex gap-2">
-              {['Pending', 'Approved', 'Declined'].map(x => (
-                <button
-                  key={x}
-                  type="button"
-                  onClick={() => setAccessTab(x)}
-                  className={`min-h-10 rounded-lg px-4 text-xs ${accessTab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
-                >
-                  {x}
-                </button>
-              ))}
-            </div>
-            <Card title={`${accessTab} data room requests`}>
-              {accessTab === 'Pending' ? (
-                <div className="space-y-3">
-                  {[
-                    ['Northstar Capital', 'Pitch, Financials', 'We are evaluating your seed round and would like to review your projections.', 'Signed NDA · 2 hours ago'],
-                    ['Mira Shah', 'Pitch', 'Interested in learning more about your customer validation.', 'NDA pending · 1 day ago'],
-                  ].map(([n, s, m, d]) => (
-                    <article key={n} className="rounded-xl border border-[#E5E1D8] p-4">
-                      <div className="flex flex-wrap items-start gap-3">
-                        <span className="grid h-10 w-10 place-items-center rounded-lg bg-[#F3EBDD] font-semibold">{n[0]}</span>
-                        <div className="flex-1">
-                          <b className="text-sm">{n}</b>
-                          <p className="mt-1 text-xs text-[#4A5568]">Requested scope: {s}</p>
-                          <p className="mt-2 text-xs">“{m}”</p>
-                          <small className="mt-2 block text-[10px] text-[#4A5568]">{d} · Verified investor</small>
-                        </div>
-                        <span className="rounded-full bg-[#FFF3D6] px-2 py-1 text-[10px] text-[#8A5700]">Pending</span>
-                      </div>
-                      <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-[#E5E1D8] pt-3">
-                        <button type="button" onClick={() => notify('Question sent to investor.')} className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs">
-                          Ask a question
-                        </button>
-                        <button type="button" onClick={() => notify('Request declined.')} className="rounded-lg px-3 py-2 text-xs text-[#B42318]">
-                          Decline
-                        </button>
-                        <button type="button" onClick={() => setModal(`grant-${n}`)} className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
-                          Approve with scope
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <p className="py-8 text-center text-sm text-[#4A5568]">No {accessTab.toLowerCase()} requests yet.</p>
-              )}
-            </Card>
-            {disclaimer}
-          </>
-        )}
+        {page === 'data-room' && <>{head(null)}<StartupDataRoom /></>}
+        {page === 'access' && <>{head(null)}<StartupDataRoom requests /></>}
 
         {page === 'messages' && (
           <>
@@ -1996,28 +1997,59 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
             {head(
               <Btn onClick={() => notify('Scheduling is done from the investor side; meetings proposed to you appear here.')}><Plus size={15} /> Schedule meeting</Btn>
             )}
-            <div className="mb-4 flex gap-2">
-              {['Upcoming', 'Requests', 'Past', 'Calendar'].map(x => (
-                <button
-                  key={x}
-                  type="button"
-                  onClick={() => setMeetingTab(x)}
-                  className={`min-h-10 rounded-lg px-4 text-xs ${meetingTab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
-                >
-                  {x}
-                </button>
-              ))}
-            </div>
+            {(() => {
+              const pendingReqCount = startupRequests.filter((r) => r.status === 'pending').length;
+              const proposedMeetCount = meetings.filter((m) => m.status === 'proposed').length;
+              const totalPendingRequests = pendingReqCount + proposedMeetCount;
+              return (
+                <div className="mb-4 flex gap-2">
+                  {['Upcoming', 'Requests', 'Past', 'Calendar'].map((x) => (
+                    <button
+                      key={x}
+                      type="button"
+                      onClick={() => setMeetingTab(x)}
+                      className={`inline-flex min-h-10 items-center rounded-lg px-4 text-xs transition-colors ${
+                        meetingTab === x ? 'bg-ink text-white font-semibold' : 'border border-[#E5E1D8] bg-white text-[#4A5568] hover:bg-[#FAF8F4]'
+                      }`}
+                    >
+                      {x}
+                      {x === 'Requests' && totalPendingRequests > 0 && (
+                        <span
+                          className={`ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+                            meetingTab === 'Requests' ? 'bg-white text-ink' : 'bg-[#9A7A45] text-white'
+                          }`}
+                        >
+                          {totalPendingRequests}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
 
-            {meetingsPhase === 'loading' && <LoadingBlock label="Loading your meetings…" rows={2} />}
+            {meetingsPhase === 'loading' && <LoadingBlock label="Loading your meetings and requests…" rows={2} />}
             {meetingsPhase === 'error' && (
-              <ErrorBlock message={meetingsError || 'Could not load your meetings.'} onRetry={() => org && loadMeetings(org.id)} />
+              <ErrorBlock message={meetingsError || 'Could not load your meetings and requests.'} onRetry={() => org && loadMeetings(org.id)} />
             )}
             {meetingsPhase === 'none' && (
               <EmptyBlock
-                title="No startup workspace yet"
-                hint="Create or join a startup to see investor meetings."
-              />
+                title={user?.roles?.includes('investor') ? 'Investor Meetings' : 'No startup workspace yet'}
+                hint={
+                  user?.roles?.includes('investor')
+                    ? 'You are logged in as an investor. Meetings with startups are managed from your investor dashboard.'
+                    : 'Create or join a startup to see investor meetings.'
+                }
+              >
+                {user?.roles?.includes('investor') && (
+                  <Link
+                    href="/investor/meetings"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-xs font-semibold text-white hover:bg-black transition-colors"
+                  >
+                    <CalendarDays size={14} /> Go to Investor Meetings
+                  </Link>
+                )}
+              </EmptyBlock>
             )}
             {meetingsPhase === 'ready' && (
               <>
@@ -2047,51 +2079,245 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                     )}
                   </Card>
                 ) : meetingTab === 'Requests' ? (
-                  <Card title="Meeting requests">
-                    {meetings.filter((m) => m.status === 'proposed').length === 0 ? (
-                      <EmptyBlock title="No meeting requests" hint="Proposed meetings from investors will appear here for you to accept." />
-                    ) : (
-                      <div className="space-y-3">
-                        {meetings
-                          .filter((m) => m.status === 'proposed')
-                          .map((m) => (
-                            <div key={m.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-[#E5E1D8] p-4">
-                              <CalendarDays size={17} className="text-[#9A7A45]" />
-                              <span className="flex-1">
-                                <b className="block text-sm">{m.investor_name || 'Investor'} · {m.meeting_type}</b>
-                                <small className="text-xs text-[#4A5568]">
-                                  Proposed: {new Date(m.scheduled_at).toLocaleString()} · {m.duration_minutes} min
-                                </small>
-                              </span>
-                              <button
-                                type="button"
-                                disabled={meetingBusyId === m.id}
-                                onClick={async () => {
-                                  setMeetingBusyId(m.id);
-                                  try {
-                                    await api.engagement.transitionStartupMeeting(org.id, m.id, 'confirmed');
-                                    notify('Meeting time accepted.');
-                                    await loadMeetings(org.id);
-                                  } catch (err) {
-                                    notify(err instanceof ApiError ? err.message : 'Could not accept this meeting.');
-                                  } finally {
-                                    setMeetingBusyId('');
-                                  }
-                                }}
-                                className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white"
-                              >
-                                Accept
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => notify('Alternative time proposal opens from the meeting details.')}
-                                className="rounded-lg border px-3 py-2 text-xs"
-                              >
-                                Propose another
-                              </button>
-                            </div>
-                          ))}
+                  <Card
+                    title="Inbound investor requests"
+                    action={
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {[
+                          ['Pending', startupRequests.filter((r) => r.status === 'pending').length],
+                          ['Accepted', startupRequests.filter((r) => r.status === 'accepted').length],
+                          ['Declined & expired', startupRequests.filter((r) => r.status === 'declined' || r.status === 'expired').length],
+                          ['Proposed meetings', meetings.filter((m) => m.status === 'proposed').length],
+                        ].map(([sub, count]) => (
+                          <button
+                            key={sub}
+                            type="button"
+                            onClick={() => setRequestsSubTab(sub)}
+                            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                              requestsSubTab === sub
+                                ? 'bg-ink text-white font-semibold'
+                                : 'border border-[#E5E1D8] bg-white text-[#4A5568] hover:bg-[#FAF8F4]'
+                            }`}
+                          >
+                            {sub} {count > 0 ? `(${count})` : ''}
+                          </button>
+                        ))}
                       </div>
+                    }
+                  >
+                    {requestsSubTab === 'Proposed meetings' ? (
+                      meetings.filter((m) => m.status === 'proposed').length === 0 ? (
+                        <EmptyBlock
+                          title="No proposed meetings"
+                          hint="Proposed meeting slots from investors will appear here for you to accept or decline."
+                        />
+                      ) : (
+                        <div className="space-y-3">
+                          {meetings
+                            .filter((m) => m.status === 'proposed')
+                            .map((m) => (
+                              <div
+                                key={m.id}
+                                className="flex flex-wrap items-center gap-3 rounded-lg border border-[#E5E1D8] p-4 bg-[#FAF8F4]"
+                              >
+                                <CalendarDays size={18} className="text-[#9A7A45]" />
+                                <span className="flex-1">
+                                  <b className="block text-sm">{m.investor_name || 'Investor'} · {m.meeting_type}</b>
+                                  <small className="text-xs text-[#4A5568]">
+                                    Proposed: {new Date(m.scheduled_at).toLocaleString()} · {m.duration_minutes} min
+                                  </small>
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={meetingBusyId === m.id}
+                                  onClick={async () => {
+                                    setMeetingBusyId(m.id);
+                                    try {
+                                      await api.engagement.transitionStartupMeeting(org.id, m.id, 'confirmed');
+                                      notify('Meeting time accepted.');
+                                      await loadMeetings(org.id);
+                                    } catch (err) {
+                                      notify(err instanceof ApiError ? err.message : 'Could not accept this meeting.');
+                                    } finally {
+                                      setMeetingBusyId('');
+                                    }
+                                  }}
+                                  className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white hover:bg-black"
+                                >
+                                  Accept time
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={meetingBusyId === m.id}
+                                  onClick={async () => {
+                                    setMeetingBusyId(m.id);
+                                    try {
+                                      await api.engagement.transitionStartupMeeting(org.id, m.id, 'cancelled');
+                                      notify('Meeting time declined.');
+                                      await loadMeetings(org.id);
+                                    } catch (err) {
+                                      notify(err instanceof ApiError ? err.message : 'Could not decline this meeting.');
+                                    } finally {
+                                      setMeetingBusyId('');
+                                    }
+                                  }}
+                                  className="rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#B42318] hover:bg-[#FEF3F2]"
+                                >
+                                  Decline
+                                </button>
+                              </div>
+                            ))}
+                        </div>
+                      )
+                    ) : (
+                      (() => {
+                        const filtered = startupRequests.filter((r) => {
+                          if (requestsSubTab === 'Pending') return r.status === 'pending';
+                          if (requestsSubTab === 'Accepted') return r.status === 'accepted';
+                          return r.status === 'declined' || r.status === 'expired';
+                        });
+
+                        if (filtered.length === 0) {
+                          return (
+                            <EmptyBlock
+                              title={
+                                requestsSubTab === 'Pending'
+                                  ? 'No pending investor requests'
+                                  : requestsSubTab === 'Accepted'
+                                  ? 'No accepted requests yet'
+                                  : 'No declined or expired requests'
+                              }
+                              hint={
+                                requestsSubTab === 'Pending'
+                                  ? 'When investors discover your startup and submit introduction, meeting, or info requests, they will appear here.'
+                                  : 'Requests you review and accept will be tracked here.'
+                              }
+                            />
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-3">
+                            {filtered.map((req) => {
+                              const kindColors = {
+                                intro: 'bg-[#FFF8E8] text-[#806236] border-[#E7D4B0]',
+                                meeting: 'bg-[#EFF8FF] text-[#175CD3] border-[#B2DDFF]',
+                                information: 'bg-[#F9F5FF] text-[#6941C6] border-[#E9D7FE]',
+                              };
+                              const statusBadges = {
+                                pending: 'bg-[#FEF0C7] text-[#B54708] border-[#FEDF89]',
+                                accepted: 'bg-[#ECFDF3] text-[#027A48] border-[#A6F4C5]',
+                                declined: 'bg-[#FEF3F2] text-[#B42318] border-[#FECDCA]',
+                                expired: 'bg-[#F2F4F7] text-[#475467] border-[#EAECF0]',
+                              };
+                              return (
+                                <article
+                                  key={req.id}
+                                  className="rounded-xl border border-[#E5E1D8] bg-white p-4 shadow-sm hover:border-[#D1CBBE] transition-colors"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F4F1EA] pb-3">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="font-semibold text-sm text-ink">
+                                        {req.investor_name}
+                                      </span>
+                                      <span
+                                        className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${
+                                          kindColors[req.kind] || 'bg-gray-100 text-gray-800'
+                                        }`}
+                                      >
+                                        {req.kind === 'intro' ? 'Intro request' : req.kind}
+                                      </span>
+                                      <span
+                                        className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${
+                                          statusBadges[req.status] || 'bg-gray-100 text-gray-800'
+                                        }`}
+                                      >
+                                        {req.status}
+                                      </span>
+                                    </div>
+                                    <span className="text-[11px] text-[#5A6679]">
+                                      Received: {new Date(req.created_at).toLocaleDateString()}
+                                      {req.expires_on && req.status === 'pending' && (
+                                        <span className="ml-2 text-[#B54708]">
+                                          · Expires {new Date(req.expires_on).toLocaleDateString()}
+                                        </span>
+                                      )}
+                                    </span>
+                                  </div>
+
+                                  <div className="pt-3 pb-2">
+                                    <h4 className="text-sm font-semibold text-ink">{req.ask}</h4>
+                                    {req.message && (
+                                      <p className="mt-1.5 line-clamp-2 text-xs text-[#4A5568] bg-[#FAF8F4] rounded-lg p-2.5 border border-[#E5E1D8]/60">
+                                        “{req.message}”
+                                      </p>
+                                    )}
+                                    {req.response_note && (
+                                      <p className="mt-2 text-xs text-[#027A48]">
+                                        <span className="font-semibold">Your response:</span> “{req.response_note}”
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-[#F4F1EA] pt-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedRequest(req);
+                                        setResponseAction('accept');
+                                        setResponseNote(req.response_note || '');
+                                        setRespondError('');
+                                      }}
+                                      className="inline-flex min-h-8 items-center rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs font-semibold text-ink hover:bg-[#FAF8F4]"
+                                    >
+                                      <Eye size={13} className="mr-1.5" /> View request
+                                    </button>
+
+                                    {req.status === 'pending' && (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedRequest(req);
+                                            setResponseAction('decline');
+                                            setResponseNote('');
+                                            setRespondError('');
+                                          }}
+                                          className="inline-flex min-h-8 items-center rounded-lg border border-[#FECDCA] bg-white px-3 text-xs font-semibold text-[#B42318] hover:bg-[#FEF3F2]"
+                                        >
+                                          <X size={13} className="mr-1.5" /> Decline
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedRequest(req);
+                                            setResponseAction('accept');
+                                            setResponseNote('');
+                                            setRespondError('');
+                                          }}
+                                          className="inline-flex min-h-8 items-center rounded-lg bg-ink px-3.5 text-xs font-semibold text-white hover:bg-black"
+                                        >
+                                          <Check size={13} className="mr-1.5" /> Accept
+                                        </button>
+                                      </>
+                                    )}
+
+                                    {req.status === 'accepted' && (
+                                      <Link
+                                        href="/startup/meetings"
+                                        onClick={() => setMeetingTab('Calendar')}
+                                        className="inline-flex min-h-8 items-center rounded-lg bg-[#027A48] px-3 text-xs font-semibold text-white hover:bg-[#02623a]"
+                                      >
+                                        <CalendarDays size={13} className="mr-1.5" /> Schedule meeting
+                                      </Link>
+                                    )}
+                                  </div>
+                                </article>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()
                     )}
                   </Card>
                 ) : meetingTab === 'Past' ? (
@@ -2171,9 +2397,22 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
             )}
             {roundsPhase === 'none' && (
               <EmptyBlock
-                title="No startup workspace yet"
-                hint="Create or join a startup to start tracking fundraising rounds."
-              />
+                title={user?.roles?.includes('investor') ? 'Investor Workspace' : 'No startup workspace yet'}
+                hint={
+                  user?.roles?.includes('investor')
+                    ? 'You are logged in as an investor. Fundraising rounds are created and managed by startups in their founder workspaces. You can discover startups and view active rounds in the Discover portal.'
+                    : 'Create or join a startup to start tracking fundraising rounds.'
+                }
+              >
+                {user?.roles?.includes('investor') && (
+                  <Link
+                    href="/investor/discover"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-xs font-semibold text-white hover:bg-black transition-colors"
+                  >
+                    <Search size={14} /> Go to Investor Discovery
+                  </Link>
+                )}
+              </EmptyBlock>
             )}
             {roundsPhase === 'ready' && rounds.length === 0 && (
               <EmptyBlock
@@ -2360,7 +2599,23 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
               />
             )}
             {roundPhase === 'none' && (
-              <EmptyBlock title="No startup workspace yet" hint="Create or join a startup to view this round." />
+              <EmptyBlock
+                title={user?.roles?.includes('investor') ? 'Founder Round Management' : 'No startup workspace yet'}
+                hint={
+                  user?.roles?.includes('investor')
+                    ? 'This is a founder round management page. As an investor, you can evaluate open rounds and view investment terms from the startup’s discovery profile.'
+                    : 'Create or join a startup to view this round.'
+                }
+              >
+                {user?.roles?.includes('investor') && (
+                  <Link
+                    href="/investor/discover"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-xs font-semibold text-white hover:bg-black transition-colors"
+                  >
+                    <Search size={14} /> Go to Investor Discovery
+                  </Link>
+                )}
+              </EmptyBlock>
             )}
             {roundPhase === 'ready' && round && (
               <>
@@ -2506,10 +2761,86 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                       </p>
                     </>
                   ) : roundTab === 'Offers and commitments' ? (
-                    <EmptyBlock
-                      title="Offers and commitments arrive later"
-                      hint="Offers are recorded with the offers step (a later step); none exist yet for this round."
-                    />
+                    roundOffersPhase === 'loading' ? (
+                      <LoadingBlock message="Loading offers for this round…" />
+                    ) : roundOffersPhase === 'error' ? (
+                      <ErrorBlock
+                        message={roundOffersError || 'Could not load offers.'}
+                        onRetry={() => loadRoundOffers(org?.id, id)}
+                      />
+                    ) : roundOffers.length === 0 ? (
+                      <EmptyBlock
+                        title="No offers received yet"
+                        hint="Offers sent by interested investors for this round will appear here with terms, instrument, and acceptance controls."
+                      />
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[700px] text-left text-xs">
+                          <thead className="border-b text-[#4A5568]">
+                            <tr>
+                              {['Investor', 'Offer amount', 'Instrument', 'Cap / Valuation', 'Discount', 'Status', 'Expires', 'Actions'].map((h) => (
+                                <th key={h} className="py-3 font-semibold">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#E5E1D8]">
+                            {roundOffers.map((offer) => {
+                              const isOpen = ['sent', 'countered'].includes(offer.status);
+                              return (
+                                <tr key={offer.id} className="hover:bg-[#FAF8F4]/60">
+                                  <td className="py-3">
+                                    <div className="font-semibold text-ink">{offer.investor_name}</div>
+                                    <div className="text-[10px] text-[#4A5568]">v{offer.version}</div>
+                                  </td>
+                                  <td className="py-3 font-semibold text-ink">
+                                    {formatMoney(offer.amount, offer.currency)}
+                                  </td>
+                                  <td className="py-3 uppercase text-[#4A5568]">
+                                    {offer.instrument.replace(/_/g, ' ')}
+                                  </td>
+                                  <td className="py-3">
+                                    {offer.valuation_cap != null ? formatMoney(offer.valuation_cap, offer.currency) : '—'}
+                                  </td>
+                                  <td className="py-3">
+                                    {offer.discount_pct != null ? `${offer.discount_pct}%` : '—'}
+                                  </td>
+                                  <td className="py-3">
+                                    <StatusBadge status={offer.status.charAt(0).toUpperCase() + offer.status.slice(1)} />
+                                  </td>
+                                  <td className="py-3 text-[#4A5568]">
+                                    {offer.expires_on || '—'}
+                                  </td>
+                                  <td className="py-3">
+                                    {isOpen && canEditRounds ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <button
+                                          type="button"
+                                          onClick={() => setSelectedOfferModal({ offer, action: 'accept' })}
+                                          className="rounded-md bg-ink px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-black transition"
+                                        >
+                                          Accept
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setSelectedOfferModal({ offer, action: 'decline' })}
+                                          className="rounded-md border border-[#E5E1D8] bg-white px-2.5 py-1 text-[11px] font-medium text-stone-700 hover:bg-stone-50 transition"
+                                        >
+                                          Decline
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[11px] capitalize text-[#4A5568]">
+                                        {offer.status}
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
                   ) : roundTab === 'Term sheets' ? (
                     <EmptyBlock
                       title="Term sheets arrive later"
@@ -2563,7 +2894,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   <div className="space-y-5 xl:col-span-2">
                     <Card title="Who can see my startup">
                       <fieldset className="space-y-3">
-                        {['Private', 'Mentors only', 'Mentors and verified investors'].map(x => (
+                        {['Private', 'Mentors only', 'Mentors and verified investors', 'Public'].map(x => (
                           <label key={x} className="flex cursor-pointer items-start gap-3 rounded-lg border border-[#E5E1D8] p-3">
                             <input
                               type="radio"
@@ -2572,7 +2903,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                               disabled={!canEditVisibility}
                               onChange={() => {
                                 setVis(x);
-                                setVisible(x === 'Mentors and verified investors');
+                                setVisible(investorVisibilityEnabled(VISIBILITY_VALUES[x]));
                               }}
                               className="mt-1 accent-ink"
                             />
@@ -2583,6 +2914,8 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                                   ? 'Only your team can view your startup.'
                                   : x === 'Mentors only'
                                   ? 'Your assigned mentors can see shared information.'
+                                  : x === 'Public'
+                                  ? 'Anyone can view your public startup profile.'
                                   : 'Approved, verified investors can discover your public profile.'}
                               </small>
                               {profileFormErrors.profile_visibility && <FieldError>{profileFormErrors.profile_visibility}</FieldError>}
@@ -2658,8 +2991,6 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   ? 'Edit round terms'
                   : modal === 'offer'
                   ? 'Record an offer'
-                  : modal.startsWith('grant')
-                  ? 'Approve data room access'
                   : 'Add investor to pipeline'}
               </h2>
               <button type="button" onClick={() => setModal('')} aria-label="Close">
@@ -2926,22 +3257,6 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   </select>
                 </label>
               </div>
-            ) : modal.startsWith('grant') ? (
-              <div className="space-y-3">
-                <p className="text-sm">Choose the folders this investor can access after signing the NDA.</p>
-                {['Pitch', 'Financials', 'Product'].map(x => (
-                  <label key={x} className="flex gap-2 text-sm">
-                    <input type="checkbox" defaultChecked={x === 'Pitch'} className="accent-ink" />{x} folder
-                  </label>
-                ))}
-                <label className="block text-sm">
-                  Access expires
-                  <input type="date" className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] px-3" />
-                </label>
-                <label className="flex gap-2 text-xs">
-                  <input type="checkbox" defaultChecked className="accent-ink" />Require signed NDA first
-                </label>
-              </div>
             ) : (
               <div className="space-y-3">
                 <label className="block text-sm">
@@ -2977,8 +3292,6 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                       ? 'Intro request sent.'
                       : modal === 'meeting'
                       ? 'Meeting invitation prepared.'
-                      : modal.startsWith('grant')
-                      ? 'NDA sent; access pending signature.'
                       : 'Saved.'
                   );
                 }}
@@ -2989,8 +3302,6 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   ? 'Send request'
                   : modal === 'meeting'
                   ? 'Send invite'
-                  : modal.startsWith('grant')
-                  ? 'Approve scope'
                   : modal === 'offer'
                   ? 'Save offer'
                   : modal === 'round'
@@ -3283,6 +3594,319 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
               </div>
             </div>
           </section>
+        </div>
+      )}
+
+      {/* Investor Engagement Request Review & Decision Modal */}
+      {selectedRequest && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1B2D]/45 p-4 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !respondingBusy) setSelectedRequest(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="request-modal-title"
+            className="flex max-h-[90vh] w-full max-w-xl flex-col rounded-2xl bg-white p-6 shadow-2xl overflow-y-auto"
+          >
+            <div className="mb-4 flex items-center justify-between border-b border-[#F4F1EA] pb-3">
+              <div>
+                <span className="text-[11px] font-semibold tracking-wider text-[#9A7A45] uppercase">
+                  Investor Outreach
+                </span>
+                <h2 id="request-modal-title" className="serif text-xl font-semibold text-ink">
+                  {selectedRequest.investor_name}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => !respondingBusy && setSelectedRequest(null)}
+                className="rounded-lg p-1.5 text-[#5A6679] hover:bg-[#FAF8F4] hover:text-ink"
+                aria-label="Close dialog"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Meta tags */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-[#E7D4B0] bg-[#FFF8E8] px-2.5 py-0.5 text-xs font-semibold text-[#806236]">
+                  Kind: {selectedRequest.kind === 'intro' ? 'Introduction / Thesis match' : selectedRequest.kind}
+                </span>
+                <span
+                  className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${
+                    selectedRequest.status === 'accepted'
+                      ? 'border-[#A6F4C5] bg-[#ECFDF3] text-[#027A48]'
+                      : selectedRequest.status === 'declined'
+                      ? 'border-[#FECDCA] bg-[#FEF3F2] text-[#B42318]'
+                      : 'border-[#FEDF89] bg-[#FEF0C7] text-[#B54708]'
+                  }`}
+                >
+                  Status: {selectedRequest.status}
+                </span>
+                <span className="text-xs text-[#5A6679]">
+                  Received {new Date(selectedRequest.created_at).toLocaleDateString()}
+                </span>
+                {selectedRequest.expires_on && (
+                  <span className="text-xs text-[#5A6679]">
+                    · Valid until {new Date(selectedRequest.expires_on).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+
+              {/* Ask / Subject */}
+              <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-4">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-[#5A6679]">
+                  Focus / Subject
+                </span>
+                <p className="mt-1 text-sm font-semibold text-ink">{selectedRequest.ask}</p>
+              </div>
+
+              {/* Message from investor */}
+              <div>
+                <span className="text-xs font-semibold text-ink">
+                  Message from {selectedRequest.investor_name}:
+                </span>
+                {selectedRequest.message ? (
+                  <p className="mt-1.5 whitespace-pre-wrap rounded-xl border border-[#E5E1D8] bg-white p-3.5 text-xs text-[#2D3748] leading-relaxed">
+                    {selectedRequest.message}
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-xs italic text-[#718096]">
+                    No additional message was provided.
+                  </p>
+                )}
+              </div>
+
+              {/* Prior response details if already resolved */}
+              {selectedRequest.status !== 'pending' && (
+                <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-3.5">
+                  <span className="text-xs font-semibold text-ink">Founder response:</span>
+                  <p className="mt-1 text-xs text-[#4A5568]">
+                    {selectedRequest.response_note ? `“${selectedRequest.response_note}”` : 'No note was included.'}
+                  </p>
+                  {selectedRequest.status === 'accepted' && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <Link
+                        href="/startup/meetings"
+                        onClick={() => {
+                          setSelectedRequest(null);
+                          setMeetingTab('Calendar');
+                        }}
+                        className="inline-flex min-h-9 items-center rounded-lg bg-ink px-3 text-xs font-semibold text-white hover:bg-black"
+                      >
+                        <CalendarDays size={13} className="mr-1.5" /> Schedule follow-up meeting
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Decision form if pending */}
+              {selectedRequest.status === 'pending' && (
+                <form onSubmit={handleRespondRequest} className="space-y-4 border-t border-[#F4F1EA] pt-4">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-ink">
+                      Your decision
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setResponseAction('accept')}
+                        className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-xs font-semibold transition-all ${
+                          responseAction === 'accept'
+                            ? 'border-[#027A48] bg-[#ECFDF3] text-[#027A48] ring-2 ring-[#027A48]/20'
+                            : 'border-[#E5E1D8] bg-white text-[#4A5568] hover:bg-[#FAF8F4]'
+                        }`}
+                      >
+                        <Check size={16} /> Accept request
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setResponseAction('decline')}
+                        className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-xs font-semibold transition-all ${
+                          responseAction === 'decline'
+                            ? 'border-[#B42318] bg-[#FEF3F2] text-[#B42318] ring-2 ring-[#B42318]/20'
+                            : 'border-[#E5E1D8] bg-white text-[#4A5568] hover:bg-[#FAF8F4]'
+                        }`}
+                      >
+                        <X size={16} /> Decline request
+                      </button>
+                    </div>
+                  </div>
+
+                  {responseAction === 'decline' && (
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-ink">
+                        Reason for declining
+                      </label>
+                      <select
+                        value={declineReason}
+                        onChange={(e) => setDeclineReason(e.target.value)}
+                        disabled={respondingBusy}
+                        className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs font-medium text-ink focus:border-[#0F1B2D] focus:outline-none"
+                      >
+                        <option value="Not actively raising at this time">Not actively raising at this time</option>
+                        <option value="Thesis or sector mismatch">Thesis or sector mismatch</option>
+                        <option value="Stage or check size mismatch">Stage or check size mismatch</option>
+                        <option value="Geography or mandate mismatch">Geography or mandate mismatch</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-ink">
+                      {responseAction === 'accept' ? 'Note to investor (optional)' : 'Optional message to investor'}
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={responseNote}
+                      onChange={(e) => setResponseNote(e.target.value)}
+                      disabled={respondingBusy}
+                      maxLength={2000}
+                      className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-ink focus:border-[#0F1B2D] focus:outline-none"
+                      placeholder={
+                        responseAction === 'accept'
+                          ? "e.g. Thanks for reaching out! We're glad to connect and share more about our milestones."
+                          : "e.g. Thank you for your interest. We will keep you updated on our future rounds."
+                      }
+                    />
+                  </div>
+
+                  {respondError && (
+                    <div className="rounded-lg bg-[#FEF3F2] border border-[#FECDCA] p-2.5 text-xs text-[#B42318]" role="alert">
+                      {respondError}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRequest(null)}
+                      disabled={respondingBusy}
+                      className="rounded-lg border border-[#E5E1D8] bg-white px-4 py-2 text-xs font-semibold text-[#4A5568] hover:bg-[#FAF8F4]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={respondingBusy}
+                      className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold text-white transition-colors ${
+                        responseAction === 'accept'
+                          ? 'bg-ink hover:bg-black'
+                          : 'bg-[#B42318] hover:bg-[#912014]'
+                      }`}
+                    >
+                      {respondingBusy
+                        ? 'Submitting…'
+                        : responseAction === 'accept'
+                        ? 'Confirm & Accept'
+                        : 'Confirm & Decline'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* Offer Action Modal (Accept / Decline) */}
+      {selectedOfferModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-[#E5E1D8] bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-[#F4F1EA] pb-3">
+              <h2 className="text-base font-semibold text-ink">
+                {selectedOfferModal.action === 'accept' ? 'Accept Investment Offer' : 'Decline Investment Offer'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => !offerActionSubmitting && setSelectedOfferModal(null)}
+                aria-label="Close"
+                className="text-[#4A5568] hover:text-ink"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-3.5 text-xs">
+                <div className="flex justify-between py-1">
+                  <span className="text-[#4A5568]">Investor</span>
+                  <span className="font-semibold text-ink">{selectedOfferModal.offer.investor_name}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-[#4A5568]">Offer amount</span>
+                  <span className="font-semibold text-ink">
+                    {formatMoney(selectedOfferModal.offer.amount, selectedOfferModal.offer.currency)}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-[#4A5568]">Instrument</span>
+                  <span className="font-semibold uppercase text-ink">
+                    {selectedOfferModal.offer.instrument.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                {selectedOfferModal.offer.valuation_cap != null && (
+                  <div className="flex justify-between py-1">
+                    <span className="text-[#4A5568]">Valuation Cap</span>
+                    <span className="font-semibold text-ink">
+                      {formatMoney(selectedOfferModal.offer.valuation_cap, selectedOfferModal.offer.currency)}
+                    </span>
+                  </div>
+                )}
+                {selectedOfferModal.offer.discount_pct != null && (
+                  <div className="flex justify-between py-1">
+                    <span className="text-[#4A5568]">Discount</span>
+                    <span className="font-semibold text-ink">
+                      {selectedOfferModal.offer.discount_pct}%
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-[#4A5568] leading-relaxed">
+                {selectedOfferModal.action === 'accept'
+                  ? 'Accepting this offer confirms the terms with the investor and advances this deal to the commitment stage. This action cannot be undone.'
+                  : 'Declining this offer will notify the investor that the startup has decided not to proceed with these terms.'}
+              </p>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setSelectedOfferModal(null)}
+                disabled={offerActionSubmitting}
+                className="rounded-lg border border-[#E5E1D8] bg-white px-4 py-2 text-xs font-semibold text-[#4A5568] hover:bg-[#FAF8F4]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmOfferAction}
+                disabled={offerActionSubmitting}
+                className={`rounded-lg px-4 py-2 text-xs font-semibold text-white transition ${
+                  selectedOfferModal.action === 'accept'
+                    ? 'bg-ink hover:bg-black'
+                    : 'bg-[#B42318] hover:bg-[#912014]'
+                }`}
+              >
+                {offerActionSubmitting
+                  ? 'Processing…'
+                  : selectedOfferModal.action === 'accept'
+                  ? 'Confirm & Accept'
+                  : 'Confirm & Decline'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

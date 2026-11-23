@@ -14,7 +14,7 @@ const TAB_STATUSES = {
 };
 
 export default function InvestorRequestsPage() {
-  const [requestsTab, setRequestsTab] = useState('Received');
+  const [requestsTab, setRequestsTab] = useState('Sent');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -78,7 +78,7 @@ export default function InvestorRequestsPage() {
         <>
           {/* Sub Navigation Tabs */}
           <div className="mb-6 flex gap-2">
-            {['Received', 'Sent', 'Accepted', 'Declined and expired'].map((x) => (
+            {['Sent', 'Accepted', 'Declined and expired', 'Received'].map((x) => (
               <button
                 key={x}
                 type="button"

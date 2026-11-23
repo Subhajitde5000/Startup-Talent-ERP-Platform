@@ -56,12 +56,28 @@ _Backend phase (A) complete: 32 tests pass, ruff + mypy clean, migrations up/dow
 - [x] 3d Team management completion, A: backend (deactivate/reactivate + bulk all-or-nothing, resend invite with token rotation and rate limits, invite email via background task + message/is_public columns, last_active_at throttled, server-side filters/sort/pagination, activity_events audit log, CSV export, tasks unassigned on remove, owner transfer only via transfer-ownership (role=owner is 422), member drawer data with LinkedIn/bio gated by is_public, team summary with open_jobs_count null until 7a, permissions matrix at GET /organizations/permissions — migration 0015; 464 tests pass on SQLite and PostgreSQL 16)
 - [x] 3d Team management completion, B: /startup/team wired — deactivate/reactivate (single, drawer, menu), resend invite with token rotation, revoke, bulk deactivate/remove/revoke (all-or-nothing), server-side filters/sort/search/pagination, real last_active_at, server CSV export, open-roles empty state (open_jobs_count null until 7a), permission matrix rendered from GET /organizations/permissions (Roles at a glance + modal + role capability text), drawer LinkedIn/bio gated by is_public, Message button disabled for Step 11, per-field 422 display on the invite form — verified live as owner/member/viewer
 
-## Step 4: Files (deferred, not needed for Step 5)
-- [ ] R2 integration and signed upload URLs
-- [ ] Validation and scan status
-- [ ] Private signed downloads
-- [ ] Avatar, logo, resume, deck uploads working
-- [ ] Wire uploads into the places waiting for Step 4 (startup logo, pitch deck and documents list, onboarding deck upload)
+## Step 4: Files (backend implemented; final verification gate still open)
+- [x] A: Cloudflare R2 adapter and signed staging upload URLs (adapter/signing tested; live R2 check pending)
+- [x] A: Kind-specific metadata/actual-byte validation, fail-closed scan workflow, immutable final objects, retry-safe processing leases
+- [x] A: Private signed downloads with personal ownership / active organization membership checks, strict server-owned fields and shared rate limiting
+- [x] A: Avatar (`image`), logo, resume and deck backend upload/download flows tested; avatar/logo WebP thumbnails (no profile attachment or frontend wiring)
+- [x] A: Abandoned/deleted upload cleanup and retry command; deployment cron instructions (schedule must be installed by deployment)
+- [ ] A: Required Docker Compose PostgreSQL test + migration verification, and live private-R2 upload/download/CORS smoke test
+- [x] B: Approved batch 1 — startup logo, pitch-deck selection, paginated private documents list and startup onboarding deck upload wired through the existing typed client
+- [ ] B: Remaining Step 4 surfaces from the inventory (avatars/user profiles, resumes and other approved follow-up batches); no other-step pages wired
+- [ ] B: Final frontend verification gates — live private-R2/CORS smoke, full-repository lint baseline, and no-browser-token-storage requirement (authentication changes explicitly deferred by user)
+
+_Batch 1 B (2026-11-23): `0032_step4_org_file_selections` adds nullable indexed `organizations.logo_file_id` and `startup_profiles.pitch_deck_file_id` SET NULL references. Selection requires a same-org, ready/clean file of the correct kind; soft deletion detaches references transactionally; private IDs are omitted from public profiles. Existing external URL fields remain separate. Logo selection is owner/admin-only; deck/content writes allow members; viewers read/download only; members delete/confirm their own files, admins/owners any org file. The fake inline documents/Public/NDA controls are removed, private/public preview is truthful, and cover upload is explicitly disabled (no cover storage field). No shared mock module was deleted._
+
+_Batch 1 B checks: frontend production build, separate typecheck and changed-file lint pass; full `npm run lint` fails on existing errors in untouched pages. Targeted backend regression (files, attachment selections, development seed, startup profiles, organizations) **150 passed on SQLite and 150 on native PostgreSQL 16.2**; revision 0032 upgrade/downgrade/upgrade passed. Backend Ruff and `mypy app scripts/maintain_files.py` pass (209 sources). Browser interaction checks covered owner/admin/member/viewer controls, ready upload/deck persistence, logo thumbnail, viewer download, admin delete-other, validation/rejection and list-error retry; onboarding explicitly creates an org before upload and final save preserves both uploaded selection and external link. Browser storage was a temporary test-only memory adapter, NOT R2. A pre-existing onboarding hard-reload draft/progress issue remains: unsaved non-file text can be lost and the step resets; the durable deck ID itself survives. Existing shared-client localStorage authentication remains unchanged by the user's explicit defer-auth decision, so the no-browser-token-storage gate is **unmet**._
+
+_Batch 1 B seed: old document names now live only in `scripts/seed_dev.py`, guarded by literal `ENVIRONMENT=development`. With configured private R2 and explicit development scanner opt-in, valid sample PDF/XLSX objects go through reservation, byte upload, confirmation and normal processing; dates/sizes/hashes are real. Without configuration the seed skips files and inserts no phantom ready rows. Other-step demo records/stores and remaining Step 4 inventory batches are intentionally untouched. No commit or push._
+
+_Backend implementation is **not signed off as complete** while the verification gate above is unchecked. Revision `0031_step4_files` creates only `files`. Approved additions: upload lifecycle/staging/thumbnail fields, internal processing token + lease expiry, purge checkpoint, bounds/CHECKs and uploader/work/cleanup indexes; reference names, kinds, scan states and SET NULL FKs retained. Organization deletion cannot transfer a file into personal scope. Existing profile URL fields are unchanged._
+
+_Verification (2026-11-23): full SQLite suite 1,014 passed / 1 skipped before two final Step 4 tests were added; final Step 4 rerun **88 passed on SQLite and 88 passed on PostgreSQL 16.2**. PostgreSQL full run had no failures but hit the 30-minute tool timeout after passing all files preceding `test_tasks.py`; rerunning the final `test_tasks.py` + `test_team.py` completed **80 passed**, covering the remainder with overlap. PostgreSQL `upgrade head → downgrade -1 → upgrade head` passed on a separate scratch DB. `ruff check app alembic scripts`, `mypy app scripts/maintain_files.py`, and new-file formatting checks pass. Two pre-existing nullable organization lookups in `test_investor_directory.py` gained assertions to satisfy the installed type checker; no other-step business logic changed._
+
+_Environment limits: Docker/Compose is absent, so PostgreSQL used a temporary native binary over a Unix socket, **not Docker**; this does not replace the required Compose gate. R2 hosts are blocked by sandbox outbound policy, so live Cloudflare verification is pending. Scanner is intentionally a hook: default unconfigured fails closed; explicit `dev_clean` is forbidden in production. A real scanner, deployment cron installation and legally approved retention remain operational prerequisites. Fresh SQLite migration history also fails in existing revision `0014` (unsupported ALTER constraint); old migrations were not edited. Use PostgreSQL for migrations; investigate SQLite-history support separately if wanted. Repository-wide formatting has existing drift; new Step 4 files are formatted. The preceding backend-only verification predates the batch 1 B work documented above._
 
 ## Step 5: Startup workspace (one sub-step at a time; A = backend, B = frontend wired)
 Already done in Step 3: team directory, members and invites, startup organization create/edit, founder profile, account settings.
@@ -299,12 +315,12 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [x] B: /investor/requests, /investor/meetings, /startup/meetings (investor-app.jsx meetings branch) wired to the 9f engagement APIs; loading/empty/error states; demo data removed to `seed_dev.py`
 
 ### 9g Data room core (needs Step 4)
-- [ ] A: Folders, documents stored as files, visibility level per document, versions
-- [ ] B: /startup/data-room wired; demo data removed
+- [x] A: Folders, documents stored as files, visibility level per document, versions — backend implemented in 0033; verification/status in `backend/DATA_ROOMS.md`. Required Docker Compose PostgreSQL gate blocked (Docker unavailable); not marked complete.
+- [x] B: /startup/data-room wired to typed APIs; scoped demos moved to guarded real-file dev seed; build/typecheck/scoped lint and role-browser checks passed. Verification gates remain open (unchanged localStorage auth; live R2/Compose unavailable); see `frontend/DATA_ROOMS.md`.
 
 ### 9h Data room access, NDA and audit
-- [ ] A: Access requests (approve, deny, revoke, expire), NDA tracking, every view logged
-- [ ] B: /startup/data-room/requests, /investor/data-rooms, /investor/data-rooms/[startupId], /investor/data-rooms/[startupId]/nda wired; demo data removed
+- [x] A: Access requests (approve, deny, revoke, expire), NDA tracking, every view logged — backend implemented in 0034 with personal scope, pinned NDA and authenticated retrieval audit; see `backend/DATA_ROOMS.md`. Required Docker Compose PostgreSQL gate blocked (Docker unavailable); not marked complete.
+- [x] B: /startup/data-room/requests, /investor/data-rooms, /investor/data-rooms/[startupId], /investor/data-rooms/[startupId]/nda wired to typed APIs; scoped mocks removed; personal grants/pinned NDA/audited bytes verified in browser. Verification gates remain open (unchanged localStorage auth; live R2/Compose unavailable); see `frontend/DATA_ROOMS.md`.
 
 ### 9i Offers
 - [x] A: Offers with versions and counters; accept, decline, expire

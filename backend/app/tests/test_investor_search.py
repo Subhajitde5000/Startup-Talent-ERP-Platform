@@ -416,6 +416,25 @@ async def test_shortlist_crud_and_duplicate(client: AsyncClient) -> None:
     assert resp.status_code == 200, resp.text
     assert len(resp.json()) == 1
 
+    # Moving a shortlisted startup into the pipeline removes it from the shortlist.
+    resp = await client.post(
+        "/api/v1/investors/deals",
+        json={"startup_org_id": startup["org"]["id"], "stage": "interested"},
+        headers=firm["owner"]["headers"],
+    )
+    assert resp.status_code == 201, resp.text
+    resp = await client.get("/api/v1/investors/me/shortlist", headers=firm["owner"]["headers"])
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == []
+
+    resp = await client.post(
+        "/api/v1/investors/me/shortlist",
+        json={"startup_org_id": startup["org"]["id"]},
+        headers=firm["owner"]["headers"],
+    )
+    assert resp.status_code == 201, resp.text
+    entry = resp.json()
+
     resp = await client.delete(
         f"/api/v1/investors/me/shortlist/{entry['id']}",
         headers=firm["owner"]["headers"],

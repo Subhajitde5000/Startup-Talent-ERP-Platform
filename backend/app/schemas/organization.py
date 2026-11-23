@@ -93,6 +93,7 @@ class OrganizationUpdate(BaseModel):
     country: str | None = Field(default=None, max_length=2)
     founded_year: int | None = Field(default=None, ge=1900, le=2100)
     logo_url: str | None = Field(default=None, max_length=500)
+    logo_file_id: uuid.UUID | None = None
 
     @field_validator("name", "slug")
     @classmethod
@@ -124,6 +125,7 @@ class OrganizationRead(BaseModel):
     status: str
     summary: str | None = None
     logo_url: str | None = None
+    logo_file_id: uuid.UUID | None = None
     logo_initials: str | None = None
     website: str | None = None
     city: str | None = None

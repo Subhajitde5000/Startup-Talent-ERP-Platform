@@ -53,3 +53,5 @@ __pycache__/
 .mypy_cache/
 backend/*.db
 backend/*.sqlite3
+# Local dev file storage (fallback when R2 is not configured)
+backend/local_uploads/

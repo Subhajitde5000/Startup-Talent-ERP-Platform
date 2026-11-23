@@ -3,10 +3,13 @@ import {useEffect, useState} from 'react';
 import Link from 'next/link';
 import { StartupSidebar, Card } from '../../../components';
 import {useAuth} from '@/lib/auth-context';
-import {api, ApiError} from '@/lib/api/client';
+import {api, ApiError, fileFieldErrors} from '@/lib/api/client';
+import FileUploadControl from '@/components/files/FileUploadControl';
+import PrivateFileImage from '@/components/files/PrivateFileImage';
+import OrganizationFiles from '@/components/files/OrganizationFiles';
 import {
   Users,Search,Bell,ChevronDown,Check,ArrowUpRight,ArrowRight,Plus,
-  LockKeyhole,CheckCircle2,Globe,MapPin,CalendarDays,FileText,Presentation,FileSpreadsheet,
+  LockKeyhole,CheckCircle2,Globe,MapPin,CalendarDays,FileText,
   Upload,Save,Pencil,MessageCircle,Mail,Building2,MoreHorizontal,X,Menu
 } from 'lucide-react';
 
@@ -84,11 +87,8 @@ export default function StartupProfile() {
   const [shares, setShares] = useState({traction: true, funding: false, contacts: false});
   const [toast, setToast] = useState('');
   const [menu, setMenu] = useState(false);
-  const [docs, setDocs] = useState([
-    {name: 'Pitch deck v3.pdf', size: '4.2 MB', access: 'Investors after NDA', updated: 'Today'},
-    {name: 'Financial model.xlsx', size: '1.8 MB', access: 'Private', updated: 'Yesterday'},
-    {name: 'Product brief.pdf', size: '2.1 MB', access: 'Public', updated: 'Oct 30'}
-  ]);
+  const [fileRevision, setFileRevision] = useState(0);
+  const [logoError, setLogoError] = useState('');
 
   // Step 5a: organization (Step 3b) + startup profile + members (Step 3).
   const {user} = useAuth();
@@ -105,6 +105,7 @@ export default function StartupProfile() {
   const [previewStatus, setPreviewStatus] = useState('idle'); // idle | loading | ready | error
 
   const canEdit = !!org && EDIT_ROLES.includes(org.my_role);
+  const canManageLogo = !!org && ['owner', 'admin'].includes(org.my_role);
 
   const notify = t => {
     setToast(t);
@@ -368,9 +369,9 @@ export default function StartupProfile() {
 
   // Profile completeness from real signals (logo, members, deck, verification).
   const completenessItems = [
-    ['Add a logo', !!org?.logo_url],
+    ['Add a logo', !!(org?.logo_url || org?.logo_file_id)],
     ['Add 2 team members', members.length >= 2],
-    ['Upload pitch deck', !!profile?.pitch_deck_url],
+    ['Upload pitch deck', !!(profile?.pitch_deck_url || profile?.pitch_deck_file_id)],
     ['Verify legal details', !!org?.verified_at]
   ];
   const completenessDone = completenessItems.filter(([, ok]) => ok).length;
@@ -593,7 +594,8 @@ export default function StartupProfile() {
             {isEdit && (
               <button
                 type="button"
-                onClick={() => notify('Cover image upload is ready to connect.')}
+                disabled
+                title="Custom cover storage is not configured."
                 className="absolute right-4 top-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/30 bg-ink/70 px-3 text-xs text-white"
               >
                 <Upload size={15} /> Edit cover
@@ -602,14 +604,29 @@ export default function StartupProfile() {
           </div>
           <div className="px-5 pb-5 sm:px-7">
             <div className="-mt-12 flex flex-wrap items-end gap-4">
-              <button
-                type="button"
-                onClick={() => isEdit && notify('Logo upload is ready to connect.')}
-                aria-label="Upload startup logo"
-                className="grid h-24 w-24 shrink-0 place-items-center rounded-2xl border-4 border-white bg-[#F3EBDD] text-3xl font-bold text-ink shadow-sm"
-              >
-                {(org?.logo_initials || org?.name || 'S').charAt(0).toUpperCase()}
-              </button>
+              <div className="shrink-0">
+                {isEdit && canManageLogo ? <FileUploadControl
+                  key={orgId} orgId={orgId} kind="logo" label="Upload startup logo"
+                  buttonClassName="grid h-24 w-24 place-items-center rounded-2xl border-4 border-white bg-[#F3EBDD] text-3xl font-bold text-ink shadow-sm disabled:opacity-50"
+                  onReady={async file => {
+                    const updated = await api.organizations.update(orgId, {logo_file_id: file.id});
+                    setOrg(updated); setFileRevision(value => value + 1);
+                  }}
+                >{org?.logo_file_id
+                    ? <PrivateFileImage fileId={org.logo_file_id} alt="Startup logo" fallback={(org?.name || 'S').charAt(0)} />
+                    : (org?.logo_initials || org?.name || 'S').charAt(0).toUpperCase()}
+                </FileUploadControl> : <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-2xl border-4 border-white bg-[#F3EBDD] text-3xl font-bold text-ink shadow-sm">
+                  {isEdit && org?.logo_file_id
+                    ? <PrivateFileImage fileId={org.logo_file_id} alt="Startup logo" fallback={(org?.name || 'S').charAt(0)} />
+                    : (org?.logo_initials || org?.name || 'S').charAt(0).toUpperCase()}
+                </div>}
+                {isEdit && canManageLogo && org?.logo_file_id && <button type="button" className="mt-1 text-xs underline" onClick={async () => {
+                  setLogoError('');
+                  try { setOrg(await api.organizations.update(orgId, {logo_file_id: null})); }
+                  catch (error) { setLogoError(Object.values(fileFieldErrors(error)).join(' ') || error.message || 'Could not remove the uploaded logo.'); }
+                }}>Remove uploaded logo</button>}
+                {logoError && <p role="alert" className="text-xs text-red-700">{logoError}</p>}
+              </div>
               <div className="min-w-[220px] flex-1 pb-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="serif text-[30px] font-semibold">{isEdit ? data.name : preview?.name || data.name}</h2>
@@ -763,41 +780,17 @@ export default function StartupProfile() {
             </Card>
 
             <Card id="documents-section" title="Documents & data room">
-              <div className="mb-3 rounded-lg bg-[#FAF8F4] p-3 text-xs text-[#4A5568]">
-                <LockKeyhole className="mr-1 inline" size={13} /> Investors must accept a confidentiality agreement before viewing protected documents.
-              </div>
-              <div className="divide-y divide-[#E5E1D8]">
-                {docs.map((doc, i) => (
-                  <div key={doc.name} className="flex flex-wrap items-center gap-3 py-3">
-                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#F3EBDD] text-[#806236]">
-                      {i === 0 ? <Presentation size={17} /> : i === 1 ? <FileSpreadsheet size={17} /> : <FileText size={17} />}
-                    </span>
-                    <span className="min-w-[130px] flex-1">
-                      <b className="block text-sm">{doc.name}</b>
-                      <small className="text-xs text-[#4A5568]">{doc.size} · Updated {doc.updated}</small>
-                    </span>
-                    <span className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[10px] font-medium text-[#4A5568]">{doc.access}</span>
-                    {isEdit ? (
-                      <button
-                        type="button"
-                        aria-label="Change access"
-                        onClick={() => setDocs(docs.map((d, n) => (n === i ? {...d, access: d.access === 'Private' ? 'Public' : 'Private'} : d)))}
-                      >
-                        <MoreHorizontal size={17} />
-                      </button>
-                    ) : (
-                      <button type="button" onClick={() => notify(doc.access === 'Private' ? 'This file is private.' : 'Access request sent.')} className="text-xs font-semibold text-[#9A7A45]">
-                        {doc.access === 'Private' ? 'Locked' : 'Request access'}
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {isEdit && (
-                <Link href="/startup/data-room" className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#E5E1D8] px-3 text-sm font-medium">
-                  <Upload size={15} /> Upload document
-                </Link>
-              )}
+              {isEdit && orgId ? <OrganizationFiles key={`${orgId}:${fileRevision}`}
+                orgId={orgId} role={org.my_role} userId={user.id} selectedDeckId={profile?.pitch_deck_file_id}
+                onSelectDeck={async id => {
+                  const updated = await api.startupProfile.update(orgId, {pitch_deck_file_id: id});
+                  setProfile(updated);
+                }}
+                onDeleted={id => {
+                  setOrg(current => current?.logo_file_id === id ? {...current, logo_file_id: null} : current);
+                  setProfile(current => current?.pitch_deck_file_id === id ? {...current, pitch_deck_file_id: null} : current);
+                }}
+              /> : <p className="text-sm text-[#4A5568]">Organization files are private and are not included in the public profile. Data-room sharing belongs to a later step.</p>}
             </Card>
 
             {isEdit && (

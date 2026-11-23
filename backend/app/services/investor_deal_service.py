@@ -37,6 +37,7 @@ from app.models.investor_deal import (
     InvestorDealStageHistory,
     PipelineStage,
 )
+from app.models.investor_search import ShortlistEntry
 from app.models.organization import (
     MemberStatus,
     Organization,
@@ -371,6 +372,30 @@ async def create_deal(
     )
     db.add(deal)
     await db.flush()
+    shortlist_entry = (
+        await db.execute(
+            select(ShortlistEntry).where(
+                ShortlistEntry.investor_org_id == org.id,
+                ShortlistEntry.startup_org_id == startup.id,
+                ShortlistEntry.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if shortlist_entry is not None:
+        shortlist_entry.deleted_at = now
+        activity_service.record(
+            db,
+            event_type=ActivityEventType.shortlist_removed,
+            org_id=org.id,
+            actor_id=user.id,
+            entity_type="shortlist_entry",
+            entity_id=shortlist_entry.id,
+            summary=(
+                f"{user.display_name or 'An investor'} moved "
+                f"{startup.name} from the shortlist into the pipeline."
+            ),
+            data={"startup_org_id": str(startup.id), "reason": "moved_to_pipeline"},
+        )
     # Baseline history row (from_stage NULL) so the log is complete.
     await _write_stage_history(
         db, deal, from_stage=None, to_stage=deal.stage, actor=user, note=None

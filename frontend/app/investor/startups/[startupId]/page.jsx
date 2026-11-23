@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Bookmark } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Bookmark, Send, Check, X } from 'lucide-react';
 import { InvestorShell, Card, Button } from '@/components';
 import { useAuth } from '@/lib/auth-context';
 import { api, ApiError } from '@/lib/api/client';
@@ -14,6 +15,23 @@ const STAGE_LABELS = {
   early_revenue: 'Early revenue',
   growth: 'Growth',
   mature: 'Mature',
+};
+
+const ROUND_TYPE_LABELS = {
+  pre_seed: 'Pre-Seed',
+  seed: 'Seed',
+  series_a: 'Series A',
+  series_b: 'Series B',
+  growth: 'Growth',
+  grant: 'Grant',
+  bridge: 'Bridge',
+};
+
+const INSTRUMENT_LABELS = {
+  equity: 'Priced Equity',
+  safe: 'SAFE',
+  convertible_note: 'Convertible Note',
+  debt: 'Venture Debt',
 };
 
 function stageLabel(stage) {
@@ -38,14 +56,32 @@ function commitPct(target, committed) {
 export default function InvestorStartupProfilePage({ params }) {
   const startupId = params?.startupId || 'acme';
   const { user } = useAuth();
+  const searchParams = useSearchParams();
 
   const [phase, setPhase] = useState('loading'); // loading|ready|error|none
   const [startup, setStartup] = useState(null);
   const [rounds, setRounds] = useState([]);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState('Overview');
+  const [tab, setTab] = useState(() => {
+    const qTab = searchParams?.get('tab');
+    if (!qTab) return 'Overview';
+    const match = ['Overview', 'Traction', 'Round', 'Mentors and readiness', 'Team', 'Documents', 'Updates'].find(
+      (t) => t.toLowerCase() === qTab.toLowerCase()
+    );
+    return match || 'Overview';
+  });
   const [shortlisted, setShortlisted] = useState(false);
-  const [shortlistPhase, setShortlistPhase] = useState('idle');
+  const [shortlistEntryId, setShortlistEntryId] = useState(null);
+  const [shortlistPhase, setShortlistPhase] = useState('loading');
+  const [shortlistError, setShortlistError] = useState('');
+
+  const [introModalOpen, setIntroModalOpen] = useState(false);
+  const [introKind, setIntroKind] = useState('intro');
+  const [introAsk, setIntroAsk] = useState('Introductory discussion & thesis alignment');
+  const [introMessage, setIntroMessage] = useState('');
+  const [introSending, setIntroSending] = useState(false);
+  const [introSent, setIntroSent] = useState(false);
+  const [introError, setIntroError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +92,29 @@ export default function InvestorStartupProfilePage({ params }) {
         const detail = await api.investorDiscovery.get(startupId);
         if (cancelled) return;
         setStartup(detail);
+        setShortlisted(false);
+        setShortlistEntryId(null);
+        setShortlistPhase('loading');
+        try {
+          const entries = await api.investorShortlist.list();
+          if (cancelled) return;
+          const target = entries.find((entry) => entry.startup_org_id === detail.org_id);
+          setShortlisted(Boolean(target));
+          setShortlistEntryId(target?.id || null);
+        } catch {
+          // Shortlist status is supplementary; discovery remains usable if it fails.
+        } finally {
+          if (!cancelled) setShortlistPhase('idle');
+        }
+        // Best-effort check if an intro request is already pending or active.
+        try {
+          const reqList = await api.engagement.listRequests({ status: 'pending', limit: 50 });
+          if (cancelled) return;
+          const found = reqList.items?.some((r) => r.startup_org_id === detail.org_id);
+          setIntroSent(Boolean(found));
+        } catch {
+          // Supplementary check
+        }
         // Best-effort rounds for the "Round" tab.
         try {
           const roundList = await api.investorDiscovery.rounds(startupId);
@@ -77,25 +136,65 @@ export default function InvestorStartupProfilePage({ params }) {
   }, [startupId, user?.id]);
 
   const toggleSave = async () => {
-    if (!startup) return;
+    if (!startup || shortlistPhase === 'loading' || shortlistPhase === 'saving') return;
     setShortlistPhase('saving');
+    setShortlistError('');
     try {
       if (shortlisted) {
-        const entries = await api.investorShortlist.list();
-        const target = entries.find((e) => e.startup_org_id === startup.org_id);
-        if (target) {
-          await api.investorShortlist.remove(target.id);
-        }
+        if (!shortlistEntryId) throw new Error('SHORTLIST_ENTRY_MISSING');
+        await api.investorShortlist.remove(shortlistEntryId);
         setShortlisted(false);
+        setShortlistEntryId(null);
       } else {
-        await api.investorShortlist.add({ startup_org_id: startup.org_id });
+        const entry = await api.investorShortlist.add({ startup_org_id: startup.org_id });
         setShortlisted(true);
+        setShortlistEntryId(entry.id);
       }
     } catch (err) {
-      setShortlistPhase('error');
-      setError(err instanceof ApiError ? err.message : 'Could not update the shortlist.');
+      if (err instanceof ApiError && err.status === 409) {
+        try {
+          const entries = await api.investorShortlist.list();
+          const target = entries.find((entry) => entry.startup_org_id === startup.org_id);
+          setShortlisted(Boolean(target));
+          setShortlistEntryId(target?.id || null);
+        } catch {
+          setShortlistError('Could not verify the shortlist status.');
+        }
+      } else if (err?.message === 'SHORTLIST_ENTRY_MISSING') {
+        setShortlistError('The saved shortlist entry could not be found. Refresh and try again.');
+      } else {
+        setShortlistError(
+          err instanceof ApiError ? err.message : 'Could not update the shortlist.'
+        );
+      }
     } finally {
-      if (shortlistPhase !== 'error') setShortlistPhase('idle');
+      setShortlistPhase('idle');
+    }
+  };
+
+  const handleSendIntro = async (e) => {
+    e?.preventDefault?.();
+    if (!startup || introSending) return;
+    if (!introAsk.trim()) {
+      setIntroError('Please specify the focus or ask for the request.');
+      return;
+    }
+    setIntroSending(true);
+    setIntroError('');
+    try {
+      await api.engagement.createRequest({
+        startup_org_id: startup.org_id,
+        kind: introKind,
+        ask: introAsk.trim(),
+        message: introMessage.trim() || null,
+      });
+      setIntroSent(true);
+      setIntroModalOpen(false);
+      setIntroMessage('');
+    } catch (err) {
+      setIntroError(err instanceof ApiError ? err.message : (err?.message || 'Could not send intro request.'));
+    } finally {
+      setIntroSending(false);
     }
   };
 
@@ -125,10 +224,34 @@ export default function InvestorStartupProfilePage({ params }) {
           >
             ← Discover
           </Link>
-          <Button secondary onClick={toggleSave} disabled={shortlistPhase === 'saving'}>
-            <Bookmark size={14} />
-            {shortlisted ? 'Saved' : 'Save to shortlist'}
+          <Button
+            secondary
+            onClick={toggleSave}
+            disabled={shortlistPhase === 'loading' || shortlistPhase === 'saving'}
+          >
+            <Bookmark size={14} fill={shortlisted ? 'currentColor' : 'none'} />
+            {shortlistPhase === 'saving' ? 'Saving…' : shortlisted ? 'Saved' : 'Save to shortlist'}
           </Button>
+          {introSent ? (
+            <span className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#A6F4C5] bg-[#ECFDF3] px-3.5 text-xs font-semibold text-[#027A48]">
+              <Check size={14} /> Request sent
+            </span>
+          ) : (
+            <Button
+              onClick={() => {
+                setIntroError('');
+                setIntroModalOpen(true);
+              }}
+              disabled={phase !== 'ready' || !startup}
+            >
+              <Send size={14} /> Request intro
+            </Button>
+          )}
+          {shortlistError && (
+            <span className="max-w-48 text-right text-[11px] text-[#B42318]" role="alert">
+              {shortlistError}
+            </span>
+          )}
         </div>
       }
     >
@@ -294,30 +417,104 @@ export default function InvestorStartupProfilePage({ params }) {
                             </div>
                           </>
                         ) : (
-                          <p className="text-xs text-[#4A5568]">
-                            This startup has not shared round terms in its investor profile.
-                          </p>
+                          <div className="rounded-lg bg-[#FAF8F4] p-4 border border-[#E5E1D8] text-xs text-[#4A5568]">
+                            <p className="font-semibold text-ink mb-1">Terms not shared publicly</p>
+                            <p>
+                              This startup has chosen to keep round details confidential. You can request an introduction using the button above to request round terms.
+                            </p>
+                          </div>
                         )}
                       </Card>
-                      {rounds.length > 0 && (
-                        <Card title="Open rounds on platform">
-                          <div className="space-y-2 text-xs">
-                            {rounds.map((r) => (
-                              <div
+
+                      {startup.round_visible && rounds.length > 0 && (
+                        <div className="space-y-4">
+                          {rounds.map((r) => {
+                            const pct =
+                              r.target_amount && Number(r.target_amount) > 0
+                                ? Math.min(
+                                    100,
+                                    Math.max(
+                                      0,
+                                      Math.round(
+                                        (Number(r.committed_amount || 0) /
+                                          Number(r.target_amount)) *
+                                          100
+                                      )
+                                    )
+                                  )
+                                : 0;
+                            return (
+                              <Card
                                 key={r.id}
-                                className="flex items-center justify-between rounded-lg bg-[#FAF8F4] p-3 border border-[#E5E1D8]"
+                                title={r.name || 'Fundraising round'}
+                                action={
+                                  <span className="rounded-full bg-[#FAF4E8] px-2.5 py-0.5 text-xs font-semibold capitalize text-[#806236] border border-[#ECD9BA]">
+                                    {r.status || 'Active'}
+                                  </span>
+                                }
                               >
-                                <span className="font-semibold text-ink">
-                                  {r.round_type || r.type || 'Round'} ·{' '}
-                                  {formatMoney(r.target_amount || r.target, r.currency)}
-                                </span>
-                                <span className="text-[#4A5568]">
-                                  {r.status || r.state || ''}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </Card>
+                                <div className="mb-4">
+                                  <div className="flex justify-between text-xs text-[#4A5568]">
+                                    <span>
+                                      Committed{' '}
+                                      <strong className="text-ink">
+                                        {formatMoney(r.committed_amount, r.currency)}
+                                      </strong>{' '}
+                                      of {formatMoney(r.target_amount, r.currency)}
+                                    </span>
+                                    <span>{pct}% allocated</span>
+                                  </div>
+                                  <div className="mt-2 h-2 rounded-full bg-[#E5E1D8] overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-[#B8955A]"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="grid gap-3 sm:grid-cols-4 rounded-lg bg-[#FAF8F4] p-3 text-xs border border-[#E5E1D8]">
+                                  <div>
+                                    <span className="text-[#4A5568] block">Round type</span>
+                                    <strong className="text-ink font-semibold mt-0.5 block">
+                                      {ROUND_TYPE_LABELS[r.round_type] || r.round_type || '—'}
+                                    </strong>
+                                  </div>
+                                  <div>
+                                    <span className="text-[#4A5568] block">Instrument</span>
+                                    <strong className="text-ink font-semibold mt-0.5 block">
+                                      {INSTRUMENT_LABELS[r.instrument] || r.instrument || 'Priced Equity'}
+                                    </strong>
+                                  </div>
+                                  <div>
+                                    <span className="text-[#4A5568] block">Pre-money valuation</span>
+                                    <strong className="text-ink font-semibold mt-0.5 block">
+                                      {formatMoney(r.pre_money_valuation, r.currency) !== '—'
+                                        ? formatMoney(r.pre_money_valuation, r.currency)
+                                        : 'Negotiable'}
+                                    </strong>
+                                  </div>
+                                  <div>
+                                    <span className="text-[#4A5568] block">Min ticket</span>
+                                    <strong className="text-ink font-semibold mt-0.5 block">
+                                      {formatMoney(r.min_ticket, r.currency) !== '—'
+                                        ? formatMoney(r.min_ticket, r.currency)
+                                        : '—'}
+                                    </strong>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap items-center justify-between text-[11px] text-[#4A5568]">
+                                  <span>
+                                    {r.closes_on ? `Target close: ${r.closes_on}` : 'Rolling close'}
+                                  </span>
+                                  <span className="text-[#806236]">
+                                    Read-only terms for verified investors
+                                  </span>
+                                </div>
+                              </Card>
+                            );
+                          })}
+                        </div>
                       )}
                     </>
                   )}
@@ -361,7 +558,7 @@ export default function InvestorStartupProfilePage({ params }) {
                 <aside className="space-y-6">
                   <Card title="Thesis fit summary">
                     <p className="text-xs text-[#4A5568]">
-                      Deal-fit scoring and your team's thesis notes are computed in a later step.
+                      Deal-fit scoring and your team&apos;s thesis notes are computed in a later step.
                     </p>
                   </Card>
 
@@ -420,6 +617,119 @@ export default function InvestorStartupProfilePage({ params }) {
               </div>
 
               <InvestorDisclaimer onLearnMore={() => notify('Platform disclaimer opened.')} />
+
+              {introModalOpen && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1B2D]/45 p-4 backdrop-blur-sm"
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget && !introSending) setIntroModalOpen(false);
+                  }}
+                >
+                  <section
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="intro-dialog-title"
+                    className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white p-6 shadow-2xl overflow-y-auto"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <h2 id="intro-dialog-title" className="serif text-xl font-semibold text-ink">
+                          Request an introduction
+                        </h2>
+                        <p className="mt-0.5 text-xs text-[#5A6679]">
+                          Connect directly with {startup?.name || 'the founders'}.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => !introSending && setIntroModalOpen(false)}
+                        className="rounded-lg p-1.5 text-[#5A6679] hover:bg-[#FAF8F4] hover:text-ink"
+                        aria-label="Close dialog"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleSendIntro} className="space-y-4">
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-ink">
+                          Request kind
+                        </label>
+                        <select
+                          className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs font-medium text-ink focus:border-[#0F1B2D] focus:outline-none"
+                          value={introKind}
+                          onChange={(e) => setIntroKind(e.target.value)}
+                          disabled={introSending}
+                        >
+                          <option value="intro">Introduction / thesis match</option>
+                          <option value="meeting">Meeting / pitch conversation</option>
+                          <option value="information">Information / materials request</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-ink">
+                          Focus / Subject <span className="text-[#B42318]">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          maxLength={200}
+                          value={introAsk}
+                          onChange={(e) => setIntroAsk(e.target.value)}
+                          disabled={introSending}
+                          className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-ink focus:border-[#0F1B2D] focus:outline-none"
+                          placeholder="e.g. Introductory discussion & thesis alignment"
+                        />
+                        <span className="mt-1 block text-[11px] text-[#5A6679]">
+                          Brief title or main question (up to 200 characters).
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-ink">
+                          Message / Context <span className="font-normal text-[#5A6679]">(optional)</span>
+                        </label>
+                        <textarea
+                          rows={4}
+                          value={introMessage}
+                          onChange={(e) => setIntroMessage(e.target.value)}
+                          disabled={introSending}
+                          className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-ink focus:border-[#0F1B2D] focus:outline-none"
+                          placeholder="Introduce your investment firm, check size, or specific areas of interest..."
+                        />
+                      </div>
+
+                      <div className="rounded-lg bg-[#FAF8F4] border border-[#E5E1D8] p-3 text-[11px] text-[#5A6679]">
+                        Intro requests are founder-controlled and limited to 5 per day per investor organization to maintain high inbox quality.
+                      </div>
+
+                      {introError && (
+                        <div className="rounded-lg bg-[#FEF3F2] border border-[#FECDCA] p-2.5 text-xs text-[#B42318]" role="alert">
+                          {introError}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-end gap-2 pt-2">
+                        <Button
+                          secondary
+                          type="button"
+                          onClick={() => setIntroModalOpen(false)}
+                          disabled={introSending}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={introSending || !introAsk.trim()}
+                        >
+                          {introSending ? 'Sending…' : 'Send request'}
+                        </Button>
+                      </div>
+                    </form>
+                  </section>
+                </div>
+              )}
             </>
           )}
         </>

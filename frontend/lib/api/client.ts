@@ -349,10 +349,18 @@ export type InvestorOfferCounter = components["schemas"]["InvestorOfferCounter"]
 export type InvestorOfferPage = components["schemas"]["InvestorOfferPage"];
 export type OfferVersionItem = components["schemas"]["OfferVersionItem"];
 export type OfferHistoryPage = components["schemas"]["OfferHistoryPage"];
+export type StartupOfferRead = components["schemas"]["StartupOfferRead"];
+export type StartupOfferPage = components["schemas"]["StartupOfferPage"];
 
 /** Whitelisted filters for `offers.list` (Step 9i). */
 export type OfferListQuery = {
   status?: OfferStatus;
+  limit?: number;
+  offset?: number;
+};
+
+export type StartupOfferListQuery = {
+  round_id?: string;
   limit?: number;
   offset?: number;
 };
@@ -502,6 +510,40 @@ export type ImpactRead = components["schemas"]["ImpactRead"];
 export type StartupMentorshipOverview = components["schemas"]["StartupMentorshipOverview"];
 export type ScopedReadinessBoard = components["schemas"]["ScopedReadinessBoard"];
 
+// Step 4: generated contracts; no parallel HTTP/auth client.
+export type FileRead = components["schemas"]["FileRead"];
+export type FilePage = components["schemas"]["FilePage"];
+export type FileKind = components["schemas"]["FileKind"];
+export type FileUploadCreate = components["schemas"]["FileUploadCreate"];
+export type FileUploadRead = components["schemas"]["FileUploadRead"];
+export type FileDownloadRead = components["schemas"]["FileDownloadRead"];
+
+export const FILE_ACCEPT: Record<FileKind, string> = {
+  logo: ".png,.jpg,.jpeg,.webp", image: ".png,.jpg,.jpeg,.webp",
+  resume: ".pdf,.docx", pitch_deck: ".pdf,.pptx", financial_model: ".pdf,.xlsx,.csv",
+  legal: ".pdf,.docx", document: ".pdf,.docx,.txt", other: ".pdf,.docx,.txt",
+};
+const FILE_MIME: Record<string, string> = {
+  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp",
+  pdf: "application/pdf", txt: "text/plain", csv: "text/csv",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
+
+export function fileFieldErrors(error: unknown): Record<string, string> {
+  const result: Record<string, string> = {};
+  if (error instanceof ApiError && Array.isArray(error.details)) {
+    for (const detail of error.details) {
+      if (Array.isArray(detail.loc) && typeof detail.msg === "string") {
+        const field = detail.loc[detail.loc.length - 1];
+        if (typeof field === "string") result[field] = detail.msg;
+      }
+    }
+  }
+  return result;
+}
+
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "/api/v1").replace(/\/+$/, "");
 
 const ACCESS_KEY = "forma.access_token";
@@ -633,6 +675,7 @@ interface RequestOptions {
   /** Query string params; undefined values are dropped. */
   query?: Record<string, string | number | boolean | undefined>;
   signal?: AbortSignal;
+  responseType?: "blob";
 }
 
 async function rawFetch<T>(
@@ -667,6 +710,7 @@ async function rawFetch<T>(
   });
 
   if (res.status === 204) return undefined as T;
+  if (res.ok && opts.responseType === "blob") return await res.blob() as T;
 
   const text = await res.text();
   let payload: unknown = null;
@@ -804,7 +848,92 @@ export async function apiRequestText(
 
 /* -------------------------------------------------------- typed endpoints */
 
+// Steps 9g/9h: contracts generated from backend OpenAPI.
+export type RoomRead = components["schemas"]["RoomRead"];
+export type RoomPut = components["schemas"]["RoomPut"];
+export type FolderRead = components["schemas"]["FolderRead"];
+export type FolderCreate = components["schemas"]["FolderCreate"];
+export type FolderUpdate = components["schemas"]["FolderUpdate"];
+export type DocumentRead = components["schemas"]["DocumentRead"];
+export type DocumentCreate = components["schemas"]["DocumentCreate"];
+export type DocumentUpdate = components["schemas"]["DocumentUpdate"];
+export type VersionRead = components["schemas"]["VersionRead"];
+export type AccessRead = components["schemas"]["AccessRead"];
+export type AccessCreate = components["schemas"]["AccessCreate"];
+export type AccessDecision = components["schemas"]["AccessDecision"];
+export type NDAAcceptance = components["schemas"]["NDAAcceptance"];
+export type ViewRead = components["schemas"]["ViewRead"];
+export type InvestorRoomRead = components["schemas"]["InvestorRoomRead"];
+export type InvestorFolderRead = components["schemas"]["InvestorFolderRead"];
+export type InvestorDocumentRead = components["schemas"]["InvestorDocumentRead"];
+export type RoomPage<T> = Omit<components["schemas"]["Page_FolderRead_"], "items"> & { items: T[] };
+export type RoomQuery = { startup_org_id?: string; limit?: number; offset?: number; folder_id?: string; document_id?: string; status?: "pending" | "approved" | "denied" | "expired" | "revoked" };
+const roomPath = (orgId: string) => `/organizations/${orgId}/data-room`;
+const accessPath = "/investors/data-room-access-requests";
+
 export const api = {
+  dataRooms: {
+    get: (orgId: string, signal?: AbortSignal) => apiRequest<RoomRead>(roomPath(orgId), { signal }),
+    save: (orgId: string, body: RoomPut) => apiRequest<RoomRead>(roomPath(orgId), { method: "PUT", body }),
+    folders: (orgId: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<FolderRead>>(`${roomPath(orgId)}/folders`, { query, signal }),
+    createFolder: (orgId: string, body: FolderCreate) => apiRequest<FolderRead>(`${roomPath(orgId)}/folders`, { body }),
+    updateFolder: (orgId: string, id: string, body: FolderUpdate) => apiRequest<FolderRead>(`${roomPath(orgId)}/folders/${id}`, { method: "PATCH", body }),
+    deleteFolder: (orgId: string, id: string) => apiRequest<void>(`${roomPath(orgId)}/folders/${id}`, { method: "DELETE" }),
+    documents: (orgId: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<DocumentRead>>(`${roomPath(orgId)}/documents`, { query, signal }),
+    createDocument: (orgId: string, body: DocumentCreate) => apiRequest<DocumentRead>(`${roomPath(orgId)}/documents`, { body }),
+    updateDocument: (orgId: string, id: string, body: DocumentUpdate) => apiRequest<DocumentRead>(`${roomPath(orgId)}/documents/${id}`, { method: "PATCH", body }),
+    deleteDocument: (orgId: string, id: string) => apiRequest<void>(`${roomPath(orgId)}/documents/${id}`, { method: "DELETE" }),
+    versions: (orgId: string, id: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<VersionRead>>(`${roomPath(orgId)}/documents/${id}/versions`, { query, signal }),
+    addVersion: (orgId: string, id: string, fileId: string) => apiRequest<VersionRead>(`${roomPath(orgId)}/documents/${id}/versions`, { body: { file_id: fileId } }),
+    views: (orgId: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<ViewRead>>(`${roomPath(orgId)}/document-views`, { query, signal }),
+    content: (id: string, versionId?: string, signal?: AbortSignal) => apiRequest<Blob>(`/data-room-documents/${id}/content`, { responseType: "blob", query: { version_id: versionId }, signal }),
+  },
+  dataRoomAccess: {
+    create: (body: AccessCreate) => apiRequest<AccessRead>(accessPath, { body }),
+    list: (query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<AccessRead>>(accessPath, { query, signal }),
+    get: (id: string, signal?: AbortSignal) => apiRequest<AccessRead>(`${accessPath}/${id}`, { signal }),
+    forStartup: (orgId: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<AccessRead>>(`${roomPath(orgId)}/access-requests`, { query, signal }),
+    decide: (orgId: string, id: string, body: AccessDecision) => apiRequest<AccessRead>(`${roomPath(orgId)}/access-requests/${id}/decisions`, { body }),
+    nda: (id: string, signal?: AbortSignal) => apiRequest<Blob>(`${accessPath}/${id}/nda-content`, { responseType: "blob", signal }),
+    acceptNda: (id: string, body: NDAAcceptance) => apiRequest<AccessRead>(`${accessPath}/${id}/nda-acceptances`, { body }),
+    room: (orgId: string, signal?: AbortSignal) => apiRequest<InvestorRoomRead>(`/investors/data-rooms/${orgId}`, { signal }),
+    folders: (orgId: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<InvestorFolderRead>>(`/investors/data-rooms/${orgId}/folders`, { query, signal }),
+    documents: (orgId: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<InvestorDocumentRead>>(`/investors/data-rooms/${orgId}/documents`, { query, signal }),
+  },
+  files: {
+    listOrganization: (orgId: string, query: { limit?: number; offset?: number; kind?: FileKind } = {}, signal?: AbortSignal) =>
+      apiRequest<FilePage>(`/organizations/${orgId}/files`, { query, signal }),
+    get: (id: string, signal?: AbortSignal) => apiRequest<FileRead>(`/files/${id}`, { signal }),
+    confirm: (id: string, signal?: AbortSignal) =>
+      apiRequest<FileRead>(`/files/${id}/confirm`, { method: "POST", body: {}, signal }),
+    remove: (id: string) => apiRequest<void>(`/files/${id}`, { method: "DELETE" }),
+    download: (id: string, variant: "original" | "thumbnail" = "original", signal?: AbortSignal) =>
+      apiRequest<FileDownloadRead>(`/files/${id}/download-url`, { method: "POST", body: { variant }, signal }),
+    uploadOrganization: async (orgId: string, kind: FileKind, file: File, signal?: AbortSignal): Promise<FileRead> => {
+      const extension = file.name.split(".").pop()?.toLowerCase() || "";
+      const mime = FILE_MIME[extension];
+      const maxMiB = kind === "image" || kind === "logo" ? 5 : kind === "resume" ? 10 : 25;
+      if (!mime || !FILE_ACCEPT[kind].split(",").includes(`.${extension}`) || file.size <= 0 || file.size > maxMiB * 1024 * 1024) {
+        throw new ApiError(422, { code: "VALIDATION_ERROR", message: `Choose a supported ${kind.replaceAll("_", " ")} file (maximum ${maxMiB} MiB).`, details: [{ loc: ["body", "file_name"], msg: `Supported: ${FILE_ACCEPT[kind]}; maximum ${maxMiB} MiB.` }] });
+      }
+      const reservation = await apiRequest<FileUploadRead>(`/organizations/${orgId}/files/upload-requests`, {
+        method: "POST", body: { kind, file_name: file.name, mime_type: mime, byte_size: file.size } satisfies FileUploadCreate, signal,
+      });
+      // Signed R2 PUT is intentionally not sent through authenticated apiRequest.
+      // No cookies, platform bearer token, auto-refresh, or automatic byte retry.
+      let response: Response;
+      try {
+        response = await fetch(reservation.upload_url, {
+          method: "PUT", headers: reservation.headers, body: file, credentials: "omit", redirect: "error", signal,
+        });
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        throw new ApiError(0, { code: "STORAGE_UPLOAD_FAILED", message: "Could not upload to private storage. Check your connection and bucket CORS, then select the file again." });
+      }
+      if (!response.ok) throw new ApiError(response.status, { code: "STORAGE_UPLOAD_FAILED", message: "Private storage rejected the upload. Select the file again to get a fresh upload URL." });
+      return api.files.confirm(reservation.file.id, signal);
+    },
+  },
   auth: {
     register: (body: RegisterRequest) =>
       apiRequest<RegisterResponse>("/auth/register", { body, auth: false }),
@@ -2529,6 +2658,39 @@ export const api = {
         method: "GET",
         signal,
       }),
+
+    /** `GET /organizations/{orgId}/investor-offers` — offers received by startup. */
+    listForStartup: (
+      orgId: string,
+      query?: StartupOfferListQuery,
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<StartupOfferPage>(`/organizations/${orgId}/investor-offers`, {
+        method: "GET",
+        query: query as Record<string, string | number | boolean | undefined>,
+        signal,
+      }),
+
+    /** `GET /organizations/{orgId}/investor-offers/{id}` — one offer. */
+    getForStartup: (orgId: string, offerId: string, signal?: AbortSignal) =>
+      apiRequest<StartupOfferRead>(
+        `/organizations/${orgId}/investor-offers/${offerId}`,
+        { method: "GET", signal },
+      ),
+
+    /** `POST /organizations/{orgId}/investor-offers/{id}/accept` — accept offer. */
+    accept: (orgId: string, offerId: string) =>
+      apiRequest<StartupOfferRead>(
+        `/organizations/${orgId}/investor-offers/${offerId}/accept`,
+        { method: "POST" },
+      ),
+
+    /** `POST /organizations/{orgId}/investor-offers/{id}/decline` — decline offer. */
+    decline: (orgId: string, offerId: string) =>
+      apiRequest<StartupOfferRead>(
+        `/organizations/${orgId}/investor-offers/${offerId}/decline`,
+        { method: "POST" },
+      ),
   },
 
   // --- Step 9j: commitments + portfolio ------------------------------------

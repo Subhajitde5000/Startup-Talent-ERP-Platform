@@ -62,6 +62,7 @@ export default function InvestorPipelinePage() {
   const [draft, setDraft] = useState({});
   const [modal, setModal] = useState('');
   const [shortlist, setShortlist] = useState([]);
+  const [addingShortlistId, setAddingShortlistId] = useState(null);
 
   const load = async () => {
     setPhase('loading');
@@ -663,21 +664,36 @@ export default function InvestorPipelinePage() {
                             <span className="text-xs font-semibold text-ink">{e.startup_name}</span>
                             <Button
                               secondary
+                              disabled={addingShortlistId === e.id}
                               onClick={async () => {
+                                if (addingShortlistId) return;
+                                setAddingShortlistId(e.id);
                                 try {
                                   await api.investorDeals.create({
                                     startup_org_id: e.startup_org_id,
                                     stage: 'interested',
                                   });
+                                  setShortlist((prev) => prev.filter((entry) => entry.id !== e.id));
                                   notify(`Added ${e.startup_name} to the pipeline.`);
-                                  setModal('');
                                   load();
                                 } catch (err) {
-                                  notify(err instanceof ApiError ? err.message : 'Could not add deal.');
+                                  if (err instanceof ApiError && err.status === 409) {
+                                    setShortlist((prev) => prev.filter((entry) => entry.id !== e.id));
+                                    try {
+                                      await api.investorShortlist.remove(e.id);
+                                    } catch {
+                                      // The deal already exists; the shortlist will reconcile on reload.
+                                    }
+                                    notify(`${e.startup_name} is already in the pipeline.`);
+                                  } else {
+                                    notify(err instanceof ApiError ? err.message : 'Could not add deal.');
+                                  }
+                                } finally {
+                                  setAddingShortlistId(null);
                                 }
                               }}
                             >
-                              Add deal
+                              {addingShortlistId === e.id ? 'Adding…' : 'Add deal'}
                             </Button>
                           </div>
                         ))}
