@@ -7,13 +7,14 @@ import { useAuth } from '@/lib/auth-context';
 
 export default function InvestorHeader({
   compact = false,
+  liveIdentity = false,
   onToggleMobile,
   onAction,
   backHref,
   backLabel = '← Back',
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   const notify = (msg) => {
     if (onAction) onAction(msg);
@@ -39,7 +40,7 @@ export default function InvestorHeader({
           role="search"
           onSubmit={(e) => {
             e.preventDefault();
-            notify('Searching investor workspace...');
+            if (!liveIdentity) notify('Searching investor workspace...');
           }}
           className="relative hidden sm:block"
         >
@@ -49,7 +50,8 @@ export default function InvestorHeader({
             name="search"
             type="search"
             aria-label="Search investor workspace"
-            placeholder="Search startups, deals & documents"
+            disabled={liveIdentity}
+            placeholder={liveIdentity ? 'Workspace search unavailable' : 'Search startups, deals & documents'}
             className="h-10 w-64 rounded-lg border border-[#E5E1D8] bg-white pl-9 text-xs focus:border-ink focus:outline-none transition"
           />
         </form>
@@ -69,10 +71,10 @@ export default function InvestorHeader({
           href="/investor/dashboard"
           className="rounded-full bg-[#E7F3EC] px-3 py-1.5 text-xs font-semibold text-[#286749] hidden sm:inline-flex items-center gap-1"
         >
-          ✓ Verified Investor
+          {liveIdentity ? 'Investor workspace' : '✓ Verified Investor'}
         </Link>
 
-        <NotificationDropdown role="investor" />
+        {!liveIdentity && <NotificationDropdown role="investor" />}
 
         <div className="relative">
           <button
@@ -83,11 +85,11 @@ export default function InvestorHeader({
             aria-expanded={profileOpen}
           >
             <span className="grid h-8 w-8 place-items-center rounded-full bg-ink font-semibold text-white">
-              AM
+              {liveIdentity ? (user?.display_name?.slice(0, 2).toUpperCase() || '—') : 'AM'}
             </span>
             <span className="hidden sm:block text-left">
-              <span className="block text-xs font-bold text-ink">Arjun Mehta</span>
-              <span className="block text-[10px] text-[#5A6E85]">Forma Ventures</span>
+              <span className="block text-xs font-bold text-ink">{liveIdentity ? user?.display_name : 'Arjun Mehta'}</span>
+              <span className="block text-[10px] text-[#5A6E85]">{liveIdentity ? 'Personal investor account' : 'Forma Ventures'}</span>
             </span>
             <ChevronDown size={14} className="text-[#4A5568]" />
           </button>
@@ -96,10 +98,10 @@ export default function InvestorHeader({
             <div className="absolute right-0 top-12 z-30 w-56 rounded-xl border border-[#E5E1D8] bg-white p-2 text-[#0F1B2D] shadow-lg animate-in fade-in">
               <div className="px-3 py-2 border-b border-[#F2EFE9] mb-1">
                 <div className="flex items-center gap-1.5">
-                  <p className="text-xs font-bold text-[#0F1B2D]">Arjun Mehta</p>
-                  <CheckCircle2 size={12} className="text-[#286749]" />
+                  <p className="text-xs font-bold text-[#0F1B2D]">{liveIdentity ? user?.display_name : 'Arjun Mehta'}</p>
+                  {!liveIdentity && <CheckCircle2 size={12} className="text-[#286749]" />}
                 </div>
-                <p className="text-[11px] text-[#5A6E85]">Angel Syndicate Lead</p>
+                <p className="text-[11px] text-[#5A6E85]">{liveIdentity ? 'Investor' : 'Angel Syndicate Lead'}</p>
               </div>
 
               <Link

@@ -667,6 +667,7 @@ interface RequestOptions {
   /** Query string params; undefined values are dropped. */
   query?: Record<string, string | number | boolean | undefined>;
   signal?: AbortSignal;
+  responseType?: "blob";
 }
 
 async function rawFetch<T>(
@@ -701,6 +702,7 @@ async function rawFetch<T>(
   });
 
   if (res.status === 204) return undefined as T;
+  if (res.ok && opts.responseType === "blob") return await res.blob() as T;
 
   const text = await res.text();
   let payload: unknown = null;
@@ -838,7 +840,58 @@ export async function apiRequestText(
 
 /* -------------------------------------------------------- typed endpoints */
 
+// Steps 9g/9h: contracts generated from backend OpenAPI.
+export type RoomRead = components["schemas"]["RoomRead"];
+export type RoomPut = components["schemas"]["RoomPut"];
+export type FolderRead = components["schemas"]["FolderRead"];
+export type FolderCreate = components["schemas"]["FolderCreate"];
+export type FolderUpdate = components["schemas"]["FolderUpdate"];
+export type DocumentRead = components["schemas"]["DocumentRead"];
+export type DocumentCreate = components["schemas"]["DocumentCreate"];
+export type DocumentUpdate = components["schemas"]["DocumentUpdate"];
+export type VersionRead = components["schemas"]["VersionRead"];
+export type AccessRead = components["schemas"]["AccessRead"];
+export type AccessCreate = components["schemas"]["AccessCreate"];
+export type AccessDecision = components["schemas"]["AccessDecision"];
+export type NDAAcceptance = components["schemas"]["NDAAcceptance"];
+export type ViewRead = components["schemas"]["ViewRead"];
+export type InvestorRoomRead = components["schemas"]["InvestorRoomRead"];
+export type InvestorFolderRead = components["schemas"]["InvestorFolderRead"];
+export type InvestorDocumentRead = components["schemas"]["InvestorDocumentRead"];
+export type RoomPage<T> = Omit<components["schemas"]["Page_FolderRead_"], "items"> & { items: T[] };
+export type RoomQuery = { startup_org_id?: string; limit?: number; offset?: number; folder_id?: string; document_id?: string; status?: "pending" | "approved" | "denied" | "expired" | "revoked" };
+const roomPath = (orgId: string) => `/organizations/${orgId}/data-room`;
+const accessPath = "/investors/data-room-access-requests";
+
 export const api = {
+  dataRooms: {
+    get: (orgId: string, signal?: AbortSignal) => apiRequest<RoomRead>(roomPath(orgId), { signal }),
+    save: (orgId: string, body: RoomPut) => apiRequest<RoomRead>(roomPath(orgId), { method: "PUT", body }),
+    folders: (orgId: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<FolderRead>>(`${roomPath(orgId)}/folders`, { query, signal }),
+    createFolder: (orgId: string, body: FolderCreate) => apiRequest<FolderRead>(`${roomPath(orgId)}/folders`, { body }),
+    updateFolder: (orgId: string, id: string, body: FolderUpdate) => apiRequest<FolderRead>(`${roomPath(orgId)}/folders/${id}`, { method: "PATCH", body }),
+    deleteFolder: (orgId: string, id: string) => apiRequest<void>(`${roomPath(orgId)}/folders/${id}`, { method: "DELETE" }),
+    documents: (orgId: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<DocumentRead>>(`${roomPath(orgId)}/documents`, { query, signal }),
+    createDocument: (orgId: string, body: DocumentCreate) => apiRequest<DocumentRead>(`${roomPath(orgId)}/documents`, { body }),
+    updateDocument: (orgId: string, id: string, body: DocumentUpdate) => apiRequest<DocumentRead>(`${roomPath(orgId)}/documents/${id}`, { method: "PATCH", body }),
+    deleteDocument: (orgId: string, id: string) => apiRequest<void>(`${roomPath(orgId)}/documents/${id}`, { method: "DELETE" }),
+    versions: (orgId: string, id: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<VersionRead>>(`${roomPath(orgId)}/documents/${id}/versions`, { query, signal }),
+    addVersion: (orgId: string, id: string, fileId: string) => apiRequest<VersionRead>(`${roomPath(orgId)}/documents/${id}/versions`, { body: { file_id: fileId } }),
+    views: (orgId: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<ViewRead>>(`${roomPath(orgId)}/document-views`, { query, signal }),
+    content: (id: string, versionId?: string, signal?: AbortSignal) => apiRequest<Blob>(`/data-room-documents/${id}/content`, { responseType: "blob", query: { version_id: versionId }, signal }),
+  },
+  dataRoomAccess: {
+    create: (body: AccessCreate) => apiRequest<AccessRead>(accessPath, { body }),
+    list: (query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<AccessRead>>(accessPath, { query, signal }),
+    get: (id: string, signal?: AbortSignal) => apiRequest<AccessRead>(`${accessPath}/${id}`, { signal }),
+    forStartup: (orgId: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<AccessRead>>(`${roomPath(orgId)}/access-requests`, { query, signal }),
+    decide: (orgId: string, id: string, body: AccessDecision) => apiRequest<AccessRead>(`${roomPath(orgId)}/access-requests/${id}/decisions`, { body }),
+    nda: (id: string, signal?: AbortSignal) => apiRequest<Blob>(`${accessPath}/${id}/nda-content`, { responseType: "blob", signal }),
+    acceptNda: (id: string, body: NDAAcceptance) => apiRequest<AccessRead>(`${accessPath}/${id}/nda-acceptances`, { body }),
+    room: (orgId: string, signal?: AbortSignal) => apiRequest<InvestorRoomRead>(`/investors/data-rooms/${orgId}`, { signal }),
+    folders: (orgId: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<InvestorFolderRead>>(`/investors/data-rooms/${orgId}/folders`, { query, signal }),
+    documents: (orgId: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<InvestorDocumentRead>>(`/investors/data-rooms/${orgId}/documents`, { query, signal }),
+  },
   files: {
     listOrganization: (orgId: string, query: { limit?: number; offset?: number; kind?: FileKind } = {}, signal?: AbortSignal) =>
       apiRequest<FilePage>(`/organizations/${orgId}/files`, { query, signal }),

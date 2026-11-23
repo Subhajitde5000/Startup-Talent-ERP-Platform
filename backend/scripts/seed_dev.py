@@ -1527,6 +1527,252 @@ async def seed_step4_files(
     print("  + Step 4 private R2 sample files ready (actual sizes/dates; idempotent)")
 
 
+async def seed_step9_data_rooms(
+    db: AsyncSession,
+    startups: dict[str, Organization],
+    owner: User | None,
+    firms: dict[str, Organization],
+) -> None:
+    """9g/9h demo records; no phantom files, signatures, view totals or overwritten grants."""
+    from app.models.data_room import DataRoom, DataRoomDocument, DataRoomFolder
+    from app.models.data_room_access import DataRoomAccessRequest
+    from app.models.file import File, FileKind
+    from app.schemas.data_room import DocumentCreate, FolderCreate, RoomPut
+    from app.schemas.data_room_access import AccessCreate, AccessDecision
+    from app.schemas.file import FileUploadCreate
+    from app.services import data_room_access_service as access
+    from app.services import data_room_service as rooms
+    from app.services import file_service
+    from app.services.file_processing_service import get_scanner, process_file
+    from app.services.storage_service import get_storage
+
+    settings = get_settings()
+    if settings.ENVIRONMENT != "development":
+        raise RuntimeError("Data-room samples require ENVIRONMENT=development")
+    if (
+        not owner
+        or not all(
+            (
+                settings.R2_ACCOUNT_ID,
+                settings.R2_ACCESS_KEY_ID,
+                settings.R2_SECRET_ACCESS_KEY,
+                settings.R2_BUCKET,
+            )
+        )
+        or settings.FILE_SCANNER != "dev_clean"
+    ):
+        print(
+            "  = 9g/9h skipped: configure development R2 and FILE_SCANNER=dev_clean; no phantom data-room files inserted"
+        )
+        return
+    storage = get_storage()
+    # OrbitPay's old room fixture was not part of the discovery seed. Do not
+    # invent funding/profile statistics for it or opt it into discovery.
+    orbit = (
+        await db.execute(select(Organization).where(Organization.slug == "orbitpay-data-room-dev"))
+    ).scalar_one_or_none()
+    if orbit is None:
+        orbit = Organization(name="OrbitPay", slug="orbitpay-data-room-dev", type="startup")
+        db.add(orbit)
+        await db.commit()
+    targets = list(
+        {
+            org.id: org
+            for org in [
+                *list(startups.values())[:1],
+                *[startups[name] for name in ("Acme Studio", "GreenLedger") if name in startups],
+                orbit,
+            ]
+        }.values()
+    )
+    for org in targets:
+        membership = (
+            await db.execute(
+                select(OrganizationMember).where(
+                    OrganizationMember.org_id == org.id,
+                    OrganizationMember.user_id == owner.id,
+                    OrganizationMember.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+        if membership is None:
+            # Never seize a pre-existing dev organization owned by somebody else.
+            occupied = (
+                await db.execute(
+                    select(OrganizationMember.id)
+                    .where(
+                        OrganizationMember.org_id == org.id, OrganizationMember.deleted_at.is_(None)
+                    )
+                    .limit(1)
+                )
+            ).first()
+            if occupied:
+                continue
+            db.add(
+                OrganizationMember(
+                    org_id=org.id,
+                    user_id=owner.id,
+                    role=OrgRole.owner,
+                    status=MemberStatus.active,
+                    joined_at=datetime.now(UTC),
+                )
+            )
+            await db.commit()
+        elif membership.role not in {OrgRole.owner, OrgRole.admin}:
+            continue
+        await seed_step4_files(db, org, owner)
+        room = (
+            await db.execute(select(DataRoom).where(DataRoom.org_id == org.id))
+        ).scalar_one_or_none()
+        if room is None:
+            room = await rooms.put_room(
+                db, owner, org.id, RoomPut(nda_required=org.name not in {"Acme Studio", "OrbitPay"})
+            )
+        if room.nda_required and room.nda_file_id is None:
+            name = "Development sample NDA - not legal advice.pdf"
+            nda = (
+                await db.execute(
+                    select(File).where(
+                        File.owner_org_id == org.id,
+                        File.file_name == name,
+                        File.deleted_at.is_(None),
+                    )
+                )
+            ).scalar_one_or_none()
+            if nda is None:
+                content = _step4_sample_pdf("DEVELOPMENT NDA SAMPLE - NOT LEGAL ADVICE")
+                reserved = await file_service.request_upload(
+                    db,
+                    owner,
+                    FileUploadCreate(
+                        kind=FileKind.legal,
+                        file_name=name,
+                        mime_type="application/pdf",
+                        byte_size=len(content),
+                    ),
+                    storage,
+                    org.id,
+                )
+                nda = await db.get(File, reserved.file.id)
+                assert nda is not None and nda.upload_storage_key
+                await storage.put(nda.upload_storage_key, content, "application/pdf")
+                await file_service.confirm(db, owner, nda.id)
+                await process_file(nda.id, async_session_factory, storage, get_scanner())
+                await db.refresh(nda)
+            if nda.upload_status == "ready" and nda.scan_status == "clean":
+                room = await rooms.put_room(db, owner, org.id, RoomPut(nda_file_id=nda.id))
+        folders: dict[str, DataRoomFolder] = {}
+        for order, name in enumerate(
+            ("Corporate", "Financials", "Legal", "Product", "Team", "Customers", "Pitch")
+        ):
+            folder = (
+                (
+                    await db.execute(
+                        select(DataRoomFolder).where(
+                            DataRoomFolder.data_room_id == room.id, DataRoomFolder.name == name
+                        )
+                    )
+                )
+                .scalars()
+                .first()
+            )
+            if folder is None:
+                folder = await rooms.save_folder(
+                    db, owner, org.id, FolderCreate(name=name, display_order=order)
+                )
+            if folder.deleted_at is None:
+                folders[name] = folder
+        for name, folder_name, visibility in (
+            ("Pitch deck v3.pdf", "Pitch", "approved_investors"),
+            ("Financial model.xlsx", "Financials", "private"),
+            ("Product brief.pdf", "Product", "approved_investors"),
+        ):
+            folder = folders.get(folder_name)
+            if folder is None:
+                continue
+            existing = (
+                await db.execute(
+                    select(DataRoomDocument.id).where(
+                        DataRoomDocument.folder_id == folder.id, DataRoomDocument.name == name
+                    )
+                )
+            ).first()
+            file = (
+                (
+                    await db.execute(
+                        select(File).where(
+                            File.owner_org_id == org.id,
+                            File.file_name == name,
+                            File.deleted_at.is_(None),
+                            File.upload_status == "ready",
+                            File.scan_status == "clean",
+                        )
+                    )
+                )
+                .scalars()
+                .first()
+            )
+            if existing is None and file:
+                await rooms.create_document(
+                    db,
+                    owner,
+                    org.id,
+                    DocumentCreate(
+                        folder_id=folder.id, file_id=file.id, name=name, visibility=visibility
+                    ),
+                )
+        emails = (
+            ["investor@forma.dev"]
+            if org.name in {"Acme Studio", "GreenLedger", "OrbitPay"}
+            else ["investor@forma.dev", "angel@forma.dev"]
+        )
+        for email in emails:
+            actor = (
+                await db.execute(select(User).where(User.primary_email == email))
+            ).scalar_one_or_none()
+            if actor is None or email not in firms:
+                continue
+            # Terminal states and developer edits survive reruns; no resurrection.
+            existing = (
+                await db.execute(
+                    select(DataRoomAccessRequest.id).where(
+                        DataRoomAccessRequest.data_room_id == room.id,
+                        DataRoomAccessRequest.requester_id == actor.id,
+                    )
+                )
+            ).first()
+            if existing:
+                continue
+            request = await access.create_request(
+                db,
+                actor,
+                AccessCreate(
+                    startup_org_id=org.id,
+                    message="Development sample: evaluating your seed round and reviewing your projections."
+                    if email == "investor@forma.dev"
+                    else "Development sample: interested in your customer validation.",
+                ),
+            )
+            if (
+                org.name in {"Acme Studio", "GreenLedger"}
+                and folders.get("Pitch")
+                and folders.get("Product")
+            ):
+                await access.decide(
+                    db,
+                    owner,
+                    org.id,
+                    request.id,
+                    AccessDecision(
+                        action="approve", scope=[folders["Pitch"].id, folders["Product"].id]
+                    ),
+                )
+        # Intentionally no fabricated NDA acceptance or historic document views.
+    print(
+        "  + 9g/9h development rooms/folders/documents/personal requests (fill-only; actual file metadata)"
+    )
+
+
 async def seed() -> None:
     settings = get_settings()
     if settings.ENVIRONMENT != "development":
@@ -3327,6 +3573,8 @@ async def seed() -> None:
                 activity_added += 1
             if activity_added:
                 await db.commit()
+
+        await seed_step9_data_rooms(db, startup_by_name, founder_user, firm_by_email)
 
         # Step 9m: founder-org audit events for the startup investor hub's
         # recent-activity list. Fill-only by summary; never overwrites.

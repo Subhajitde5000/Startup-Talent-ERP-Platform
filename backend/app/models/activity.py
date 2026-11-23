@@ -34,6 +34,10 @@ class ActivityEventType(enum.StrEnum):
     invent a new event category. Later steps append their own members.
     """
 
+    data_room_changed = "data_room_changed"
+    data_room_access_changed = "data_room_access_changed"
+    data_room_nda_accepted = "data_room_nda_accepted"
+
     file_attachment_changed = "file_attachment_changed"
     file_upload_requested = "file_upload_requested"
     file_confirmed = "file_confirmed"
