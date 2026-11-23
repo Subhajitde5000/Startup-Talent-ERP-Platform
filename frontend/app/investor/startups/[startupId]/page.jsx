@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Bookmark } from 'lucide-react';
 import { InvestorShell, Card, Button } from '@/components';
 import { useAuth } from '@/lib/auth-context';
@@ -14,6 +15,23 @@ const STAGE_LABELS = {
   early_revenue: 'Early revenue',
   growth: 'Growth',
   mature: 'Mature',
+};
+
+const ROUND_TYPE_LABELS = {
+  pre_seed: 'Pre-Seed',
+  seed: 'Seed',
+  series_a: 'Series A',
+  series_b: 'Series B',
+  growth: 'Growth',
+  grant: 'Grant',
+  bridge: 'Bridge',
+};
+
+const INSTRUMENT_LABELS = {
+  equity: 'Priced Equity',
+  safe: 'SAFE',
+  convertible_note: 'Convertible Note',
+  debt: 'Venture Debt',
 };
 
 function stageLabel(stage) {
@@ -38,12 +56,20 @@ function commitPct(target, committed) {
 export default function InvestorStartupProfilePage({ params }) {
   const startupId = params?.startupId || 'acme';
   const { user } = useAuth();
+  const searchParams = useSearchParams();
 
   const [phase, setPhase] = useState('loading'); // loading|ready|error|none
   const [startup, setStartup] = useState(null);
   const [rounds, setRounds] = useState([]);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState('Overview');
+  const [tab, setTab] = useState(() => {
+    const qTab = searchParams?.get('tab');
+    if (!qTab) return 'Overview';
+    const match = ['Overview', 'Traction', 'Round', 'Mentors and readiness', 'Team', 'Documents', 'Updates'].find(
+      (t) => t.toLowerCase() === qTab.toLowerCase()
+    );
+    return match || 'Overview';
+  });
   const [shortlisted, setShortlisted] = useState(false);
   const [shortlistPhase, setShortlistPhase] = useState('idle');
 
@@ -294,30 +320,104 @@ export default function InvestorStartupProfilePage({ params }) {
                             </div>
                           </>
                         ) : (
-                          <p className="text-xs text-[#4A5568]">
-                            This startup has not shared round terms in its investor profile.
-                          </p>
+                          <div className="rounded-lg bg-[#FAF8F4] p-4 border border-[#E5E1D8] text-xs text-[#4A5568]">
+                            <p className="font-semibold text-ink mb-1">Terms not shared publicly</p>
+                            <p>
+                              This startup has chosen to keep round details confidential. You can request an introduction using the button above to request round terms.
+                            </p>
+                          </div>
                         )}
                       </Card>
-                      {rounds.length > 0 && (
-                        <Card title="Open rounds on platform">
-                          <div className="space-y-2 text-xs">
-                            {rounds.map((r) => (
-                              <div
+
+                      {startup.round_visible && rounds.length > 0 && (
+                        <div className="space-y-4">
+                          {rounds.map((r) => {
+                            const pct =
+                              r.target_amount && Number(r.target_amount) > 0
+                                ? Math.min(
+                                    100,
+                                    Math.max(
+                                      0,
+                                      Math.round(
+                                        (Number(r.committed_amount || 0) /
+                                          Number(r.target_amount)) *
+                                          100
+                                      )
+                                    )
+                                  )
+                                : 0;
+                            return (
+                              <Card
                                 key={r.id}
-                                className="flex items-center justify-between rounded-lg bg-[#FAF8F4] p-3 border border-[#E5E1D8]"
+                                title={r.name || 'Fundraising round'}
+                                action={
+                                  <span className="rounded-full bg-[#FAF4E8] px-2.5 py-0.5 text-xs font-semibold capitalize text-[#806236] border border-[#ECD9BA]">
+                                    {r.status || 'Active'}
+                                  </span>
+                                }
                               >
-                                <span className="font-semibold text-ink">
-                                  {r.round_type || r.type || 'Round'} ·{' '}
-                                  {formatMoney(r.target_amount || r.target, r.currency)}
-                                </span>
-                                <span className="text-[#4A5568]">
-                                  {r.status || r.state || ''}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </Card>
+                                <div className="mb-4">
+                                  <div className="flex justify-between text-xs text-[#4A5568]">
+                                    <span>
+                                      Committed{' '}
+                                      <strong className="text-ink">
+                                        {formatMoney(r.committed_amount, r.currency)}
+                                      </strong>{' '}
+                                      of {formatMoney(r.target_amount, r.currency)}
+                                    </span>
+                                    <span>{pct}% allocated</span>
+                                  </div>
+                                  <div className="mt-2 h-2 rounded-full bg-[#E5E1D8] overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-[#B8955A]"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="grid gap-3 sm:grid-cols-4 rounded-lg bg-[#FAF8F4] p-3 text-xs border border-[#E5E1D8]">
+                                  <div>
+                                    <span className="text-[#4A5568] block">Round type</span>
+                                    <strong className="text-ink font-semibold mt-0.5 block">
+                                      {ROUND_TYPE_LABELS[r.round_type] || r.round_type || '—'}
+                                    </strong>
+                                  </div>
+                                  <div>
+                                    <span className="text-[#4A5568] block">Instrument</span>
+                                    <strong className="text-ink font-semibold mt-0.5 block">
+                                      {INSTRUMENT_LABELS[r.instrument] || r.instrument || 'Priced Equity'}
+                                    </strong>
+                                  </div>
+                                  <div>
+                                    <span className="text-[#4A5568] block">Pre-money valuation</span>
+                                    <strong className="text-ink font-semibold mt-0.5 block">
+                                      {formatMoney(r.pre_money_valuation, r.currency) !== '—'
+                                        ? formatMoney(r.pre_money_valuation, r.currency)
+                                        : 'Negotiable'}
+                                    </strong>
+                                  </div>
+                                  <div>
+                                    <span className="text-[#4A5568] block">Min ticket</span>
+                                    <strong className="text-ink font-semibold mt-0.5 block">
+                                      {formatMoney(r.min_ticket, r.currency) !== '—'
+                                        ? formatMoney(r.min_ticket, r.currency)
+                                        : '—'}
+                                    </strong>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap items-center justify-between text-[11px] text-[#4A5568]">
+                                  <span>
+                                    {r.closes_on ? `Target close: ${r.closes_on}` : 'Rolling close'}
+                                  </span>
+                                  <span className="text-[#806236]">
+                                    Read-only terms for verified investors
+                                  </span>
+                                </div>
+                              </Card>
+                            );
+                          })}
+                        </div>
                       )}
                     </>
                   )}

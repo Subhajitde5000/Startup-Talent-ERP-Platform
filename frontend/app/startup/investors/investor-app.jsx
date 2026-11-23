@@ -1968,9 +1968,22 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
             )}
             {roundsPhase === 'none' && (
               <EmptyBlock
-                title="No startup workspace yet"
-                hint="Create or join a startup to start tracking fundraising rounds."
-              />
+                title={user?.roles?.includes('investor') ? 'Investor Workspace' : 'No startup workspace yet'}
+                hint={
+                  user?.roles?.includes('investor')
+                    ? 'You are logged in as an investor. Fundraising rounds are created and managed by startups in their founder workspaces. You can discover startups and view active rounds in the Discover portal.'
+                    : 'Create or join a startup to start tracking fundraising rounds.'
+                }
+              >
+                {user?.roles?.includes('investor') && (
+                  <Link
+                    href="/investor/discover"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-xs font-semibold text-white hover:bg-black transition-colors"
+                  >
+                    <Search size={14} /> Go to Investor Discovery
+                  </Link>
+                )}
+              </EmptyBlock>
             )}
             {roundsPhase === 'ready' && rounds.length === 0 && (
               <EmptyBlock
@@ -2157,7 +2170,23 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
               />
             )}
             {roundPhase === 'none' && (
-              <EmptyBlock title="No startup workspace yet" hint="Create or join a startup to view this round." />
+              <EmptyBlock
+                title={user?.roles?.includes('investor') ? 'Founder Round Management' : 'No startup workspace yet'}
+                hint={
+                  user?.roles?.includes('investor')
+                    ? 'This is a founder round management page. As an investor, you can evaluate open rounds and view investment terms from the startup’s discovery profile.'
+                    : 'Create or join a startup to view this round.'
+                }
+              >
+                {user?.roles?.includes('investor') && (
+                  <Link
+                    href="/investor/discover"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-xs font-semibold text-white hover:bg-black transition-colors"
+                  >
+                    <Search size={14} /> Go to Investor Discovery
+                  </Link>
+                )}
+              </EmptyBlock>
             )}
             {roundPhase === 'ready' && round && (
               <>
