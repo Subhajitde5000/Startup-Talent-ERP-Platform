@@ -140,7 +140,12 @@ const VISIBILITY_VALUES = {
   'Private': 'private',
   'Mentors only': 'mentors',
   'Mentors and verified investors': 'mentors_and_investors',
+  'Public': 'public',
 };
+
+function investorVisibilityEnabled(profileVisibility) {
+  return profileVisibility === 'public' || profileVisibility === 'mentors_and_investors';
+}
 
 // Step 9m: display labels for hub rows (engagement request kinds and
 // meeting types) and a compact meeting date/time renderer.
@@ -494,6 +499,10 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
           return;
         }
         setOrg(startup);
+        setCanEditVisibility(['owner', 'admin', 'member'].includes(startup.my_role));
+        if (page === 'discover' || page === 'investor') {
+          await loadProfile(startup.id);
+        }
         if (page === 'discover') {
           await loadDirectory(startup.id, directoryQuery);
         } else if (page === 'investor') {
@@ -687,7 +696,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
       if (cancelledRef.current) return;
       setProfile(prof);
       // Drive the shared banner/pause controls from the server's values.
-      setVisible(prof.profile_visibility === 'mentors_and_investors');
+      setVisible(investorVisibilityEnabled(prof.profile_visibility));
       setVis(VISIBILITY_LABELS[prof.profile_visibility] || prof.profile_visibility);
       setToggles({
         summary: prof.summary_public,
@@ -752,7 +761,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
       const updated = await api.startupProfile.update(org.id, body);
       if (cancelledRef.current) return;
       setProfile(updated);
-      setVisible(updated.profile_visibility === 'mentors_and_investors');
+      setVisible(investorVisibilityEnabled(updated.profile_visibility));
       setVis(VISIBILITY_LABELS[updated.profile_visibility] || updated.profile_visibility);
       if (!silent) notify('Investor visibility settings saved.');
       return true;
@@ -787,9 +796,8 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
   const handlePauseVisibility = async () => {
     if (!org || savingProfile) return;
     const next = visible ? 'private' : 'mentors_and_investors';
-    // Optimistic local flip, rolled back if the server rejects.
-    setVisible(!visible);
-    setVis(!visible ? 'Private' : 'Mentors and verified investors');
+    setVisible(next === 'mentors_and_investors');
+    setVis(VISIBILITY_LABELS[next]);
     const ok = await saveVisibility({ profile_visibility: next }, { silent: true });
     if (!ok) {
       setVisible(visible);
@@ -970,11 +978,28 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
 
   const visBanner = (
     <div className="mb-5 flex flex-wrap items-center gap-2 rounded-lg border border-[#E5E1D8] bg-white p-3 text-xs">
-      <span className={`h-2 w-2 rounded-full ${visible ? 'bg-[#B8955A]' : 'bg-[#A0A7B4]'}`} />
-      {visible ? 'Visible to verified investors' : 'Your profile is private. Investors can’t find you.'}
-      <Link href="/startup/investors/settings" className="ml-auto font-semibold text-[#9A7A45]">
-        {visible ? 'Manage' : 'Change visibility'} <ArrowRight className="inline" size={12} />
-      </Link>
+      {profilePhase === 'loading' ? (
+        <>
+          <span className="h-2 w-2 rounded-full bg-[#A0A7B4]" />
+          Loading visibility status…
+        </>
+      ) : profilePhase === 'error' ? (
+        <>
+          <span className="h-2 w-2 rounded-full bg-[#B42318]" />
+          Couldn’t verify visibility.
+          <Link href="/startup/investors/settings" className="ml-auto font-semibold text-[#9A7A45]">
+            Manage visibility <ArrowRight className="inline" size={12} />
+          </Link>
+        </>
+      ) : (
+        <>
+          <span className={`h-2 w-2 rounded-full ${visible ? 'bg-[#B8955A]' : 'bg-[#A0A7B4]'}`} />
+          {visible ? 'Visible to verified investors' : 'Your profile is private. Investors can’t find you.'}
+          <Link href="/startup/investors/settings" className="ml-auto font-semibold text-[#9A7A45]">
+            {visible ? 'Manage' : 'Change visibility'} <ArrowRight className="inline" size={12} />
+          </Link>
+        </>
+      )}
     </div>
   );
 
@@ -2389,7 +2414,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                   <div className="space-y-5 xl:col-span-2">
                     <Card title="Who can see my startup">
                       <fieldset className="space-y-3">
-                        {['Private', 'Mentors only', 'Mentors and verified investors'].map(x => (
+                        {['Private', 'Mentors only', 'Mentors and verified investors', 'Public'].map(x => (
                           <label key={x} className="flex cursor-pointer items-start gap-3 rounded-lg border border-[#E5E1D8] p-3">
                             <input
                               type="radio"
@@ -2398,7 +2423,7 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                               disabled={!canEditVisibility}
                               onChange={() => {
                                 setVis(x);
-                                setVisible(x === 'Mentors and verified investors');
+                                setVisible(investorVisibilityEnabled(VISIBILITY_VALUES[x]));
                               }}
                               className="mt-1 accent-ink"
                             />
@@ -2409,6 +2434,8 @@ export default function InvestorApp({ page = 'hub', id = 'northstar' }) {
                                   ? 'Only your team can view your startup.'
                                   : x === 'Mentors only'
                                   ? 'Your assigned mentors can see shared information.'
+                                  : x === 'Public'
+                                  ? 'Anyone can view your public startup profile.'
                                   : 'Approved, verified investors can discover your public profile.'}
                               </small>
                               {profileFormErrors.profile_visibility && <FieldError>{profileFormErrors.profile_visibility}</FieldError>}
