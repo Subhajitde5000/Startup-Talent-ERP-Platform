@@ -32,6 +32,25 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/investor/data-room",
+        destination: "/investor/data-rooms",
+        permanent: false,
+      },
+      {
+        source: "/investor/data-room/:startupId",
+        destination: "/investor/data-rooms/:startupId",
+        permanent: false,
+      },
+      {
+        source: "/investor/data-room/:startupId/nda",
+        destination: "/investor/data-rooms/:startupId/nda",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

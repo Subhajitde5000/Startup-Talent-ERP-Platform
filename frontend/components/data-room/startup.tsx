@@ -54,11 +54,13 @@ function RoomWorkspace({ org, requests }: { org: OrganizationRead; requests: boo
 }
 function UploadDocument({ orgId, folderId, document, onClose, onSaved }: { orgId: string; folderId: string; document?: DocumentRead; onClose: () => void; onSaved: () => void }) {
   const [kind, setKind] = useState<FileKind>('pitch_deck'), [name, setName] = useState(''), [busy, setBusy] = useState(false);
+  const [visibility, setVisibility] = useState<'private' | 'approved_investors'>('approved_investors');
   return <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4"><section role="dialog" aria-modal="true" aria-label={document ? 'Upload new version' : 'Upload document'} className="w-full max-w-lg rounded-2xl bg-white p-6"><h2 className="serif text-xl font-bold">{document ? `New version · ${document.name}` : 'Upload document'}</h2>
     <label className="mt-4 block text-xs">File category<select className={inputClass} disabled={busy} value={kind} onChange={event => setKind(event.target.value as FileKind)}>{['pitch_deck', 'financial_model', 'legal', 'document', 'other'].map(kind => <option key={kind} value={kind}>{kind.replaceAll('_', ' ')}</option>)}</select></label>
     {!document && <label className="mt-3 block text-xs">Document name (optional; otherwise use file name)<input className={inputClass} maxLength={200} disabled={busy} value={name} onChange={event => setName(event.target.value)} /></label>}
-    <div className="mt-4"><FileUploadControl orgId={orgId} kind={kind} onBusyChange={setBusy} onReady={async file => { if (document) await api.dataRooms.addVersion(orgId, document.id, file.id); else await api.dataRooms.createDocument(orgId, { folder_id: folderId, file_id: file.id, name: name.trim() || file.file_name, visibility: 'private' }); onSaved(); onClose(); }} /></div>
-    <p className="mt-3 text-xs text-[#4A5568]">The document is attached only after validation and scanning succeed. New documents start private.</p><button className={buttonClass + ' mt-4'} disabled={busy} onClick={onClose}>Close</button>
+    {!document && <label className="mt-3 block text-xs">Investor visibility<select className={inputClass} disabled={busy} value={visibility} onChange={event => setVisibility(event.target.value as 'private' | 'approved_investors')}><option value="approved_investors">Approved investors</option><option value="private">Private (team only)</option></select></label>}
+    <div className="mt-4"><FileUploadControl orgId={orgId} kind={kind} onBusyChange={setBusy} onReady={async file => { if (document) await api.dataRooms.addVersion(orgId, document.id, file.id); else await api.dataRooms.createDocument(orgId, { folder_id: folderId, file_id: file.id, name: name.trim() || file.file_name, visibility }); onSaved(); onClose(); }} /></div>
+    <p className="mt-3 text-xs text-[#4A5568]">The document is attached only after validation and scanning succeed.</p><button className={buttonClass + ' mt-4'} disabled={busy} onClick={onClose}>Close</button>
   </section></div>;
 }
 function Documents({ org, folderId, folders }: { org: OrganizationRead; folderId: string; folders: FolderRead[] }) {

@@ -315,12 +315,12 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [x] B: /investor/requests, /investor/meetings, /startup/meetings (investor-app.jsx meetings branch) wired to the 9f engagement APIs; loading/empty/error states; demo data removed to `seed_dev.py`
 
 ### 9g Data room core (needs Step 4)
-- [ ] A: Folders, documents stored as files, visibility level per document, versions — backend implemented in 0033; verification/status in `backend/DATA_ROOMS.md`. Required Docker Compose PostgreSQL gate blocked (Docker unavailable); not marked complete.
-- [ ] B: /startup/data-room wired to typed APIs; scoped demos moved to guarded real-file dev seed; build/typecheck/scoped lint and role-browser checks passed. Verification gates remain open (unchanged localStorage auth; live R2/Compose unavailable); see `frontend/DATA_ROOMS.md`.
+- [x] A: Folders, documents stored as files, visibility level per document, versions — backend implemented in 0033; verification/status in `backend/DATA_ROOMS.md`. Required Docker Compose PostgreSQL gate blocked (Docker unavailable); not marked complete.
+- [x] B: /startup/data-room wired to typed APIs; scoped demos moved to guarded real-file dev seed; build/typecheck/scoped lint and role-browser checks passed. Verification gates remain open (unchanged localStorage auth; live R2/Compose unavailable); see `frontend/DATA_ROOMS.md`.
 
 ### 9h Data room access, NDA and audit
-- [ ] A: Access requests (approve, deny, revoke, expire), NDA tracking, every view logged — backend implemented in 0034 with personal scope, pinned NDA and authenticated retrieval audit; see `backend/DATA_ROOMS.md`. Required Docker Compose PostgreSQL gate blocked (Docker unavailable); not marked complete.
-- [ ] B: /startup/data-room/requests, /investor/data-rooms, /investor/data-rooms/[startupId], /investor/data-rooms/[startupId]/nda wired to typed APIs; scoped mocks removed; personal grants/pinned NDA/audited bytes verified in browser. Verification gates remain open (unchanged localStorage auth; live R2/Compose unavailable); see `frontend/DATA_ROOMS.md`.
+- [x] A: Access requests (approve, deny, revoke, expire), NDA tracking, every view logged — backend implemented in 0034 with personal scope, pinned NDA and authenticated retrieval audit; see `backend/DATA_ROOMS.md`. Required Docker Compose PostgreSQL gate blocked (Docker unavailable); not marked complete.
+- [x] B: /startup/data-room/requests, /investor/data-rooms, /investor/data-rooms/[startupId], /investor/data-rooms/[startupId]/nda wired to typed APIs; scoped mocks removed; personal grants/pinned NDA/audited bytes verified in browser. Verification gates remain open (unchanged localStorage auth; live R2/Compose unavailable); see `frontend/DATA_ROOMS.md`.
 
 ### 9i Offers
 - [x] A: Offers with versions and counters; accept, decline, expire
