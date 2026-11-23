@@ -37,6 +37,7 @@ export default function InvestorShortlistPage() {
   const [notes, setNotes] = useState({});
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState('');
+  const [movingId, setMovingId] = useState(null);
 
   const filteredEntries =
     filter === 'all' ? entries : entries.filter((e) => e.status === filter);
@@ -219,19 +220,35 @@ export default function InvestorShortlistPage() {
 
                         <Button
                           secondary
+                          disabled={movingId === e.id}
                           onClick={async () => {
+                            if (movingId) return;
+                            setMovingId(e.id);
                             try {
                               await api.investorDeals.create({
                                 startup_org_id: e.startup_org_id,
                                 stage: 'interested',
                               });
+                              setEntries((prev) => prev.filter((entry) => entry.id !== e.id));
                               notify(`Moved ${e.startup_name} into the pipeline (Interested).`);
                             } catch (err) {
-                              notify(err instanceof ApiError ? err.message : 'Could not move to pipeline.');
+                              if (err instanceof ApiError && err.status === 409) {
+                                setEntries((prev) => prev.filter((entry) => entry.id !== e.id));
+                                try {
+                                  await api.investorShortlist.remove(e.id);
+                                } catch {
+                                  // The deal already exists; a later reload will reconcile the shortlist.
+                                }
+                                notify(`${e.startup_name} is already in the pipeline.`);
+                              } else {
+                                notify(err instanceof ApiError ? err.message : 'Could not move to pipeline.');
+                              }
+                            } finally {
+                              setMovingId(null);
                             }
                           }}
                         >
-                          Move to pipeline
+                          {movingId === e.id ? 'Moving…' : 'Move to pipeline'}
                         </Button>
 
                         <button
