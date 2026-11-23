@@ -154,6 +154,15 @@ async def update_profile(
     profile = await _ensure_profile(db, org)
     before_stage = profile.stage
     data = payload.model_dump(exclude_unset=True)
+    if "pitch_deck_file_id" in data:
+        from app.services.file_service import record_attachment_change, require_org_attachment
+
+        if data["pitch_deck_file_id"] is not None:
+            await require_org_attachment(
+                db, user, org.id, data["pitch_deck_file_id"], "pitch_deck", "pitch_deck_file_id"
+            )
+        if data["pitch_deck_file_id"] != profile.pitch_deck_file_id:
+            record_attachment_change(db, user, org.id, "pitch_deck_file_id")
     for field, value in data.items():
         setattr(profile, field, value)
     # Step 5i item 4: a stage change through this endpoint records history

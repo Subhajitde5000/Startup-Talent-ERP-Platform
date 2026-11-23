@@ -273,6 +273,7 @@ async def create_organization(
         status=org.status,
         summary=org.summary,
         logo_url=org.logo_url,
+        logo_file_id=org.logo_file_id,
         logo_initials=org.logo_initials,
         website=org.website,
         city=org.city,
@@ -312,6 +313,7 @@ async def list_my_organizations(db: AsyncSession, user: User) -> list[Organizati
                 status=org.status,
                 summary=org.summary,
                 logo_url=org.logo_url,
+                logo_file_id=org.logo_file_id,
                 logo_initials=org.logo_initials,
                 website=org.website,
                 city=org.city,
@@ -340,6 +342,7 @@ async def get_organization(
         status=org.status,
         summary=org.summary,
         logo_url=org.logo_url,
+        logo_file_id=org.logo_file_id,
         logo_initials=org.logo_initials,
         website=org.website,
         city=org.city,
@@ -360,6 +363,15 @@ async def update_organization(
     await require_membership(db, org.id, user, write=True)
 
     data = payload.model_dump(exclude_unset=True)
+    if "logo_file_id" in data:
+        from app.services.file_service import record_attachment_change, require_org_attachment
+
+        if data["logo_file_id"] is not None:
+            await require_org_attachment(
+                db, user, org.id, data["logo_file_id"], "logo", "logo_file_id"
+            )
+        if data["logo_file_id"] != org.logo_file_id:
+            record_attachment_change(db, user, org.id, "logo_file_id")
     if "slug" in data and data["slug"] != org.slug:
         result = await db.execute(
             select(Organization.id).where(
