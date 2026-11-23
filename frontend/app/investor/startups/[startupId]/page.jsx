@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Bookmark } from 'lucide-react';
+import { Bookmark, Send, Check, X } from 'lucide-react';
 import { InvestorShell, Card, Button } from '@/components';
 import { useAuth } from '@/lib/auth-context';
 import { api, ApiError } from '@/lib/api/client';
@@ -75,6 +75,14 @@ export default function InvestorStartupProfilePage({ params }) {
   const [shortlistPhase, setShortlistPhase] = useState('loading');
   const [shortlistError, setShortlistError] = useState('');
 
+  const [introModalOpen, setIntroModalOpen] = useState(false);
+  const [introKind, setIntroKind] = useState('intro');
+  const [introAsk, setIntroAsk] = useState('Introductory discussion & thesis alignment');
+  const [introMessage, setIntroMessage] = useState('');
+  const [introSending, setIntroSending] = useState(false);
+  const [introSent, setIntroSent] = useState(false);
+  const [introError, setIntroError] = useState('');
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -97,6 +105,15 @@ export default function InvestorStartupProfilePage({ params }) {
           // Shortlist status is supplementary; discovery remains usable if it fails.
         } finally {
           if (!cancelled) setShortlistPhase('idle');
+        }
+        // Best-effort check if an intro request is already pending or active.
+        try {
+          const reqList = await api.engagement.listRequests({ status: 'pending', limit: 50 });
+          if (cancelled) return;
+          const found = reqList.items?.some((r) => r.startup_org_id === detail.org_id);
+          setIntroSent(Boolean(found));
+        } catch {
+          // Supplementary check
         }
         // Best-effort rounds for the "Round" tab.
         try {
@@ -155,6 +172,32 @@ export default function InvestorStartupProfilePage({ params }) {
     }
   };
 
+  const handleSendIntro = async (e) => {
+    e?.preventDefault?.();
+    if (!startup || introSending) return;
+    if (!introAsk.trim()) {
+      setIntroError('Please specify the focus or ask for the request.');
+      return;
+    }
+    setIntroSending(true);
+    setIntroError('');
+    try {
+      await api.engagement.createRequest({
+        startup_org_id: startup.org_id,
+        kind: introKind,
+        ask: introAsk.trim(),
+        message: introMessage.trim() || null,
+      });
+      setIntroSent(true);
+      setIntroModalOpen(false);
+      setIntroMessage('');
+    } catch (err) {
+      setIntroError(err instanceof ApiError ? err.message : (err?.message || 'Could not send intro request.'));
+    } finally {
+      setIntroSending(false);
+    }
+  };
+
   const tabs = [
     'Overview',
     'Traction',
@@ -189,6 +232,21 @@ export default function InvestorStartupProfilePage({ params }) {
             <Bookmark size={14} fill={shortlisted ? 'currentColor' : 'none'} />
             {shortlistPhase === 'saving' ? 'Saving…' : shortlisted ? 'Saved' : 'Save to shortlist'}
           </Button>
+          {introSent ? (
+            <span className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#A6F4C5] bg-[#ECFDF3] px-3.5 text-xs font-semibold text-[#027A48]">
+              <Check size={14} /> Request sent
+            </span>
+          ) : (
+            <Button
+              onClick={() => {
+                setIntroError('');
+                setIntroModalOpen(true);
+              }}
+              disabled={phase !== 'ready' || !startup}
+            >
+              <Send size={14} /> Request intro
+            </Button>
+          )}
           {shortlistError && (
             <span className="max-w-48 text-right text-[11px] text-[#B42318]" role="alert">
               {shortlistError}
@@ -559,6 +617,119 @@ export default function InvestorStartupProfilePage({ params }) {
               </div>
 
               <InvestorDisclaimer onLearnMore={() => notify('Platform disclaimer opened.')} />
+
+              {introModalOpen && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1B2D]/45 p-4 backdrop-blur-sm"
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget && !introSending) setIntroModalOpen(false);
+                  }}
+                >
+                  <section
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="intro-dialog-title"
+                    className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white p-6 shadow-2xl overflow-y-auto"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <h2 id="intro-dialog-title" className="serif text-xl font-semibold text-ink">
+                          Request an introduction
+                        </h2>
+                        <p className="mt-0.5 text-xs text-[#5A6679]">
+                          Connect directly with {startup?.name || 'the founders'}.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => !introSending && setIntroModalOpen(false)}
+                        className="rounded-lg p-1.5 text-[#5A6679] hover:bg-[#FAF8F4] hover:text-ink"
+                        aria-label="Close dialog"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleSendIntro} className="space-y-4">
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-ink">
+                          Request kind
+                        </label>
+                        <select
+                          className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs font-medium text-ink focus:border-[#0F1B2D] focus:outline-none"
+                          value={introKind}
+                          onChange={(e) => setIntroKind(e.target.value)}
+                          disabled={introSending}
+                        >
+                          <option value="intro">Introduction / thesis match</option>
+                          <option value="meeting">Meeting / pitch conversation</option>
+                          <option value="information">Information / materials request</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-ink">
+                          Focus / Subject <span className="text-[#B42318]">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          maxLength={200}
+                          value={introAsk}
+                          onChange={(e) => setIntroAsk(e.target.value)}
+                          disabled={introSending}
+                          className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-ink focus:border-[#0F1B2D] focus:outline-none"
+                          placeholder="e.g. Introductory discussion & thesis alignment"
+                        />
+                        <span className="mt-1 block text-[11px] text-[#5A6679]">
+                          Brief title or main question (up to 200 characters).
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-ink">
+                          Message / Context <span className="font-normal text-[#5A6679]">(optional)</span>
+                        </label>
+                        <textarea
+                          rows={4}
+                          value={introMessage}
+                          onChange={(e) => setIntroMessage(e.target.value)}
+                          disabled={introSending}
+                          className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-ink focus:border-[#0F1B2D] focus:outline-none"
+                          placeholder="Introduce your investment firm, check size, or specific areas of interest..."
+                        />
+                      </div>
+
+                      <div className="rounded-lg bg-[#FAF8F4] border border-[#E5E1D8] p-3 text-[11px] text-[#5A6679]">
+                        Intro requests are founder-controlled and limited to 5 per day per investor organization to maintain high inbox quality.
+                      </div>
+
+                      {introError && (
+                        <div className="rounded-lg bg-[#FEF3F2] border border-[#FECDCA] p-2.5 text-xs text-[#B42318]" role="alert">
+                          {introError}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-end gap-2 pt-2">
+                        <Button
+                          secondary
+                          type="button"
+                          onClick={() => setIntroModalOpen(false)}
+                          disabled={introSending}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={introSending || !introAsk.trim()}
+                        >
+                          {introSending ? 'Sending…' : 'Send request'}
+                        </Button>
+                      </div>
+                    </form>
+                  </section>
+                </div>
+              )}
             </>
           )}
         </>
