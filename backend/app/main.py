@@ -25,6 +25,7 @@ from app.routers import (
     diligence,
     discovery,
     earning,
+    files,
     funding_round,
     investor_deal,
     investor_directory,
@@ -121,6 +122,7 @@ def create_app() -> FastAPI:
             await conn.execute(text("SELECT 1"))
         return {"status": "ready"}
 
+    app.include_router(files.router, prefix=settings.API_V1_PREFIX)
     app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
     app.include_router(users.router, prefix=settings.API_V1_PREFIX)
     app.include_router(skills.router, prefix=settings.API_V1_PREFIX)

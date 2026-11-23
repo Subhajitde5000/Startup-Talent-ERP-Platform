@@ -140,6 +140,7 @@ async def _set_verified(org_id: str) -> None:
     """Mark an organization verified out of band (server-owned field)."""
     async with TestSessionFactory() as session:
         org = await session.get(Organization, uuid.UUID(org_id))
+        assert org is not None
         org.verified_at = datetime.now(UTC)
         await session.commit()
 
@@ -365,6 +366,7 @@ async def test_directory_excludes_deleted_and_non_investor_orgs(client: AsyncCli
 
     async with TestSessionFactory() as session:
         org = await session.get(Organization, uuid.UUID(inv["org"]["id"]))
+        assert org is not None
         org.deleted_at = datetime.now(UTC)
         await session.commit()
 

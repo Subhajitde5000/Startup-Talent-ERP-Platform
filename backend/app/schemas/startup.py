@@ -65,6 +65,7 @@ class StartupProfileUpdate(BaseModel):
     mrr_range: str | None = Field(default=None, max_length=_MAX_STATUS)
     funding_status: str | None = Field(default=None, max_length=_MAX_STATUS)
     pitch_deck_url: str | None = Field(default=None, max_length=_MAX_URL)
+    pitch_deck_file_id: uuid.UUID | None = None
     dpiit_status: str | None = Field(default=None, max_length=_MAX_STATUS)
     legal_entity: str | None = Field(default=None, max_length=_MAX_STATUS)
     demo_url: str | None = Field(default=None, max_length=_MAX_URL)
@@ -118,6 +119,7 @@ class StartupProfileRead(BaseModel):
     mrr_range: str | None
     funding_status: str | None
     pitch_deck_url: str | None
+    pitch_deck_file_id: uuid.UUID | None
     dpiit_status: str | None
     legal_entity: str | None
     demo_url: str | None

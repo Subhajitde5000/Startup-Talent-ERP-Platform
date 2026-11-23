@@ -86,6 +86,11 @@ class StartupProfile(Base):
     mrr_range: Mapped[str | None] = mapped_column(String(100), nullable=True)
     funding_status: Mapped[str | None] = mapped_column(String(100), nullable=True)
     pitch_deck_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    pitch_deck_file_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("files.id", name="fk_startup_profiles_pitch_deck_file", ondelete="SET NULL"),
+        nullable=True, index=True,
+    )
     dpiit_status: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # Frontend gap columns (migration0007, Option A approved2026-11-18):
     # onboarding step1/2/3 + the profile page's Legal card.

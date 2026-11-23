@@ -502,6 +502,40 @@ export type ImpactRead = components["schemas"]["ImpactRead"];
 export type StartupMentorshipOverview = components["schemas"]["StartupMentorshipOverview"];
 export type ScopedReadinessBoard = components["schemas"]["ScopedReadinessBoard"];
 
+// Step 4: generated contracts; no parallel HTTP/auth client.
+export type FileRead = components["schemas"]["FileRead"];
+export type FilePage = components["schemas"]["FilePage"];
+export type FileKind = components["schemas"]["FileKind"];
+export type FileUploadCreate = components["schemas"]["FileUploadCreate"];
+export type FileUploadRead = components["schemas"]["FileUploadRead"];
+export type FileDownloadRead = components["schemas"]["FileDownloadRead"];
+
+export const FILE_ACCEPT: Record<FileKind, string> = {
+  logo: ".png,.jpg,.jpeg,.webp", image: ".png,.jpg,.jpeg,.webp",
+  resume: ".pdf,.docx", pitch_deck: ".pdf,.pptx", financial_model: ".pdf,.xlsx,.csv",
+  legal: ".pdf,.docx", document: ".pdf,.docx,.txt", other: ".pdf,.docx,.txt",
+};
+const FILE_MIME: Record<string, string> = {
+  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp",
+  pdf: "application/pdf", txt: "text/plain", csv: "text/csv",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
+
+export function fileFieldErrors(error: unknown): Record<string, string> {
+  const result: Record<string, string> = {};
+  if (error instanceof ApiError && Array.isArray(error.details)) {
+    for (const detail of error.details) {
+      if (Array.isArray(detail.loc) && typeof detail.msg === "string") {
+        const field = detail.loc[detail.loc.length - 1];
+        if (typeof field === "string") result[field] = detail.msg;
+      }
+    }
+  }
+  return result;
+}
+
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "/api/v1").replace(/\/+$/, "");
 
 const ACCESS_KEY = "forma.access_token";
@@ -805,6 +839,40 @@ export async function apiRequestText(
 /* -------------------------------------------------------- typed endpoints */
 
 export const api = {
+  files: {
+    listOrganization: (orgId: string, query: { limit?: number; offset?: number; kind?: FileKind } = {}, signal?: AbortSignal) =>
+      apiRequest<FilePage>(`/organizations/${orgId}/files`, { query, signal }),
+    get: (id: string, signal?: AbortSignal) => apiRequest<FileRead>(`/files/${id}`, { signal }),
+    confirm: (id: string, signal?: AbortSignal) =>
+      apiRequest<FileRead>(`/files/${id}/confirm`, { method: "POST", body: {}, signal }),
+    remove: (id: string) => apiRequest<void>(`/files/${id}`, { method: "DELETE" }),
+    download: (id: string, variant: "original" | "thumbnail" = "original", signal?: AbortSignal) =>
+      apiRequest<FileDownloadRead>(`/files/${id}/download-url`, { method: "POST", body: { variant }, signal }),
+    uploadOrganization: async (orgId: string, kind: FileKind, file: File, signal?: AbortSignal): Promise<FileRead> => {
+      const extension = file.name.split(".").pop()?.toLowerCase() || "";
+      const mime = FILE_MIME[extension];
+      const maxMiB = kind === "image" || kind === "logo" ? 5 : kind === "resume" ? 10 : 25;
+      if (!mime || !FILE_ACCEPT[kind].split(",").includes(`.${extension}`) || file.size <= 0 || file.size > maxMiB * 1024 * 1024) {
+        throw new ApiError(422, { code: "VALIDATION_ERROR", message: `Choose a supported ${kind.replaceAll("_", " ")} file (maximum ${maxMiB} MiB).`, details: [{ loc: ["body", "file_name"], msg: `Supported: ${FILE_ACCEPT[kind]}; maximum ${maxMiB} MiB.` }] });
+      }
+      const reservation = await apiRequest<FileUploadRead>(`/organizations/${orgId}/files/upload-requests`, {
+        method: "POST", body: { kind, file_name: file.name, mime_type: mime, byte_size: file.size } satisfies FileUploadCreate, signal,
+      });
+      // Signed R2 PUT is intentionally not sent through authenticated apiRequest.
+      // No cookies, platform bearer token, auto-refresh, or automatic byte retry.
+      let response: Response;
+      try {
+        response = await fetch(reservation.upload_url, {
+          method: "PUT", headers: reservation.headers, body: file, credentials: "omit", redirect: "error", signal,
+        });
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        throw new ApiError(0, { code: "STORAGE_UPLOAD_FAILED", message: "Could not upload to private storage. Check your connection and bucket CORS, then select the file again." });
+      }
+      if (!response.ok) throw new ApiError(response.status, { code: "STORAGE_UPLOAD_FAILED", message: "Private storage rejected the upload. Select the file again to get a fresh upload URL." });
+      return api.files.confirm(reservation.file.id, signal);
+    },
+  },
   auth: {
     register: (body: RegisterRequest) =>
       apiRequest<RegisterResponse>("/auth/register", { body, auth: false }),

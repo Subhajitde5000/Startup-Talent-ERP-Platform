@@ -4,7 +4,7 @@ Run (from backend/):
 
     ../.venv/bin/python scripts/seed_dev.py
 
-- Refuses to run unless ENVIRONMENT=dev — never use this in production.
+- Refuses to run unless ENVIRONMENT=development — never use this in production.
 - Idempotent: existing accounts keep their values; profile fields are only
   filled where still empty, skills/readiness rows are inserted if missing.
 - All seeded accounts share one dev password (printed at the end) and are
@@ -34,6 +34,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlalchemy import func, select  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from app.core.config import get_settings  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
@@ -1384,9 +1385,151 @@ SEED_USERS = [
 ]
 
 
+def _step4_sample_pdf(title: str) -> bytes:
+    """Small valid development PDF, not a fake object metadata row."""
+    text = f"BT /F1 14 Tf 30 100 Td ({title} - development sample only) Tj ET".encode(
+        "ascii"
+    )
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 500 200] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        b"<< /Length "
+        + str(len(text)).encode()
+        + b" >>\nstream\n"
+        + text
+        + b"\nendstream",
+    ]
+    data = b"%PDF-1.4\n"
+    offsets = [0]
+    for number, obj in enumerate(objects, 1):
+        offsets.append(len(data))
+        data += f"{number} 0 obj\n".encode() + obj + b"\nendobj\n"
+    xref = len(data)
+    data += f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode()
+    data += b"".join(f"{offset:010d} 00000 n \n".encode() for offset in offsets[1:])
+    return (
+        data
+        + f"trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    )
+
+
+async def seed_step4_files(
+    db: AsyncSession, organization: Organization, owner: User | None
+) -> None:
+    """Called only by this development seed; real bytes use the normal processor."""
+    import io
+    import zipfile
+
+    from app.models.file import File, FileKind
+    from app.schemas.file import FileUploadCreate
+    from app.services import file_service
+    from app.services.file_processing_service import get_scanner, process_file
+    from app.services.storage_service import get_storage
+
+    settings = get_settings()
+    if settings.ENVIRONMENT != "development":
+        raise RuntimeError("Step 4 sample files require ENVIRONMENT=development")
+    if (
+        not owner
+        or not all(
+            (
+                settings.R2_ACCOUNT_ID,
+                settings.R2_ACCESS_KEY_ID,
+                settings.R2_SECRET_ACCESS_KEY,
+                settings.R2_BUCKET,
+            )
+        )
+        or settings.FILE_SCANNER != "dev_clean"
+    ):
+        print(
+            "  = Step 4 files skipped: configure private R2 and explicitly enable FILE_SCANNER=dev_clean in development; no fake file rows inserted."
+        )
+        return
+    workbook = io.BytesIO()
+    with zipfile.ZipFile(workbook, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "[Content_Types].xml",
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
+        )
+        archive.writestr(
+            "_rels/.rels",
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+        )
+        archive.writestr(
+            "xl/workbook.xml",
+            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Development sample" sheetId="1" r:id="rId1"/></sheets></workbook>',
+        )
+        archive.writestr(
+            "xl/_rels/workbook.xml.rels",
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
+        )
+        archive.writestr(
+            "xl/worksheets/sheet1.xml",
+            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Development sample only - not financial advice or actual revenue</t></is></c></row></sheetData></worksheet>',
+        )
+    # Names moved from the old startup profile inline records. Their fabricated
+    # sizes/dates/Public/NDA labels are intentionally not seeded.
+    samples = [
+        (
+            "Pitch deck v3.pdf",
+            "pitch_deck",
+            "application/pdf",
+            _step4_sample_pdf("Pitch deck"),
+        ),
+        (
+            "Financial model.xlsx",
+            "financial_model",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            workbook.getvalue(),
+        ),
+        (
+            "Product brief.pdf",
+            "document",
+            "application/pdf",
+            _step4_sample_pdf("Product brief"),
+        ),
+    ]
+    storage = get_storage()
+    for name, kind, mime, content in samples:
+        existing = (
+            await db.execute(
+                select(File).where(
+                    File.owner_org_id == organization.id,
+                    File.file_name == name,
+                    File.deleted_at.is_(None),
+                    File.upload_status == "ready",
+                )
+            )
+        ).scalar_one_or_none()
+        if existing:
+            continue
+        reservation = await file_service.request_upload(
+            db,
+            owner,
+            FileUploadCreate(
+                kind=FileKind(kind), file_name=name, mime_type=mime, byte_size=len(content)
+            ),
+            storage,
+            organization.id,
+        )
+        row = await db.get(File, reservation.file.id)
+        assert row is not None and row.upload_storage_key
+        await storage.put(row.upload_storage_key, content, mime)
+        await file_service.confirm(db, owner, row.id)
+        await process_file(row.id, async_session_factory, storage, get_scanner())
+        await db.refresh(row)
+        if row.upload_status != "ready" or row.scan_status != "clean":
+            raise RuntimeError(
+                "Step 4 seed file did not pass normal validation/scanning"
+            )
+    print("  + Step 4 private R2 sample files ready (actual sizes/dates; idempotent)")
+
+
 async def seed() -> None:
     settings = get_settings()
-    if settings.ENVIRONMENT != "dev":
+    if settings.ENVIRONMENT != "development":
         raise SystemExit(
             f"Refusing to seed: ENVIRONMENT={settings.ENVIRONMENT!r} (this script is dev-only)."
         )
@@ -1705,6 +1848,8 @@ async def seed() -> None:
                 db.add(StartupProfile(org_id=founder_org.id, **STEP5A_STARTUP_PROFILE))
                 await db.commit()
                 startup_profile_added = 1
+
+            await seed_step4_files(db, founder_org, founder_user)
 
             # Step 5b: demo milestones for the wired panel (fill-only).
             for spec in STEP5B_MILESTONES:
