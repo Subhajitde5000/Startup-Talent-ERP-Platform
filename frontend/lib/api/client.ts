@@ -3,7 +3,7 @@
  *
  * - Base URL comes from NEXT_PUBLIC_API_URL (defaults to the same-origin
  *   "/api/v1", which next.config.js proxies to the backend).
- * - Bearer access token is attached automatically from tab memory.
+ * - Bearer access token is attached automatically from local storage.
  * - A 401 triggers a single-flight refresh; the original request is retried
  *   once with the new access token.
  * - Every failure surfaces as an ApiError carrying the backend's
@@ -559,41 +559,59 @@ const ACCESS_KEY = "forma.access_token";
 const REFRESH_KEY = "forma.refresh_token";
 
 /* ------------------------------------------------------------------ tokens */
-// Approved 7a wiring fix: no access/refresh tokens in web storage or cookies.
-// Client navigation retains the session; hard reloads/new tabs require login.
-let accessToken: string | null = null;
-let refreshToken: string | null = null;
 
-function removeLegacyTokenStorage(): void {
-  if (typeof window === "undefined") return;
-  for (const name of ["localStorage", "sessionStorage"] as const) {
-    try {
-      window[name].removeItem(ACCESS_KEY);
-      window[name].removeItem(REFRESH_KEY);
-    } catch { /* Storage may be unavailable; memory auth still works. */ }
+function getStorageItem(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
   }
 }
-removeLegacyTokenStorage();
+
+function setStorageItem(key: string, value: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch { /* Storage might be restricted; memory cache still works */ }
+}
+
+function removeStorageItem(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch { /* Storage might be restricted */ }
+}
+
+let cachedAccessToken: string | null = null;
+let cachedRefreshToken: string | null = null;
 
 export function getAccessToken(): string | null {
-  return typeof window === "undefined" ? null : accessToken;
+  if (cachedAccessToken) return cachedAccessToken;
+  const stored = getStorageItem(ACCESS_KEY);
+  if (stored) cachedAccessToken = stored;
+  return stored;
 }
 
 export function getRefreshToken(): string | null {
-  return typeof window === "undefined" ? null : refreshToken;
+  if (cachedRefreshToken) return cachedRefreshToken;
+  const stored = getStorageItem(REFRESH_KEY);
+  if (stored) cachedRefreshToken = stored;
+  return stored;
 }
 
 export function setTokens(tokens: { access_token: string; refresh_token: string }): void {
-  if (typeof window === "undefined") return;
-  removeLegacyTokenStorage();
-  accessToken = tokens.access_token;
-  refreshToken = tokens.refresh_token;
+  cachedAccessToken = tokens.access_token;
+  cachedRefreshToken = tokens.refresh_token;
+  setStorageItem(ACCESS_KEY, tokens.access_token);
+  setStorageItem(REFRESH_KEY, tokens.refresh_token);
 }
 
 export function clearTokens(): void {
-  accessToken = null;
-  refreshToken = null;
-  removeLegacyTokenStorage();
+  cachedAccessToken = null;
+  cachedRefreshToken = null;
+  removeStorageItem(ACCESS_KEY);
+  removeStorageItem(REFRESH_KEY);
 }
 
 /** Fired when the session is gone (refresh failed) so the app can react. */
@@ -784,7 +802,7 @@ function emitUnauthenticated(): void {
 
 /**
  * Perform an API request. Throws ApiError on failure.
- * On 401 (with an in-memory refresh token) refreshes once and retries the
+ * On 401 (with a stored refresh token) refreshes once and retries the
  * request a single time; if the refresh fails, tokens are cleared and the
  * `forma:unauthenticated` event fires.
  */

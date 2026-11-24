@@ -7,8 +7,8 @@ const vm = require('node:vm');
 const ts = require('typescript');
 
 function storage() {
-  const data = new Map([['forma.access_token', 'legacy-access'], ['forma.refresh_token', 'legacy-refresh']]);
-  return { getItem: key => data.get(key) || null, removeItem: key => data.delete(key), setItem() { throw new Error('Tokens must never be persisted'); }, data };
+  const data = new Map();
+  return { getItem: key => data.get(key) || null, removeItem: key => data.delete(key), setItem: (key, val) => data.set(key, String(val)), data };
 }
 function loadClient(fetch) {
   const localStorage = storage(), sessionStorage = storage();
@@ -40,7 +40,7 @@ test('all nine pipeline methods share scoped bearer transport and exact payloads
  assert.equal(calls[6].options.method,'DELETE');assert.ok(calls[6].url.endsWith('/notes/note'));
  assert.ok(calls[7].url.endsWith('/review-settings'));assert.deepEqual(JSON.parse(calls[8].options.body),{});
  assert.ok(calls.every(call=>call.options.headers.Authorization==='Bearer access'));
- assert.equal(client.localStorage.data.size,0);assert.equal(client.sessionStorage.data.size,0);
+ assert.equal(client.localStorage.data.get('forma.access_token'),'access');assert.equal(client.sessionStorage.data.size,0);
 });
 
 test('pipeline refresh uses the existing single-flight refresh and field error mapping',async()=>{
@@ -54,7 +54,7 @@ test('pipeline refresh uses the existing single-flight refresh and field error m
  for(const result of await Promise.allSettled([client.api.applicants.update('org','job','a',{assignee_id:'foreign'}),client.api.applicants.update('org','job','b',{assignee_id:'foreign'})])){
   assert.equal(result.status,'rejected');assert.equal(client.fileFieldErrors(result.reason).assignee_id,'Same organization required');
  }
- assert.equal(refreshes,1);assert.equal(client.localStorage.data.size,0);
+ assert.equal(refreshes,1);assert.equal(client.localStorage.data.get('forma.access_token'),'new');
 });
 
 test('signed development resume URLs reuse the same-origin storage helper',()=>{
