@@ -46,6 +46,7 @@ from app.core.exceptions import (
 )
 from app.core.permissions import TEAM_MANAGERS
 from app.models.activity import ActivityEventType
+from app.models.job import Job, JobStatus
 from app.models.organization import (
     Department,
     MemberStatus,
@@ -867,10 +868,9 @@ async def transfer_ownership(
 async def team_summary(
     db: AsyncSession, user: User, org_id  # noqa: ANN001
 ) -> TeamSummary:
-    """The three counter cards in one query each (item 6).
+    """Team counter cards in one query each (item 6).
 
-    ``open_jobs_count`` is null until Step 7a creates ``jobs``: the page
-    then shows an empty state rather than the old hard-coded 3.
+    ``open_jobs_count`` counts this organization's live open job posts (7a).
     """
     org = await org_or_404(db, org_id)
     viewer = await require_membership(db, org.id, user)
@@ -893,7 +893,15 @@ async def team_summary(
     return TeamSummary(
         active_members=active,
         pending_invites=int(pending.scalar_one()),
-        open_jobs_count=None,
+        open_jobs_count=int(
+            (await db.execute(
+                select(func.count(Job.id)).where(
+                    Job.org_id == org.id,
+                    Job.status == JobStatus.open,
+                    Job.deleted_at.is_(None),
+                )
+            )).scalar_one()
+        ),
         deactivated_members=int(deactivated.scalar_one()),
         my_role=viewer.role,
     )

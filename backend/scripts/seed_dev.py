@@ -76,6 +76,7 @@ from app.models.investor_search import (  # noqa: E402
     ShortlistEntry,
     ShortlistStatus,
 )
+from app.models.job import Job, JobStatus  # noqa: E402
 from app.models.mentorship import (  # noqa: E402
     BUSY_STATUSES,
     Mentorship,
@@ -1372,6 +1373,9 @@ SEED_USERS = [
     ("seed@forma.dev", "Dev Kapadia", UserRole.investor, True),
     ("jobseeker@forma.dev", "Priya Nair", UserRole.jobseeker, True),
     ("employer@forma.dev", "Vikram Singh", UserRole.employer, True),
+    ("hiring-admin@forma.dev", "Priya Mehta", UserRole.employer, True),
+    ("hiring-member@forma.dev", "Rahul Verma", UserRole.employer, True),
+    ("hiring-viewer@forma.dev", "Sana Desai", UserRole.employer, True),
     ("pending@forma.dev", "Unverified User", UserRole.startup, False),
     # Step 5e: a read-only workspace member, so the viewer path (reads yes,
     # writes 403) can be exercised on /startup/analytics in development.
@@ -1773,6 +1777,521 @@ async def seed_step9_data_rooms(
     )
 
 
+# Step 7a records moved from employer-data.js and the wired job editor/detail.
+# Closing soon -> open (deadlines deferred); pending approval -> draft (7i).
+STEP7A_JOBS = [
+    ("job-1", "Product Designer", "Kolkata, West Bengal", "hybrid", JobStatus.open, 12),
+    ("job-2", "Software Engineer", "Remote, India", "remote", JobStatus.open, 21),
+    ("job-3", "UX Researcher", "Bengaluru, Karnataka", "onsite", JobStatus.open, 8),
+    ("job-4", "Engineering Manager", "Pune, Maharashtra", "hybrid", JobStatus.draft, 6),
+]
+STEP7A_TEAM = {"hiring-admin@forma.dev": OrgRole.admin, "hiring-member@forma.dev": OrgRole.member, "hiring-viewer@forma.dev": OrgRole.viewer}
+
+
+async def seed_step7a_jobs(db: AsyncSession, org: Organization, owner: User) -> int:
+    """Development-only, stable IDs; never overwrite edits or resurrect archives."""
+    if get_settings().ENVIRONMENT != "development":
+        raise RuntimeError("Job samples require ENVIRONMENT=development")
+    now = datetime.now(UTC)
+    for email, role in STEP7A_TEAM.items():
+        user = (await db.execute(select(User).where(User.primary_email == email))).scalar_one_or_none()
+        if user is None:
+            continue
+        exists = (await db.execute(select(OrganizationMember.id).where(OrganizationMember.org_id == org.id, OrganizationMember.user_id == user.id))).first()
+        if exists is None:
+            db.add(OrganizationMember(org_id=org.id, user_id=user.id, role=role, status=MemberStatus.active, joined_at=now))
+    added = 0
+    for key, title, location, mode, status, days in STEP7A_JOBS:
+        job_id = uuid.uuid5(org.id, f"step7a:{key}")
+        if await db.get(Job, job_id) is not None:
+            continue
+        row = Job(
+            id=job_id, org_id=org.id, title=title, location=location, work_mode=mode,
+            status=status, owner_id=owner.id, created_by=owner.id,
+            description=f"We are seeking an experienced {title} to lead core design systems, collaborate closely with frontend engineers, and deliver user-friendly product experiences.",
+            responsibilities="Leading architecture and team execution for multi-brand design systems, token workflows, and cross-functional engineering handoffs.",
+            requirements="5+ years experience, Figma tokens, React component architectures.",
+            salary_min=Decimal("2200000"), salary_max=Decimal("2800000"),
+            fair_hiring_confirmed=True,
+            posted_at=now - timedelta(days=days) if status == JobStatus.open else None,
+        )
+        db.add(row)
+        added += 1
+    await db.commit()
+    return added
+
+
+# Step 7b/7c page records. Funding labels/AI fits/notes/interview fiction are excluded.
+STEP7BC_JOBS = [
+    {
+        "key": "senior-product-designer",
+        "title": "Senior Product Designer",
+        "company": "Northstar Labs",
+        "location": "Remote · India",
+        "description": "Northstar Labs is looking for a Senior Product Designer to spearhead end-to-end "
+        "design across our core enterprise collaboration suite.",
+        "requirements": "5+ years of digital product design experience in high-growth SaaS environments\n"
+        "Proven expertise in complex system design, user testing, and Figma design "
+        "systems\n"
+        "Strong storytelling and stakeholder communication skills\n"
+        "Portfolio demonstrating shipped products with measurable business impact",
+        "skills": [
+            "Figma",
+            "Design Systems",
+            "UX Research",
+            "Rapid Prototyping",
+            "Product Strategy",
+        ],
+        "benefits": [
+            "Full health insurance for family",
+            "Remote work equipment stipend (₹75k)",
+            "Annual learning budget (₹50k)",
+            "Flexible PTO",
+        ],
+        "salary": ("1800000", "2400000"),
+        "equity": ("0.10", "0.25"),
+        "summary": "Northstar Labs builds intuitive productivity software that replaces chaotic meetings "
+        "with structured, asynchronous visual workspaces.",
+        "founded": 2022,
+    },
+    {
+        "key": "product-designer",
+        "title": "Product Designer",
+        "company": "Morrow Health",
+        "location": "Bengaluru · Hybrid",
+        "description": "Join Morrow Health to craft patient-first digital experiences connecting "
+        "clinical care teams with chronic care patients.",
+        "requirements": "3+ years experience designing consumer mobile and web applications\n"
+        "Familiarity with healthcare or regulated fintech UX principles\n"
+        "Strong interaction design and micro-animation chops",
+        "skills": ["Interaction Design", "Mobile UI", "Figma", "User Journey Mapping"],
+        "benefits": [
+            "Comprehensive health coverage",
+            "Mental wellness stipend",
+            "Daily catered lunches at office",
+        ],
+        "salary": ("1600000", "2200000"),
+        "equity": ("0.05", "0.15"),
+        "summary": "Morrow Health is transforming chronic ailment management in South Asia via smart "
+        "monitoring hardware and personalized clinical dashboards.",
+        "founded": 2023,
+    },
+    {
+        "key": "ux-researcher",
+        "title": "UX Researcher",
+        "company": "Fieldnote",
+        "location": "Kolkata · Hybrid",
+        "description": "Lead generative and evaluative research studies for Fieldnote’s field "
+        "intelligence platform.",
+        "requirements": "3+ years leading qualitative and quantitative user research studies\n"
+        "Expertise in usability lab testing, diary studies, and survey analysis\n"
+        "Ability to translate raw customer insights into actionable product roadmaps",
+        "skills": [
+            "Qualitative Research",
+            "Usability Testing",
+            "Card Sorting",
+            "Data Synthesis",
+        ],
+        "benefits": [
+            "Hybrid work model (2 days office)",
+            "Travel allowance",
+            "Health & wellness package",
+        ],
+        "salary": ("1400000", "1800000"),
+        "equity": ("0.05", "0.05"),
+        "summary": "Fieldnote supplies farm-gate data and field-level monitoring for enterprise "
+        "commodity buyers across India.",
+        "founded": 2021,
+    },
+    {
+        "key": "lead-frontend-engineer",
+        "title": "Lead Frontend Engineer",
+        "company": "OrbitPay",
+        "location": "Bengaluru · Remote",
+        "description": "Architect next-generation cross-border payment checkout experiences handling "
+        "millions in daily volume.",
+        "requirements": "6+ years frontend engineering with deep React, Next.js, and TypeScript mastery\n"
+        "Experience optimizing Core Web Vitals, accessibility, and bundle performance\n"
+        "Track record leading small, autonomous squads",
+        "skills": [
+            "Next.js",
+            "React",
+            "TypeScript",
+            "Tailwind CSS",
+            "Performance Optimization",
+        ],
+        "benefits": [
+            "Top-tier health & dental",
+            "₹1.5L annual home office setup budget",
+            "Stock option grant",
+        ],
+        "salary": ("3200000", "4200000"),
+        "equity": ("0.20", "0.50"),
+        "summary": None,
+        "founded": None,
+    },
+    {
+        "key": "design-lead",
+        "title": "Design Lead",
+        "company": "Lattice Works",
+        "location": None,
+        "description": "Development sample parent for the former application tracker record.",
+        "requirements": None,
+        "skills": [],
+        "benefits": [],
+        "salary": (None, None),
+        "equity": (None, None),
+        "summary": None,
+        "founded": None,
+    },
+]
+STEP7BC_APPLICATIONS = [
+    {"job": "senior-product-designer", "stage": "interview", "salary": "2200000"},
+    {"job": "product-designer", "stage": "shortlisted", "salary": "1800000"},
+    {"job": "ux-researcher", "stage": "applied", "salary": "1600000"},
+    {"job": "design-lead", "stage": "rejected", "salary": "2400000"},
+]
+
+
+async def seed_step7bc_careers(db: AsyncSession, owner: User, candidate: User) -> None:
+    """Fill-only development samples; never resurrect deleted records or rewrite stages."""
+    if get_settings().ENVIRONMENT != "development":
+        raise RuntimeError("Career samples require ENVIRONMENT=development")
+    from app.models.job import JobBenefit, JobSkill
+    from app.models.job_application import ApplicationStageEvent, JobApplication
+    from app.schemas.job_application import ApplicationCreate
+    from app.services import job_application_service
+
+    namespace = uuid.uuid5(uuid.NAMESPACE_URL, "forma:development:careers:7bc")
+    now = datetime.now(UTC)
+    seeded_jobs = {}
+    for spec in STEP7BC_JOBS:
+        org_id = uuid.uuid5(namespace, "company:" + spec["company"])
+        org = await db.get(Organization, org_id)
+        if org is None:
+            org = Organization(
+                id=org_id,
+                name=spec["company"],
+                slug="dev-careers-"
+                + re.sub(r"[^a-z0-9]+", "-", spec["company"].lower()),
+                type="employer",
+                summary=spec["summary"],
+                founded_year=spec["founded"],
+            )
+            db.add(org)
+            await db.flush()
+            db.add(
+                OrganizationMember(
+                    org_id=org.id,
+                    user_id=owner.id,
+                    role=OrgRole.owner,
+                    status=MemberStatus.active,
+                    joined_at=now,
+                )
+            )
+        if org.deleted_at is not None or org.status != "active":
+            continue
+        job_id = uuid.uuid5(namespace, "job:" + spec["key"])
+        job = await db.get(Job, job_id)
+        if job is None:
+            job = Job(
+                id=job_id,
+                org_id=org_id,
+                title=spec["title"],
+                description=spec["description"],
+                requirements=spec["requirements"],
+                location=spec["location"],
+                work_mode="remote"
+                if spec["key"] in {"senior-product-designer", "lead-frontend-engineer"}
+                else "hybrid",
+                status="open",
+                posted_at=now - timedelta(days=2),
+                salary_min=Decimal(spec["salary"][0]) if spec["salary"][0] else None,
+                salary_max=Decimal(spec["salary"][1]) if spec["salary"][1] else None,
+                equity_min_pct=Decimal(spec["equity"][0])
+                if spec["equity"][0]
+                else None,
+                equity_max_pct=Decimal(spec["equity"][1])
+                if spec["equity"][1]
+                else None,
+                owner_id=owner.id,
+                created_by=owner.id,
+                fair_hiring_confirmed=True,
+                screening_questions=[
+                    {"key": "notice_period", "required": True},
+                    {"key": "remote_comfort", "required": False},
+                ],
+            )
+            db.add(job)
+            await db.flush()
+            for name in spec["skills"]:
+                skill = (
+                    await db.execute(
+                        select(Skill).where(func.lower(Skill.name) == name.lower())
+                    )
+                ).scalar_one_or_none()
+                if skill is None:
+                    skill = Skill(name=name)
+                    db.add(skill)
+                    await db.flush()
+                db.add(JobSkill(job_id=job.id, skill_id=skill.id))
+            for order, label in enumerate(spec["benefits"]):
+                db.add(JobBenefit(job_id=job.id, label=label, display_order=order))
+        if job.deleted_at is None:
+            seeded_jobs[spec["key"]] = (job, org)
+    await db.flush()
+    for spec in STEP7BC_APPLICATIONS:
+        pair = seeded_jobs.get(spec["job"])
+        if pair is None:
+            continue
+        job, org = pair
+        prior = (
+            await db.execute(
+                select(JobApplication.id).where(
+                    JobApplication.job_id == job.id,
+                    JobApplication.applicant_id == candidate.id,
+                )
+            )
+        ).first()
+        if prior:
+            continue
+        # Explicit sample consent only for the dedicated dev account, never real users.
+        if candidate.primary_email != "jobseeker@forma.dev":
+            continue
+        payload = ApplicationCreate(
+            accuracy_confirmed=True,
+            consent_share=True,
+            salary_expectation=spec["salary"],
+        )
+        created = now - timedelta(days=10)
+        row = JobApplication(
+            id=uuid.uuid5(namespace, "application:" + spec["job"]),
+            job_id=job.id,
+            applicant_id=candidate.id,
+            stage=spec["stage"],
+            source="platform",
+            salary_expectation=Decimal(spec["salary"]),
+            currency="INR",
+            consent_share=True,
+            accuracy_confirmed_at=created,
+            consent_shared_at=created,
+            profile_snapshot=await job_application_service.snapshot(
+                db, candidate, payload
+            ),
+            job_snapshot={
+                "id": str(job.id),
+                "org_id": str(org.id),
+                "title": job.title,
+                "company_name": org.name,
+            },
+            screening_answers=[],
+            submission_fingerprint=job_application_service.fingerprint(payload),
+            stage_changed_at=now,
+            created_at=created,
+            updated_at=now,
+        )
+        db.add(row)
+        await db.flush()
+        db.add(
+            ApplicationStageEvent(
+                application_id=row.id,
+                from_stage=None,
+                to_stage="applied",
+                actor_id=candidate.id,
+                created_at=created,
+            )
+        )
+        if spec["stage"] != "applied":
+            db.add(
+                ApplicationStageEvent(
+                    application_id=row.id,
+                    from_stage="applied",
+                    to_stage=spec["stage"],
+                    actor_id=owner.id,
+                    created_at=now,
+                )
+            )
+    # Reuse already-public startup discovery samples; never change profile visibility.
+    startups = (
+        (
+            await db.execute(
+                select(Organization)
+                .join(StartupProfile, StartupProfile.org_id == Organization.id)
+                .where(
+                    Organization.type == "startup",
+                    Organization.deleted_at.is_(None),
+                    Organization.status == "active",
+                    StartupProfile.profile_visibility == "public",
+                )
+                .order_by(Organization.id)
+                .limit(2)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for org in startups:
+        id_ = uuid.uuid5(namespace, "startup-job:" + str(org.id))
+        if await db.get(Job, id_) is None:
+            org_owner = (
+                await db.execute(
+                    select(OrganizationMember.user_id)
+                    .where(
+                        OrganizationMember.org_id == org.id,
+                        OrganizationMember.role == OrgRole.owner,
+                        OrganizationMember.status == MemberStatus.active,
+                        OrganizationMember.deleted_at.is_(None),
+                    )
+                    .order_by(OrganizationMember.user_id)
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if org_owner is None:
+                continue
+            db.add(
+                Job(
+                    id=id_,
+                    org_id=org.id,
+                    title="Product Engineer (development sample)",
+                    description="Build accessible product experiences with the team. Development sample.",
+                    status="open",
+                    work_mode="remote",
+                    posted_at=now,
+                    show_salary_publicly=False,
+                    fair_hiring_confirmed=True,
+                    created_by=org_owner,
+                    owner_id=org_owner,
+                )
+            )
+    await db.commit()
+
+
+# Step 7d: synthetic development submissions migrated from the applicant demo.
+# No fabricated ATS/practice results, messages, interview rounds or qualifications.
+STEP7D_APPLICANTS = [
+    ("aanya", "Aanya Sen", "Senior Product Designer", "job-1", "applied", False, "2200000.00"),
+    ("blind", "Development Blind Applicant", "Software Engineer", "blind", "shortlisted", True, "1800000.00"),
+    ("rohan", "Rohan Kapoor", "UX Researcher", "job-3", "interview", False, "2000000.00"),
+]
+
+
+async def seed_step7d_pipeline(db: AsyncSession, org: Organization, owner: User) -> None:
+    """Stable, fill-only dev accounts/submissions; never rewrite an application or policy."""
+    settings = get_settings()
+    if settings.ENVIRONMENT != "development":
+        raise RuntimeError("Applicant samples require ENVIRONMENT=development")
+    from app.models.application_note import ApplicationNote
+    from app.models.file import File, FileKind
+    from app.models.job_application import ApplicationStageEvent, JobApplication
+    from app.schemas.file import FileUploadCreate
+    from app.schemas.job_application import ApplicationCreate
+    from app.services import file_service, job_application_service
+    from app.services.file_processing_service import get_scanner, process_file
+    from app.services.storage_service import get_storage
+
+    if org.deleted_at or org.status != "active" or owner.primary_email != "employer@forma.dev":
+        return
+    now = datetime.now(UTC)
+    member = (await db.execute(select(User).where(User.primary_email == "hiring-member@forma.dev"))).scalar_one_or_none()
+    note_author = (await db.execute(select(User).where(User.primary_email == "hiring-admin@forma.dev"))).scalar_one_or_none()
+    if member and not (await db.execute(select(OrganizationMember.id).where(
+        OrganizationMember.org_id == org.id, OrganizationMember.user_id == member.id,
+        OrganizationMember.status == "active", OrganizationMember.deleted_at.is_(None),
+        OrganizationMember.role != OrgRole.viewer,
+    ))).first():
+        member = None
+    if note_author and not (await db.execute(select(OrganizationMember.id).where(
+        OrganizationMember.org_id == org.id, OrganizationMember.user_id == note_author.id,
+        OrganizationMember.status == "active", OrganizationMember.deleted_at.is_(None),
+        OrganizationMember.role.in_([OrgRole.owner, OrgRole.admin]),
+    ))).first():
+        note_author = None
+    for key, name, headline, job_key, stage, blind, salary in STEP7D_APPLICANTS:
+        job_id = uuid.uuid5(org.id, "step7d:blind-job") if blind else uuid.uuid5(org.id, f"step7a:{job_key}")
+        job = await db.get(Job, job_id)
+        if job is None and blind:
+            job = Job(
+                id=job_id, org_id=org.id, title="Software Engineer — blind review development sample",
+                description="Synthetic development job for blind applicant review.",
+                requirements="Role-related engineering experience.", work_mode="remote", status="open",
+                owner_id=owner.id, created_by=owner.id, blind_review_enabled=True,
+                fair_hiring_confirmed=True, posted_at=now,
+            )
+            db.add(job)
+            await db.flush()
+        if job is None or job.deleted_at or job.status != "open":
+            continue
+        user_id = uuid.uuid5(org.id, "step7d:person:" + key)
+        user = await db.get(User, user_id)
+        if user is None:
+            email = f"pipeline-{key}@forma.dev"
+            if (await db.execute(select(User.id).where(User.primary_email == email))).first():
+                continue  # Never take over a pre-existing account with this address.
+            user = User(
+                id=user_id, primary_email=email, display_name=name, headline=headline,
+                bio="Synthetic development profile for applicant review; not a real candidate.",
+                password_hash=hash_password(DEV_PASSWORD), status=AccountStatus.active,
+                email_verified_at=now,
+            )
+            db.add(user)
+            await db.flush()
+            db.add(UserRoleRow(user_id=user.id, role=UserRole.jobseeker, is_primary=True))
+            await db.commit()
+        if user.deleted_at or user.status != AccountStatus.active:
+            continue
+        app_id = uuid.uuid5(org.id, "step7d:application:" + key)
+        prior = (await db.execute(select(JobApplication.id).where(
+            JobApplication.job_id == job.id, JobApplication.applicant_id == user.id
+        ))).first()
+        if await db.get(JobApplication, app_id) or prior:
+            continue  # Including deleted applications; no resurrection or overwritten decisions.
+        file_id = None
+        if not blind and getattr(settings, "FILE_SCANNER", "unconfigured") == "dev_clean":
+            filename = f"step7d-{key}-development-resume.pdf"
+            file = (await db.execute(select(File).where(
+                File.uploaded_by == user.id, File.file_name == filename
+            ))).scalars().first()
+            if file is None:
+                storage = get_storage()
+                content = _step4_sample_pdf(name)
+                reservation = await file_service.request_upload(db, user, FileUploadCreate(
+                    kind=FileKind.resume, file_name=filename, mime_type="application/pdf", byte_size=len(content)
+                ), storage)
+                file = await db.get(File, reservation.file.id)
+                assert file and file.upload_storage_key
+                await storage.put(file.upload_storage_key, content, "application/pdf")
+                await file_service.confirm(db, user, file.id)
+                await process_file(file.id, async_session_factory, storage, get_scanner())
+                await db.refresh(file)
+            if not file.deleted_at and not file.purged_at and file.upload_status == "ready" and file.scan_status == "clean":
+                file_id = file.id
+        created = now - timedelta(days=2 if key == "aanya" else 4 if blind else 6)
+        payload = ApplicationCreate(accuracy_confirmed=True, consent_share=True, salary_expectation=Decimal(salary))
+        row = JobApplication(
+            id=app_id, job_id=job.id, applicant_id=user.id, stage=stage,
+            is_blind=job.blind_review_enabled and stage in {"applied", "review", "shortlisted"},
+            source="platform", resume_file_id=file_id, salary_expectation=Decimal(salary), currency="INR",
+            consent_share=True, accuracy_confirmed_at=created, consent_shared_at=created,
+            profile_snapshot=await job_application_service.snapshot(db, user, payload),
+            job_snapshot={"id": str(job.id), "org_id": str(org.id), "title": job.title, "company_name": org.name},
+            screening_answers=[], cover_note="Development sample application, not a real submission.",
+            submission_fingerprint=job_application_service.fingerprint(payload),
+            assignee_id=member.id if member else None,
+            created_at=created, updated_at=now, stage_changed_at=now,
+        )
+        db.add(row)
+        await db.flush()
+        db.add(ApplicationStageEvent(application_id=row.id, from_stage=None, to_stage="applied", actor_id=user.id, created_at=created))
+        if stage != "applied":
+            db.add(ApplicationStageEvent(application_id=row.id, from_stage="applied", to_stage=stage, actor_id=owner.id, created_at=now))
+        if key == "aanya" and note_author:
+            db.add(ApplicationNote(
+                id=uuid.uuid5(app_id, "private-demo-note"), application_id=app_id, author_id=note_author.id,
+                body="Strong design portfolio, specifically in design systems and multi-platform consistency. Recommended for technical panel. (Synthetic development note.)",
+            ))
+        await db.commit()
+
+
 async def seed() -> None:
     settings = get_settings()
     if settings.ENVIRONMENT != "development":
@@ -1924,6 +2443,14 @@ async def seed() -> None:
             orgs_added += 1
         if orgs_added:
             await db.commit()
+
+        # Step 7a B: only the employer workspace; startup hiring remains 7r.
+        hiring_owner = (await db.execute(select(User).where(User.primary_email == "employer@forma.dev"))).scalar_one_or_none()
+        if hiring_owner is not None:
+            hiring_org = (await db.execute(select(Organization).join(OrganizationMember, OrganizationMember.org_id == Organization.id).where(OrganizationMember.user_id == hiring_owner.id, OrganizationMember.role == OrgRole.owner, Organization.type == "employer", Organization.deleted_at.is_(None)))).scalars().first()
+            if hiring_org is not None:
+                await seed_step7a_jobs(db, hiring_org, hiring_owner)
+                await seed_step7d_pipeline(db, hiring_org, hiring_owner)
 
         # Step 5a: startup profile for the founder's organisation, plus the
         # org summary/founded year and a second member so the wired profile
@@ -3603,6 +4130,11 @@ async def seed() -> None:
             hub_activity_added += 1
         if hub_activity_added:
             await db.commit()
+
+        careers_owner = (await db.execute(select(User).where(User.primary_email == "employer@forma.dev"))).scalar_one_or_none()
+        careers_candidate = (await db.execute(select(User).where(User.primary_email == "jobseeker@forma.dev"))).scalar_one_or_none()
+        if careers_owner and careers_candidate:
+            await seed_step7bc_careers(db, careers_owner, careers_candidate)
 
     await engine.dispose()
 

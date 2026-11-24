@@ -6,6 +6,7 @@ import NotificationDropdown from './notification-dropdown';
 import { useAuth } from '@/lib/auth-context';
 
 export default function JobSeekerHeader({
+  liveData = false,
   compact = false,
   onToggleMobile,
   onAction,
@@ -13,7 +14,7 @@ export default function JobSeekerHeader({
   backLabel = '← Back',
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   const notify = (msg) => {
     if (onAction) onAction(msg);
@@ -39,7 +40,7 @@ export default function JobSeekerHeader({
           role="search"
           onSubmit={(e) => {
             e.preventDefault();
-            notify('Searching jobs, companies and practice topics...');
+            notify(liveData ? 'Use the Jobs page search to find current openings.' : 'Searching jobs, companies and practice topics...');
           }}
           className="relative hidden sm:block"
         >
@@ -49,7 +50,8 @@ export default function JobSeekerHeader({
             name="search"
             type="search"
             aria-label="Search jobs, startups and interview drills"
-            placeholder="Search roles, startups & drills"
+            disabled={liveData}
+            placeholder={liveData ? 'Global search unavailable' : 'Search roles, startups & drills'}
             className="h-10 w-64 rounded-lg border border-[#E5E1D8] bg-white pl-9 text-xs focus:border-ink focus:outline-none transition"
           />
         </form>
@@ -65,15 +67,15 @@ export default function JobSeekerHeader({
       </div>
 
       <div className="flex items-center gap-3">
-        <Link
+        {!liveData && <Link
           href="/jobseeker/readiness"
           className="rounded-full bg-[#E7F3EC] px-3 py-1.5 text-xs font-semibold text-[#286749] hidden sm:inline-flex items-center gap-1.5"
         >
           <span className="h-2 w-2 rounded-full bg-[#286749]" />
           Job Ready · Score 88
-        </Link>
+        </Link>}
 
-        <NotificationDropdown role="jobseeker" />
+        {!liveData && <NotificationDropdown role="jobseeker" />}
 
         <div className="relative">
           <button
@@ -84,11 +86,11 @@ export default function JobSeekerHeader({
             aria-expanded={profileOpen}
           >
             <span className="grid h-8 w-8 place-items-center rounded-full bg-ink font-semibold text-white">
-              AD
+              {liveData ? user?.display_name?.slice(0, 2).toUpperCase() : 'AD'}
             </span>
             <span className="hidden sm:block text-left">
-              <span className="block text-xs font-bold text-ink">Ananya Das</span>
-              <span className="block text-[10px] text-[#5A6E85]">Product Designer</span>
+              <span className="block text-xs font-bold text-ink">{liveData ? user?.display_name : 'Ananya Das'}</span>
+              <span className="block text-[10px] text-[#5A6E85]">{liveData ? 'Forma Careers' : 'Product Designer'}</span>
             </span>
             <ChevronDown size={14} className="text-[#4A5568]" />
           </button>
@@ -97,10 +99,10 @@ export default function JobSeekerHeader({
             <div className="absolute right-0 top-12 z-30 w-56 rounded-xl border border-[#E5E1D8] bg-white p-2 text-[#0F1B2D] shadow-lg animate-in fade-in">
               <div className="px-3 py-2 border-b border-[#F2EFE9] mb-1">
                 <div className="flex items-center gap-1.5">
-                  <p className="text-xs font-bold text-[#0F1B2D]">Ananya Das</p>
-                  <CheckCircle2 size={12} className="text-[#286749]" />
+                  <p className="text-xs font-bold text-[#0F1B2D]">{liveData ? user?.display_name : 'Ananya Das'}</p>
+                  {!liveData && <CheckCircle2 size={12} className="text-[#286749]" />}
                 </div>
-                <p className="text-[11px] text-[#5A6E85]">Senior UI/UX & Frontend</p>
+                <p className="text-[11px] text-[#5A6E85]">{liveData ? user?.primary_email : 'Senior UI/UX & Frontend'}</p>
               </div>
 
               <Link

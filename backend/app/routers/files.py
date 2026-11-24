@@ -3,6 +3,7 @@
 import uuid
 from collections.abc import Callable, Coroutine
 from typing import Annotated, Any, Literal
+from urllib.parse import quote
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response
 from fastapi.routing import APIRoute
@@ -24,9 +25,13 @@ from app.schemas.file import (
 )
 from app.services import file_processing_service, file_service
 from app.services.file_processing_service import Scanner, get_scanner
-from app.services.storage_service import LocalStorage, Storage, StorageInvalid, StorageMissing, get_storage
-from urllib.parse import quote
-
+from app.services.storage_service import (
+    LocalStorage,
+    Storage,
+    StorageInvalid,
+    StorageMissing,
+    get_storage,
+)
 
 Store = Annotated[Storage, Depends(get_storage)]
 
@@ -71,7 +76,7 @@ async def local_serve(token: str, storage: Store) -> Response:
     try:
         data, _ = await storage.read(payload["k"], 100 * 1024 * 1024)  # 100 MB dev cap
     except StorageMissing:
-        raise AppException("NOT_FOUND", "File not found.", 404)
+        raise AppException("NOT_FOUND", "File not found.", 404) from None
     name = payload.get("n", "file")
     disposition = "inline" if payload.get("img") else "attachment"
     return Response(
@@ -87,14 +92,17 @@ async def local_serve(token: str, storage: Store) -> Response:
 class FileRoute(APIRoute):
     """These endpoints accept metadata, never multipart/file bytes."""
 
+    max_body_bytes = 8192
+    body_limit_message = "File metadata exceeds 8 KiB."
+
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()
 
         async def limited_handler(request: Request) -> Response:
             body = bytearray()
             async for chunk in request.stream():
-                if len(body) + len(chunk) > 8192:
-                    raise AppException("REQUEST_TOO_LARGE", "File metadata exceeds 8 KiB.", 413)
+                if len(body) + len(chunk) > self.max_body_bytes:
+                    raise AppException("REQUEST_TOO_LARGE", self.body_limit_message, 413)
                 body.extend(chunk)
             # Populate Starlette's body cache after bounded streaming so FastAPI
             # can perform its normal Pydantic validation without a second read.

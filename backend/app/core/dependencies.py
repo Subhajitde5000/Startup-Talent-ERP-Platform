@@ -61,11 +61,13 @@ def require_role(*roles: UserRole):
         user: Annotated[User, Depends(get_current_user)],
     ) -> User:
         result = await db.execute(
-            select(UserRoleRow).where(
+            select(UserRoleRow)
+            .where(
                 UserRoleRow.user_id == user.id,
                 UserRoleRow.revoked_at.is_(None),
                 UserRoleRow.role.in_(list(roles)),
             )
+            .limit(1)
         )
         if result.scalar_one_or_none() is None:
             raise forbidden("You do not have permission to perform this action.")

@@ -96,51 +96,6 @@ export const jobs = [
   },
 ];
 
-export const companies = [
-  {
-    id: 'comp-1',
-    name: 'Northstar Labs',
-    logo: 'N',
-    stage: 'Series A · ₹28 Cr raised',
-    loc: 'Bengaluru & Remote',
-    team: '45 employees',
-    founded: '2022',
-    sector: 'Enterprise SaaS · Collaboration',
-    tagline: 'Modern workspaces for asynchronous engineering and product teams.',
-    about: 'Northstar Labs builds intuitive productivity software that replaces chaotic meetings with structured, asynchronous visual workspaces.',
-    culture: ['Async-first communication', 'Continuous 4-day sprint cadences', 'Radical transparency & open salaries'],
-    openJobsCount: 4,
-  },
-  {
-    id: 'comp-2',
-    name: 'Morrow Health',
-    logo: 'M',
-    stage: 'Seed · ₹6 Cr raised',
-    loc: 'Bengaluru, India',
-    team: '18 employees',
-    founded: '2023',
-    sector: 'HealthTech · Patient Monitoring',
-    tagline: 'Connecting clinical care teams with chronic care patients.',
-    about: 'Morrow Health is transforming chronic ailment management in South Asia via smart monitoring hardware and personalized clinical dashboards.',
-    culture: ['Patient empathy first', 'Fast-paced clinical trials', 'Cross-functional clinician-engineer squads'],
-    openJobsCount: 2,
-  },
-  {
-    id: 'comp-3',
-    name: 'Fieldnote',
-    logo: 'F',
-    stage: 'Series B · ₹65 Cr raised',
-    loc: 'Kolkata & Mumbai',
-    team: '90 employees',
-    founded: '2021',
-    sector: 'B2B Logistics · Agritech',
-    tagline: 'Field intelligence and supply chain visibility for agricultural hubs.',
-    about: 'Fieldnote supplies farm-gate data and field-level monitoring for enterprise commodity buyers across India.',
-    culture: ['Customer obsession on ground', 'Data-driven decision making', 'Generous employee profit sharing'],
-    openJobsCount: 3,
-  },
-];
-
 export const applications = [
   {
     id: 'app-1',

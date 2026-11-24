@@ -1,199 +1,77 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import {
-  Search,
-  Plus,
-  Briefcase,
-  Users,
-  ChevronRight,
-  Filter,
-  CheckCircle2,
-  Clock,
-  MoreHorizontal,
-  ArrowRight,
-  TrendingUp,
-} from 'lucide-react';
-import { EmployerShell, EmployerBtn, EmployerCard, StageChip } from '@/components';
-import { jobs as allJobs } from '../employer-data';
+import { Search, Plus } from 'lucide-react';
+import { EmployerBtn, StageChip } from '@/components';
+import { api } from '@/lib/api/client';
+import { JobsPage, JobNotice, jobError, jobLabel, jobSalary, useJobsWorkspace } from '@/components/employer-jobs-workspace';
+
+function HiringOverview() {
+  const { org, canWrite, href } = useJobsWorkspace();
+  const [status, setStatus] = useState('');
+  const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
+  const [offset, setOffset] = useState(0);
+  const [revision, setRevision] = useState(0);
+  const [state, setState] = useState({ loading: true, page: null, error: '' });
+  const [summary, setSummary] = useState(null);
+  const [summaryError, setSummaryError] = useState('');
+  const limit = 20;
+  useEffect(() => {
+    // Do not reset pagination on mount (or when only surrounding whitespace changes).
+    if (search.trim() === query) return;
+    const timer = setTimeout(() => { setQuery(search.trim()); setOffset(0); }, 250);
+    return () => clearTimeout(timer);
+  }, [search, query]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setState({ loading: true, page: null, error: '' });
+    api.jobs.list(org.id, { status: status || undefined, q: query || undefined, limit, offset }, controller.signal).then(page => {
+      if (!controller.signal.aborted) setState({ loading: false, page, error: '' });
+    }).catch(error => {
+      if (!controller.signal.aborted) setState({ loading: false, page: null, error: jobError(error) });
+    });
+    return () => controller.abort();
+  }, [org.id, status, query, offset, revision]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setSummary(null); setSummaryError('');
+    api.jobs.summary(org.id, controller.signal).then(value => {
+      if (!controller.signal.aborted) setSummary(value);
+    }).catch(error => {
+      if (!controller.signal.aborted) setSummaryError(jobError(error));
+    });
+    return () => controller.abort();
+  }, [org.id, revision]);
+  return <>
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div><h1 className="text-xl md:text-2xl font-serif font-bold text-[#0F1B2D]">Hiring Overview & Job Postings</h1><p className="text-xs md:text-sm text-[#6B7280] mt-1">Manage your organization’s job postings.</p></div>
+      <div className="flex flex-wrap items-center gap-2"><span title="Hiring requests will be connected in Step 7i"><EmployerBtn secondary small disabled>New Hiring Request</EmployerBtn></span>{canWrite && <Link href={href('/employer/jobs/new')}><EmployerBtn primary small><Plus size={14} />Create Job Post</EmployerBtn></Link>}</div>
+    </div>
+    {!canWrite && <p className="text-xs text-[#6B7280]">Read-only access. Only an owner or admin can create or change jobs.</p>}
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 min-w-0">
+      <div className="rounded-2xl border border-[#E5E1D8] bg-white p-4"><span className="text-xs text-[#6B7280]">Active Openings</span><div className="mt-1 text-2xl font-serif font-bold text-[#0F1B2D]">{summary ? summary.by_status.open : '—'}</div><span className="text-xs text-[#286749]">{summary ? `${summary.total} job posts in total` : summaryError ? 'Count unavailable' : 'Loading counts…'}</span></div>
+      {[['Total Inbound Applicants', 'Applicant tracking is not connected yet.'], ['Interviews Scheduled', 'Interview scheduling is not connected yet.'], ['Offers Extended', 'Offers are not connected yet.']].map(([label, message]) => <div key={label} className="rounded-2xl border border-[#E5E1D8] bg-white p-4"><span className="text-xs text-[#6B7280]">{label}</span><div className="mt-1 text-2xl font-serif font-bold text-[#0F1B2D]">—</div><span className="text-xs text-[#6B7280]">{message}</span></div>)}
+    </div>
+    {summaryError && <JobNotice error retry={() => setRevision(n => n + 1)}>Job counts: {summaryError}</JobNotice>}
+    <div className="rounded-2xl border border-[#E5E1D8] bg-white p-4 flex flex-wrap items-center justify-between gap-3 min-w-0">
+      <div className="relative flex-1 max-w-sm min-w-[200px]"><Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A0A7B4]" size={15} /><input type="search" maxLength={100} aria-label="Search job openings" placeholder="Search by job title..." value={search} onChange={e => setSearch(e.target.value)} className="w-full h-9 pl-9 pr-3 rounded-xl border border-[#E5E1D8] bg-[#FAF8F4]/50 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none" /></div>
+      <div className="flex items-center gap-2 overflow-x-auto min-w-0 text-xs">{[['', 'All'], ['open', 'Active'], ['draft', 'Draft'], ['paused', 'Paused'], ['closed', 'Closed']].map(([value, label]) => <button key={value} type="button" aria-pressed={status === value} onClick={() => { setStatus(value); setOffset(0); }} className={`px-3 py-1.5 rounded-xl font-semibold transition-colors ${status === value ? 'bg-[#0F1B2D] text-white' : 'text-[#4A5568] hover:bg-[#FAF8F4]'}`}>{label}</button>)}</div>
+    </div>
+    {state.loading ? <JobNotice>Loading jobs…</JobNotice> : state.error ? <JobNotice error retry={() => setRevision(n => n + 1)}>{state.error}</JobNotice> : <div className="rounded-2xl border border-[#E5E1D8] bg-white overflow-hidden shadow-xs min-w-0">
+      <div className="overflow-x-auto min-w-0"><table className="w-full text-left text-xs min-w-[620px]"><thead className="bg-[#FAF8F4] border-b border-[#E5E1D8] text-[#6B7280] uppercase tracking-wider font-semibold"><tr>{['Job Title & Dept', 'Location & Mode', 'Salary Range', 'Candidates', 'Status', 'Actions'].map(label => <th key={label} className="p-4">{label}</th>)}</tr></thead><tbody className="divide-y divide-[#F0EBE0] text-[#0F1B2D]">
+        {!state.page.items.length ? <tr><td colSpan={6} className="p-8 text-center text-xs text-[#6B7280]">{query || status ? 'No job listings match your current filters.' : 'No jobs yet. An owner or admin can create the first draft.'}</td></tr> : state.page.items.map(job => <tr key={job.id} className="hover:bg-[#FAF8F4]/50 transition-colors">
+          <td className="p-4 pl-6"><Link href={href(`/employer/jobs/${job.id}`)} className="font-semibold text-sm hover:underline block text-[#0F1B2D]">{job.title}</Link><span className="text-[#6B7280]">{jobLabel(job.department)} · {job.posted_at ? `Posted ${new Date(job.posted_at).toLocaleDateString()}` : 'Not published'}</span></td>
+          <td className="p-4 text-[#4A5568]">{job.location || 'Not specified'} ({jobLabel(job.work_mode)})</td><td className="p-4 font-medium">{jobSalary(job)}</td><td className="p-4 text-[#6B7280]">Not connected yet</td><td className="p-4"><StageChip stage={jobLabel(job.status)} /></td>
+          <td className="p-4 pr-6 text-right space-x-2"><Link href={href(`/employer/jobs/${job.id}`)}><EmployerBtn primary small>View Job</EmployerBtn></Link>{canWrite && <Link href={href(`/employer/jobs/${job.id}/edit`)}><EmployerBtn secondary small>Edit</EmployerBtn></Link>}</td>
+        </tr>)}
+      </tbody></table></div>
+      <div className="flex items-center justify-between gap-3 border-t border-[#E5E1D8] p-4 text-xs"><span>{state.page.total ? `${offset + 1}–${offset + state.page.items.length} of ${state.page.total}` : '0 jobs'}</span><div className="flex gap-2"><EmployerBtn secondary small disabled={!offset} onClick={() => setOffset(n => Math.max(0, n - limit))}>Previous</EmployerBtn><EmployerBtn secondary small disabled={!state.page.has_more} onClick={() => setOffset(n => n + limit)}>Next</EmployerBtn></div></div>
+    </div>}
+  </>;
+}
 
 export default function HiringOverviewPage() {
-  const [tab, setTab] = useState('All');
-  const [search, setSearch] = useState('');
-  const [jobList, setJobList] = useState(allJobs);
-
-  const filteredJobs = useMemo(() => {
-    return jobList.filter((j) => {
-      if (tab !== 'All' && j.status !== tab) return false;
-      if (search.trim()) {
-        const hay = `${j.title} ${j.dept} ${j.loc}`.toLowerCase();
-        if (!hay.includes(search.toLowerCase())) return false;
-      }
-      return true;
-    });
-  }, [jobList, tab, search]);
-
-  const stats = useMemo(() => {
-    const total = jobList.length;
-    const active = jobList.filter((j) => j.status === 'Active' || !j.status).length;
-    const totalCandidates = jobList.reduce((acc, j) => acc + (j.applicantsCount || 10), 0);
-    return { total, active, totalCandidates };
-  }, [jobList]);
-
-  return (
-    <EmployerShell activeNav="Hiring">
-      <div className="mx-auto max-w-[1280px] space-y-6 min-w-0">
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl md:text-2xl font-serif font-bold text-[#0F1B2D]">
-              Hiring Overview & Job Postings
-            </h1>
-            <p className="text-xs md:text-sm text-[#6B7280] mt-1">
-              Manage active openings, track pipeline funnels, and review inbound applicants.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href="/employer/requests/new">
-              <EmployerBtn secondary small>
-                New Hiring Request
-              </EmployerBtn>
-            </Link>
-            <Link href="/employer/jobs/new">
-              <EmployerBtn primary small className="flex items-center gap-1.5">
-                <Plus size={14} /> Create Job Post
-              </EmployerBtn>
-            </Link>
-          </div>
-        </div>
-
-        {/* Quick KPI Strip */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 min-w-0">
-          <div className="rounded-2xl border border-[#E5E1D8] bg-white p-4">
-            <span className="text-xs text-[#6B7280]">Active Openings</span>
-            <div className="mt-1 text-2xl font-serif font-bold text-[#0F1B2D]">{stats.active}</div>
-            <span className="text-xs text-[#286749]">4 of 5 plan seats used</span>
-          </div>
-          <div className="rounded-2xl border border-[#E5E1D8] bg-white p-4">
-            <span className="text-xs text-[#6B7280]">Total Inbound Applicants</span>
-            <div className="mt-1 text-2xl font-serif font-bold text-[#0F1B2D]">{stats.totalCandidates}</div>
-            <span className="text-xs text-[#286749]">▲ 14 this week</span>
-          </div>
-          <div className="rounded-2xl border border-[#E5E1D8] bg-white p-4">
-            <span className="text-xs text-[#6B7280]">Interviews Scheduled</span>
-            <div className="mt-1 text-2xl font-serif font-bold text-[#0F1B2D]">8</div>
-            <span className="text-xs text-[#806236]">2 scheduled today</span>
-          </div>
-          <div className="rounded-2xl border border-[#E5E1D8] bg-white p-4">
-            <span className="text-xs text-[#6B7280]">Offers Extended</span>
-            <div className="mt-1 text-2xl font-serif font-bold text-[#286749]">3</div>
-            <span className="text-xs text-[#6B7280]">1 accepted yesterday</span>
-          </div>
-        </div>
-
-        {/* Filter and Search Bar */}
-        <div className="rounded-2xl border border-[#E5E1D8] bg-white p-4 flex flex-wrap items-center justify-between gap-3 min-w-0">
-          <div className="relative flex-1 max-w-sm min-w-[200px]">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A0A7B4]" size={15} />
-            <input
-              type="text"
-              aria-label="Search job openings"
-              placeholder="Search by job title, department, or city..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-9 pl-9 pr-3 rounded-xl border border-[#E5E1D8] bg-[#FAF8F4]/50 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 overflow-x-auto min-w-0 text-xs">
-            {['All', 'Active', 'Draft', 'Closed'].map((t) => {
-              const active = tab === t;
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTab(t)}
-                  className={`px-3 py-1.5 rounded-xl font-semibold transition-colors ${
-                    active
-                      ? 'bg-[#0F1B2D] text-white'
-                      : 'text-[#4A5568] hover:bg-[#FAF8F4]'
-                  }`}
-                >
-                  {t}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Jobs Directory with responsive overflow wrapper */}
-        <div className="rounded-2xl border border-[#E5E1D8] bg-white overflow-hidden shadow-xs min-w-0">
-          <div className="overflow-x-auto min-w-0">
-            <table className="w-full text-left text-xs min-w-[620px]">
-              <thead className="bg-[#FAF8F4] border-b border-[#E5E1D8] text-[#6B7280] uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="p-4 pl-6">Job Title & Dept</th>
-                  <th className="p-4">Location & Mode</th>
-                  <th className="p-4">Salary Range</th>
-                  <th className="p-4">Candidates</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4 pr-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F0EBE0] text-[#0F1B2D]">
-                {filteredJobs.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="p-8 text-center text-xs text-[#6B7280]">
-                      No job listings match your current filters.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredJobs.map((job) => (
-                    <tr key={job.id} className="hover:bg-[#FAF8F4]/50 transition-colors">
-                      <td className="p-4 pl-6">
-                        <Link
-                          href={`/employer/jobs/${job.id}`}
-                          className="font-semibold text-sm hover:underline block text-[#0F1B2D]"
-                        >
-                          {job.title}
-                        </Link>
-                        <span className="text-[#6B7280]">{job.dept} · Posted {job.posted || '2 weeks ago'}</span>
-                      </td>
-                      <td className="p-4 text-[#4A5568]">{job.loc} ({job.mode || 'Hybrid'})</td>
-                      <td className="p-4 font-medium">{job.salary || '₹22L – ₹28L'}</td>
-                      <td className="p-4">
-                        <Link
-                          href={`/employer/jobs/${job.id}`}
-                          className="font-bold text-[#0F1B2D] hover:underline"
-                        >
-                          {job.applicantsCount || 12} in pipeline
-                        </Link>
-                      </td>
-                      <td className="p-4">
-                        <StageChip stage={job.status || 'Active'} />
-                      </td>
-                      <td className="p-4 pr-6 text-right space-x-2">
-                        <Link href={`/employer/jobs/${job.id}`}>
-                          <EmployerBtn primary small>
-                            Pipeline
-                          </EmployerBtn>
-                        </Link>
-                        <Link href={`/employer/jobs/${job.id}/edit`}>
-                          <EmployerBtn secondary small>
-                            Edit
-                          </EmployerBtn>
-                        </Link>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </EmployerShell>
-  );
+  return <JobsPage><HiringOverview /></JobsPage>;
 }

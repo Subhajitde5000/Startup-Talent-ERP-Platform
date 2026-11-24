@@ -3,7 +3,7 @@
  *
  * - Base URL comes from NEXT_PUBLIC_API_URL (defaults to the same-origin
  *   "/api/v1", which next.config.js proxies to the backend).
- * - Bearer access token is attached automatically from local storage.
+ * - Bearer access token is attached automatically from tab memory.
  * - A 401 triggers a single-flight refresh; the original request is retried
  *   once with the new access token.
  * - Every failure surfaces as an ApiError carrying the backend's
@@ -317,6 +317,15 @@ export type StartupInvestorDealListQuery = {
   offset?: number;
 };
 
+// --- Step 7a: organization job management -------------------------------
+export type JobCreate = components["schemas"]["JobCreate"];
+export type JobUpdate = components["schemas"]["JobUpdate"];
+export type JobRead = components["schemas"]["JobRead"];
+export type JobPage = components["schemas"]["JobPage"];
+export type JobSummary = components["schemas"]["JobSummary"];
+type JobQuery = NonNullable<operations["list_jobs_api_v1_organizations__org_id__jobs_get"]["parameters"]["query"]>;
+export type JobListQuery = { [K in keyof JobQuery]?: Exclude<JobQuery[K], null> };
+
 // --- Step 9f: engagement (investor requests + meetings) ------------------
 export type RequestStatus = components["schemas"]["RequestStatus"];
 export type EngagementRequestRead = components["schemas"]["EngagementRequestRead"];
@@ -550,27 +559,41 @@ const ACCESS_KEY = "forma.access_token";
 const REFRESH_KEY = "forma.refresh_token";
 
 /* ------------------------------------------------------------------ tokens */
+// Approved 7a wiring fix: no access/refresh tokens in web storage or cookies.
+// Client navigation retains the session; hard reloads/new tabs require login.
+let accessToken: string | null = null;
+let refreshToken: string | null = null;
+
+function removeLegacyTokenStorage(): void {
+  if (typeof window === "undefined") return;
+  for (const name of ["localStorage", "sessionStorage"] as const) {
+    try {
+      window[name].removeItem(ACCESS_KEY);
+      window[name].removeItem(REFRESH_KEY);
+    } catch { /* Storage may be unavailable; memory auth still works. */ }
+  }
+}
+removeLegacyTokenStorage();
 
 export function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(ACCESS_KEY);
+  return typeof window === "undefined" ? null : accessToken;
 }
 
 export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(REFRESH_KEY);
+  return typeof window === "undefined" ? null : refreshToken;
 }
 
 export function setTokens(tokens: { access_token: string; refresh_token: string }): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(ACCESS_KEY, tokens.access_token);
-  window.localStorage.setItem(REFRESH_KEY, tokens.refresh_token);
+  removeLegacyTokenStorage();
+  accessToken = tokens.access_token;
+  refreshToken = tokens.refresh_token;
 }
 
 export function clearTokens(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(ACCESS_KEY);
-  window.localStorage.removeItem(REFRESH_KEY);
+  accessToken = null;
+  refreshToken = null;
+  removeLegacyTokenStorage();
 }
 
 /** Fired when the session is gone (refresh failed) so the app can react. */
@@ -673,7 +696,7 @@ interface RequestOptions {
   /** Attach the bearer access token (default true). */
   auth?: boolean;
   /** Query string params; undefined values are dropped. */
-  query?: Record<string, string | number | boolean | undefined>;
+  query?: Record<string, string | number | boolean | readonly string[] | null | undefined>;
   signal?: AbortSignal;
   responseType?: "blob";
 }
@@ -690,7 +713,8 @@ async function rawFetch<T>(
   if (opts.query) {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(opts.query)) {
-      if (value !== undefined) params.set(key, String(value));
+      if (Array.isArray(value)) value.forEach(item => params.append(key, item));
+      else if (value !== undefined && value !== null) params.set(key, String(value));
     }
     const qs = params.toString();
     if (qs) url += (url.includes("?") ? "&" : "?") + qs;
@@ -760,7 +784,7 @@ function emitUnauthenticated(): void {
 
 /**
  * Perform an API request. Throws ApiError on failure.
- * On 401 (with a stored refresh token) refreshes once and retries the
+ * On 401 (with an in-memory refresh token) refreshes once and retries the
  * request a single time; if the refresh fails, tokens are cleared and the
  * `forma:unauthenticated` event fires.
  */
@@ -806,7 +830,8 @@ export async function apiRequestText(
     if (opts.query) {
       const params = new URLSearchParams();
       for (const [key, value] of Object.entries(opts.query)) {
-        if (value !== undefined) params.set(key, String(value));
+        if (Array.isArray(value)) value.forEach(item => params.append(key, item));
+      else if (value !== undefined && value !== null) params.set(key, String(value));
       }
       const qs = params.toString();
       if (qs) url += (url.includes("?") ? "&" : "?") + qs;
@@ -871,7 +896,85 @@ export type RoomQuery = { startup_org_id?: string; limit?: number; offset?: numb
 const roomPath = (orgId: string) => `/organizations/${orgId}/data-room`;
 const accessPath = "/investors/data-room-access-requests";
 
+/** Development storage is signed too, but its loopback URL belongs to the server,
+ * not the preview browser. Keep it on the existing same-origin API proxy. */
+export function browserStorageUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    if (["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+      && /^\/api\/v1\/files\/local-(upload|serve)\//.test(url.pathname)) {
+      return url.pathname + url.search;
+    }
+  } catch { /* Already-relative signed URLs need no conversion. */ }
+  return value;
+}
+
+async function uploadPrivateFile(path: string, kind: FileKind, file: File, signal?: AbortSignal): Promise<FileRead> {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  const mime = FILE_MIME[extension];
+  const maxMiB = kind === "image" || kind === "logo" ? 5 : kind === "resume" ? 10 : 25;
+  if (!mime || !FILE_ACCEPT[kind].split(",").includes(`.${extension}`) || file.size <= 0 || file.size > maxMiB * 1024 * 1024) {
+    throw new ApiError(422, { code: "VALIDATION_ERROR", message: `Choose a supported ${kind.replaceAll("_", " ")} file (maximum ${maxMiB} MiB).`, details: [{ loc: ["body", "file_name"], msg: `Supported: ${FILE_ACCEPT[kind]}; maximum ${maxMiB} MiB.` }] });
+  }
+  const reservation = await apiRequest<FileUploadRead>(path, {
+    method: "POST", body: { kind, file_name: file.name, mime_type: mime, byte_size: file.size } satisfies FileUploadCreate, signal,
+  });
+  // Signed R2 PUT is intentionally not sent through authenticated apiRequest.
+  // No cookies, platform bearer token, auto-refresh, or automatic byte retry.
+  let response: Response;
+  try {
+    response = await fetch(browserStorageUrl(reservation.upload_url), {
+      method: "PUT", headers: reservation.headers, body: file, credentials: "omit", redirect: "error", signal,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    throw new ApiError(0, { code: "STORAGE_UPLOAD_FAILED", message: "Could not upload to private storage. Check your connection and bucket CORS, then select the file again." });
+  }
+  if (!response.ok) throw new ApiError(response.status, { code: "STORAGE_UPLOAD_FAILED", message: "Private storage rejected the upload. Select the file again to get a fresh upload URL." });
+  return api.files.confirm(reservation.file.id, signal);
+}
+
+// Step 7b/7c: request and response contracts come from generated OpenAPI.
+export type MarketplaceJob = components["schemas"]["MarketplaceJob"];
+export type HiringCompany = components["schemas"]["HiringCompany"];
+export type ApplicationRead = components["schemas"]["ApplicationRead"];
+export type ApplicationCreate = components["schemas"]["ApplicationCreate"];
+export type ApplicationStage = components["schemas"]["ApplicationRead"]["stage"];
+export type JobDiscoveryQuery = NonNullable<import("./schema").operations["search_authenticated_api_v1_jobs_get"]["parameters"]["query"]>;
+export type HiringStartupQuery = NonNullable<import("./schema").operations["startups_authenticated_api_v1_hiring_startups_get"]["parameters"]["query"]>;
+export type OwnApplicationQuery = NonNullable<import("./schema").operations["list_applications_api_v1_applications_get"]["parameters"]["query"]>;
+
+// Step 7d: generated contracts, same bearer/refresh/error transport as all other features.
+export type ApplicantRead = components["schemas"]["ApplicantRead"];
+export type ApplicantQuery = NonNullable<import("./schema").operations["applicants_api_v1_organizations__org_id__jobs__job_id__applications_get"]["parameters"]["query"]>;
+export type PipelinePatch = components["schemas"]["PipelinePatch"];
+const pipelinePath = (orgId: string, jobId: string) => `/organizations/${orgId}/jobs/${jobId}`;
+const applicantPath = (orgId: string, jobId: string, id: string) => `${pipelinePath(orgId, jobId)}/applications/${id}`;
+
 export const api = {
+  applicants: {
+    list: (org: string, job: string, query: ApplicantQuery = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["ApplicantPage"]>(`${pipelinePath(org, job)}/applications`, { query, signal }),
+    get: (org: string, job: string, id: string, signal?: AbortSignal) => apiRequest<ApplicantRead>(applicantPath(org, job, id), { signal }),
+    update: (org: string, job: string, id: string, body: PipelinePatch) => apiRequest<ApplicantRead>(applicantPath(org, job, id), { method: "PATCH", body }),
+    history: (org: string, job: string, id: string, query: {limit?: number; offset?: number} = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["StageEventPage"]>(`${applicantPath(org, job, id)}/stage-events`, { query, signal }),
+    notes: (org: string, job: string, id: string, query: {limit?: number; offset?: number} = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["NotePage"]>(`${applicantPath(org, job, id)}/notes`, { query, signal }),
+    addNote: (org: string, job: string, id: string, body: components["schemas"]["NoteCreate"]) => apiRequest<components["schemas"]["NoteRead"]>(`${applicantPath(org, job, id)}/notes`, { method: "POST", body }),
+    deleteNote: (org: string, job: string, id: string, note: string) => apiRequest<void>(`${applicantPath(org, job, id)}/notes/${note}`, { method: "DELETE" }),
+    settings: (org: string, job: string, body: components["schemas"]["ReviewSettingsPatch"]) => apiRequest<components["schemas"]["ReviewSettingsRead"]>(`${pipelinePath(org, job)}/review-settings`, { method: "PATCH", body }),
+    resume: (org: string, job: string, id: string) => apiRequest<FileDownloadRead>(`${applicantPath(org, job, id)}/resume-download`, { method: "POST", body: {} }),
+  },
+  careers: {
+    jobs: (query: JobDiscoveryQuery = {}, authenticated = false, signal?: AbortSignal) => apiRequest<components["schemas"]["MarketplaceJobPage"]>(`${authenticated ? "" : "/public"}/jobs`, { query, auth: authenticated, signal }),
+    job: (id: string, authenticated = false, signal?: AbortSignal) => apiRequest<MarketplaceJob>(`${authenticated ? "" : "/public"}/jobs/${id}`, { auth: authenticated, signal }),
+    company: (id: string, authenticated = false, signal?: AbortSignal) => apiRequest<HiringCompany>(`${authenticated ? "" : "/public"}/companies/${id}`, { auth: authenticated, signal }),
+    startups: (query: HiringStartupQuery = {}, authenticated = false, signal?: AbortSignal) => apiRequest<components["schemas"]["HiringCompanyPage"]>(`${authenticated ? "" : "/public"}/hiring-startups`, { query, auth: authenticated, signal }),
+    context: (id: string, signal?: AbortSignal) => apiRequest<components["schemas"]["ApplicationContext"]>(`/jobs/${id}/application-context`, { signal }),
+    submit: (id: string, body: ApplicationCreate) => apiRequest<ApplicationRead>(`/jobs/${id}/applications`, { body }),
+    applications: (query: OwnApplicationQuery = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["ApplicationPage"]>("/applications", { query, signal }),
+    application: (id: string, signal?: AbortSignal) => apiRequest<ApplicationRead>(`/applications/${id}`, { signal }),
+    history: (id: string, query: {limit?: number; offset?: number} = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["StageEventPage"]>(`/applications/${id}/stage-events`, { query, signal }),
+    withdraw: (id: string) => apiRequest<ApplicationRead>(`/applications/${id}/withdraw`, { body: {} }),
+  },
   dataRooms: {
     get: (orgId: string, signal?: AbortSignal) => apiRequest<RoomRead>(roomPath(orgId), { signal }),
     save: (orgId: string, body: RoomPut) => apiRequest<RoomRead>(roomPath(orgId), { method: "PUT", body }),
@@ -901,6 +1004,8 @@ export const api = {
     documents: (orgId: string, query: RoomQuery = {}, signal?: AbortSignal) => apiRequest<RoomPage<InvestorDocumentRead>>(`/investors/data-rooms/${orgId}/documents`, { query, signal }),
   },
   files: {
+    listPersonal: (query: {limit?: number; offset?: number; kind?: FileKind} = {}, signal?: AbortSignal) => apiRequest<FilePage>("/users/me/files", { query, signal }),
+    uploadPersonal: (kind: FileKind, file: File, signal?: AbortSignal) => uploadPrivateFile("/users/me/files/upload-requests", kind, file, signal),
     listOrganization: (orgId: string, query: { limit?: number; offset?: number; kind?: FileKind } = {}, signal?: AbortSignal) =>
       apiRequest<FilePage>(`/organizations/${orgId}/files`, { query, signal }),
     get: (id: string, signal?: AbortSignal) => apiRequest<FileRead>(`/files/${id}`, { signal }),
@@ -908,30 +1013,9 @@ export const api = {
       apiRequest<FileRead>(`/files/${id}/confirm`, { method: "POST", body: {}, signal }),
     remove: (id: string) => apiRequest<void>(`/files/${id}`, { method: "DELETE" }),
     download: (id: string, variant: "original" | "thumbnail" = "original", signal?: AbortSignal) =>
-      apiRequest<FileDownloadRead>(`/files/${id}/download-url`, { method: "POST", body: { variant }, signal }),
+      apiRequest<FileDownloadRead>(`/files/${id}/download-url`, { method: "POST", body: { variant }, signal }).then(result => ({ ...result, url: browserStorageUrl(result.url) })),
     uploadOrganization: async (orgId: string, kind: FileKind, file: File, signal?: AbortSignal): Promise<FileRead> => {
-      const extension = file.name.split(".").pop()?.toLowerCase() || "";
-      const mime = FILE_MIME[extension];
-      const maxMiB = kind === "image" || kind === "logo" ? 5 : kind === "resume" ? 10 : 25;
-      if (!mime || !FILE_ACCEPT[kind].split(",").includes(`.${extension}`) || file.size <= 0 || file.size > maxMiB * 1024 * 1024) {
-        throw new ApiError(422, { code: "VALIDATION_ERROR", message: `Choose a supported ${kind.replaceAll("_", " ")} file (maximum ${maxMiB} MiB).`, details: [{ loc: ["body", "file_name"], msg: `Supported: ${FILE_ACCEPT[kind]}; maximum ${maxMiB} MiB.` }] });
-      }
-      const reservation = await apiRequest<FileUploadRead>(`/organizations/${orgId}/files/upload-requests`, {
-        method: "POST", body: { kind, file_name: file.name, mime_type: mime, byte_size: file.size } satisfies FileUploadCreate, signal,
-      });
-      // Signed R2 PUT is intentionally not sent through authenticated apiRequest.
-      // No cookies, platform bearer token, auto-refresh, or automatic byte retry.
-      let response: Response;
-      try {
-        response = await fetch(reservation.upload_url, {
-          method: "PUT", headers: reservation.headers, body: file, credentials: "omit", redirect: "error", signal,
-        });
-      } catch (error) {
-        if (signal?.aborted) throw error;
-        throw new ApiError(0, { code: "STORAGE_UPLOAD_FAILED", message: "Could not upload to private storage. Check your connection and bucket CORS, then select the file again." });
-      }
-      if (!response.ok) throw new ApiError(response.status, { code: "STORAGE_UPLOAD_FAILED", message: "Private storage rejected the upload. Select the file again to get a fresh upload URL." });
-      return api.files.confirm(reservation.file.id, signal);
+      return uploadPrivateFile(`/organizations/${orgId}/files/upload-requests`, kind, file, signal);
     },
   },
   auth: {
@@ -1016,6 +1100,27 @@ export const api = {
       apiRequest<DeleteRequestRead>("/users/me/delete-request", { method: "POST" }),
   },
 
+  jobs: {
+    list: (orgId: string, query?: JobListQuery, signal?: AbortSignal) =>
+      apiRequest<JobPage>(`/organizations/${orgId}/jobs`, { query, signal }),
+    summary: (orgId: string, signal?: AbortSignal) =>
+      apiRequest<JobSummary>(`/organizations/${orgId}/jobs/summary`, { signal }),
+    get: (orgId: string, jobId: string, signal?: AbortSignal) =>
+      apiRequest<JobRead>(`/organizations/${orgId}/jobs/${jobId}`, { signal }),
+    create: (orgId: string, body: JobCreate) =>
+      apiRequest<JobRead>(`/organizations/${orgId}/jobs`, { method: "POST", body }),
+    update: (orgId: string, jobId: string, body: JobUpdate) =>
+      apiRequest<JobRead>(`/organizations/${orgId}/jobs/${jobId}`, { method: "PATCH", body }),
+    publish: (orgId: string, jobId: string) =>
+      apiRequest<JobRead>(`/organizations/${orgId}/jobs/${jobId}/publish`, { method: "POST", body: {} }),
+    pause: (orgId: string, jobId: string) =>
+      apiRequest<JobRead>(`/organizations/${orgId}/jobs/${jobId}/pause`, { method: "POST", body: {} }),
+    close: (orgId: string, jobId: string) =>
+      apiRequest<JobRead>(`/organizations/${orgId}/jobs/${jobId}/close`, { method: "POST", body: {} }),
+    archive: (orgId: string, jobId: string) =>
+      apiRequest<JobRead>(`/organizations/${orgId}/jobs/${jobId}/archive`, { method: "POST", body: {} }),
+  },
+
   skills: {
     search: (opts: { q?: string; limit?: number; signal?: AbortSignal } = {}) =>
       apiRequest<SkillRead[]>("/skills", {
@@ -1056,7 +1161,7 @@ export const api = {
         signal,
       }),
 
-    /** The three counter cards; `open_jobs_count` is null until Step 7a. */
+    /** Team counters, including the real open-job count from Step 7a. */
     teamSummary: (orgId: string, signal?: AbortSignal) =>
       apiRequest<TeamSummary>(`/organizations/${orgId}/team/summary`, {
         method: "GET",
@@ -1195,7 +1300,7 @@ export const api = {
    */
   startups: {
     /** `GET /startups` — filters/sorts are whitelisted server-side. */
-    discover: (query: StartupDiscoveryQuery = {}, signal?: AbortSignal) =>
+    discover: (query: HiringStartupQuery = {}, signal?: AbortSignal) =>
       apiRequest<StartupDiscoveryPage>("/startups", { method: "GET", query, signal }),
 
     /** `GET /startups/{identifier}` — full discoverable profile for signed-in viewers. */
@@ -1206,7 +1311,7 @@ export const api = {
       }),
 
     /** `GET /public/startups` — the same read, anonymously, public rows only. */
-    discoverPublic: (query: StartupDiscoveryQuery = {}, signal?: AbortSignal) =>
+    discoverPublic: (query: HiringStartupQuery = {}, signal?: AbortSignal) =>
       apiRequest<StartupDiscoveryPage>("/public/startups", {
         method: "GET",
         query,

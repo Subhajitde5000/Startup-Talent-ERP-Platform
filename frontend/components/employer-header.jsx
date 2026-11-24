@@ -21,6 +21,7 @@ import NotificationDropdown from './notification-dropdown';
 import { useAuth } from '@/lib/auth-context';
 
 export default function EmployerHeader({
+  jobsWorkspace,
   compact = false,
   collapsed,
   onToggleMobile,
@@ -66,15 +67,15 @@ export default function EmployerHeader({
         {/* Company Title & Verification */}
         <div className="hidden sm:flex items-center gap-2">
           <span className="font-serif text-sm font-bold text-[#0F1B2D]">
-            Northstar Labs
+            {jobsWorkspace ? jobsWorkspace.org?.name || "Jobs workspace" : "Northstar Labs"}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#E7F3EC] px-2 py-0.5 text-xs font-semibold text-[#286749]">
+          {!jobsWorkspace && <span className="inline-flex items-center gap-1 rounded-full bg-[#E7F3EC] px-2 py-0.5 text-xs font-semibold text-[#286749]">
             <CheckCircle2 size={11} /> Verified Employer
-          </span>
+          </span>}
         </div>
 
         {/* Search Input */}
-        <form
+        {!jobsWorkspace && <form
           role="search"
           onSubmit={(e) => {
             e.preventDefault();
@@ -91,7 +92,7 @@ export default function EmployerHeader({
             placeholder="Search candidates, jobs, or records..."
             className="h-9 w-64 lg:w-80 rounded-lg border border-[#E5E1D8] bg-white pl-9 text-xs focus:border-[#B8955A] focus:outline-none"
           />
-        </form>
+        </form>}
 
         {backHref && (
           <Link href={backHref} className="text-xs font-semibold text-[#806236] sm:hidden">
@@ -103,17 +104,17 @@ export default function EmployerHeader({
       {/* Right Actions */}
       <div className="flex items-center gap-2.5">
         {/* Post a Job Quick CTA */}
-        <Link href="/employer/jobs/new" className="hidden sm:inline-block">
+        {(!jobsWorkspace || jobsWorkspace.canWrite) && <Link href={jobsWorkspace ? jobsWorkspace.href("/employer/jobs/new") : "/employer/jobs/new"} className="hidden sm:inline-block">
           <button
             type="button"
             className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-[#0F1B2D] text-white text-xs font-semibold hover:bg-[#1C2B42] transition-colors"
           >
             <Briefcase size={13} /> Post a Job
           </button>
-        </Link>
+        </Link>}
 
         {/* Notifications Dropdown */}
-        <NotificationDropdown role="employer" />
+        {!jobsWorkspace && <NotificationDropdown role="employer" />}
 
         {/* User Profile Avatar & Dropdown */}
         <div className="relative">
@@ -124,9 +125,9 @@ export default function EmployerHeader({
             aria-label="User profile options"
           >
             <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#0F1B2D] text-xs font-bold text-white">
-              SJ
+              {jobsWorkspace ? jobsWorkspace.user?.avatar_initials || jobsWorkspace.user?.display_name?.slice(0, 2).toUpperCase() || "U" : "SJ"}
             </span>
-            <span className="hidden sm:block text-xs font-medium text-[#0F1B2D]">Sarah Jenkins</span>
+            <span className="hidden sm:block text-xs font-medium text-[#0F1B2D]">{jobsWorkspace ? jobsWorkspace.user?.display_name || "Your account" : "Sarah Jenkins"}</span>
             <ChevronDown size={13} className="text-[#6B7280] mr-1" />
           </button>
 
@@ -134,10 +135,10 @@ export default function EmployerHeader({
             <div className="absolute right-0 mt-2 w-60 rounded-2xl border border-[#E5E1D8] bg-white p-2 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-100">
               <div className="px-3 py-2 border-b border-[#F0EBE0] mb-1">
                 <div className="flex items-center gap-1.5">
-                  <strong className="block text-xs text-[#0F1B2D]">Sarah Jenkins</strong>
-                  <CheckCircle2 size={12} className="text-[#286749]" />
+                  <strong className="block text-xs text-[#0F1B2D]">{jobsWorkspace ? jobsWorkspace.user?.display_name || "Your account" : "Sarah Jenkins"}</strong>
+                  {!jobsWorkspace && <CheckCircle2 size={12} className="text-[#286749]" />}
                 </div>
-                <span className="text-[11px] text-[#6B7280]">Northstar Labs · Head of People</span>
+                <span className="text-[11px] text-[#6B7280]">{jobsWorkspace ? `${jobsWorkspace.org?.name || "Jobs workspace"} · ${jobsWorkspace.org?.my_role || "Member"}` : "Northstar Labs · Head of People"}</span>
               </div>
               <div className="pt-1 text-xs space-y-0.5">
                 <Link

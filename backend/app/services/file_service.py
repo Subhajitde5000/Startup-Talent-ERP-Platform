@@ -230,6 +230,14 @@ async def download(
     row = await file_access(db, user, file_id)
     settings = get_settings()
     await enforce_limit(f"file_download:{user.id}", settings.FILE_DOWNLOAD_LIMIT, 300)
+    return await sign_ready_download(row, variant, storage)
+
+
+async def sign_ready_download(row: File, variant: str, storage: Storage) -> tuple[str, int]:
+    """Sign only after the calling service authorizes its own object/file scope."""
+    settings = get_settings()
+    if row.deleted_at is not None or row.purged_at is not None:
+        raise not_found("File not found.")
     if row.upload_status != "ready" or row.scan_status != "clean":
         raise conflict("This file is not available for download.", "FILE_NOT_READY")
     key, mime, name = row.storage_key, row.mime_type, row.file_name
