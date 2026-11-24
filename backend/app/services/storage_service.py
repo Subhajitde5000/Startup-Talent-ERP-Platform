@@ -42,7 +42,7 @@ class StorageInvalid(Exception):
 class Storage(Protocol):
     async def sign_upload(self, key: str, mime: str, ttl: int) -> str: ...
     async def sign_download(
-        self, key: str, name: str, mime: str, ttl: int, *, image: bool = False
+        self, key: str, name: str, mime: str, ttl: int, *, image: bool = False, inline: bool = False
     ) -> str: ...
     async def read(self, key: str, max_size: int) -> tuple[bytes, str]: ...
     async def put(self, key: str, data: bytes, mime: str) -> None: ...
@@ -104,9 +104,9 @@ class R2Storage:
         )
 
     async def sign_download(
-        self, key: str, name: str, mime: str, ttl: int, *, image: bool = False
+        self, key: str, name: str, mime: str, ttl: int, *, image: bool = False, inline: bool = False
     ) -> str:
-        disposition = "inline" if image else "attachment"
+        disposition = "inline" if (image or inline) else "attachment"
         return str(
             await self._call(
                 "generate_presigned_url",
@@ -247,9 +247,11 @@ class LocalStorage:
         return f"{self._base_url}{self._api_prefix}/files/local-upload/{token}"
 
     async def sign_download(
-        self, key: str, name: str, mime: str, ttl: int, *, image: bool = False
+        self, key: str, name: str, mime: str, ttl: int, *, image: bool = False, inline: bool = False
     ) -> str:
-        token = self._make_token({"k": key, "m": mime, "n": name, "a": "dl"}, ttl)
+        token = self._make_token(
+            {"k": key, "m": mime, "n": name, "a": "dl", "img": 1 if (image or inline) else 0}, ttl
+        )
         return f"{self._base_url}{self._api_prefix}/files/local-serve/{token}"
 
     async def read(self, key: str, max_size: int) -> tuple[bytes, str]:

@@ -6,32 +6,31 @@ import { useParams } from 'next/navigation';
 import {
   ChevronLeft,
   CheckCircle2,
-  Bookmark,
   Share2,
   Sparkles,
   MapPin,
   Clock,
-  DollarSign,
-  Building,
   Check,
-  Shield,
-  ArrowRight,
-  ExternalLink,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
+import { JobBtn, SafetyStrip } from '@/components/jobseeker-ui';
 import {
-  JobBtn,
-  SafetyStrip,
-  defaultUser,
-} from '@/components/jobseeker-ui';
-import { jobs } from '../../jobseeker-data';
+  api,
+  useCareerResource,
+  jobView,
+  ResourceState,
+  ApplicationAction,
+} from '@/components/career-data';
+import { useAuth } from '@/lib/auth-context';
 
 export default function JobDetailPage() {
   const params = useParams();
   const rawId = params?.jobId;
-  const job = jobs.find((j) => j.id === rawId) || jobs[0];
-
-  const [saved, setSaved] = useState(defaultUser.savedIds.includes(job.id));
+  const { user } = useAuth();
+  const resource = useCareerResource(`job:${rawId}`, (signal) =>
+    api.careers.job(rawId, Boolean(user), signal)
+  );
+  const job = resource.data ? jobView(resource.data) : null;
   const [copied, setCopied] = useState(false);
 
   const handleShare = () => {
@@ -42,8 +41,15 @@ export default function JobDetailPage() {
     }
   };
 
+  if (!job)
+    return (
+      <JobSeekerShell active="Jobs" liveData>
+        <ResourceState resource={resource} />
+      </JobSeekerShell>
+    );
+
   return (
-    <JobSeekerShell active="Jobs">
+    <JobSeekerShell active="Jobs" liveData>
       <div className="space-y-6 max-w-5xl">
         {/* Breadcrumb Navigation */}
         <nav className="flex items-center gap-2 text-xs text-[#6B7280]">
@@ -54,7 +60,9 @@ export default function JobDetailPage() {
             <ChevronLeft size={14} /> Back to Jobs
           </Link>
           <span>/</span>
-          <span className="text-[#0F1B2D] font-medium truncate">{job.title}</span>
+          <span className="text-[#0F1B2D] font-medium truncate">
+            {job.title}
+          </span>
         </nav>
 
         {/* Main Job Hero Header */}
@@ -75,13 +83,13 @@ export default function JobDetailPage() {
                     </span>
                   )}
                   <span className="rounded-full bg-[#F3F4F6] px-2.5 py-0.5 text-xs text-[#4A5568]">
-                    {job.stage || 'Startup'}
+                    {job.stage || job.company.type}
                   </span>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-[#4A5568]">
                   <Link
-                    href={`/jobseeker/companies/${job.company?.id || 'acme-labs'}`}
+                    href={`/jobseeker/companies/${job.company.id}`}
                     className="font-semibold text-[#0F1B2D] hover:underline"
                   >
                     {job.company?.name || job.company}
@@ -92,7 +100,8 @@ export default function JobDetailPage() {
                   </span>
                   <span>·</span>
                   <span className="flex items-center gap-1">
-                    <Clock size={13} className="text-[#A0A7B4]" /> {job.type} ({job.mode})
+                    <Clock size={13} className="text-[#A0A7B4]" /> {job.type} (
+                    {job.mode})
                   </span>
                 </div>
               </div>
@@ -100,20 +109,7 @@ export default function JobDetailPage() {
 
             {/* Actions */}
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setSaved(!saved)}
-                aria-pressed={saved}
-                className={`inline-flex items-center justify-center gap-1.5 min-h-10 rounded-lg border px-3 text-xs font-medium transition-colors ${
-                  saved
-                    ? 'bg-[#F3EBDD] text-[#806236] border-[#D4C3A3]'
-                    : 'border-[#E5E1D8] bg-white text-[#0F1B2D] hover:bg-[#F4F1EA]'
-                }`}
-              >
-                <Bookmark size={14} className={saved ? 'fill-[#806236] text-[#806236]' : ''} />
-                <span>{saved ? 'Saved' : 'Save'}</span>
-              </button>
-
+              <span className="text-xs text-[#6B7280]">Saving unavailable</span>
               <button
                 type="button"
                 onClick={handleShare}
@@ -123,31 +119,41 @@ export default function JobDetailPage() {
                 <span>{copied ? 'Link Copied!' : 'Share'}</span>
               </button>
 
-              <Link href={`/jobseeker/jobs/${job.id}/apply`}>
-                <JobBtn primary className="px-5">
-                  Apply Now <ArrowRight size={14} />
-                </JobBtn>
-              </Link>
+              <ApplicationAction job={resource.data} />
             </div>
           </div>
 
           {/* Quick Metrics Bar */}
           <div className="mt-6 pt-5 border-t border-[#F0EBE0] grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             <div>
-              <span className="text-[#6B7280] block mb-0.5">Offered Salary</span>
-              <span className="font-semibold text-sm text-[#0F1B2D]">{job.salary}</span>
+              <span className="text-[#6B7280] block mb-0.5">
+                Offered Salary
+              </span>
+              <span className="font-semibold text-sm text-[#0F1B2D]">
+                {job.salary}
+              </span>
             </div>
             <div>
               <span className="text-[#6B7280] block mb-0.5">Date Posted</span>
-              <span className="font-semibold text-sm text-[#0F1B2D]">{job.posted}</span>
+              <span className="font-semibold text-sm text-[#0F1B2D]">
+                {job.posted}
+              </span>
             </div>
             <div>
-              <span className="text-[#6B7280] block mb-0.5">Applications Close</span>
-              <span className="font-semibold text-sm text-[#0F1B2D]">{job.closes || 'Rolling basis'}</span>
+              <span className="text-[#6B7280] block mb-0.5">
+                Applications Close
+              </span>
+              <span className="font-semibold text-sm text-[#0F1B2D]">
+                {job.closes || 'Rolling basis'}
+              </span>
             </div>
             <div>
-              <span className="text-[#6B7280] block mb-0.5">Company Industry</span>
-              <span className="font-semibold text-sm text-[#0F1B2D]">{job.industry || 'Tech'}</span>
+              <span className="text-[#6B7280] block mb-0.5">
+                Company Industry
+              </span>
+              <span className="font-semibold text-sm text-[#0F1B2D]">
+                {job.industry}
+              </span>
             </div>
           </div>
         </header>
@@ -157,7 +163,9 @@ export default function JobDetailPage() {
           <div className="rounded-xl border border-[#D4C3A3] bg-[#F3EBDD]/50 p-4 flex items-start gap-3">
             <Sparkles size={18} className="text-[#806236] shrink-0 mt-0.5" />
             <div className="text-xs text-[#806236] space-y-1">
-              <span className="font-bold text-sm block text-[#0F1B2D]">Why You Match This Role</span>
+              <span className="font-bold text-sm block text-[#0F1B2D]">
+                Why You Match This Role
+              </span>
               <p className="leading-relaxed">{job.fit}</p>
             </div>
           </div>
@@ -169,16 +177,20 @@ export default function JobDetailPage() {
           <div className="lg:col-span-8 space-y-6">
             {/* About the role */}
             <section className="rounded-xl border border-[#E5E1D8] bg-white p-6 shadow-sm space-y-3">
-              <h2 className="text-base font-serif font-bold text-[#0F1B2D]">About the Role</h2>
+              <h2 className="text-base font-serif font-bold text-[#0F1B2D]">
+                About the Role
+              </h2>
               <p className="text-xs md:text-sm text-[#4A5568] leading-relaxed">
-                {job.description}
+                {job.description || 'No description provided.'}
               </p>
             </section>
 
             {/* Responsibilities */}
             {job.responsibilities && job.responsibilities.length > 0 && (
               <section className="rounded-xl border border-[#E5E1D8] bg-white p-6 shadow-sm space-y-3">
-                <h2 className="text-base font-serif font-bold text-[#0F1B2D]">What You Will Do</h2>
+                <h2 className="text-base font-serif font-bold text-[#0F1B2D]">
+                  What You Will Do
+                </h2>
                 <ul className="space-y-2 text-xs md:text-sm text-[#4A5568]">
                   {job.responsibilities.map((r, i) => (
                     <li key={i} className="flex items-start gap-2.5">
@@ -198,7 +210,7 @@ export default function JobDetailPage() {
                 </h2>
                 <div className="space-y-2">
                   <span className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">
-                    Required Skills
+                    Role Skills
                   </span>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {job.mustHave.map((item, idx) => (
@@ -216,7 +228,9 @@ export default function JobDetailPage() {
                             <Check size={12} /> Match
                           </span>
                         ) : (
-                          <span className="text-[11px] text-[#A0A7B4]">Needed</span>
+                          <span className="text-[11px] text-[#A0A7B4]">
+                            {item.required ? 'Required' : 'Optional'}
+                          </span>
                         )}
                       </div>
                     ))}
@@ -225,8 +239,47 @@ export default function JobDetailPage() {
               </section>
             )}
 
+            {job.requirements && (
+              <section className="rounded-xl border border-[#E5E1D8] bg-white p-6 space-y-3">
+                <h2 className="font-serif font-bold">Requirements</h2>
+                <p className="whitespace-pre-wrap text-sm">
+                  {job.requirements}
+                </p>
+              </section>
+            )}
+            {(job.what_we_offer || job.benefits.length > 0) && (
+              <section className="rounded-xl border border-[#E5E1D8] bg-white p-6 space-y-3">
+                <h2 className="font-serif font-bold">Benefits & offer</h2>
+                <p className="whitespace-pre-wrap text-sm">
+                  {job.what_we_offer}
+                </p>
+                <ul className="text-sm">
+                  {job.benefits.map((b) => (
+                    <li key={b.id || b.label}>{b.label}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            <section className="rounded-xl border border-[#E5E1D8] bg-white p-6 space-y-3">
+              <h2 className="font-serif font-bold">Screening questions</h2>
+              {job.screening_questions.length ? (
+                job.screening_questions.map((q) => (
+                  <p className="text-xs" key={q.key}>
+                    {q.prompt} {q.required ? '(required)' : '(optional)'}
+                  </p>
+                ))
+              ) : (
+                <p className="text-xs">No screening questions configured.</p>
+              )}
+              <p className="text-xs">
+                Openings: {job.openings} · Equity: {job.equity_min_pct ?? '—'}–
+                {job.equity_max_pct ?? '—'}% · Experience:{' '}
+                {job.experience_min_yrs ?? '—'}–{job.experience_max_yrs ?? '—'}{' '}
+                years
+              </p>
+            </section>
             {/* Safety Strip */}
-            <SafetyStrip />
+            <SafetyStrip liveData />
           </div>
 
           {/* Right Sidebar Column */}
@@ -244,7 +297,7 @@ export default function JobDetailPage() {
                   <h3 className="text-sm font-semibold text-[#0F1B2D]">
                     {job.company?.name || job.company}
                   </h3>
-                  <p className="text-xs text-[#6B7280]">{job.industry || 'Technology'}</p>
+                  <p className="text-xs text-[#6B7280]">{job.industry}</p>
                 </div>
               </div>
 
@@ -259,12 +312,14 @@ export default function JobDetailPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#6B7280]">Stage:</span>
-                  <span className="font-medium">{job.stage || 'Seed'}</span>
+                  <span className="font-medium">
+                    {job.stage || 'Not provided'}
+                  </span>
                 </div>
               </div>
 
               <Link
-                href={`/jobseeker/companies/${job.company?.id || 'acme-labs'}`}
+                href={`/jobseeker/companies/${job.company.id}`}
                 className="w-full inline-block pt-2"
               >
                 <JobBtn secondary small className="w-full">
@@ -275,15 +330,14 @@ export default function JobDetailPage() {
 
             {/* Ready to apply CTA box */}
             <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-5 space-y-3">
-              <h3 className="text-sm font-semibold text-[#0F1B2D]">Ready to apply?</h3>
+              <h3 className="text-sm font-semibold text-[#0F1B2D]">
+                Ready to apply?
+              </h3>
               <p className="text-xs text-[#6B7280] leading-relaxed">
-                Submit with your tailored resume and AI-scored profile for priority review by the founders.
+                Review the role and share your contact details, optional resume,
+                and configured screening answers.
               </p>
-              <Link href={`/jobseeker/jobs/${job.id}/apply`} className="block">
-                <JobBtn primary className="w-full">
-                  Proceed to Application
-                </JobBtn>
-              </Link>
+              <ApplicationAction job={resource.data} className="block" />
             </div>
           </aside>
         </div>

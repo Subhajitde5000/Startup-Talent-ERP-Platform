@@ -12,11 +12,14 @@ from app.core.config import get_settings
 from app.db.base import Base
 from app.models import (  # noqa: F401  (register models for autogenerate)
     analytics,
+    application_note,
     auth,
     availability,
     deliverable,
     earning,
     funding_round,
+    job,
+    job_application,
     mentorship,
     metric,
     milestone,

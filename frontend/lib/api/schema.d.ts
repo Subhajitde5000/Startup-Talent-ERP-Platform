@@ -1121,6 +1121,544 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/{org_id}/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List organization jobs
+         * @description Any active member, including viewers. Archives excluded; no candidate data.
+         */
+        get: operations["list_jobs_api_v1_organizations__org_id__jobs_get"];
+        put?: never;
+        /**
+         * Create a draft job
+         * @description Owner/admin of an active employer or startup organization. Status is server-controlled.
+         */
+        post: operations["create_job_api_v1_organizations__org_id__jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get organization job counts
+         * @description Any active member; only live job totals and counts by status, not hiring analytics.
+         */
+        get: operations["job_summary_api_v1_organizations__org_id__jobs_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an organization job
+         * @description Any active member. This is an internal management read, not a public/share-link read.
+         */
+        get: operations["get_job_api_v1_organizations__org_id__jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit job content and nested skills/benefits
+         * @description Owner/admin. Omitted collections remain unchanged; supplied collections replace atomically.
+         *
+         *     Nullable fields can be cleared. Lifecycle fields cannot be written here.
+         */
+        patch: operations["update_job_api_v1_organizations__org_id__jobs__job_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish or resume a job
+         * @description Owner/admin. Draft/paused to open, retaining first posted_at. Active organization required;
+         *     verification is deferred to Step 15d. Repeated publish of an open job is a no-op.
+         */
+        post: operations["publish_job_api_v1_organizations__org_id__jobs__job_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause an open job
+         * @description Owner/admin. Repeated pause of a paused job is a no-op.
+         */
+        post: operations["pause_job_api_v1_organizations__org_id__jobs__job_id__pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close an open or paused job
+         * @description Owner/admin. Closed is terminal; repeated close is a no-op.
+         */
+        post: operations["close_job_api_v1_organizations__org_id__jobs__job_id__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a draft or closed job
+         * @description Owner/admin. Soft deletion retains children/history; subsequent reads/actions return 404.
+         */
+        post: operations["archive_job_api_v1_organizations__org_id__jobs__job_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search hiring resources (public) */
+        get: operations["search_public_api_v1_public_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail hiring resources (public) */
+        get: operations["detail_public_api_v1_public_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/companies/{org_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company hiring resources (public) */
+        get: operations["company_public_api_v1_public_companies__org_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/hiring-startups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Startups hiring resources (public) */
+        get: operations["startups_public_api_v1_public_hiring_startups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search hiring resources (authenticated) */
+        get: operations["search_authenticated_api_v1_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail hiring resources (authenticated) */
+        get: operations["detail_authenticated_api_v1_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/companies/{org_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company hiring resources (authenticated) */
+        get: operations["company_authenticated_api_v1_companies__org_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hiring-startups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Startups hiring resources (authenticated) */
+        get: operations["startups_authenticated_api_v1_hiring_startups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{job_id}/application-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Prepare my application without sharing it */
+        get: operations["application_context_api_v1_jobs__job_id__application_context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{job_id}/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit my application */
+        post: operations["submit_api_v1_jobs__job_id__applications_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List only my submitted applications */
+        get: operations["list_applications_api_v1_applications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{application_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read my submitted materials and current stage */
+        get: operations["application_detail_api_v1_applications__application_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{application_id}/stage-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read my applicant-safe stage history */
+        get: operations["history_api_v1_applications__application_id__stage_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{application_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw my application idempotently */
+        post: operations["withdraw_api_v1_applications__application_id__withdraw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List applicants within my hiring scope
+         * @description Owners/admins see the job's applications. Members see owned-job/assigned applications.
+         *
+         *     Stage counts respect scope and all filters except stage. Identity searches exclude all
+         *     blind applications. Closed/archived jobs remain readable; no candidate IDs are returned.
+         */
+        get: operations["applicants_api_v1_organizations__org_id__jobs__job_id__applications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/applications/{application_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a scoped applicant with server-side blind projection
+         * @description Submitted materials only, never the live candidate profile. Blind mode suppresses
+         *     contact, links, profile text, cover note, free-text answers and resume access.
+         */
+        get: operations["detail_api_v1_organizations__org_id__jobs__job_id__applications__application_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Atomically move, reject or assign an applicant
+         * @description Owner/admin or job owner for stages; owner/admin only for assignment. Stage changes
+         *     require expected_stage. No offers/hires, reopening terminal applications, or messages.
+         */
+        patch: operations["patch_api_v1_organizations__org_id__jobs__job_id__applications__application_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/applications/{application_id}/stage-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read paginated applicant-safe stage history */
+        get: operations["history_api_v1_organizations__org_id__jobs__job_id__applications__application_id__stage_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/applications/{application_id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List only my private applicant notes
+         * @description Even owners/admins cannot read other authors' notes. Candidate APIs never expose them.
+         */
+        get: operations["notes_api_v1_organizations__org_id__jobs__job_id__applications__application_id__notes_get"];
+        put?: never;
+        /** Create an author-only private note */
+        post: operations["create_note_api_v1_organizations__org_id__jobs__job_id__applications__application_id__notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/applications/{application_id}/notes/{note_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Soft-delete my private note
+         * @description Repeated deletion is a no-op while the pipeline remains writable.
+         */
+        delete: operations["delete_note_api_v1_organizations__org_id__jobs__job_id__applications__application_id__notes__note_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/review-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Configure blind review before the first application
+         * @description Owner/admin only. All application records, including deleted ones, lock the setting.
+         *     An identical setting retry is safe; no retroactive unblinding is allowed.
+         */
+        patch: operations["review_settings_api_v1_organizations__org_id__jobs__job_id__review_settings_patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/applications/{application_id}/resume-download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request an audited short-lived applicant resume URL
+         * @description Only the attached, ready/clean personal resume; denied during blind review.
+         *     This does not grant generic access to a candidate's files or profile.
+         */
+        post: operations["resume_download_api_v1_organizations__org_id__jobs__job_id__applications__application_id__resume_download_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{org_id}/startup-profile": {
         parameters: {
             query?: never;
@@ -4155,6 +4693,244 @@ export interface components {
         AddRoleRequest: {
             role: components["schemas"]["UserRole"];
         };
+        /** AnswerSnapshot */
+        AnswerSnapshot: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "notice_period" | "remote_comfort" | "relevant_experience" | "work_authorization";
+            /**
+             * Required
+             * @default false
+             */
+            required?: boolean;
+            /** Prompt */
+            prompt: string;
+            /** Type */
+            type: string;
+            /** Options */
+            options: string[];
+            /** Value */
+            value: string | boolean;
+        };
+        /** ApplicantPage */
+        ApplicantPage: {
+            context: components["schemas"]["JobReviewContext"];
+            /** Items */
+            items: components["schemas"]["ApplicantRead"][];
+            /** Stage Counts */
+            stage_counts: {
+                [key: string]: number;
+            };
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /** ApplicantRead */
+        ApplicantRead: {
+            context: components["schemas"]["JobReviewContext"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "applied" | "review" | "shortlisted" | "interview" | "offered" | "hired" | "rejected" | "withdrawn";
+            /** Source */
+            source: string;
+            /** Is Blind */
+            is_blind: boolean;
+            /** Label */
+            label: string;
+            /** Assignee Id */
+            assignee_id: string | null;
+            profile: components["schemas"]["ProfileSnapshot"] | null;
+            /** Experience Years */
+            experience_years: string | null;
+            /** Cover Note */
+            cover_note: string | null;
+            /** Screening Answers */
+            screening_answers: components["schemas"]["AnswerSnapshot"][];
+            /** Salary Expectation */
+            salary_expectation: string | null;
+            /** Currency */
+            currency: string;
+            /** Resume Available */
+            resume_available: boolean;
+            /** Rejected Reason */
+            rejected_reason: string | null;
+            /** Rejected At */
+            rejected_at: string | null;
+            /**
+             * Stage Changed At
+             * Format: date-time
+             */
+            stage_changed_at: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ApplicationContact */
+        ApplicationContact: {
+            /** Name */
+            name: string;
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Phone */
+            phone?: string | null;
+            /** Linkedin Url */
+            linkedin_url?: string | null;
+            /** Portfolio Url */
+            portfolio_url?: string | null;
+            /** Github Url */
+            github_url?: string | null;
+        };
+        /** ApplicationContext */
+        ApplicationContext: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            contact: components["schemas"]["ApplicationContact"];
+            profile: components["schemas"]["ProfileSnapshot"];
+            /** Questions */
+            questions: components["schemas"]["ScreeningQuestionRead"][];
+            /** Existing Application Id */
+            existing_application_id: string | null;
+            /** Can Apply */
+            can_apply: boolean;
+            /** Ineligible Reason */
+            ineligible_reason: string | null;
+            /**
+             * Resume Optional
+             * @default true
+             */
+            resume_optional?: boolean;
+        };
+        /** ApplicationCreate */
+        ApplicationCreate: {
+            contact?: components["schemas"]["ApplicationContact"] | null;
+            /** Resume File Id */
+            resume_file_id?: string | null;
+            /** Cover Note */
+            cover_note?: string | null;
+            /** Salary Expectation */
+            salary_expectation?: number | string | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Screening Answers */
+            screening_answers?: components["schemas"]["ScreeningAnswer"][];
+            /** Accuracy Confirmed */
+            accuracy_confirmed: boolean;
+            /** Consent Share */
+            consent_share: boolean;
+        };
+        /** ApplicationPage */
+        ApplicationPage: {
+            /** Items */
+            items: components["schemas"]["ApplicationRead"][];
+            /** Stage Counts */
+            stage_counts?: {
+                [key: string]: number;
+            };
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /** ApplicationRead */
+        ApplicationRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "applied" | "review" | "shortlisted" | "interview" | "offered" | "hired" | "rejected" | "withdrawn";
+            /** Source */
+            source: string;
+            /** Resume File Id */
+            resume_file_id: string | null;
+            /** Cover Note */
+            cover_note: string | null;
+            /** Salary Expectation */
+            salary_expectation: string | null;
+            /** Currency */
+            currency: string;
+            /** Consent Share */
+            consent_share: boolean;
+            /**
+             * Accuracy Confirmed At
+             * Format: date-time
+             */
+            accuracy_confirmed_at: string;
+            /**
+             * Consent Shared At
+             * Format: date-time
+             */
+            consent_shared_at: string;
+            profile_snapshot: components["schemas"]["ProfileSnapshot"];
+            job_snapshot: components["schemas"]["JobSnapshot"];
+            /** Screening Answers */
+            screening_answers: components["schemas"]["AnswerSnapshot"][];
+            /**
+             * Stage Changed At
+             * Format: date-time
+             */
+            stage_changed_at: string;
+            /** Withdrawn At */
+            withdrawn_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /**
          * AttendeeRole
          * @description schema.sql CHECK on ``session_attendees.role``.
@@ -5345,6 +6121,11 @@ export interface components {
             /** Pending Count */
             pending_count: number;
         };
+        /**
+         * EmploymentType
+         * @enum {string}
+         */
+        EmploymentType: "full_time" | "part_time" | "contract" | "internship" | "temporary";
         /** EngagementRequestCreate */
         EngagementRequestCreate: {
             /**
@@ -5848,6 +6629,63 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HiringCompany */
+        HiringCompany: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "employer" | "startup";
+            /** Logo Url */
+            logo_url?: string | null;
+            /** Website */
+            website?: string | null;
+            /** City */
+            city?: string | null;
+            /** Region */
+            region?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Founded Year */
+            founded_year?: number | null;
+            /** Summary */
+            summary?: string | null;
+            stage?: components["schemas"]["StartupStage"] | null;
+            /** Sector */
+            sector?: string | null;
+            /**
+             * Verified
+             * @default false
+             */
+            verified?: boolean;
+            /**
+             * Open Jobs Count
+             * @default 0
+             */
+            open_jobs_count?: number;
+        };
+        /** HiringCompanyPage */
+        HiringCompanyPage: {
+            /** Items */
+            items: components["schemas"]["HiringCompany"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
         };
         /**
          * HoldingCreate
@@ -6977,6 +7815,313 @@ export interface components {
             /** Token */
             token?: string | null;
         };
+        /**
+         * JobAction
+         * @description Empty action input deliberately rejects attempts to smuggle writable fields.
+         */
+        JobAction: Record<string, never>;
+        /** JobBenefitRead */
+        JobBenefitRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+            /** Display Order */
+            display_order: number;
+        };
+        /** JobCreate */
+        JobCreate: {
+            /** Title */
+            title: string;
+            /** Description */
+            description?: string | null;
+            /** Responsibilities */
+            responsibilities?: string | null;
+            /** Requirements */
+            requirements?: string | null;
+            /** What We Offer */
+            what_we_offer?: string | null;
+            department?: components["schemas"]["Department"] | null;
+            /** Location */
+            location?: string | null;
+            /** @default onsite */
+            work_mode?: components["schemas"]["WorkMode"];
+            /** @default full_time */
+            employment_type?: components["schemas"]["EmploymentType"];
+            /** @default public */
+            visibility?: components["schemas"]["JobVisibility"];
+            /** Salary Min */
+            salary_min?: number | string | null;
+            /** Salary Max */
+            salary_max?: number | string | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** @default annual */
+            salary_period?: components["schemas"]["SalaryPeriod"];
+            /**
+             * Show Salary Publicly
+             * @default true
+             */
+            show_salary_publicly?: boolean;
+            /** Application Deadline */
+            application_deadline?: string | null;
+            /** Screening Questions */
+            screening_questions?: components["schemas"]["ScreeningQuestion"][];
+            /**
+             * Fair Hiring Confirmed
+             * @default false
+             */
+            fair_hiring_confirmed?: boolean;
+            /** Equity Min Pct */
+            equity_min_pct?: number | string | null;
+            /** Equity Max Pct */
+            equity_max_pct?: number | string | null;
+            /** Experience Min Yrs */
+            experience_min_yrs?: number | null;
+            /** Experience Max Yrs */
+            experience_max_yrs?: number | null;
+            /**
+             * Openings
+             * @default 1
+             */
+            openings?: number;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Skills */
+            skills?: components["schemas"]["JobSkillInput"][];
+            /** Benefits */
+            benefits?: string[];
+        };
+        /** JobPage */
+        JobPage: {
+            /** Items */
+            items: components["schemas"]["JobRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /** JobRead */
+        JobRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Responsibilities */
+            responsibilities: string | null;
+            /** Requirements */
+            requirements: string | null;
+            /** What We Offer */
+            what_we_offer: string | null;
+            department: components["schemas"]["Department"] | null;
+            /** Location */
+            location: string | null;
+            work_mode: components["schemas"]["WorkMode"];
+            employment_type: components["schemas"]["EmploymentType"];
+            status: components["schemas"]["JobStatus"];
+            visibility: components["schemas"]["JobVisibility"];
+            /** Salary Min */
+            salary_min: string | null;
+            /** Salary Max */
+            salary_max: string | null;
+            /** Currency */
+            currency: string;
+            salary_period: components["schemas"]["SalaryPeriod"];
+            /** Show Salary Publicly */
+            show_salary_publicly: boolean;
+            /** Application Deadline */
+            application_deadline: string | null;
+            /** Screening Questions */
+            screening_questions: components["schemas"]["ScreeningQuestion"][];
+            /** Fair Hiring Confirmed */
+            fair_hiring_confirmed: boolean;
+            /** Blind Review Enabled */
+            blind_review_enabled: boolean;
+            /** Equity Min Pct */
+            equity_min_pct: string | null;
+            /** Equity Max Pct */
+            equity_max_pct: string | null;
+            /** Experience Min Yrs */
+            experience_min_yrs: number | null;
+            /** Experience Max Yrs */
+            experience_max_yrs: number | null;
+            /** Openings */
+            openings: number;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Posted At */
+            posted_at: string | null;
+            /** Closed At */
+            closed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Skills */
+            skills: components["schemas"]["JobSkillRead"][];
+            /** Benefits */
+            benefits: components["schemas"]["JobBenefitRead"][];
+        };
+        /** JobReviewContext */
+        JobReviewContext: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Archived */
+            archived: boolean;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Blind Review Enabled */
+            blind_review_enabled: boolean;
+            /** Review Settings Locked */
+            review_settings_locked: boolean;
+        };
+        /** JobSkillInput */
+        JobSkillInput: {
+            /**
+             * Skill Id
+             * Format: uuid
+             */
+            skill_id: string;
+            /**
+             * Is Required
+             * @default true
+             */
+            is_required?: boolean;
+        };
+        /** JobSkillRead */
+        JobSkillRead: {
+            /**
+             * Skill Id
+             * Format: uuid
+             */
+            skill_id: string;
+            /**
+             * Is Required
+             * @default true
+             */
+            is_required?: boolean;
+            /** Name */
+            name: string;
+        };
+        /** JobSnapshot */
+        JobSnapshot: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Title */
+            title: string;
+            /** Company Name */
+            company_name: string;
+        };
+        /**
+         * JobStatus
+         * @enum {string}
+         */
+        JobStatus: "draft" | "open" | "paused" | "closed";
+        /** JobSummary */
+        JobSummary: {
+            /** Total */
+            total: number;
+            /** By Status */
+            by_status: {
+                [key: string]: number;
+            };
+        };
+        /** JobUpdate */
+        JobUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Responsibilities */
+            responsibilities?: string | null;
+            /** Requirements */
+            requirements?: string | null;
+            /** What We Offer */
+            what_we_offer?: string | null;
+            department?: components["schemas"]["Department"] | null;
+            /** Location */
+            location?: string | null;
+            work_mode?: components["schemas"]["WorkMode"] | null;
+            employment_type?: components["schemas"]["EmploymentType"] | null;
+            visibility?: components["schemas"]["JobVisibility"] | null;
+            /** Salary Min */
+            salary_min?: number | string | null;
+            /** Salary Max */
+            salary_max?: number | string | null;
+            /** Currency */
+            currency?: string | null;
+            salary_period?: components["schemas"]["SalaryPeriod"] | null;
+            /** Show Salary Publicly */
+            show_salary_publicly?: boolean | null;
+            /** Application Deadline */
+            application_deadline?: string | null;
+            /** Screening Questions */
+            screening_questions?: components["schemas"]["ScreeningQuestion"][] | null;
+            /** Fair Hiring Confirmed */
+            fair_hiring_confirmed?: boolean | null;
+            /** Equity Min Pct */
+            equity_min_pct?: number | string | null;
+            /** Equity Max Pct */
+            equity_max_pct?: number | string | null;
+            /** Experience Min Yrs */
+            experience_min_yrs?: number | null;
+            /** Experience Max Yrs */
+            experience_max_yrs?: number | null;
+            /** Openings */
+            openings?: number | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Skills */
+            skills?: components["schemas"]["JobSkillInput"][] | null;
+            /** Benefits */
+            benefits?: string[] | null;
+        };
+        /**
+         * JobVisibility
+         * @enum {string}
+         */
+        JobVisibility: "public" | "platform_members" | "link_only";
         /** LoginRequest */
         LoginRequest: {
             /**
@@ -7114,6 +8259,82 @@ export interface components {
          * @enum {string}
          */
         MarketUnit: "currency" | "count";
+        /** MarketplaceJob */
+        MarketplaceJob: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            company: components["schemas"]["HiringCompany"];
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Responsibilities */
+            responsibilities: string | null;
+            /** Requirements */
+            requirements: string | null;
+            /** What We Offer */
+            what_we_offer: string | null;
+            department: components["schemas"]["Department"] | null;
+            /** Location */
+            location: string | null;
+            work_mode: components["schemas"]["WorkMode"];
+            employment_type: components["schemas"]["EmploymentType"];
+            status: components["schemas"]["JobStatus"];
+            /** Salary Min */
+            salary_min: string | null;
+            /** Salary Max */
+            salary_max: string | null;
+            /** Currency */
+            currency: string;
+            salary_period: components["schemas"]["SalaryPeriod"];
+            /** Salary Visible */
+            salary_visible: boolean;
+            /** Equity Min Pct */
+            equity_min_pct: string | null;
+            /** Equity Max Pct */
+            equity_max_pct: string | null;
+            /** Experience Min Yrs */
+            experience_min_yrs: number | null;
+            /** Experience Max Yrs */
+            experience_max_yrs: number | null;
+            /** Openings */
+            openings: number;
+            /** Posted At */
+            posted_at: string | null;
+            /** Application Deadline */
+            application_deadline?: string | null;
+            /**
+             * Can Apply
+             * @default false
+             */
+            can_apply?: boolean;
+            /** Own Application Id */
+            own_application_id?: string | null;
+            /** Own Application Stage */
+            own_application_stage?: ("applied" | "review" | "shortlisted" | "interview" | "offered" | "hired" | "rejected" | "withdrawn") | null;
+            /** Screening Questions */
+            screening_questions: components["schemas"]["ScreeningQuestionRead"][];
+            /** Skills */
+            skills: components["schemas"]["JobSkillRead"][];
+            /** Benefits */
+            benefits: components["schemas"]["JobBenefitRead"][];
+        };
+        /** MarketplaceJobPage */
+        MarketplaceJobPage: {
+            /** Items */
+            items: components["schemas"]["MarketplaceJob"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
         /** MeetingCreate */
         MeetingCreate: {
             /**
@@ -8273,6 +9494,51 @@ export interface components {
              */
             created_at: string;
         };
+        /** NoteCreate */
+        NoteCreate: {
+            /** Body */
+            body: string;
+        };
+        /** NotePage */
+        NotePage: {
+            /** Items */
+            items: components["schemas"]["NoteRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /** NoteRead */
+        NoteRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /** Author Id */
+            author_id: string | null;
+            /** Body */
+            body: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** NotificationPreferenceItem */
         NotificationPreferenceItem: {
             /** Category */
@@ -8570,6 +9836,19 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** PipelinePatch */
+        PipelinePatch: {
+            /** Stage */
+            stage?: ("applied" | "review" | "shortlisted" | "interview" | "rejected") | null;
+            /** Expected Stage */
+            expected_stage?: ("applied" | "review" | "shortlisted" | "interview" | "offered" | "hired" | "rejected" | "withdrawn") | null;
+            /** Assignee Id */
+            assignee_id?: string | null;
+            /** Rejected Reason */
+            rejected_reason?: ("skills_mismatch" | "experience" | "role_filled" | "compensation" | "timing" | "other") | null;
+            /** Rejection Detail */
+            rejection_detail?: string | null;
+        };
         /**
          * PipelineStage
          * @description schema.sql ``pipeline_stage``, with ``diligence`` added (D5).
@@ -8579,6 +9858,20 @@ export interface components {
          * @enum {string}
          */
         PipelineStage: "interested" | "intro" | "meeting" | "data_room" | "diligence" | "offer" | "committed" | "passed" | "closed";
+        /** ProfileSnapshot */
+        ProfileSnapshot: {
+            contact: components["schemas"]["ApplicationContact"];
+            /** Headline */
+            headline: string | null;
+            /** Summary */
+            summary: string | null;
+            /** Experience Years */
+            experience_years: string | null;
+            /** Current Location */
+            current_location: string | null;
+            /** Skills */
+            skills: string[];
+        };
         /**
          * ProfileVisibility
          * @description Who may discover the startup profile (schema.sql CHECK values).
@@ -8807,6 +10100,23 @@ export interface components {
              */
             created_at: string;
         };
+        /** ReviewSettingsPatch */
+        ReviewSettingsPatch: {
+            /** Blind Review Enabled */
+            blind_review_enabled: boolean;
+        };
+        /** ReviewSettingsRead */
+        ReviewSettingsRead: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Blind Review Enabled */
+            blind_review_enabled: boolean;
+            /** Locked */
+            locked: boolean;
+        };
         /** RoomPut */
         RoomPut: {
             /**
@@ -8913,6 +10223,11 @@ export interface components {
          * @enum {string}
          */
         RoundStatus: "draft" | "open" | "paused" | "closed" | "cancelled";
+        /**
+         * SalaryPeriod
+         * @enum {string}
+         */
+        SalaryPeriod: "annual" | "monthly";
         /** SavedSearchCreate */
         SavedSearchCreate: {
             /** Name */
@@ -9018,6 +10333,48 @@ export interface components {
             signed_off_at: string | null;
             /** Updated At */
             updated_at: string | null;
+        };
+        /** ScreeningAnswer */
+        ScreeningAnswer: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "notice_period" | "remote_comfort" | "relevant_experience" | "work_authorization";
+            /** Value */
+            value: string | boolean;
+        };
+        /** ScreeningQuestion */
+        ScreeningQuestion: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "notice_period" | "remote_comfort" | "relevant_experience" | "work_authorization";
+            /**
+             * Required
+             * @default false
+             */
+            required?: boolean;
+        };
+        /** ScreeningQuestionRead */
+        ScreeningQuestionRead: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "notice_period" | "remote_comfort" | "relevant_experience" | "work_authorization";
+            /**
+             * Required
+             * @default false
+             */
+            required?: boolean;
+            /** Prompt */
+            prompt: string;
+            /** Type */
+            type: string;
+            /** Options */
+            options: string[];
         };
         /** SessionAttendeeIn */
         SessionAttendeeIn: {
@@ -9316,6 +10673,36 @@ export interface components {
             is_current_stage: boolean;
             /** Items */
             items: components["schemas"]["app__schemas__readiness__ReadinessRead"][];
+        };
+        /** StageEventPage */
+        StageEventPage: {
+            /** Items */
+            items: components["schemas"]["StageEventRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /** StageEventRead */
+        StageEventRead: {
+            /** Id */
+            id: number;
+            /** From Stage */
+            from_stage: ("applied" | "review" | "shortlisted" | "interview" | "offered" | "hired" | "rejected" | "withdrawn") | null;
+            /**
+             * To Stage
+             * @enum {string}
+             */
+            to_stage: "applied" | "review" | "shortlisted" | "interview" | "offered" | "hired" | "rejected" | "withdrawn";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * StageHistoryPage
@@ -10643,6 +12030,11 @@ export interface components {
              */
             created_at: string;
         };
+        /**
+         * WorkMode
+         * @enum {string}
+         */
+        WorkMode: "onsite" | "hybrid" | "remote";
         /** WorkspaceRead */
         WorkspaceRead: {
             mentorship: components["schemas"]["MentorshipRead"];
@@ -10673,6 +12065,19 @@ export interface components {
             data_rooms_opened: number;
             /** Offers Extended */
             offers_extended: number;
+        };
+        /** _ErrorDetail */
+        _ErrorDetail: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Details */
+            details?: unknown | null;
+        };
+        /** _ErrorResponse */
+        _ErrorResponse: {
+            error: components["schemas"]["_ErrorDetail"];
         };
         /**
          * DashboardSummary
@@ -14710,6 +16115,2587 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_jobs_api_v1_organizations__org_id__jobs_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["JobStatus"] | null;
+                department?: components["schemas"]["Department"] | null;
+                owner_id?: string | null;
+                location?: string | null;
+                work_mode?: components["schemas"]["WorkMode"] | null;
+                employment_type?: components["schemas"]["EmploymentType"] | null;
+                q?: string | null;
+                sort?: "created_at" | "updated_at" | "posted_at" | "title";
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobPage"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Inactive membership or insufficient organization role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Organization/job unavailable or outside this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid job lifecycle transition */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job metadata exceeds 256 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid input, reference or incomplete publishable job */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job mutation rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_job_api_v1_organizations__org_id__jobs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Inactive membership or insufficient organization role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Organization/job unavailable or outside this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid job lifecycle transition */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job metadata exceeds 256 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid input, reference or incomplete publishable job */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job mutation rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    job_summary_api_v1_organizations__org_id__jobs_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobSummary"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Inactive membership or insufficient organization role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Organization/job unavailable or outside this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid job lifecycle transition */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job metadata exceeds 256 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid input, reference or incomplete publishable job */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job mutation rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_job_api_v1_organizations__org_id__jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Inactive membership or insufficient organization role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Organization/job unavailable or outside this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid job lifecycle transition */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job metadata exceeds 256 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid input, reference or incomplete publishable job */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job mutation rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_job_api_v1_organizations__org_id__jobs__job_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Inactive membership or insufficient organization role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Organization/job unavailable or outside this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid job lifecycle transition */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job metadata exceeds 256 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid input, reference or incomplete publishable job */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job mutation rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    publish_job_api_v1_organizations__org_id__jobs__job_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["JobAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Inactive membership or insufficient organization role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Organization/job unavailable or outside this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid job lifecycle transition */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job metadata exceeds 256 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid input, reference or incomplete publishable job */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job mutation rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    pause_job_api_v1_organizations__org_id__jobs__job_id__pause_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["JobAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Inactive membership or insufficient organization role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Organization/job unavailable or outside this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid job lifecycle transition */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job metadata exceeds 256 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid input, reference or incomplete publishable job */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job mutation rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    close_job_api_v1_organizations__org_id__jobs__job_id__close_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["JobAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Inactive membership or insufficient organization role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Organization/job unavailable or outside this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid job lifecycle transition */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job metadata exceeds 256 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid input, reference or incomplete publishable job */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job mutation rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    archive_job_api_v1_organizations__org_id__jobs__job_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["JobAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Inactive membership or insufficient organization role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Organization/job unavailable or outside this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid job lifecycle transition */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job metadata exceeds 256 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid input, reference or incomplete publishable job */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job mutation rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    search_public_api_v1_public_jobs_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                location?: string | null;
+                org_id?: string | null;
+                org_type?: ("employer" | "startup") | null;
+                work_mode?: components["schemas"]["WorkMode"] | null;
+                employment_type?: components["schemas"]["EmploymentType"] | null;
+                work_modes?: components["schemas"]["WorkMode"][];
+                employment_types?: components["schemas"]["EmploymentType"][];
+                stages?: components["schemas"]["StartupStage"][];
+                verified_only?: boolean;
+                department?: components["schemas"]["Department"] | null;
+                stage?: components["schemas"]["StartupStage"] | null;
+                sector?: string | null;
+                experience_min?: number | null;
+                experience_max?: number | null;
+                skill_ids?: string[];
+                skills_match?: "all" | "any";
+                salary_min?: number | string | null;
+                salary_max?: number | string | null;
+                currency?: string;
+                salary_period?: components["schemas"]["SalaryPeriod"];
+                equity_only?: boolean;
+                posted_days?: number | null;
+                sort?: "relevance" | "newest" | "salary" | "deadline";
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketplaceJobPage"];
+                };
+            };
+            /** @description Invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not visible or not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid bounded filters */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Discovery rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    detail_public_api_v1_public_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketplaceJob"];
+                };
+            };
+            /** @description Invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not visible or not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid bounded filters */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Discovery rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    company_public_api_v1_public_companies__org_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HiringCompany"];
+                };
+            };
+            /** @description Invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not visible or not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid bounded filters */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Discovery rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    startups_public_api_v1_public_hiring_startups_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                location?: string | null;
+                stage?: components["schemas"]["StartupStage"] | null;
+                sector?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HiringCompanyPage"];
+                };
+            };
+            /** @description Invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not visible or not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid bounded filters */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Discovery rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    search_authenticated_api_v1_jobs_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                location?: string | null;
+                org_id?: string | null;
+                org_type?: ("employer" | "startup") | null;
+                work_mode?: components["schemas"]["WorkMode"] | null;
+                employment_type?: components["schemas"]["EmploymentType"] | null;
+                work_modes?: components["schemas"]["WorkMode"][];
+                employment_types?: components["schemas"]["EmploymentType"][];
+                stages?: components["schemas"]["StartupStage"][];
+                verified_only?: boolean;
+                department?: components["schemas"]["Department"] | null;
+                stage?: components["schemas"]["StartupStage"] | null;
+                sector?: string | null;
+                experience_min?: number | null;
+                experience_max?: number | null;
+                skill_ids?: string[];
+                skills_match?: "all" | "any";
+                salary_min?: number | string | null;
+                salary_max?: number | string | null;
+                currency?: string;
+                salary_period?: components["schemas"]["SalaryPeriod"];
+                equity_only?: boolean;
+                posted_days?: number | null;
+                sort?: "relevance" | "newest" | "salary" | "deadline";
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketplaceJobPage"];
+                };
+            };
+            /** @description Invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not visible or not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid bounded filters */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Discovery rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    detail_authenticated_api_v1_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketplaceJob"];
+                };
+            };
+            /** @description Invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not visible or not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid bounded filters */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Discovery rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    company_authenticated_api_v1_companies__org_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HiringCompany"];
+                };
+            };
+            /** @description Invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not visible or not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid bounded filters */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Discovery rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    startups_authenticated_api_v1_hiring_startups_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                location?: string | null;
+                stage?: components["schemas"]["StartupStage"] | null;
+                sector?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HiringCompanyPage"];
+                };
+            };
+            /** @description Invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not visible or not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid bounded filters */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Discovery rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    application_context_api_v1_jobs__job_id__application_context_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationContext"];
+                };
+            };
+            /** @description Invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Verified active job-seeker role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found or not owned */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Duplicate application, deadline, or invalid state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid fields, references, consent or screening answers */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    submit_api_v1_jobs__job_id__applications_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplicationCreate"];
+            };
+        };
+        responses: {
+            /** @description Identical already-committed submission */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationRead"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationRead"];
+                };
+            };
+            /** @description Invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Verified active job-seeker role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found or not owned */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Duplicate application, deadline, or invalid state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid fields, references, consent or screening answers */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_applications_api_v1_applications_get: {
+        parameters: {
+            query?: {
+                stage?: ("applied" | "review" | "shortlisted" | "interview" | "offered" | "hired" | "rejected" | "withdrawn") | null;
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationPage"];
+                };
+            };
+            /** @description Invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Verified active job-seeker role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found or not owned */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Duplicate application, deadline, or invalid state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid fields, references, consent or screening answers */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    application_detail_api_v1_applications__application_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationRead"];
+                };
+            };
+            /** @description Invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Verified active job-seeker role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found or not owned */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Duplicate application, deadline, or invalid state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid fields, references, consent or screening answers */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    history_api_v1_applications__application_id__stage_events_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageEventPage"];
+                };
+            };
+            /** @description Invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Verified active job-seeker role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found or not owned */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Duplicate application, deadline, or invalid state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid fields, references, consent or screening answers */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    withdraw_api_v1_applications__application_id__withdraw_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["JobAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationRead"];
+                };
+            };
+            /** @description Invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Verified active job-seeker role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found or not owned */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Duplicate application, deadline, or invalid state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid fields, references, consent or screening answers */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    applicants_api_v1_organizations__org_id__jobs__job_id__applications_get: {
+        parameters: {
+            query?: {
+                stage?: ("applied" | "review" | "shortlisted" | "interview" | "offered" | "hired" | "rejected" | "withdrawn") | null;
+                source?: ("platform" | "referral" | "marketplace" | "outreach" | "agency" | "other") | null;
+                assignee_id?: string | null;
+                q?: string | null;
+                sort?: "newest" | "oldest" | "stage_changed";
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicantPage"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Stale stage, terminal application, read-only job or locked setting */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or assignee reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Applicant or file-download rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    detail_api_v1_organizations__org_id__jobs__job_id__applications__application_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicantRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Stale stage, terminal application, read-only job or locked setting */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or assignee reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Applicant or file-download rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_api_v1_organizations__org_id__jobs__job_id__applications__application_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PipelinePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicantRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Stale stage, terminal application, read-only job or locked setting */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or assignee reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Applicant or file-download rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    history_api_v1_organizations__org_id__jobs__job_id__applications__application_id__stage_events_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageEventPage"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Stale stage, terminal application, read-only job or locked setting */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or assignee reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Applicant or file-download rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    notes_api_v1_organizations__org_id__jobs__job_id__applications__application_id__notes_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotePage"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Stale stage, terminal application, read-only job or locked setting */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or assignee reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Applicant or file-download rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_note_api_v1_organizations__org_id__jobs__job_id__applications__application_id__notes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Stale stage, terminal application, read-only job or locked setting */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or assignee reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Applicant or file-download rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_note_api_v1_organizations__org_id__jobs__job_id__applications__application_id__notes__note_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+                application_id: string;
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Stale stage, terminal application, read-only job or locked setting */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or assignee reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Applicant or file-download rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    review_settings_api_v1_organizations__org_id__jobs__job_id__review_settings_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewSettingsPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewSettingsRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Stale stage, terminal application, read-only job or locked setting */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or assignee reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Applicant or file-download rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    resume_download_api_v1_organizations__org_id__jobs__job_id__applications__application_id__resume_download_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["JobAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileDownloadRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Stale stage, terminal application, read-only job or locked setting */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or assignee reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Applicant or file-download rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
                 };
             };
         };

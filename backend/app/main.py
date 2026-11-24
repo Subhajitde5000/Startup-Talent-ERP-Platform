@@ -17,6 +17,7 @@ from app.core.logging import RequestIDMiddleware, configure_logging
 from app.db.session import engine
 from app.routers import (
     analytics,
+    applicant_pipeline,
     auth,
     availability,
     commitment,
@@ -38,6 +39,9 @@ from app.routers import (
     investor_search,
     investor_workspace,
     invites,
+    job_applications,
+    job_discovery,
+    jobs,
     market,
     mentor,
     mentor_workspace,
@@ -132,6 +136,10 @@ def create_app() -> FastAPI:
     app.include_router(users.router, prefix=settings.API_V1_PREFIX)
     app.include_router(skills.router, prefix=settings.API_V1_PREFIX)
     app.include_router(organizations.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(jobs.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(job_discovery.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(job_applications.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(applicant_pipeline.router, prefix=settings.API_V1_PREFIX)
     app.include_router(startup_profile.router, prefix=settings.API_V1_PREFIX)
     app.include_router(milestones.router, prefix=settings.API_V1_PREFIX)
     app.include_router(funding_round.router, prefix=settings.API_V1_PREFIX)

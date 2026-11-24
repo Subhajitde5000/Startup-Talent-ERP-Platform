@@ -1,80 +1,85 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import {
-  Rocket,
-  Search,
-  Filter,
-  CheckCircle2,
-  Award,
-  Users,
-  MapPin,
-  Briefcase,
-  ExternalLink,
-  ChevronRight,
-  Shield,
-} from 'lucide-react';
+import { Search, CheckCircle2, Shield } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
+import { JobBtn } from '@/components/jobseeker-ui';
 import {
-  JobBtn,
-  CompanyMiniCard,
-  JobCard,
-  defaultUser,
-} from '@/components/jobseeker-ui';
-import { companies, jobs } from '../jobseeker-data';
+  api,
+  useCareerSearch,
+  useCareerResource,
+  CareerJobCard,
+  ResourceState,
+  Pagination,
+  lifecycle,
+} from '@/components/career-data';
+import { useAuth } from '@/lib/auth-context';
 
 export default function StartupsPage() {
   const [viewMode, setViewMode] = useState('startups'); // 'startups' | 'jobs'
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('');
   const [sectorFilter, setSectorFilter] = useState('');
-  const [investmentReadyOnly, setInvestmentReadyOnly] = useState(false);
-  const [followedCompanies, setFollowedCompanies] = useState([]);
-
-  const toggleFollow = (id) => {
-    setFollowedCompanies((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    );
+  const { user } = useAuth();
+  const [pagination, setPagination] = useState({ key: '', offset: 0 });
+  const searchQuery = useCareerSearch(search);
+  const query = {
+    q: searchQuery || undefined,
+    stage: stageFilter || undefined,
+    sector: sectorFilter || undefined,
+    limit: 20,
   };
-
-  const filteredStartups = useMemo(() => {
-    return companies.filter((c) => {
-      if (search.trim()) {
-        const hay = `${c.name} ${c.industry} ${c.location}`.toLowerCase();
-        if (!hay.includes(search.toLowerCase())) return false;
-      }
-      if (stageFilter && c.stage !== stageFilter) return false;
-      if (sectorFilter && c.industry !== sectorFilter) return false;
-      if (investmentReadyOnly && !c.investmentReady) return false;
-      return true;
-    });
-  }, [search, stageFilter, sectorFilter, investmentReadyOnly]);
-
-  const startupJobs = useMemo(() => {
-    return jobs.filter((j) => {
-      if (search.trim()) {
-        const hay = `${j.title} ${j.company?.name || ''}`.toLowerCase();
-        if (!hay.includes(search.toLowerCase())) return false;
-      }
-      return true;
-    });
-  }, [search]);
+  const key = JSON.stringify(query);
+  const offset = pagination.key === key + viewMode ? pagination.offset : 0;
+  const directory = useCareerResource(
+    `startups:${key}:${viewMode === 'startups' ? offset : 0}`,
+    (signal) =>
+      api.careers.startups(
+        { ...query, offset: viewMode === 'startups' ? offset : 0 },
+        Boolean(user),
+        signal
+      )
+  );
+  const listings = useCareerResource(
+    `startup-jobs:${key}:${viewMode === 'jobs' ? offset : 0}`,
+    (signal) =>
+      api.careers.jobs(
+        {
+          ...query,
+          org_type: 'startup',
+          offset: viewMode === 'jobs' ? offset : 0,
+        },
+        Boolean(user),
+        signal
+      )
+  );
+  const filteredStartups = (directory.data?.items || []).map((c) => ({
+    ...c,
+    stage: lifecycle[c.stage],
+    industry: c.sector || 'Not provided',
+    location:
+      [c.city, c.region, c.country].filter(Boolean).join(', ') ||
+      'Not provided',
+  }));
+  const startupJobs = listings.data?.items || [];
+  const resource = viewMode === 'startups' ? directory : listings;
 
   return (
-    <JobSeekerShell active="Jobs">
+    <JobSeekerShell active="Startups" liveData>
       <div className="space-y-6">
         {/* Hero Banner */}
         <section className="rounded-2xl border border-[#E5E1D8] bg-[#0F1B2D] p-6 text-white shadow-sm relative overflow-hidden">
           <div className="relative z-10 max-w-2xl space-y-3">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-[#B8955A]/20 px-3 py-1 text-xs text-[#B8955A] font-semibold">
-              <Shield size={13} /> Verified Startup Ecosystem
+              <Shield size={13} /> Startup Hiring Directory
             </div>
             <h1 className="text-xl md:text-2xl font-serif font-bold text-white">
-              Venture-Backed Startups Hiring Now
+              Startups Hiring Now
             </h1>
             <p className="text-xs md:text-sm text-white/70 leading-relaxed">
-              Connect directly with verified early-stage founders and growth teams. No recruiter middlemen, clear equity terms, and mentorship-backed ventures.
+              Explore startups with current openings and published company
+              information.
             </p>
             <div className="pt-2 flex flex-wrap gap-2">
               <button
@@ -86,7 +91,7 @@ export default function StartupsPage() {
                     : 'bg-white/10 text-white hover:bg-white/20'
                 }`}
               >
-                Startups Directory ({filteredStartups.length})
+                Startups Directory ({directory.data?.total ?? '—'})
               </button>
               <button
                 type="button"
@@ -97,7 +102,7 @@ export default function StartupsPage() {
                     : 'bg-white/10 text-white hover:bg-white/20'
                 }`}
               >
-                Startup Jobs ({startupJobs.length})
+                Startup Jobs ({listings.data?.total ?? '—'})
               </button>
             </div>
           </div>
@@ -106,10 +111,14 @@ export default function StartupsPage() {
         {/* Filter bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl border border-[#E5E1D8]">
           <div className="relative min-w-[240px] flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A0A7B4]" size={16} />
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A0A7B4]"
+              size={16}
+            />
             <input
               type="text"
               aria-label="Search startups"
+              maxLength={100}
               placeholder="Search by company, sector, or city..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -125,10 +134,11 @@ export default function StartupsPage() {
               className="h-9 rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
             >
               <option value="">All Stages</option>
-              <option value="Idea">Idea</option>
-              <option value="Prototype">Prototype</option>
-              <option value="Early revenue">Early Revenue</option>
-              <option value="Mature startup">Mature Startup</option>
+              {Object.entries(lifecycle).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
 
             <select
@@ -144,26 +154,21 @@ export default function StartupsPage() {
               <option value="EdTech">EdTech</option>
             </select>
 
-            <label className="flex items-center gap-1.5 cursor-pointer ml-1">
-              <input
-                type="checkbox"
-                checked={investmentReadyOnly}
-                onChange={(e) => setInvestmentReadyOnly(e.target.checked)}
-                className="h-4 w-4 rounded border-[#E5E1D8] text-[#B8955A] focus:ring-[#B8955A]"
-              />
-              <span className="font-medium text-[#0F1B2D]">Investment Ready</span>
-            </label>
+            <span className="text-[#6B7280]">
+              Investment readiness unavailable
+            </span>
           </div>
         </div>
 
+        <ResourceState
+          resource={resource}
+          empty={!resource.data?.items.length}
+          emptyLabel="No matching hiring startups or jobs."
+        />
         {/* Content Section */}
         {viewMode === 'startups' ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredStartups.map((company) => {
-              const isFollowing = followedCompanies.includes(company.id);
-              const companyOpenJobs = jobs.filter(
-                (j) => j.company?.id === company.id || j.company === company.name
-              );
               return (
                 <div
                   key={company.id}
@@ -188,15 +193,19 @@ export default function StartupsPage() {
                       </div>
                     </div>
 
-                    <h2 className="text-sm font-semibold text-[#0F1B2D]">{company.name}</h2>
+                    <h2 className="text-sm font-semibold text-[#0F1B2D]">
+                      {company.name}
+                    </h2>
                     <p className="text-xs text-[#4A5568] mt-1 line-clamp-2 leading-relaxed">
-                      {company.tagline || company.bio}
+                      {company.summary || 'No summary provided.'}
                     </p>
 
                     <div className="mt-3 pt-3 border-t border-[#F0EBE0] space-y-1 text-xs text-[#6B7280]">
                       <div className="flex justify-between">
                         <span>Industry:</span>
-                        <strong className="text-[#0F1B2D] font-medium">{company.industry}</strong>
+                        <strong className="text-[#0F1B2D] font-medium">
+                          {company.industry}
+                        </strong>
                       </div>
                       <div className="flex justify-between">
                         <span>Location:</span>
@@ -204,25 +213,25 @@ export default function StartupsPage() {
                       </div>
                       <div className="flex justify-between">
                         <span>Open Positions:</span>
-                        <span className="text-[#286749] font-semibold">{companyOpenJobs.length} roles</span>
+                        <span className="text-[#286749] font-semibold">
+                          {company.open_jobs_count} roles
+                        </span>
                       </div>
                     </div>
                   </div>
 
                   <div className="pt-2 flex items-center gap-2 border-t border-[#F0EBE0]">
-                    <Link href={`/jobseeker/companies/${company.id}`} className="flex-1">
+                    <Link
+                      href={`/jobseeker/companies/${company.id}`}
+                      className="flex-1"
+                    >
                       <JobBtn secondary small className="w-full">
                         View Profile
                       </JobBtn>
                     </Link>
-                    <JobBtn
-                      primary={!isFollowing}
-                      secondary={isFollowing}
-                      small
-                      onClick={() => toggleFollow(company.id)}
-                    >
-                      {isFollowing ? 'Following' : 'Follow'}
-                    </JobBtn>
+                    <span className="text-xs text-[#6B7280]">
+                      Following unavailable
+                    </span>
                   </div>
                 </div>
               );
@@ -231,10 +240,14 @@ export default function StartupsPage() {
         ) : (
           <div className="space-y-4">
             {startupJobs.map((job) => (
-              <JobCard key={job.id} job={job} user={defaultUser} />
+              <CareerJobCard key={job.id} job={job} />
             ))}
           </div>
         )}
+        <Pagination
+          page={resource.data}
+          onChange={(offset) => setPagination({ key: key + viewMode, offset })}
+        />
       </div>
     </JobSeekerShell>
   );

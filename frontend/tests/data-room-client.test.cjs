@@ -2,13 +2,14 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
+const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 function loadClient(fetch) {
   const tokens = new Map([['forma.access_token', 'old-access'], ['forma.refresh_token', 'old-refresh']]);
   const exports = {};
   const sandbox = { exports, process: { env: {} }, fetch, Blob, Response, URLSearchParams, Event, AbortController, setTimeout, clearTimeout, window: { localStorage: { getItem: key => tokens.get(key) ?? null, setItem: (key, value) => tokens.set(key, value), removeItem: key => tokens.delete(key) }, dispatchEvent() {} } };
-  const code = ts.transpileModule(readFileSync('lib/api/client.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  const code = ts.transpileModule(readFileSync(path.join(__dirname, '../lib/api/client.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   vm.runInNewContext(code, sandbox);
   return { ...exports, tokens };
 }

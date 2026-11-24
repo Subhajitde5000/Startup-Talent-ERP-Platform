@@ -2,11 +2,11 @@
 /**
  * Session state for the whole app: who is signed in, the current user's
  * roles, and the login/logout helpers. Backed by lib/api/client.ts (tokens
- * live in local storage; the API client attaches them and refreshes them).
+ * persist across reloads in localStorage; the API client attaches and refreshes them).
  */
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, clearTokens, getAccessToken, setTokens, UNAUTHENTICATED_EVENT } from '@/lib/api/client';
+import { api, clearTokens, getAccessToken, getRefreshToken, setTokens, UNAUTHENTICATED_EVENT } from '@/lib/api/client';
 
 const AuthContext = createContext(null);
 
@@ -49,7 +49,7 @@ export function AuthProvider({ children }) {
     mounted.current = true;
     let cancelled = false;
     async function load() {
-      if (!getAccessToken()) {
+      if (!getAccessToken() && !getRefreshToken()) {
         setLoading(false);
         return;
       }

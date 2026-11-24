@@ -23,6 +23,7 @@ export default function EmployerShell({
   mainId = 'employer-main',
   backHref,
   backLabel,
+  jobsWorkspace,
 }) {
   const [compact, setCompact] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -50,6 +51,7 @@ export default function EmployerShell({
 
       {/* Reusable Employer Sidebar (Desktop & Mobile Drawer) */}
       <EmployerSidebar
+        jobsWorkspace={jobsWorkspace}
         active={currentActive}
         activeNav={currentActive}
         compact={compact}
@@ -63,6 +65,7 @@ export default function EmployerShell({
 
       {/* Top Header with matching responsive margin offset */}
       <EmployerHeader
+        jobsWorkspace={jobsWorkspace}
         compact={compact}
         onToggleMobile={() => setMobileOpen(!mobileOpen)}
         onOpenMobileNav={() => setMobileOpen(true)}
