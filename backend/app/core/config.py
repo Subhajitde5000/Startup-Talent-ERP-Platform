@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     # Redis (empty = in-memory fallback for dev/test without Redis)
     REDIS_URL: str = ""
 
+    JOB_DISCOVERY_LIMIT: int = 60
+    APPLICATION_SUBMIT_LIMIT: int = 20
+    APPLICATION_WITHDRAW_LIMIT: int = 30
+
     # Rate limits
     LOGIN_IP_LIMIT: int = 20
     LOGIN_IP_WINDOW_SECONDS: int = 300
@@ -209,6 +213,14 @@ class Settings(BaseSettings):
     DATA_ROOM_REQUEST_LIMIT: int = Field(default=10, ge=1)
     DATA_ROOM_NDA_LIMIT: int = Field(default=10, ge=1)
     DATA_ROOM_CONTENT_LIMIT: int = Field(default=120, ge=1)
+
+    # Step 7a: all job mutations share one per-user limit.
+    JOB_WRITE_LIMIT: int = Field(default=60, ge=1)
+    JOB_WRITE_WINDOW_SECONDS: int = Field(default=60, ge=1)
+
+    # Step 7d: shared limiter, per authenticated actor per minute.
+    APPLICANT_READ_LIMIT: int = Field(default=120, ge=1)
+    APPLICANT_WRITE_LIMIT: int = Field(default=60, ge=1)
 
     # CORS: explicit allow-list only, never "*" with credentials.
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])

@@ -1,7 +1,9 @@
+'use client';
+import { usePathname } from 'next/navigation';
 import RoleGuard from '@/components/role-guard';
+import { isPublicCareerRoute } from '@/lib/career-routes';
 
-// Step 2 auth guard: every route under /jobseeker/ requires the "jobseeker" role.
-// Pages render their own shell/sidebar; this gates the whole section.
 export default function JobseekerLayout({ children }) {
-  return <RoleGuard role="jobseeker">{children}</RoleGuard>;
+  const pathname = usePathname();
+  return isPublicCareerRoute(pathname) ? children : <RoleGuard role="jobseeker">{children}</RoleGuard>;
 }

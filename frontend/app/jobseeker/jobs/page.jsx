@@ -1,30 +1,27 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Search,
   MapPin,
-  Sparkles,
   SlidersHorizontal,
-  ChevronLeft,
   X,
   Briefcase,
-  CheckCircle2,
-  Bookmark,
   ArrowRight,
   Filter,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
+import { JobBtn } from '@/components/jobseeker-ui';
 import {
-  JobBtn,
-  JobCard,
-  SaveToggle,
-  defaultUser,
-} from '@/components/jobseeker-ui';
-import { jobs } from '../jobseeker-data';
-
-const RECENT_SEARCHES = ['Product Designer', 'Design Systems', 'Remote Figma', 'Bengaluru Startups'];
+  api,
+  useCareerSearch,
+  useCareerResource,
+  CareerJobCard,
+  ResourceState,
+  Pagination,
+} from '@/components/career-data';
+import { useAuth } from '@/lib/auth-context';
 
 export default function JobSearchPage() {
   const [query, setQuery] = useState('');
@@ -37,10 +34,6 @@ export default function JobSearchPage() {
     verifiedOnly: false,
   });
   const [sort, setSort] = useState('best');
-  const [drawerJob, setDrawerJob] = useState(null);
-  const [savedJobIds, setSavedJobIds] = useState(defaultUser.savedIds);
-  const [appliedJobIds, setAppliedJobIds] = useState(defaultUser.appliedIds);
-  const [savedSearchToast, setSavedSearchToast] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const toggleFilter = (category, value) => {
@@ -74,73 +67,59 @@ export default function JobSearchPage() {
     return count;
   }, [filters]);
 
-  const filtered = useMemo(() => {
-    let res = jobs.filter((j) => {
-      if (query.trim()) {
-        const hay = `${j.title} ${j.company?.name || ''} ${j.industry || ''}`.toLowerCase();
-        if (!hay.includes(query.toLowerCase())) return false;
-      }
-      if (location.trim()) {
-        const locHay = `${j.loc || ''} ${j.mode || ''}`.toLowerCase();
-        if (!locHay.includes(location.toLowerCase())) return false;
-      }
-      if (filters.jobType.length && !filters.jobType.includes(j.type)) return false;
-      if (filters.workMode.length && !filters.workMode.includes(j.mode)) return false;
-      if (filters.companyStage.length && !filters.companyStage.includes(j.stage)) return false;
-      if (filters.verifiedOnly && !j.verified) return false;
-      return true;
-    });
-
-    if (sort === 'newest') {
-      res = [...res].reverse();
-    } else if (sort === 'salary') {
-      res = [...res].sort((a, b) => b.salary.localeCompare(a.salary));
-    }
-    return res;
-  }, [query, location, filters, sort]);
-
-  const handleSave = useCallback((id) => {
-    setSavedJobIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  }, []);
-
-  const handleApply = useCallback((id) => {
-    setAppliedJobIds((prev) => [...new Set([...prev, id])]);
-  }, []);
-
-  const handleSaveSearch = () => {
-    setSavedSearchToast(true);
-    setTimeout(() => setSavedSearchToast(false), 3000);
+  const { user } = useAuth();
+  const [offset, setOffset] = useState(0);
+  const searchQuery = useCareerSearch(query);
+  const searchLocation = useCareerSearch(location);
+  const search = {
+    q: searchQuery || undefined,
+    location: searchLocation || undefined,
+    work_modes: filters.workMode.map(
+      (v) => ({ Remote: 'remote', Hybrid: 'hybrid', 'On-site': 'onsite' })[v]
+    ),
+    employment_types: filters.jobType.map((v) =>
+      v.toLowerCase().replace('-', '_')
+    ),
+    stages: filters.companyStage.map((v) => v.toLowerCase().replace(' ', '_')),
+    verified_only: filters.verifiedOnly,
+    sort: sort === 'best' ? 'relevance' : sort,
+    limit: 20,
+  };
+  const searchKey = JSON.stringify(search);
+  const [pageKey, setPageKey] = useState('');
+  const pageOffset = pageKey === searchKey ? offset : 0;
+  const resource = useCareerResource(searchKey + ':' + pageOffset, (signal) =>
+    api.careers.jobs({ ...search, offset: pageOffset }, Boolean(user), signal)
+  );
+  const filtered = resource.data?.items || [];
+  const changePage = (next) => {
+    setPageKey(searchKey);
+    setOffset(next);
   };
 
-  const userState = useMemo(
-    () => ({
-      ...defaultUser,
-      savedIds: savedJobIds,
-      appliedIds: appliedJobIds,
-    }),
-    [savedJobIds, appliedJobIds]
-  );
-
   return (
-    <JobSeekerShell active="Jobs">
+    <JobSeekerShell active="Jobs" liveData>
       <div className="space-y-6">
         {/* Search header card */}
         <section className="rounded-2xl border border-[#E5E1D8] bg-white p-5 md:p-6 shadow-sm">
           <h1 className="text-xl md:text-2xl font-serif font-bold text-[#0F1B2D] mb-1">
-            Discover Verified Startup Roles
+            Discover Startup & Employer Roles
           </h1>
           <p className="text-xs md:text-sm text-[#4A5568] mb-5">
-            Transparent compensation, direct founder access, and AI match scoring.
+            Explore current openings, published compensation, and company
+            details.
           </p>
 
           <div className="grid gap-3 md:grid-cols-12">
             <div className="relative md:col-span-6">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A0A7B4]" size={18} />
+              <Search
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A0A7B4]"
+                size={18}
+              />
               <input
                 type="text"
                 aria-label="Job title, skill or company"
+                maxLength={100}
                 placeholder="Job title, skill, or keyword..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -148,10 +127,14 @@ export default function JobSearchPage() {
               />
             </div>
             <div className="relative md:col-span-4">
-              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A0A7B4]" size={18} />
+              <MapPin
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A0A7B4]"
+                size={18}
+              />
               <input
                 type="text"
                 aria-label="Location or remote"
+                maxLength={200}
                 placeholder="City, region, or 'Remote'..."
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
@@ -161,7 +144,7 @@ export default function JobSearchPage() {
             <div className="flex gap-2 md:col-span-2">
               <JobBtn
                 primary
-                onClick={() => {}}
+                onClick={resource.reload}
                 className="w-full h-11 text-xs"
               >
                 Search
@@ -176,43 +159,14 @@ export default function JobSearchPage() {
               </button>
             </div>
           </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-2 pt-3 border-t border-[#F0EBE0] text-xs">
-            <span className="text-[#6B7280]">Popular:</span>
-            {RECENT_SEARCHES.map((term) => (
-              <button
-                key={term}
-                type="button"
-                onClick={() => setQuery(term)}
-                className="rounded-full bg-[#FAF8F4] border border-[#E5E1D8] px-2.5 py-1 text-xs text-[#0F1B2D] hover:bg-[#F3EBDD] transition-colors"
-              >
-                {term}
-              </button>
-            ))}
-          </div>
         </section>
-
-        {/* Saved search notification */}
-        {savedSearchToast && (
-          <div className="rounded-xl border border-[#CDE5D7] bg-[#E7F3EC] p-3 text-xs text-[#286749] flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <CheckCircle2 size={16} /> Saved search alert created! We will email you new matching jobs daily.
-            </span>
-            <button
-              type="button"
-              onClick={() => setSavedSearchToast(false)}
-              className="text-[#286749] hover:underline"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
 
         {/* Results Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold text-[#0F1B2D]">
-              {filtered.length} {filtered.length === 1 ? 'job' : 'jobs'} available
+              {resource.data?.total ?? '—'}{' '}
+              {resource.data?.total === 1 ? 'job' : 'jobs'} available
             </h2>
             {activeFiltersCount > 0 && (
               <button
@@ -236,13 +190,11 @@ export default function JobSearchPage() {
               onChange={(e) => setSort(e.target.value)}
               className="rounded-lg border border-[#E5E1D8] bg-white px-3 py-1.5 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
             >
-              <option value="best">Best Match (AI Score)</option>
+              <option value="best">Keyword relevance</option>
               <option value="newest">Recently Posted</option>
               <option value="salary">Compensation (High to Low)</option>
             </select>
-            <JobBtn secondary small onClick={handleSaveSearch}>
-              Save search
-            </JobBtn>
+            <span className="text-[#6B7280]">Saved searches unavailable</span>
           </div>
         </div>
 
@@ -302,23 +254,25 @@ export default function JobSearchPage() {
                   Job Type
                 </span>
                 <div className="flex flex-wrap gap-1.5">
-                  {['Full-time', 'Part-time', 'Contract', 'Internship'].map((type) => {
-                    const active = filters.jobType.includes(type);
-                    return (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => toggleFilter('jobType', type)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
-                          active
-                            ? 'bg-[#0F1B2D] text-white border-[#0F1B2D]'
-                            : 'bg-[#FAF8F4] text-[#4A5568] border-[#E5E1D8] hover:bg-[#F3EBDD]'
-                        }`}
-                      >
-                        {type}
-                      </button>
-                    );
-                  })}
+                  {['Full-time', 'Part-time', 'Contract', 'Internship'].map(
+                    (type) => {
+                      const active = filters.jobType.includes(type);
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => toggleFilter('jobType', type)}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
+                            active
+                              ? 'bg-[#0F1B2D] text-white border-[#0F1B2D]'
+                              : 'bg-[#FAF8F4] text-[#4A5568] border-[#E5E1D8] hover:bg-[#F3EBDD]'
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      );
+                    }
+                  )}
                 </div>
               </div>
 
@@ -328,7 +282,13 @@ export default function JobSearchPage() {
                   Company Stage
                 </span>
                 <div className="flex flex-wrap gap-1.5">
-                  {['Seed', 'Early revenue', 'Series A', 'Growth'].map((stage) => {
+                  {[
+                    'Idea',
+                    'Prototype',
+                    'Early revenue',
+                    'Growth',
+                    'Mature',
+                  ].map((stage) => {
                     const active = filters.companyStage.includes(stage);
                     return (
                       <button
@@ -355,7 +315,10 @@ export default function JobSearchPage() {
                     type="checkbox"
                     checked={filters.verifiedOnly}
                     onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, verifiedOnly: e.target.checked }))
+                      setFilters((prev) => ({
+                        ...prev,
+                        verifiedOnly: e.target.checked,
+                      }))
                     }
                     className="h-4 w-4 rounded border-[#E5E1D8] text-[#B8955A] focus:ring-[#B8955A]"
                   />
@@ -367,10 +330,11 @@ export default function JobSearchPage() {
             {/* Quick links banner */}
             <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-4 text-xs space-y-2">
               <span className="font-semibold text-[#0F1B2D] flex items-center gap-1.5">
-                <Briefcase size={14} className="text-[#B8955A]" /> Looking for Startups?
+                <Briefcase size={14} className="text-[#B8955A]" /> Looking for
+                Startups?
               </span>
               <p className="text-[#6B7280] leading-relaxed">
-                Browse venture-backed companies actively building new engineering and design teams.
+                Browse startups with current openings.
               </p>
               <Link
                 href="/jobseeker/startups"
@@ -383,29 +347,15 @@ export default function JobSearchPage() {
 
           {/* Job listings column */}
           <div className="lg:col-span-8 space-y-4">
-            {filtered.length === 0 ? (
-              <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center space-y-3">
-                <p className="text-sm font-semibold text-[#0F1B2D]">No matching jobs found</p>
-                <p className="text-xs text-[#6B7280] max-w-md mx-auto">
-                  Try adjusting your keywords, broadening work mode filters, or clear all filters to see all available openings.
-                </p>
-                <JobBtn secondary small onClick={resetFilters}>
-                  Clear all filters
-                </JobBtn>
-              </div>
-            ) : (
-              filtered.map((j) => (
-                <JobCard
-                  key={j.id}
-                  job={j}
-                  user={userState}
-                  onSave={handleSave}
-                  onApply={handleApply}
-                  onNotInterested={() => setDrawerJob(j)}
-                  onReport={() => setDrawerJob(j)}
-                />
-              ))
-            )}
+            <ResourceState
+              resource={resource}
+              empty={!filtered.length}
+              emptyLabel="No matching jobs found. Try changing your filters."
+            />
+            {!resource.loading &&
+              !resource.error &&
+              filtered.map((j) => <CareerJobCard key={j.id} job={j} />)}
+            <Pagination page={resource.data} onChange={changePage} />
           </div>
         </div>
       </div>

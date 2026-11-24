@@ -33,7 +33,7 @@ export const defaultUser = {
 
 export function JobBtn({
   children,
-  onClick,
+  onClick = () => {},
   primary = false,
   secondary = false,
   destructive = false,
@@ -102,18 +102,20 @@ export function AIHint({ label = 'AI suggestion', reason, onWhy }) {
   );
 }
 
-export function SafetyStrip({ reportLabel = 'Report this job' }) {
+export function SafetyStrip({ reportLabel = 'Report this job', liveData = false }) {
   return (
     <div className="rounded-xl border border-[#FFF8E8] bg-[#FFF8E8] p-3.5 text-left">
       <div className="flex items-start gap-2.5">
         <AlertCircle className="mt-0.5 text-[#B7791F] shrink-0" size={16} />
         <div className="text-xs text-[#806236] leading-relaxed">
           Never pay to apply or share sensitive banking credentials during recruitment.{' '}
+          {liveData ? <span>Reporting and additional safety tools are unavailable in this step.</span> : <>
           <Link href="/jobseeker/alerts" className="text-[#9A7A45] underline font-medium hover:text-[#806236]">
             {reportLabel}
           </Link>
           <span className="mx-1.5 text-[#B7791F]">·</span>
-          <span className="text-[#9A7A45] underline hover:text-[#806236] cursor-pointer">Safety guidelines</span>
+          <span className="text-[#9A7A45] underline hover:text-[#806236] cursor-pointer">Safety guidelines</span></>}
+
         </div>
       </div>
     </div>
@@ -142,15 +144,17 @@ export function SaveToggle({ saved, onChange, label = 'Save', size = 'md' }) {
 
 export function JobCard({
   job,
-  user = defaultUser,
-  onSave,
-  onApply,
-  onNotInterested,
-  onReport,
+  liveData = false,
+  user = liveData ? null : defaultUser,
+  onSave = undefined,
+  onApply = undefined,
+  onNotInterested = undefined,
+  onReport = undefined,
   variant = 'card',
+  applicationAction = /** @type {import('react').ReactNode} */ (null),
 }) {
-  const isSaved = user.savedIds && user.savedIds.includes(job.id);
-  const isApplied = user.appliedIds && user.appliedIds.includes(job.id);
+  const isSaved = user?.savedIds && user.savedIds.includes(job.id);
+  const isApplied = user?.appliedIds && user.appliedIds.includes(job.id);
 
   return (
     <article
@@ -181,12 +185,12 @@ export function JobCard({
                   job.stage ? 'bg-[#F3F4F6] text-[#4A5568]' : 'bg-[#F3EBDD] text-[#806236]'
                 }`}
               >
-                {job.stage || 'Startup'}
+                {job.stage || (liveData ? job.company?.type : 'Startup')}
               </span>
             </div>
             <p className="text-xs text-[#4A5568]">
               <Link
-                href={`/jobseeker/companies/${job.company?.id || 'acme-labs'}`}
+                href={`/jobseeker/companies/${job.company?.id || (liveData ? '' : 'acme-labs')}`}
                 className="font-medium text-[#0F1B2D] hover:underline"
               >
                 {job.company?.name || job.company}
@@ -196,7 +200,7 @@ export function JobCard({
             <p className="mt-1 text-xs text-[#4A5568]">
               <span className="font-medium text-[#0F1B2D]">{job.salary}</span> · Posted {job.posted}
             </p>
-            {user.signedIn && job.fit && (
+            {!liveData && user?.signedIn && job.fit && (
               <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-[#F3EBDD] px-2.5 py-1 text-xs text-[#806236]">
                 <Sparkles size={12} className="shrink-0" />
                 <span className="font-semibold">Why this fit:</span>
@@ -205,14 +209,14 @@ export function JobCard({
             )}
           </div>
         </div>
-        <button
+        {!liveData && <button
           type="button"
           onClick={() => onNotInterested?.(job.id)}
           aria-label="More job options"
           className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#A0A7B4] hover:bg-[#F4F1EA] hover:text-[#0F1B2D]"
         >
           <MoreHorizontal size={16} />
-        </button>
+        </button>}
       </div>
 
       <div className="mt-4 pt-3 border-t border-[#F0EBE0] flex flex-wrap items-center justify-between gap-2">
@@ -225,7 +229,7 @@ export function JobCard({
           </Link>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {isApplied ? (
+          {liveData ? applicationAction : isApplied ? (
             <span className="inline-flex items-center rounded-full border border-[#0F1B2D] px-3 py-1 text-xs text-[#0F1B2D] font-medium">
               Applied
             </span>
@@ -239,9 +243,9 @@ export function JobCard({
               </Link>
             </>
           )}
-          <JobBtn onClick={() => onReport?.(job.id)} secondary small>
+          {!liveData && <JobBtn onClick={() => onReport?.(job.id)} secondary small>
             Report
-          </JobBtn>
+          </JobBtn>}
         </div>
       </div>
     </article>

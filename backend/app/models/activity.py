@@ -34,6 +34,21 @@ class ActivityEventType(enum.StrEnum):
     invent a new event category. Later steps append their own members.
     """
 
+    application_submitted = "application_submitted"
+    application_withdrawn = "application_withdrawn"
+    application_stage_changed = "application_stage_changed"
+    application_assigned = "application_assigned"
+    application_note_created = "application_note_created"
+    application_note_deleted = "application_note_deleted"
+    application_resume_downloaded = "application_resume_downloaded"
+    job_review_settings_changed = "job_review_settings_changed"
+    job_created = "job_created"
+    job_updated = "job_updated"
+    job_published = "job_published"
+    job_paused = "job_paused"
+    job_closed = "job_closed"
+    job_archived = "job_archived"
+
     data_room_changed = "data_room_changed"
     data_room_access_changed = "data_room_access_changed"
     data_room_nda_accepted = "data_room_nda_accepted"

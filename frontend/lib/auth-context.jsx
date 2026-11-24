@@ -2,7 +2,8 @@
 /**
  * Session state for the whole app: who is signed in, the current user's
  * roles, and the login/logout helpers. Backed by lib/api/client.ts (tokens
- * live in local storage; the API client attaches them and refreshes them).
+ * live only in tab memory; the API client attaches and refreshes them).
+ * A full reload or a new tab intentionally requires sign-in again.
  */
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';

@@ -1,79 +1,58 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import {
-  Search,
-  Filter,
-  Briefcase,
-  CheckCircle2,
-  Calendar,
-  Clock,
-  ArrowRight,
-  ExternalLink,
-  ChevronRight,
-  LayoutGrid,
-  List,
-  Sparkles,
-} from 'lucide-react';
+import { Search, ChevronRight, LayoutGrid, List } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
+import { JobBtn } from '@/components/jobseeker-ui';
 import {
-  JobBtn,
-  defaultUser,
-} from '@/components/jobseeker-ui';
-import { applications } from '../jobseeker-data';
+  StageChip,
+  api,
+  useCareerSearch,
+  useCareerResource,
+  ResourceState,
+  Pagination,
+  applicationView,
+  stageLabels,
+} from '@/components/career-data';
 
-const STAGES = ['All', 'Applied', 'Shortlisted', 'Interview', 'Offer', 'Hired', 'Not selected', 'Withdrawn'];
-
-export function StageChip({ stage, className = '' }) {
-  const map = {
-    Applied: 'bg-[#FAF8F4] text-[#4A5568] border-[#E5E1D8]',
-    Shortlisted: 'bg-[#FFF8E8] text-[#806236] border-[#D4C3A3]',
-    Interview: 'bg-[#E7F3EC] text-[#286749] border-[#CDE5D7]',
-    Offer: 'bg-[#B8955A] text-white border-transparent',
-    Hired: 'bg-[#286749] text-white border-transparent',
-    'Not selected': 'bg-[#F3F4F6] text-[#6B7280] border-[#E5E1D8]',
-    Withdrawn: 'bg-[#F3F4F6] text-[#A0A7B4] border-dashed border-[#A0A7B4]',
-  };
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-        map[stage] || map.Applied
-      } ${className}`}
-    >
-      {stage}
-    </span>
-  );
-}
+const STAGES = ['All', ...Object.values(stageLabels)];
 
 export default function ApplicationTrackerPage() {
   const [viewMode, setViewMode] = useState('board'); // 'board' | 'list'
   const [stageFilter, setStageFilter] = useState('All');
   const [search, setSearch] = useState('');
 
-  const stageCounts = useMemo(() => {
-    const counts = { All: applications.length };
-    STAGES.forEach((s) => {
-      if (s !== 'All') {
-        counts[s] = applications.filter((a) => a.stage === s).length;
-      }
-    });
-    return counts;
-  }, []);
-
-  const filtered = useMemo(() => {
-    return applications.filter((app) => {
-      if (stageFilter !== 'All' && app.stage !== stageFilter) return false;
-      if (search.trim()) {
-        const hay = `${app.title} ${app.company}`.toLowerCase();
-        if (!hay.includes(search.toLowerCase())) return false;
-      }
-      return true;
-    });
-  }, [stageFilter, search]);
+  const searchQuery = useCareerSearch(search);
+  const query = {
+    stage: Object.keys(stageLabels).find((k) => stageLabels[k] === stageFilter),
+    q: searchQuery || undefined,
+    limit: 20,
+  };
+  const key = JSON.stringify(query);
+  const [pagination, setPagination] = useState({ key: '', offset: 0 });
+  const offset = pagination.key === key ? pagination.offset : 0;
+  const resource = useCareerResource(
+    `applications:${key}:${offset}`,
+    (signal) => api.careers.applications({ ...query, offset }, signal)
+  );
+  const filtered = (resource.data?.items || []).map(applicationView);
+  const stageCounts = resource.data
+    ? Object.fromEntries(
+        Object.entries(resource.data.stage_counts || {}).map(([k, v]) => [
+          stageLabels[k],
+          v,
+        ])
+      )
+    : {};
+  if (resource.data)
+    stageCounts.All = Object.values(resource.data.stage_counts || {}).reduce(
+      (a, b) => a + b,
+      0
+    );
 
   return (
-    <JobSeekerShell active="Applications">
+    <JobSeekerShell active="Applications" liveData>
       <div className="space-y-6 max-w-6xl">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -82,7 +61,7 @@ export default function ApplicationTrackerPage() {
               Applications Pipeline
             </h1>
             <p className="text-xs md:text-sm text-[#6B7280] mt-1">
-              Track stages, feedback, upcoming interview loops, and founder offers.
+              Track your submitted applications and actual stage changes.
             </p>
           </div>
 
@@ -136,7 +115,10 @@ export default function ApplicationTrackerPage() {
                         : 'border-[#E5E1D8] bg-white text-[#4A5568] hover:bg-[#FAF8F4]'
                     }`}
                   >
-                    {s} <span className="opacity-60 font-normal">({stageCounts[s] || 0})</span>
+                    {s}{' '}
+                    <span className="opacity-60 font-normal">
+                      ({resource.data ? stageCounts[s] || 0 : '—'})
+                    </span>
                   </button>
                 );
               })}
@@ -145,10 +127,14 @@ export default function ApplicationTrackerPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#F0EBE0]">
             <div className="relative flex-1 max-w-sm min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A0A7B4]" size={15} />
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A0A7B4]"
+                size={15}
+              />
               <input
                 type="text"
                 aria-label="Search applications"
+                maxLength={100}
                 placeholder="Search by role or company..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -156,129 +142,150 @@ export default function ApplicationTrackerPage() {
               />
             </div>
             <span className="text-xs text-[#6B7280]">
-              Showing <strong>{filtered.length}</strong> {filtered.length === 1 ? 'application' : 'applications'}
+              Showing <strong>{filtered.length}</strong>{' '}
+              {filtered.length === 1 ? 'application' : 'applications'}
             </span>
           </div>
         </div>
 
+        <ResourceState
+          resource={resource}
+          empty={!filtered.length}
+          emptyLabel="No matching applications. Browse jobs to get started."
+        />
         {/* Board (Kanban) View */}
-        {viewMode === 'board' ? (
-          <div className="overflow-x-auto min-w-0 pb-4">
-            <div className="flex gap-4 min-w-[920px]">
-              {['Applied', 'Shortlisted', 'Interview', 'Offer'].map((colStage) => {
-                const colItems = filtered.filter((a) => a.stage === colStage);
-                return (
-                  <div
-                    key={colStage}
-                    className="flex-1 flex flex-col rounded-xl border border-[#E5E1D8] bg-[#FAF8F4]/70 p-3 min-w-[220px]"
-                  >
-                    <div className="flex items-center justify-between mb-3 px-1">
-                      <h3 className="text-xs font-bold text-[#0F1B2D] uppercase tracking-wider">
-                        {colStage}
-                      </h3>
-                      <span className="rounded-full bg-white border border-[#E5E1D8] px-2 py-0.5 text-xs font-semibold text-[#4A5568]">
-                        {colItems.length}
-                      </span>
-                    </div>
+        {!resource.loading &&
+          !resource.error &&
+          (viewMode === 'board' ? (
+            <div className="overflow-x-auto min-w-0 pb-4">
+              <div className="flex gap-4 min-w-[920px]">
+                {(stageFilter === 'All'
+                  ? Object.values(stageLabels)
+                  : [stageFilter]
+                ).map((colStage) => {
+                  const colItems = filtered.filter((a) => a.stage === colStage);
+                  return (
+                    <div
+                      key={colStage}
+                      className="flex-1 flex flex-col rounded-xl border border-[#E5E1D8] bg-[#FAF8F4]/70 p-3 min-w-[220px]"
+                    >
+                      <div className="flex items-center justify-between mb-3 px-1">
+                        <h3 className="text-xs font-bold text-[#0F1B2D] uppercase tracking-wider">
+                          {colStage}
+                        </h3>
+                        <span className="rounded-full bg-white border border-[#E5E1D8] px-2 py-0.5 text-xs font-semibold text-[#4A5568]">
+                          {colItems.length}
+                        </span>
+                      </div>
 
-                    <div className="space-y-2.5 flex-1 overflow-y-auto">
-                      {colItems.length === 0 ? (
-                        <div className="rounded-lg border border-dashed border-[#E5E1D8] p-4 text-center text-xs text-[#A0A7B4]">
-                          No applications in {colStage}
-                        </div>
-                      ) : (
-                        colItems.map((app) => (
-                          <div
-                            key={app.id}
-                            className="rounded-xl border border-[#E5E1D8] bg-white p-3.5 shadow-sm hover:shadow-md transition-shadow space-y-2"
-                          >
-                            <div className="flex items-start gap-2.5">
-                              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#F3EBDD] font-bold text-xs text-[#806236]">
-                                {app.logo || app.company?.[0] || 'A'}
-                              </span>
-                              <div className="min-w-0 flex-1">
+                      <div className="space-y-2.5 flex-1 overflow-y-auto">
+                        {colItems.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-[#E5E1D8] p-4 text-center text-xs text-[#A0A7B4]">
+                            No applications on this page in {colStage}
+                          </div>
+                        ) : (
+                          colItems.map((app) => (
+                            <div
+                              key={app.id}
+                              className="rounded-xl border border-[#E5E1D8] bg-white p-3.5 shadow-sm hover:shadow-md transition-shadow space-y-2"
+                            >
+                              <div className="flex items-start gap-2.5">
+                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#F3EBDD] font-bold text-xs text-[#806236]">
+                                  {app.logo || app.company?.[0] || 'A'}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <Link
+                                    href={`/jobseeker/applications/${app.id}`}
+                                    className="text-xs font-bold text-[#0F1B2D] hover:underline truncate block"
+                                  >
+                                    {app.title}
+                                  </Link>
+                                  <span className="text-xs text-[#6B7280] block truncate">
+                                    {app.company}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <p className="text-xs text-[#4A5568]">
+                                {app.salaryExpectation}
+                              </p>
+
+                              <div className="pt-2 border-t border-[#F0EBE0] flex items-center justify-between text-xs text-[#6B7280]">
+                                <span>Applied {app.appliedDate}</span>
                                 <Link
                                   href={`/jobseeker/applications/${app.id}`}
-                                  className="text-xs font-bold text-[#0F1B2D] hover:underline truncate block"
+                                  className="text-[#9A7A45] font-semibold hover:underline flex items-center gap-0.5"
                                 >
-                                  {app.title}
+                                  View <ChevronRight size={12} />
                                 </Link>
-                                <span className="text-xs text-[#6B7280] block truncate">
-                                  {app.company}
-                                </span>
                               </div>
                             </div>
-
-                            <p className="text-xs text-[#4A5568]">{app.salary}</p>
-
-                            <div className="pt-2 border-t border-[#F0EBE0] flex items-center justify-between text-xs text-[#6B7280]">
-                              <span>Applied {app.appliedDate || 'Oct 28'}</span>
-                              <Link
-                                href={`/jobseeker/applications/${app.id}`}
-                                className="text-[#9A7A45] font-semibold hover:underline flex items-center gap-0.5"
-                              >
-                                View <ChevronRight size={12} />
-                              </Link>
-                            </div>
-                          </div>
-                        ))
-                      )}
+                          ))
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ) : (
-          /* Table (List) View with responsive overflow wrapper */
-          <div className="rounded-xl border border-[#E5E1D8] bg-white overflow-hidden shadow-sm">
-            <div className="overflow-x-auto min-w-0">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#FAF8F4] border-b border-[#E5E1D8] text-[#6B7280] uppercase tracking-wider font-semibold">
-                  <tr>
-                    <th className="p-3.5 pl-5">Role & Company</th>
-                    <th className="p-3.5">Stage</th>
-                    <th className="p-3.5">Applied Date</th>
-                    <th className="p-3.5">Next Step</th>
-                    <th className="p-3.5 pr-5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F0EBE0] text-[#0F1B2D]">
-                  {filtered.map((app) => (
-                    <tr key={app.id} className="hover:bg-[#FAF8F4]/50 transition-colors">
-                      <td className="p-3.5 pl-5">
-                        <Link
-                          href={`/jobseeker/applications/${app.id}`}
-                          className="font-semibold text-sm hover:underline block"
-                        >
-                          {app.title}
-                        </Link>
-                        <span className="text-[#6B7280]">{app.company} · {app.loc}</span>
-                      </td>
-                      <td className="p-3.5">
-                        <StageChip stage={app.stage} />
-                      </td>
-                      <td className="p-3.5 text-[#4A5568]">{app.appliedDate}</td>
-                      <td className="p-3.5 text-[#4A5568] font-medium">{app.nextStep || 'Founder review'}</td>
-                      <td className="p-3.5 pr-5 text-right space-x-2">
-                        <Link href={`/jobseeker/applications/${app.id}`}>
-                          <JobBtn secondary small>
-                            Details
-                          </JobBtn>
-                        </Link>
-                        <Link href="/jobseeker/messages">
-                          <JobBtn primary small>
-                            Message
-                          </JobBtn>
-                        </Link>
-                      </td>
+          ) : (
+            /* Table (List) View with responsive overflow wrapper */
+            <div className="rounded-xl border border-[#E5E1D8] bg-white overflow-hidden shadow-sm">
+              <div className="overflow-x-auto min-w-0">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#FAF8F4] border-b border-[#E5E1D8] text-[#6B7280] uppercase tracking-wider font-semibold">
+                    <tr>
+                      <th className="p-3.5 pl-5">Role & Company</th>
+                      <th className="p-3.5">Stage</th>
+                      <th className="p-3.5">Applied Date</th>
+                      <th className="p-3.5">Next Step</th>
+                      <th className="p-3.5 pr-5 text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-[#F0EBE0] text-[#0F1B2D]">
+                    {filtered.map((app) => (
+                      <tr
+                        key={app.id}
+                        className="hover:bg-[#FAF8F4]/50 transition-colors"
+                      >
+                        <td className="p-3.5 pl-5">
+                          <Link
+                            href={`/jobseeker/applications/${app.id}`}
+                            className="font-semibold text-sm hover:underline block"
+                          >
+                            {app.title}
+                          </Link>
+                          <span className="text-[#6B7280]">
+                            {app.company} · {app.loc}
+                          </span>
+                        </td>
+                        <td className="p-3.5">
+                          <StageChip stage={app.stage} />
+                        </td>
+                        <td className="p-3.5 text-[#4A5568]">
+                          {app.appliedDate}
+                        </td>
+                        <td className="p-3.5 text-[#4A5568] font-medium">
+                          {'Not available in this step'}
+                        </td>
+                        <td className="p-3.5 pr-5 text-right space-x-2">
+                          <Link href={`/jobseeker/applications/${app.id}`}>
+                            <JobBtn secondary small>
+                              Details
+                            </JobBtn>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          ))}
+        <Pagination
+          page={resource.data}
+          onChange={(offset) => setPagination({ key, offset })}
+        />
       </div>
     </JobSeekerShell>
   );

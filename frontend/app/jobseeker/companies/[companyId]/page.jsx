@@ -12,31 +12,55 @@ import {
   Users,
   Calendar,
   Globe,
-  Award,
   ExternalLink,
-  Briefcase,
-  Check,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
+
 import {
-  JobBtn,
-  JobCard,
-  defaultUser,
-} from '@/components/jobseeker-ui';
-import { companies, jobs } from '../../jobseeker-data';
+  api,
+  useCareerResource,
+  CareerJobCard,
+  ResourceState,
+  Pagination,
+  lifecycle,
+  Unavailable,
+} from '@/components/career-data';
+import { useAuth } from '@/lib/auth-context';
 
 export default function CompanyProfilePage() {
   const params = useParams();
   const rawId = params?.companyId;
-  const company = companies.find((c) => c.id === rawId) || companies[0];
+  const { user } = useAuth();
+  const resource = useCareerResource(`company:${rawId}`, (signal) =>
+    api.careers.company(rawId, Boolean(user), signal)
+  );
+  const [offset, setOffset] = useState(0);
+  const jobsResource = useCareerResource(
+    `company-jobs:${rawId}:${offset}`,
+    (signal) =>
+      api.careers.jobs(
+        { org_id: rawId, limit: 20, offset },
+        Boolean(user),
+        signal
+      )
+  );
+  const company = resource.data
+    ? {
+        ...resource.data,
+        industry: resource.data.sector || 'Not provided',
+        location:
+          [resource.data.city, resource.data.region, resource.data.country]
+            .filter(Boolean)
+            .join(', ') || 'Not provided',
+        stage: lifecycle[resource.data.stage] || 'Not provided',
+        founded: resource.data.founded_year || 'Not provided',
+      }
+    : null;
 
   const [tab, setTab] = useState('Overview');
-  const [following, setFollowing] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const openJobs = jobs.filter(
-    (j) => j.company?.id === company.id || j.company === company.name
-  );
+  const openJobs = jobsResource.data?.items || [];
 
   const handleShare = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -46,8 +70,15 @@ export default function CompanyProfilePage() {
     }
   };
 
+  if (!company)
+    return (
+      <JobSeekerShell active="Jobs" liveData>
+        <ResourceState resource={resource} />
+      </JobSeekerShell>
+    );
+
   return (
-    <JobSeekerShell active="Jobs">
+    <JobSeekerShell active="Jobs" liveData>
       <div className="space-y-6 max-w-5xl">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-xs text-[#6B7280]">
@@ -85,14 +116,9 @@ export default function CompanyProfilePage() {
                   <span>{copied ? 'Copied' : 'Share'}</span>
                 </button>
 
-                <JobBtn
-                  primary={!following}
-                  secondary={following}
-                  onClick={() => setFollowing(!following)}
-                  className="min-w-[100px]"
-                >
-                  {following ? 'Following' : 'Follow'}
-                </JobBtn>
+                <span className="text-xs text-[#6B7280]">
+                  Following unavailable
+                </span>
               </div>
             </div>
 
@@ -114,23 +140,27 @@ export default function CompanyProfilePage() {
               </div>
 
               <p className="text-xs md:text-sm text-[#4A5568] max-w-2xl leading-relaxed">
-                {company.tagline || company.bio || 'Building the future of next-generation digital platforms.'}
+                {company.summary || 'No company summary provided.'}
               </p>
 
               <div className="mt-4 flex flex-wrap items-center gap-y-1.5 gap-x-4 text-xs text-[#6B7280] pt-3 border-t border-[#F0EBE0]">
                 <span className="flex items-center gap-1.5">
-                  <Building size={14} className="text-[#A0A7B4]" /> {company.industry}
+                  <Building size={14} className="text-[#A0A7B4]" />{' '}
+                  {company.industry}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <MapPin size={14} className="text-[#A0A7B4]" /> {company.location}
+                  <MapPin size={14} className="text-[#A0A7B4]" />{' '}
+                  {company.location}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <Users size={14} className="text-[#A0A7B4]" /> {company.size || '25–50 employees'}
+                  <Users size={14} className="text-[#A0A7B4]" />{' '}
+                  {'Team size not provided'}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <Calendar size={14} className="text-[#A0A7B4]" /> Founded {company.founded || '2021'}
+                  <Calendar size={14} className="text-[#A0A7B4]" /> Founded{' '}
+                  {company.founded}
                 </span>
-                {company.website && (
+                {company.website && /^https?:\/\//i.test(company.website) && (
                   <a
                     href={company.website}
                     target="_blank"
@@ -146,7 +176,12 @@ export default function CompanyProfilePage() {
 
           {/* Navigation Tabs */}
           <div className="flex items-center gap-2 border-t border-[#E5E1D8] px-6 bg-[#FAF8F4]/50 overflow-x-auto">
-            {['Overview', 'Open Jobs', 'Culture & Benefits', 'Hiring Process'].map((t) => {
+            {[
+              'Overview',
+              'Open Jobs',
+              'Culture & Benefits',
+              'Hiring Process',
+            ].map((t) => {
               const active = tab === t;
               return (
                 <button
@@ -159,7 +194,7 @@ export default function CompanyProfilePage() {
                       : 'border-transparent text-[#6B7280] hover:text-[#0F1B2D]'
                   }`}
                 >
-                  {t} {t === 'Open Jobs' && `(${openJobs.length})`}
+                  {t} {t === 'Open Jobs' && `(${company.open_jobs_count})`}
                 </button>
               );
             })}
@@ -171,27 +206,35 @@ export default function CompanyProfilePage() {
           <div className="grid gap-6 lg:grid-cols-12">
             <div className="lg:col-span-8 space-y-6">
               <section className="rounded-xl border border-[#E5E1D8] bg-white p-6 shadow-sm space-y-3">
-                <h2 className="text-base font-serif font-bold text-[#0F1B2D]">About {company.name}</h2>
+                <h2 className="text-base font-serif font-bold text-[#0F1B2D]">
+                  About {company.name}
+                </h2>
                 <p className="text-xs md:text-sm text-[#4A5568] leading-relaxed">
-                  {company.summary ||
-                    'A fast-growing tech venture solving key workflow challenges through modern AI architectures and collaborative workspaces.'}
+                  {company.summary || 'No company summary provided.'}
                 </p>
               </section>
 
               <section className="rounded-xl border border-[#E5E1D8] bg-white p-6 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-base font-serif font-bold text-[#0F1B2D]">Open Roles</h2>
+                  <h2 className="text-base font-serif font-bold text-[#0F1B2D]">
+                    Open Roles
+                  </h2>
                   <button
                     type="button"
                     onClick={() => setTab('Open Jobs')}
                     className="text-xs text-[#9A7A45] font-semibold hover:underline"
                   >
-                    View all ({openJobs.length})
+                    View all ({company.open_jobs_count})
                   </button>
                 </div>
+                <ResourceState
+                  resource={jobsResource}
+                  empty={!openJobs.length}
+                  emptyLabel="No current openings."
+                />
                 <div className="space-y-3">
                   {openJobs.slice(0, 3).map((job) => (
-                    <JobCard key={job.id} job={job} user={defaultUser} />
+                    <CareerJobCard key={job.id} job={job} />
                   ))}
                 </div>
               </section>
@@ -204,18 +247,20 @@ export default function CompanyProfilePage() {
                 </span>
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between py-1.5 border-b border-[#F0EBE0]">
-                    <span className="text-[#6B7280]">Funding Stage</span>
-                    <strong className="text-[#0F1B2D]">{company.stage || 'Series A'}</strong>
+                    <span className="text-[#6B7280]">Startup Stage</span>
+                    <strong className="text-[#0F1B2D]">{company.stage}</strong>
                   </div>
                   <div className="flex justify-between py-1.5 border-b border-[#F0EBE0]">
                     <span className="text-[#6B7280]">Verified Mentorship</span>
                     <span className="text-[#286749] font-medium flex items-center gap-1">
-                      <Award size={13} /> Active
+                      Not available
                     </span>
                   </div>
                   <div className="flex justify-between py-1.5">
                     <span className="text-[#6B7280]">Headquarters</span>
-                    <span className="text-[#0F1B2D] font-medium">{company.location}</span>
+                    <span className="text-[#0F1B2D] font-medium">
+                      {company.location}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -228,98 +273,33 @@ export default function CompanyProfilePage() {
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-serif font-bold text-[#0F1B2D]">
-                All Open Positions ({openJobs.length})
+                All Open Positions ({company.open_jobs_count})
               </h2>
-              <Link href="/jobseeker/jobs" className="text-xs text-[#9A7A45] hover:underline">
+              <Link
+                href="/jobseeker/jobs"
+                className="text-xs text-[#9A7A45] hover:underline"
+              >
                 Explore All Platform Jobs →
               </Link>
             </div>
 
-            {openJobs.length === 0 ? (
-              <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center text-xs text-[#6B7280]">
-                No current openings listed for this company. Follow to receive notifications when new roles open.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {openJobs.map((job) => (
-                  <JobCard key={job.id} job={job} user={defaultUser} />
-                ))}
-              </div>
-            )}
+            <ResourceState
+              resource={jobsResource}
+              empty={!openJobs.length}
+              emptyLabel="No current openings."
+            />
+            {openJobs.map((job) => (
+              <CareerJobCard key={job.id} job={job} />
+            ))}
+            <Pagination page={jobsResource.data} onChange={setOffset} />
           </section>
         )}
 
-        {/* Tab 3: Culture & Benefits */}
         {tab === 'Culture & Benefits' && (
-          <section className="rounded-xl border border-[#E5E1D8] bg-white p-6 shadow-sm space-y-4">
-            <h2 className="text-base font-serif font-bold text-[#0F1B2D]">Perks & Benefits</h2>
-            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-              {(company.benefits || [
-                'Remote-first flexibility',
-                'Comprehensive health insurance',
-                'Annual learning & conference stipend',
-                'Equity / ESOP grants for full-time staff',
-                'Home office setup allowance',
-                'Wellness Fridays & flexible PTO',
-              ]).map((benefit, i) => (
-                <div
-                  key={i}
-                  className="rounded-lg border border-[#E5E1D8] bg-[#FAF8F4] p-3 text-xs text-[#0F1B2D] flex items-center gap-2"
-                >
-                  <Check size={14} className="text-[#286749] shrink-0" />
-                  <span>{benefit}</span>
-                </div>
-              ))}
-            </div>
-          </section>
+          <Unavailable>Company-wide culture & benefits</Unavailable>
         )}
-
-        {/* Tab 4: Hiring Process */}
         {tab === 'Hiring Process' && (
-          <section className="rounded-xl border border-[#E5E1D8] bg-white p-6 shadow-sm space-y-4">
-            <h2 className="text-base font-serif font-bold text-[#0F1B2D]">How We Hire</h2>
-            <div className="space-y-3 text-xs text-[#4A5568]">
-              <div className="flex items-start gap-3 p-3 rounded-lg border border-[#E5E1D8] bg-[#FAF8F4]">
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#0F1B2D] text-white font-bold text-xs">
-                  1
-                </span>
-                <div>
-                  <strong className="text-[#0F1B2D] block">Resume & Profile Review</strong>
-                  <span>Direct founder & hiring manager evaluation within 48 business hours.</span>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 rounded-lg border border-[#E5E1D8] bg-[#FAF8F4]">
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#0F1B2D] text-white font-bold text-xs">
-                  2
-                </span>
-                <div>
-                  <strong className="text-[#0F1B2D] block">Initial 30-min Video Screening</strong>
-                  <span>Discussing your background, motivations, and mutual expectations.</span>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 rounded-lg border border-[#E5E1D8] bg-[#FAF8F4]">
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#0F1B2D] text-white font-bold text-xs">
-                  3
-                </span>
-                <div>
-                  <strong className="text-[#0F1B2D] block">Practical Skill Drill or Case Discussion</strong>
-                  <span>A practical real-world scenario (paid or time-boxed to under 2 hours).</span>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 rounded-lg border border-[#E5E1D8] bg-[#FAF8F4]">
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#0F1B2D] text-white font-bold text-xs">
-                  4
-                </span>
-                <div>
-                  <strong className="text-[#0F1B2D] block">Offer & Equity Discussion</strong>
-                  <span>Transparent compensation breakdown and joining date confirmation.</span>
-                </div>
-              </div>
-            </div>
-          </section>
+          <Unavailable>Company hiring process</Unavailable>
         )}
       </div>
     </JobSeekerShell>

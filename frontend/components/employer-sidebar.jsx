@@ -48,6 +48,7 @@ const ROLES = [
 ];
 
 export default function EmployerSidebar({
+  jobsWorkspace,
   active,
   activeNav,
   compact = false,
@@ -60,6 +61,7 @@ export default function EmployerSidebar({
   onAction,
 }) {
   const pathname = usePathname();
+  const roles = jobsWorkspace ? ROLES.filter(r => jobsWorkspace.user?.roles?.includes(r.path.split("/")[1]) || jobsWorkspace.user?.organizations?.some(o => (o.type || o.membership_type) === r.path.split("/")[1])) : ROLES;
   const [localCompact, setLocalCompact] = useState(false);
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
 
@@ -135,7 +137,7 @@ export default function EmployerSidebar({
             return (
               <Link
                 key={label}
-                href={href}
+                href={jobsWorkspace && label === "Hiring" ? jobsWorkspace.href(href) : href}
                 title={isCompact ? label : undefined}
                 className={`group relative flex h-10 items-center rounded-lg text-xs font-medium transition-colors ${
                   isCompact ? 'justify-center px-0' : 'gap-3 px-3'
@@ -155,17 +157,17 @@ export default function EmployerSidebar({
                   }`}
                 />
                 {!isCompact && <span className="truncate">{label}</span>}
-                {!isCompact && label === 'Hiring' && (
+                {!isCompact && !jobsWorkspace && label === 'Hiring' && (
                   <span className="ml-auto rounded-full bg-[#B8955A] px-1.5 py-0.5 text-xs font-bold text-[#0F1B2D]">
                     4
                   </span>
                 )}
-                {!isCompact && label === 'Interviews' && (
+                {!isCompact && !jobsWorkspace && label === 'Interviews' && (
                   <span className="ml-auto rounded-full bg-white/15 px-1.5 py-0.5 text-xs font-bold text-white">
                     2
                   </span>
                 )}
-                {!isCompact && label === 'Offers' && (
+                {!isCompact && !jobsWorkspace && label === 'Offers' && (
                   <span className="ml-auto rounded-full bg-white/15 px-1.5 py-0.5 text-xs font-bold text-white">
                     1
                   </span>
@@ -234,15 +236,15 @@ export default function EmployerSidebar({
               aria-label="User role switcher menu"
             >
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#F3EBDD] text-xs font-bold text-[#0F1B2D]">
-                SJ
+                {jobsWorkspace ? jobsWorkspace.user?.avatar_initials || jobsWorkspace.user?.display_name?.slice(0, 2).toUpperCase() || "U" : "SJ"}
               </span>
               {!isCompact && (
                 <div className="min-w-0 flex-1">
                   <span className="block truncate text-xs font-semibold text-white">
-                    Sarah Jenkins
+                    {jobsWorkspace ? jobsWorkspace.user?.display_name || "Your account" : "Sarah Jenkins"}
                   </span>
                   <span className="block truncate text-xs text-white/50">
-                    Employer · Switch role
+                    {jobsWorkspace ? `${jobsWorkspace.org?.my_role || "Member"} · Switch role` : "Employer · Switch role"}
                   </span>
                 </div>
               )}
@@ -254,7 +256,7 @@ export default function EmployerSidebar({
                 <div className="px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-white/40">
                   Switch Active Role
                 </div>
-                {ROLES.map((role) => (
+                {roles.map((role) => (
                   <Link
                     key={role.name}
                     href={role.path}
@@ -316,7 +318,7 @@ export default function EmployerSidebar({
                 return (
                   <Link
                     key={label}
-                    href={href}
+                    href={jobsWorkspace && label === "Hiring" ? jobsWorkspace.href(href) : href}
                     onClick={handleMobileClose}
                     className={`flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${
                       isActive
@@ -329,17 +331,17 @@ export default function EmployerSidebar({
                       className={isActive ? 'text-[#B8955A]' : 'text-white/60'}
                     />
                     <span>{label}</span>
-                    {label === 'Hiring' && (
+                    {!jobsWorkspace && label === 'Hiring' && (
                       <span className="ml-auto rounded-full bg-[#B8955A] px-2 py-0.5 text-xs font-bold text-[#0F1B2D]">
                         4
                       </span>
                     )}
-                    {label === 'Interviews' && (
+                    {!jobsWorkspace && label === 'Interviews' && (
                       <span className="ml-auto rounded-full bg-white/15 px-2 py-0.5 text-xs font-bold text-white">
                         2
                       </span>
                     )}
-                    {label === 'Offers' && (
+                    {!jobsWorkspace && label === 'Offers' && (
                       <span className="ml-auto rounded-full bg-white/15 px-2 py-0.5 text-xs font-bold text-white">
                         1
                       </span>
@@ -378,7 +380,7 @@ export default function EmployerSidebar({
                 Switch Role
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {ROLES.map((r) => (
+                {roles.map((r) => (
                   <Link
                     key={r.name}
                     href={r.path}

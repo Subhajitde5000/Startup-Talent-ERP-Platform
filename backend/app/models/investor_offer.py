@@ -23,7 +23,7 @@ and ``withdrawn`` are terminal. Expiry is lazy on read (past
 
 import enum
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -144,13 +144,13 @@ class InvestorOffer(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         server_default=func.now(),
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         server_default=func.now(),
         onupdate=func.now(),
     )

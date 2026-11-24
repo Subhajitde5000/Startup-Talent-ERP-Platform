@@ -1,5 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
+import { useAuth } from '@/lib/auth-context';
+import { isPublicCareerRoute } from '@/lib/career-routes';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import JobSeekerSidebar from './jobseeker-sidebar';
@@ -12,6 +14,7 @@ import RoleGuard from './role-guard';
 
 export default function JobSeekerShell({
   active,
+  liveData = false,
   module,
   title,
   description,
@@ -24,6 +27,10 @@ export default function JobSeekerShell({
   contentClassName = '',
 }) {
   const pathname = usePathname();
+  const { user, hasRole, loading } = useAuth();
+  const publicRoute = liveData && isPublicCareerRoute(pathname);
+  const limitedShell = publicRoute && !hasRole('jobseeker');
+  const Guard = publicRoute ? Fragment : RoleGuard;
   const [compact, setCompact] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [toast, setToast] = useState('');
@@ -40,8 +47,26 @@ export default function JobSeekerShell({
     { label: 'Messages', href: '/jobseeker/messages', icon: MessageCircle },
   ];
 
+  if (limitedShell) {
+    return (
+      <div className="min-h-screen bg-[#FAF8F4] text-[#0F1B2D]">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E5E1D8] bg-white px-7 py-5">
+          <Link href="/jobseeker/jobs" className="font-serif text-xl font-bold">Forma Careers</Link>
+          <nav className="flex items-center gap-5 text-sm" aria-label="Public careers">
+            <Link href="/jobseeker/jobs">Jobs</Link>
+            <Link href="/jobseeker/startups">Startups</Link>
+            {loading ? <span role="status">Loading session…</span> : user ? (
+              <span>{user.display_name}</span>
+            ) : <Link href="/login">Sign in</Link>}
+          </nav>
+        </header>
+        <main id={mainId} className="mx-auto max-w-[1200px] px-4 py-7 sm:px-7">{children}</main>
+      </div>
+    );
+  }
+
   return (
-    <RoleGuard role="jobseeker">
+    <Guard {...(publicRoute ? {} : {role: 'jobseeker'})}>
     <div className="min-h-screen bg-[#FAF8F4] text-[#0F1B2D]">
       <a href={`#${mainId}`} className="sr-only focus:not-sr-only">
         Skip to content
@@ -49,6 +74,7 @@ export default function JobSeekerShell({
 
       {/* Reusable Job Seeker Sidebar (Desktop & Drawer) */}
       <JobSeekerSidebar
+        liveData={liveData}
         active={active}
         compact={compact}
         setCompact={setCompact}
@@ -59,6 +85,7 @@ export default function JobSeekerShell({
 
       {/* Reusable Job Seeker Top Header */}
       <JobSeekerHeader
+        liveData={liveData}
         compact={compact}
         onToggleMobile={() => setMobileOpen(!mobileOpen)}
         onAction={notify}
@@ -122,6 +149,6 @@ export default function JobSeekerShell({
       {/* Shared Toast */}
       {toast && <Toast message={toast} />}
     </div>
-    </RoleGuard>
+    </Guard>
   );
 }

@@ -792,7 +792,7 @@ async def test_export_csv_manager_only_and_no_private_fields(client: AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_team_summary_nulls_open_roles(client: AsyncClient) -> None:
+async def test_team_summary_counts_open_roles(client: AsyncClient) -> None:
     owner = await _signup_verified(client, "owner@example.com")
     org = await _create_org(client, owner)
     await _add_member(client, owner, org["id"], "a@example.com")
@@ -809,8 +809,8 @@ async def test_team_summary_nulls_open_roles(client: AsyncClient) -> None:
     data = summary.json()
     assert data["active_members"] == 2
     assert data["pending_invites"] == 1
-    # Item 6: no fake 3 — the field is null until Step 7a can fill it.
-    assert data["open_jobs_count"] is None
+    # Step 7a: the real count is zero when this organization has no jobs.
+    assert data["open_jobs_count"] == 0
     assert data["my_role"] == "owner"
 
     assert (await client.get(
