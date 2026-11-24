@@ -95,6 +95,8 @@ class ApplicantRead(BaseModel):
     salary_expectation: Decimal | None
     currency: str
     resume_available: bool
+    resume_file_name: str | None = None
+    resume_content_type: str | None = None
     rejected_reason: str | None
     rejected_at: datetime | None
     stage_changed_at: datetime

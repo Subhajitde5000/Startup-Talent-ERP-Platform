@@ -233,7 +233,9 @@ async def download(
     return await sign_ready_download(row, variant, storage)
 
 
-async def sign_ready_download(row: File, variant: str, storage: Storage) -> tuple[str, int]:
+async def sign_ready_download(
+    row: File, variant: str, storage: Storage, *, inline: bool = False
+) -> tuple[str, int]:
     """Sign only after the calling service authorizes its own object/file scope."""
     settings = get_settings()
     if row.deleted_at is not None or row.purged_at is not None:
@@ -246,7 +248,12 @@ async def sign_ready_download(row: File, variant: str, storage: Storage) -> tupl
             raise not_found("Thumbnail not found.")
         key, mime, name = row.thumbnail_storage_key, "image/webp", "thumbnail.webp"
     return await storage.sign_download(
-        key, name, mime, settings.FILE_DOWNLOAD_TTL_SECONDS, image=mime.startswith("image/")
+        key,
+        name,
+        mime,
+        settings.FILE_DOWNLOAD_TTL_SECONDS,
+        image=mime.startswith("image/"),
+        inline=inline,
     ), settings.FILE_DOWNLOAD_TTL_SECONDS
 
 

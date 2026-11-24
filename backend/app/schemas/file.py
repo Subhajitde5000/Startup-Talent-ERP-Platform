@@ -112,3 +112,5 @@ class FileDownloadCreate(BaseModel):
 class FileDownloadRead(BaseModel):
     url: str
     expires_in: int
+    file_name: str | None = None
+    mime_type: str | None = None

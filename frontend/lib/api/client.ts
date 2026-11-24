@@ -979,7 +979,8 @@ export const api = {
     addNote: (org: string, job: string, id: string, body: components["schemas"]["NoteCreate"]) => apiRequest<components["schemas"]["NoteRead"]>(`${applicantPath(org, job, id)}/notes`, { method: "POST", body }),
     deleteNote: (org: string, job: string, id: string, note: string) => apiRequest<void>(`${applicantPath(org, job, id)}/notes/${note}`, { method: "DELETE" }),
     settings: (org: string, job: string, body: components["schemas"]["ReviewSettingsPatch"]) => apiRequest<components["schemas"]["ReviewSettingsRead"]>(`${pipelinePath(org, job)}/review-settings`, { method: "PATCH", body }),
-    resume: (org: string, job: string, id: string) => apiRequest<FileDownloadRead>(`${applicantPath(org, job, id)}/resume-download`, { method: "POST", body: {} }),
+    resume: (org: string, job: string, id: string, query: { disposition?: "attachment" | "inline" } = {}, signal?: AbortSignal) =>
+      apiRequest<FileDownloadRead>(`${applicantPath(org, job, id)}/resume-download`, { method: "POST", body: {}, query, signal }),
   },
   careers: {
     jobs: (query: JobDiscoveryQuery = {}, authenticated = false, signal?: AbortSignal) => apiRequest<components["schemas"]["MarketplaceJobPage"]>(`${authenticated ? "" : "/public"}/jobs`, { query, auth: authenticated, signal }),

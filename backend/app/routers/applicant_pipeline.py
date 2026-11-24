@@ -233,9 +233,12 @@ async def resume_download(
     db: DB,
     user: Actor,
     storage: Annotated[Storage, Depends(get_storage)],
+    disposition: Literal["attachment", "inline"] = Query("attachment"),
     payload: JobAction = _EMPTY,
 ) -> FileDownloadRead:
     """Only the attached, ready/clean personal resume; denied during blind review.
     This does not grant generic access to a candidate's files or profile.
     """
-    return await service.resume_download(db, user, org_id, job_id, application_id, storage)
+    return await service.resume_download(
+        db, user, org_id, job_id, application_id, storage, inline=(disposition == "inline")
+    )

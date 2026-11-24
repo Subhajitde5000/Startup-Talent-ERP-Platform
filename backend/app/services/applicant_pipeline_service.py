@@ -175,6 +175,7 @@ def project(
             ):
                 question = questions([{"key": key, "required": answer["required"]}])[0]
                 answers.append(AnswerSnapshot(**question.model_dump(), value=value))
+    has_resume = not row.is_blind and ready_resume(row, file)
     return ApplicantRead(
         context=context,
         id=row.id,
@@ -194,7 +195,9 @@ def project(
         screening_answers=answers,
         salary_expectation=row.salary_expectation,
         currency=row.currency,
-        resume_available=not row.is_blind and ready_resume(row, file),
+        resume_available=has_resume,
+        resume_file_name=file.file_name if has_resume and file else None,
+        resume_content_type=file.mime_type if has_resume and file else None,
         rejected_reason=row.rejected_reason,
         rejected_at=row.rejected_at,
         stage_changed_at=row.stage_changed_at,
@@ -545,6 +548,8 @@ async def resume_download(
     job_id: uuid.UUID,
     application_id: uuid.UUID,
     storage: Storage,
+    *,
+    inline: bool = False,
 ) -> FileDownloadRead:
     _, job, row = await scoped(db, user, org_id, job_id, application_id)
     if row.is_blind:
@@ -554,7 +559,7 @@ async def resume_download(
         raise not_found("Resume not available.")
     settings = get_settings()
     await file_service.enforce_limit(f"file_download:{user.id}", settings.FILE_DOWNLOAD_LIMIT, 300)
-    url, ttl = await file_service.sign_ready_download(file, "original", storage)
+    url, ttl = await file_service.sign_ready_download(file, "original", storage, inline=inline)
     audit(db, user, job, ActivityEventType.application_resume_downloaded, row.id)
     await db.commit()
-    return FileDownloadRead(url=url, expires_in=ttl)
+    return FileDownloadRead(url=url, expires_in=ttl, file_name=file.file_name, mime_type=file.mime_type)

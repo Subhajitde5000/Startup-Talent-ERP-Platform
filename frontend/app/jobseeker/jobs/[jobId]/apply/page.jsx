@@ -101,16 +101,32 @@ export default function JobApplyPage() {
     const file = e.target.files?.[0];
     if (!file || uploading) return;
     setUploading(true);
-    setUploadMessage('');
+    setUploadMessage('Uploading resume to private storage…');
     try {
-      const saved = await api.files.uploadPersonal('resume', file);
+      let saved = await api.files.uploadPersonal('resume', file);
+      for (let attempt = 0; attempt < 20 && saved.upload_status !== 'ready'; attempt++) {
+        setUploadMessage('Uploaded. Validating and scanning…');
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        saved = await api.files.get(saved.id);
+        if (
+          saved.upload_status === 'rejected' ||
+          saved.upload_status === 'expired' ||
+          saved.scan_status === 'infected'
+        ) {
+          throw new Error('The resume failed validation or security scan. Please choose a different file.');
+        }
+        if (saved.scan_status === 'failed') {
+          throw new Error('Security scanning is temporarily unavailable. Please retry later.');
+        }
+      }
       if (saved.upload_status === 'ready' && saved.scan_status === 'clean') {
         setSelectedResume(saved);
         setUploadMessage('Resume uploaded and selected.');
-      } else
+      } else {
         setUploadMessage(
-          'Upload received. Select it only after processing and a clean scan. Refresh the list to check its status.'
+          'Upload received. Still processing; refresh the list shortly to select it.'
         );
+      }
       files.reload();
     } catch (error) {
       setUploadMessage(errorLabel(error));

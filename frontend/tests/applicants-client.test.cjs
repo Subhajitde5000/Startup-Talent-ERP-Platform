@@ -33,12 +33,14 @@ test('all nine pipeline methods share scoped bearer transport and exact payloads
  await client.api.applicants.deleteNote('org','job','app','note');
  await client.api.applicants.settings('org','job',{blind_review_enabled:true});
  await client.api.applicants.resume('org','job','app');
- assert.equal(calls.length,9); assert.match(calls[0].url,/q=A%26B/);
+ await client.api.applicants.resume('org','job','app',{disposition:'inline'});
+ assert.equal(calls.length,10); assert.match(calls[0].url,/q=A%26B/);
  assert.equal(calls[0].options.signal,signal);
  assert.equal(calls[1].url,'/api/v1/organizations/org/jobs/job/applications/app');
  assert.equal(calls[2].options.method,'PATCH');assert.equal(JSON.parse(calls[2].options.body).expected_stage,'applied');
  assert.equal(calls[6].options.method,'DELETE');assert.ok(calls[6].url.endsWith('/notes/note'));
  assert.ok(calls[7].url.endsWith('/review-settings'));assert.deepEqual(JSON.parse(calls[8].options.body),{});
+ assert.ok(calls[9].url.includes('disposition=inline'));
  assert.ok(calls.every(call=>call.options.headers.Authorization==='Bearer access'));
  assert.equal(client.localStorage.data.get('forma.access_token'),'access');assert.equal(client.sessionStorage.data.size,0);
 });

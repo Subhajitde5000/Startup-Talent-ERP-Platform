@@ -662,26 +662,33 @@ async def test_resume_scope_readiness_and_generic_file_access(
     await db_session.commit()
     response = await client.post(path(w) + "/resume-download", headers=w["headers"], json={})
     assert response.status_code == (200 if state == "ready" else 404), response.text
-    assert (await client.get(path(w), headers=w["headers"])).json()["resume_available"] == (
-        state == "ready"
-    )
+    app_json = (await client.get(path(w), headers=w["headers"])).json()
+    assert app_json["resume_available"] == (state == "ready")
     if state == "ready":
+        assert app_json["resume_file_name"] == "private.pdf"
+        assert app_json["resume_content_type"] == "application/pdf"
         assert (
             response.json()["url"]
             and response.json()["expires_in"] == get_settings().FILE_DOWNLOAD_TTL_SECONDS
+            and response.json()["file_name"] == "private.pdf"
+            and response.json()["mime_type"] == "application/pdf"
         )
+        inline_resp = await client.post(
+            path(w) + "/resume-download?disposition=inline", headers=w["headers"], json={}
+        )
+        assert inline_resp.status_code == 200 and inline_resp.json()["url"]
         # No new blanket permission to candidate-owned files.
         assert (
             await client.get(f"/api/v1/files/{file_id}", headers=w["headers"])
         ).status_code == 404
-        audit = (
+        audits = (
             await db_session.execute(
                 select(ActivityEvent).where(
                     ActivityEvent.event_type == "application_resume_downloaded"
                 )
             )
-        ).scalar_one()
-        assert audit.entity_id == uuid.UUID(w["app"]["id"]) and "private.pdf" not in str(audit.data)
+        ).scalars().all()
+        assert len(audits) == 2 and all(a.entity_id == uuid.UUID(w["app"]["id"]) and "private.pdf" not in str(a.data) for a in audits)
 
 
 async def test_note_database_constraint(db_session, pipeline):

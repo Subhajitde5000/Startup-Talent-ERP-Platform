@@ -2,7 +2,19 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Download, UserCheck, UserX, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Download,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  FileText,
+  Loader2,
+  UserCheck,
+  UserX,
+  X,
+} from "lucide-react";
 import { EmployerBtn, EmployerCard, StageChip } from "@/components";
 import {
   api,
@@ -515,30 +527,6 @@ function ApplicantDetail({ jobId, applicationId }) {
       return;
     mutate({ stage, expected_stage: row.stage });
   }
-  async function resume() {
-    setAction({ busy: true, error: "", fields: {}, message: "" });
-    try {
-      const result = await api.applicants.resume(org.id, jobId, applicationId);
-      window.open(
-        browserStorageUrl(result.url),
-        "_blank",
-        "noopener,noreferrer",
-      );
-      setAction({
-        busy: false,
-        error: "",
-        fields: {},
-        message: "Resume download link opened.",
-      });
-    } catch (error) {
-      setAction({
-        busy: false,
-        error: errorText(error),
-        fields: fileFieldErrors(error),
-        message: "",
-      });
-    }
-  }
   if (resource.loading || resource.error)
     return <State resource={resource} text="Loading applicant…" />;
   return (
@@ -716,23 +704,14 @@ function ApplicantDetail({ jobId, applicationId }) {
             </>
           )}
           {tab === "Resume" && (
-            <EmployerCard title="Submitted Resume">
-              <p className="text-xs mb-4">
-                {row.is_blind
-                  ? "Resume access is hidden during blind review."
-                  : row.resume_available
-                    ? "The candidate’s attached resume is available through a short-lived private link. No resume parsing or qualification verification is claimed."
-                    : "No ready, clean submitted resume is available."}
-              </p>
-              <EmployerBtn
-                secondary
-                disabled={!row.resume_available || row.is_blind || action.busy}
-                onClick={resume}
-              >
-                <Download size={14} />
-                Download submitted resume
-              </EmployerBtn>
-            </EmployerCard>
+            <ApplicantResumeSection
+              row={row}
+              orgId={org.id}
+              jobId={jobId}
+              applicationId={applicationId}
+              action={action}
+              setAction={setAction}
+            />
           )}
           {tab === "Notes" && <PrivateNotes row={row} locked={locked} />}
           {tab === "Activity" && (
@@ -961,6 +940,240 @@ function ApplicantDetail({ jobId, applicationId }) {
         </div>
       )}
     </>
+  );
+}
+function ApplicantResumeSection({
+  row,
+  orgId,
+  jobId,
+  applicationId,
+  action,
+  setAction,
+}) {
+  const [preview, setPreview] = useState({
+    active: false,
+    loading: false,
+    url: "",
+    error: "",
+  });
+
+  if (row.is_blind) {
+    return (
+      <EmployerCard title="Submitted Resume">
+        <p className="text-xs text-[#6B7280]">
+          Resume access is hidden during blind review. Move the candidate to interview stage to unlock their resume and identity.
+        </p>
+      </EmployerCard>
+    );
+  }
+
+  if (!row.resume_available) {
+    return (
+      <EmployerCard title="Submitted Resume">
+        <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-8 text-center text-xs space-y-2">
+          <FileText className="mx-auto text-[#9CA3AF]" size={36} />
+          <p className="font-semibold text-sm text-[#0F1B2D]">No Resume Attached</p>
+          <p className="text-[#6B7280]">
+            The candidate did not attach a verified resume file when submitting this application.
+          </p>
+        </div>
+      </EmployerCard>
+    );
+  }
+
+  const fileName = row.resume_file_name || "candidate_resume.pdf";
+  const isPdf =
+    !row.resume_content_type ||
+    row.resume_content_type === "application/pdf" ||
+    fileName.toLowerCase().endsWith(".pdf");
+
+  async function togglePreview() {
+    if (preview.active) {
+      setPreview((prev) => ({ ...prev, active: false }));
+      return;
+    }
+    if (preview.url) {
+      setPreview((prev) => ({ ...prev, active: true }));
+      return;
+    }
+    setPreview({ active: true, loading: true, url: "", error: "" });
+    try {
+      const result = await api.applicants.resume(orgId, jobId, applicationId, {
+        disposition: "inline",
+      });
+      setPreview({
+        active: true,
+        loading: false,
+        url: browserStorageUrl(result.url),
+        error: "",
+      });
+    } catch (err) {
+      setPreview({
+        active: true,
+        loading: false,
+        url: "",
+        error: errorText(err)
+          ? "Resume file not found or expired."
+          : "Could not generate secure preview link. Try downloading directly.",
+      });
+    }
+  }
+
+  async function download() {
+    setAction({ busy: true, error: "", fields: {}, message: "" });
+    try {
+      const result = await api.applicants.resume(orgId, jobId, applicationId, {
+        disposition: "attachment",
+      });
+      window.open(browserStorageUrl(result.url), "_blank", "noopener,noreferrer");
+      setAction({
+        busy: false,
+        error: "",
+        fields: {},
+        message: "Resume download opened.",
+      });
+    } catch (error) {
+      setAction({
+        busy: false,
+        error: errorText(error) ? "Resume not available." : "Download failed.",
+        fields: fileFieldErrors(error),
+        message: "",
+      });
+    }
+  }
+
+  return (
+    <EmployerCard title="Submitted Resume">
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#F3EBDD] text-[#806236]">
+              <FileText size={20} />
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-xs text-[#0F1B2D] truncate" title={fileName}>
+                {fileName}
+              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="rounded bg-[#E5E1D8] px-1.5 py-0.5 text-[10px] font-medium text-[#4A5568]">
+                  {isPdf ? "PDF" : "DOCX"}
+                </span>
+                <span className="text-[11px] text-[#6B7280]">
+                  Clean scan verified · Private link
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <EmployerBtn
+              primary={!preview.active}
+              secondary={preview.active}
+              small
+              disabled={action.busy || preview.loading}
+              onClick={togglePreview}
+            >
+              {preview.loading ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : preview.active ? (
+                <EyeOff size={14} />
+              ) : (
+                <Eye size={14} />
+              )}
+              {preview.active ? "Hide preview" : "Preview resume"}
+            </EmployerBtn>
+            <EmployerBtn
+              secondary
+              small
+              disabled={action.busy}
+              onClick={download}
+            >
+              <Download size={14} />
+              Download
+            </EmployerBtn>
+          </div>
+        </div>
+
+        {preview.active && (
+          <div className="rounded-xl border border-[#E5E1D8] bg-white p-3 space-y-3">
+            <div className="flex items-center justify-between border-b border-[#E5E1D8] pb-2 text-xs">
+              <span className="font-medium text-[#0F1B2D]">Resume Preview</span>
+              {preview.url && (
+                <a
+                  href={preview.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[#806236] hover:underline"
+                >
+                  <ExternalLink size={12} />
+                  Open in new tab
+                </a>
+              )}
+            </div>
+
+            {preview.loading && (
+              <div className="flex h-64 items-center justify-center text-xs text-[#6B7280]">
+                <Loader2 size={20} className="animate-spin mr-2 text-[#806236]" />
+                Generating secure resume preview…
+              </div>
+            )}
+
+            {preview.error && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">
+                <p className="font-semibold">Unable to load preview</p>
+                <p className="mt-1">{preview.error}</p>
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={togglePreview}
+                    className="underline font-medium hover:text-rose-900"
+                  >
+                    Retry preview
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {preview.url && isPdf && (
+              <div className="space-y-2">
+                <iframe
+                  src={preview.url}
+                  className="w-full h-[650px] rounded-lg border border-[#E5E1D8] bg-[#FAF8F4]"
+                  title={`Resume preview for ${row.label}`}
+                />
+                <p className="text-[11px] text-[#6B7280] text-center">
+                  If the preview does not display in your browser, click{" "}
+                  <a
+                    href={preview.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#806236] underline"
+                  >
+                    Open in new tab
+                  </a>{" "}
+                  or use the Download button.
+                </p>
+              </div>
+            )}
+
+            {preview.url && !isPdf && (
+              <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-8 text-center text-xs space-y-3">
+                <FileText className="mx-auto text-[#806236]" size={36} />
+                <p className="font-semibold text-sm text-[#0F1B2D]">
+                  Microsoft Word Document (.docx)
+                </p>
+                <p className="text-[#6B7280] max-w-md mx-auto">
+                  Web browsers cannot display Microsoft Word documents inline. Please download the resume to view it in your desktop Word processor.
+                </p>
+                <EmployerBtn secondary small onClick={download} disabled={action.busy}>
+                  <Download size={14} />
+                  Download {fileName}
+                </EmployerBtn>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </EmployerCard>
   );
 }
 function Assignment({ row, locked, onSave, fields }) {
