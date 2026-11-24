@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, UserCheck, UserX, X } from "lucide-react";
+import { ArrowLeft, Check, Download, UserCheck, UserX, X } from "lucide-react";
 import { EmployerBtn, EmployerCard, StageChip } from "@/components";
 import {
   api,
@@ -472,6 +472,7 @@ function ApplicantDetail({ jobId, applicationId }) {
     (signal) => api.applicants.get(org.id, jobId, applicationId, signal),
   );
   const row = resource.data;
+  const isShortlisted = row?.stage === "shortlisted";
   const locked =
     !row || isReadOnly(row.context) || terminal.includes(row.stage);
   const canMove = !locked && (canWrite || row.context.owner_id === user.id);
@@ -573,13 +574,17 @@ function ApplicantDetail({ jobId, applicationId }) {
           </div>
           <div className="flex flex-wrap gap-2">
             <EmployerBtn
-              primary
+              primary={!isShortlisted}
+              secondary={isShortlisted}
               small
-              disabled={!canMove || action.busy || row.stage === "offered"}
+              disabled={
+                !canMove || action.busy || row.stage === "offered" || isShortlisted
+              }
+              aria-pressed={isShortlisted}
               onClick={() => move("shortlisted")}
             >
-              <UserCheck size={14} />
-              Shortlist
+              {isShortlisted ? <Check size={14} /> : <UserCheck size={14} />}
+              {isShortlisted ? "Shortlisted" : "Shortlist"}
             </EmployerBtn>
             <EmployerBtn
               secondary
