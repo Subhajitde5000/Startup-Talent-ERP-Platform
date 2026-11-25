@@ -173,41 +173,6 @@ export const applications = [
   },
 ];
 
-export const offers = [
-  {
-    id: 'off-1',
-    company: 'Fieldnote',
-    role: 'Senior Product Designer',
-    logo: 'F',
-    status: 'Received',
-    baseSalary: '₹22,00,000',
-    bonus: '₹2,00,000 annual performance',
-    equity: '₹6,00,000 ESOPs vested over 4 years',
-    totalComp: '₹24,00,000 / year (First year ₹24L cash + equity)',
-    joiningBonus: '₹1,00,000',
-    deadline: 'Nov 20, 2026 (12 days left)',
-    startDate: 'Jan 05, 2027',
-    loc: 'Bengaluru / Remote hybrid',
-    perks: ['Health insurance ₹10L floater', 'Home office setup ₹75k', 'Flexible hours'],
-  },
-  {
-    id: 'off-2',
-    company: 'OrbitPay',
-    role: 'Product Designer II',
-    logo: 'O',
-    status: 'Under Review',
-    baseSalary: '₹19,50,000',
-    bonus: '₹1,50,000',
-    equity: '₹4,00,000 ESOPs',
-    totalComp: '₹21,00,000 / year',
-    joiningBonus: '₹50,000',
-    deadline: 'Nov 18, 2026 (10 days left)',
-    startDate: 'Dec 15, 2026',
-    loc: 'Remote · India',
-    perks: ['Full health cover', 'Annual learning grant ₹40k', 'Gym membership'],
-  },
-];
-
 export const resumes = [
   {
     id: 'res-1',

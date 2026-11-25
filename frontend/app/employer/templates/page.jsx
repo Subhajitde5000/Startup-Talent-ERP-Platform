@@ -13,6 +13,11 @@ import {
   templates as initialTemplates,
   templateKpis,
 } from '@/app/employer/employer-data';
+import { useJobsWorkspace } from '@/components/employer-jobs-workspace';
+import { LoadingBlock, EmptyBlock, ErrorBlock, FieldError, fieldErrorsFrom } from '@/components/async-state';
+import { useCareerResource } from '@/components/career-data';
+import { api, ApiError } from '@/lib/api/client';
+import { formatDate } from '@/lib/mentorship-labels';
 import {
   CheckCircle2,
   Copy,
@@ -29,6 +34,7 @@ import {
 } from 'lucide-react';
 
 export default function EmployerTemplatesPage() {
+  const { org } = useJobsWorkspace();
   const [activeTab, setActiveTab] = useState('All');
   const [viewMode, setViewMode] = useState('cards');
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,17 +46,70 @@ export default function EmployerTemplatesPage() {
   const [newTitle, setNewTitle] = useState('');
   const [newType, setNewType] = useState('Job posts');
   const [newDesc, setNewDesc] = useState('');
+  // Onboarding mode: checklist items editor (additive, plan U7).
+  const [newItems, setNewItems] = useState([]);
+  const [newErrors, setNewErrors] = useState({});
+  const [newError, setNewError] = useState('');
+  const [newBusy, setNewBusy] = useState(false);
 
   // Preview Modal
   const [previewTemplate, setPreviewTemplate] = useState(null);
+
+  // Real onboarding templates (Step 7h) — loaded only while the tab is active.
+  const onboardingRes = useCareerResource(
+    `onboarding-templates:${org.id}`,
+    (signal) =>
+      activeTab === 'Onboarding'
+        ? api.onboardingTemplates.list(org.id, { limit: 100 }, signal)
+        : Promise.resolve(null)
+  );
 
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleCreateTemplate = (e) => {
+  const blankItem = () => ({ section: 'Week 1', title: '', owner_role: '', due_offset_days: '' });
+
+  const handleCreateTemplate = async (e) => {
     e.preventDefault();
+    // Onboarding templates are real API writes (7h); every other category
+    // keeps its Step-15 demo behavior until its own step wires it.
+    if (activeTab === 'Onboarding') {
+      setNewErrors({});
+      setNewError('');
+      const items = newItems
+        .filter((it) => it.title.trim())
+        .map((it) => ({
+          section: it.section.trim() || 'General',
+          title: it.title.trim(),
+          owner_role: it.owner_role || null,
+          due_offset_days: it.due_offset_days === '' ? null : Number(it.due_offset_days),
+        }));
+      setNewBusy(true);
+      try {
+        await api.onboardingTemplates.create(org.id, {
+          name: newTitle.trim(),
+          items,
+        });
+        setShowNewModal(false);
+        setNewTitle('');
+        setNewDesc('');
+        setNewItems([]);
+        showToast(`Template "${newTitle.trim()}" created successfully.`);
+        onboardingRes.reload();
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 422) {
+          setNewErrors(fieldErrorsFrom(error));
+        }
+        setNewError(
+          error instanceof ApiError ? error.message : 'Could not create the template. Please try again.'
+        );
+      } finally {
+        setNewBusy(false);
+      }
+      return;
+    }
     const newEntry = {
       id: `tmpl-${Date.now()}`,
       name: newTitle.trim(),
@@ -148,44 +207,161 @@ export default function EmployerTemplatesPage() {
                 />
               </div>
 
-              <div>
-                <label htmlFor="tmpl-type" className="block text-xs font-medium text-[#0F1B2D] mb-1">
-                  Template Category
-                </label>
-                <select
-                  id="tmpl-type"
-                  value={newType}
-                  onChange={(e) => setNewType(e.target.value)}
-                  className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
-                >
-                  <option value="Job posts">Job Post Template</option>
-                  <option value="Pipelines">Hiring Stage Pipeline</option>
-                  <option value="Scorecards">Interview Scorecard</option>
-                  <option value="Screening questions">Screening Questions</option>
-                  <option value="Offers">Offer Letter Package</option>
-                </select>
-              </div>
+              {activeTab !== 'Onboarding' && (
+                <>
+                  <div>
+                    <label htmlFor="tmpl-type" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                      Template Category
+                    </label>
+                    <select
+                      id="tmpl-type"
+                      value={newType}
+                      onChange={(e) => setNewType(e.target.value)}
+                      className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+                    >
+                      <option value="Job posts">Job Post Template</option>
+                      <option value="Pipelines">Hiring Stage Pipeline</option>
+                      <option value="Scorecards">Interview Scorecard</option>
+                      <option value="Screening questions">Screening Questions</option>
+                      <option value="Offers">Offer Letter Package</option>
+                    </select>
+                  </div>
 
-              <div>
-                <label htmlFor="tmpl-desc" className="block text-xs font-medium text-[#0F1B2D] mb-1">
-                  Description & Scope
-                </label>
-                <textarea
-                  id="tmpl-desc"
-                  rows={3}
-                  value={newDesc}
-                  onChange={(e) => setNewDesc(e.target.value)}
-                  placeholder="Standard evaluation rubric for evaluating system architecture..."
-                  className="w-full rounded-lg border border-[#E5E1D8] p-2.5 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
-                />
-              </div>
+                  <div>
+                    <label htmlFor="tmpl-desc" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                      Description & Scope
+                    </label>
+                    <textarea
+                      id="tmpl-desc"
+                      rows={3}
+                      value={newDesc}
+                      onChange={(e) => setNewDesc(e.target.value)}
+                      placeholder="Standard evaluation rubric for evaluating system architecture..."
+                      className="w-full rounded-lg border border-[#E5E1D8] p-2.5 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+                    />
+                  </div>
+                </>
+              )}
+
+              {activeTab === 'Onboarding' && (
+                <div className="space-y-3">
+                  <p className="text-xs text-[#4A5568]">
+                    Each item becomes a Day-1 checklist task for new hires. Owner and due day are
+                    optional (blank owner = unassigned, blank due = no offset).
+                  </p>
+                  {newItems.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-wrap items-end gap-2 rounded-lg border border-[#E5E1D8] bg-[#FAF8F4] p-3"
+                    >
+                      <label className="flex flex-col gap-1 text-[10px] font-medium text-[#4A5568]">
+                        Section
+                        <input
+                          className="w-28 rounded-md border border-[#E5E1D8] bg-white px-2 py-1.5 text-xs text-[#0F1B2D]"
+                          value={item.section}
+                          onChange={(e) =>
+                            setNewItems(
+                              newItems.map((it, i) => (i === idx ? { ...it, section: e.target.value } : it))
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="flex min-w-[170px] grow flex-col gap-1 text-[10px] font-medium text-[#4A5568]">
+                        Item title *
+                        <input
+                          placeholder="Set up laptop and email"
+                          className="rounded-md border border-[#E5E1D8] bg-white px-2.5 py-1.5 text-xs text-[#0F1B2D]"
+                          value={item.title}
+                          onChange={(e) =>
+                            setNewItems(
+                              newItems.map((it, i) => (i === idx ? { ...it, title: e.target.value } : it))
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1 text-[10px] font-medium text-[#4A5568]">
+                        Owner role
+                        <select
+                          className="w-32 rounded-md border border-[#E5E1D8] bg-white px-2 py-1.5 text-xs text-[#0F1B2D]"
+                          value={item.owner_role || ''}
+                          onChange={(e) =>
+                            setNewItems(
+                              newItems.map((it, i) =>
+                                i === idx ? { ...it, owner_role: e.target.value } : it
+                              )
+                            )
+                          }
+                        >
+                          <option value="">Unassigned</option>
+                          <option value="owner">Owner</option>
+                          <option value="admin">Admin</option>
+                          <option value="member">Member</option>
+                        </select>
+                      </label>
+                      <label className="flex flex-col gap-1 text-[10px] font-medium text-[#4A5568]">
+                        Due (day)
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="1"
+                          className="w-20 rounded-md border border-[#E5E1D8] bg-white px-2 py-1.5 text-xs text-[#0F1B2D]"
+                          value={item.due_offset_days}
+                          onChange={(e) =>
+                            setNewItems(
+                              newItems.map((it, i) =>
+                                i === idx ? { ...it, due_offset_days: e.target.value } : it
+                              )
+                            )
+                          }
+                        />
+                      </label>
+                      <EmployerBtn
+                        secondary
+                        small
+                        type="button"
+                        className="!text-[#B42318]"
+                        onClick={() => setNewItems(newItems.filter((_, i) => i !== idx))}
+                      >
+                        Remove
+                      </EmployerBtn>
+                    </div>
+                  ))}
+                  <EmployerBtn
+                    secondary
+                    small
+                    type="button"
+                    onClick={() => setNewItems([...newItems, blankItem()])}
+                  >
+                    <Plus size={13} className="mr-1" /> Add item
+                  </EmployerBtn>
+                </div>
+              )}
+
+              {newError && (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-[#F1C6C1] bg-[#FEF3F2] p-2.5 text-xs text-[#B42318]"
+                >
+                  {newError}
+                </div>
+              )}
+              <FieldError>{newErrors.name}</FieldError>
 
               <div className="flex justify-end gap-2 pt-2">
-                <EmployerBtn variant="secondary" size="sm" onClick={() => setShowNewModal(false)}>
+                <EmployerBtn
+                  secondary
+                  small
+                  type="button"
+                  onClick={() => {
+                    setShowNewModal(false);
+                    setNewError('');
+                    setNewErrors({});
+                  }}
+                >
                   Cancel
                 </EmployerBtn>
-                <EmployerBtn type="submit" variant="primary" size="sm">
-                  Save Template
+                <EmployerBtn type="submit" primary small disabled={newBusy}>
+                  {newBusy ? 'Saving…' : 'Save Template'}
                 </EmployerBtn>
               </div>
             </form>
@@ -208,7 +384,9 @@ export default function EmployerTemplatesPage() {
                   {previewTemplate.name}
                 </h3>
                 <p className="text-xs text-[#4A5568]">
-                  {previewTemplate.type} · {previewTemplate.version}
+                  {Array.isArray(previewTemplate.items)
+                    ? `Onboarding checklist · ${previewTemplate.items.length} items`
+                    : `${previewTemplate.type} · ${previewTemplate.version}`}
                 </p>
               </div>
               <button
@@ -221,31 +399,66 @@ export default function EmployerTemplatesPage() {
               </button>
             </div>
             <div className="mt-4 space-y-4 text-xs text-[#4A5568]">
-              <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-4 space-y-2">
-                <p className="font-semibold text-[#0F1B2D]">Template Summary</p>
-                <p>{previewTemplate.desc}</p>
-                <p className="pt-2 text-[11px] text-[#806236]">
-                  Category: {previewTemplate.category} · Scope: {previewTemplate.scope} · In use across {previewTemplate.usedIn} active positions
-                </p>
-              </div>
-              <p>
-                This template is ready for instant deployment into your hiring workflow.
-              </p>
+              {Array.isArray(previewTemplate.items) ? (
+                <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-4 space-y-2">
+                  <p className="font-semibold text-[#0F1B2D]">
+                    Checklist items ({previewTemplate.items.length})
+                  </p>
+                  {previewTemplate.items.length === 0 ? (
+                    <p>This template has no items yet.</p>
+                  ) : (
+                    <ol className="space-y-1.5">
+                      {previewTemplate.items.map((item) => (
+                        <li key={item.id} className="flex items-center gap-2">
+                          <span className="grid h-4 w-4 shrink-0 place-items-center rounded border border-[#B8955A]/50 text-[9px] text-[#806236]">
+                            ✓
+                          </span>
+                          <span className="text-[#0F1B2D]">
+                            {item.section} — {item.title}
+                          </span>
+                          <span className="text-[11px] text-[#6B7280]">
+                            {item.owner_role ? `@${item.owner_role}` : 'unassigned'}
+                            {item.due_offset_days != null ? ` · day ${item.due_offset_days}` : ''}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                  <p className="pt-2 text-[11px] text-[#806236]">
+                    Applied when this template is selected while creating a hire.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-4 space-y-2">
+                    <p className="font-semibold text-[#0F1B2D]">Template Summary</p>
+                    <p>{previewTemplate.desc}</p>
+                    <p className="pt-2 text-[11px] text-[#806236]">
+                      Category: {previewTemplate.category} · Scope: {previewTemplate.scope} · In use across {previewTemplate.usedIn} active positions
+                    </p>
+                  </div>
+                  <p>
+                    This template is ready for instant deployment into your hiring workflow.
+                  </p>
+                </>
+              )}
             </div>
             <div className="mt-6 flex justify-end gap-2">
               <EmployerBtn variant="secondary" size="sm" onClick={() => setPreviewTemplate(null)}>
                 Close Preview
               </EmployerBtn>
-              <EmployerBtn
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  showToast(`Template "${previewTemplate.name}" applied to active workflow!`);
-                  setPreviewTemplate(null);
-                }}
-              >
-                Apply to New Job
-              </EmployerBtn>
+              {!Array.isArray(previewTemplate.items) && (
+                <EmployerBtn
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    showToast(`Template "${previewTemplate.name}" applied to active workflow!`);
+                    setPreviewTemplate(null);
+                  }}
+                >
+                  Apply to New Job
+                </EmployerBtn>
+              )}
             </div>
           </div>
         </div>
@@ -273,13 +486,53 @@ export default function EmployerTemplatesPage() {
           </div>
         </div>
 
-        {/* KPIs */}
+        {/* KPIs — real stats for the Onboarding tab (7h); demo tiles elsewhere */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {templateKpis.map((k, idx) => (
+          {(activeTab === 'Onboarding'
+            ? (() => {
+                const onboardingTemplates = onboardingRes.data?.items || [];
+                const totalItems = onboardingTemplates.reduce(
+                  (sum, t) => sum + (t.item_count ?? (t.items || []).length),
+                  0
+                );
+                return [
+                  {
+                    label: 'Total Onboarding Checklists',
+                    value: onboardingRes.loading ? '…' : String(onboardingTemplates.length),
+                    sub: 'Company-owned checklist templates',
+                  },
+                  {
+                    label: 'Total Checklist Items',
+                    value: onboardingRes.loading ? '…' : String(totalItems),
+                    sub: 'Across all templates',
+                  },
+                  {
+                    label: 'Avg. Steps per Template',
+                    value:
+                      onboardingRes.loading || onboardingTemplates.length === 0
+                        ? '—'
+                        : String(Math.round(totalItems / onboardingTemplates.length)),
+                    sub: 'Rounded to nearest whole step',
+                  },
+                  {
+                    label: 'Last Edited',
+                    value: onboardingTemplates[0]?.updated_at
+                      ? formatDate(onboardingTemplates[0].updated_at)
+                      : onboardingRes.loading
+                        ? '…'
+                        : '—',
+                    sub: 'Most recent template change',
+                  },
+                ];
+              })()
+            : templateKpis
+          ).map((k, idx) => (
             <div key={idx} className="rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-sm">
               <span className="text-xs font-semibold text-[#4A5568]">{k.label}</span>
               <p className="font-serif text-2xl font-bold text-[#0F1B2D] mt-1">{k.value}</p>
-              <p className="text-xs text-[#806236] mt-1">Platform verified</p>
+              <p className="text-xs text-[#806236] mt-1">
+                {activeTab === 'Onboarding' ? k.sub : 'Platform verified'}
+              </p>
             </div>
           ))}
         </div>
@@ -339,7 +592,78 @@ export default function EmployerTemplatesPage() {
         </div>
 
         {/* Templates Display */}
-        {viewMode === 'cards' ? (
+        {activeTab === 'Onboarding' ? (
+          <div className="space-y-4">
+            {onboardingRes.loading ? (
+              <LoadingBlock label="Loading onboarding templates…" />
+            ) : onboardingRes.error ? (
+              <ErrorBlock
+                message={
+                  onboardingRes.error instanceof ApiError
+                    ? onboardingRes.error.message
+                    : 'Could not load onboarding templates.'
+                }
+                onRetry={onboardingRes.reload}
+              />
+            ) : (onboardingRes.data?.items || []).filter((t) =>
+                searchQuery
+                  ? t.name.toLowerCase().includes(searchQuery.toLowerCase())
+                  : true
+              ).length === 0 ? (
+              <EmptyBlock
+                title={searchQuery ? `No checklists match "${searchQuery}"` : 'No onboarding checklists yet'}
+                hint={
+                  searchQuery
+                    ? 'Clear the search to see every checklist template.'
+                    : 'Create your first checklist template — its items become Day-1 tasks for every new hire.'
+                }
+              />
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {(onboardingRes.data?.items || [])
+                  .filter((t) =>
+                    searchQuery
+                      ? t.name.toLowerCase().includes(searchQuery.toLowerCase())
+                      : true
+                  )
+                  .map((t) => {
+                    const itemCount = t.item_count ?? (t.items || []).length;
+                    return (
+                      <div
+                        key={t.id}
+                        className="rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-sm transition hover:border-[#B8955A] flex flex-col justify-between space-y-4"
+                      >
+                        <div className="space-y-2.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <StageChip stage="Onboarding" />
+                            </div>
+                          </div>
+                          <h3 className="font-serif text-base font-bold text-[#0F1B2D] leading-tight">
+                            {t.name}
+                          </h3>
+                          <span className="inline-block px-2 py-0.5 rounded bg-[#F3EBDD] text-[#806236] text-[11px] font-semibold">
+                            Checklist template
+                          </span>
+                          <p className="text-xs text-[#4A5568]">
+                            {itemCount} checklist item{itemCount === 1 ? '' : 's'}
+                          </p>
+                          <p className="text-[11px] text-[#4A5568]">
+                            Updated {t.updated_at ? formatDate(t.updated_at) : '—'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 pt-2 border-t border-[#E5E1D8]">
+                          <EmployerBtn secondary small onClick={() => setPreviewTemplate(t)}>
+                            <Eye size={13} className="mr-1" /> Preview
+                          </EmployerBtn>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        ) : viewMode === 'cards' ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredTemplates.map((t) => (
               <div

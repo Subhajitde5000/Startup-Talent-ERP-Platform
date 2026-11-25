@@ -59,9 +59,10 @@ async def _skills_for(db: AsyncSession, user_id) -> list[Skill]:  # noqa: ANN001
     return list(result.scalars().all())
 
 
-async def _resolve_skills(db: AsyncSession, names: list[str]) -> list[Skill]:
+async def resolve_skills(db: AsyncSession, names: list[str]) -> list[Skill]:
     """Case-insensitive lookup; unknown names are created (the catalog is
-    a shared lookup, and talent_profile_skills has an FK to skills)."""
+    a shared lookup, and talent_profile_skills has an FK to skills).
+    Public: 7i convert resolves hiring-request skill names the same way."""
     out: list[Skill] = []
     for name in names:
         result = await db.execute(
@@ -110,7 +111,7 @@ async def update_me(
             setattr(profile, field, value)
 
     if skill_names is not None:
-        skills = await _resolve_skills(db, skill_names)
+        skills = await resolve_skills(db, skill_names)
         wanted = {s.id for s in skills}
         existing = await db.execute(
             select(TalentProfileSkill.skill_id).where(
