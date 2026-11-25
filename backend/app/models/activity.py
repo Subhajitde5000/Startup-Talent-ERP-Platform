@@ -34,6 +34,18 @@ class ActivityEventType(enum.StrEnum):
     invent a new event category. Later steps append their own members.
     """
 
+    interview_changed = "interview_changed"
+    job_offer_changed = "job_offer_changed"
+    hire_changed = "hire_changed"
+    onboarding_template_changed = "onboarding_template_changed"
+    hire_document_changed = "hire_document_changed"
+
+    scorecard_created = "scorecard_created"
+    scorecard_updated = "scorecard_updated"
+    scorecard_archived = "scorecard_archived"
+    job_scorecard_selected = "job_scorecard_selected"
+    application_scores_updated = "application_scores_updated"
+
     application_submitted = "application_submitted"
     application_withdrawn = "application_withdrawn"
     application_stage_changed = "application_stage_changed"

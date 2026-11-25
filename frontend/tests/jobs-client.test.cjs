@@ -25,21 +25,23 @@ function loadClient(fetch) {
 }
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status });
 
-test('tokens persist in storage, survive module restarts, and clear on clearTokens', () => {
+test('tokens stay in memory, never restore from storage, and clear on logout', () => {
   const client = loadClient();
   client.setTokens({ access_token: 'access', refresh_token: 'refresh' });
   assert.equal(client.getAccessToken(), 'access');
   assert.equal(client.getRefreshToken(), 'refresh');
-  assert.equal(client.localStorage.data.get('forma.access_token'), 'access');
-  assert.equal(client.localStorage.data.get('forma.refresh_token'), 'refresh');
+  assert.equal(client.localStorage.data.has('forma.access_token'), false);
+  assert.equal(client.localStorage.data.has('forma.refresh_token'), false);
 
-  // Verify another client instance sharing the same storage can restore tokens on refresh
+  // Old persisted credentials are removed, not imported into a new module.
+  client.localStorage.setItem('forma.access_token', 'legacy-access');
+  client.sessionStorage.setItem('forma.refresh_token', 'legacy-refresh');
   const window = { localStorage: client.localStorage, sessionStorage: client.sessionStorage, dispatchEvent() {} };
   const exports = {};
   const code = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../lib/api/client.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   vm.runInNewContext(code, { exports, process: { env: {} }, window, fetch: async () => json({}), URLSearchParams, Response, Event });
-  assert.equal(exports.getAccessToken(), 'access');
-  assert.equal(exports.getRefreshToken(), 'refresh');
+  assert.equal(exports.getAccessToken(), null);
+  assert.equal(exports.getRefreshToken(), null);
 
   client.clearTokens();
   assert.equal(client.getAccessToken(), null);
@@ -71,7 +73,7 @@ test('all nine jobs methods use the existing bearer client and correct organizat
   assert.ok(requests.every(request => request.options.headers.Authorization === 'Bearer access'));
 });
 
-test('job requests retain single-flight automatic refresh and persist rotated tokens to storage', async () => {
+test('job requests retain single-flight automatic refresh and keep rotated tokens only in memory', async () => {
   let refreshes = 0;
   const client = loadClient(async (url, options) => {
     if (url.endsWith('/auth/refresh')) {
@@ -87,8 +89,8 @@ test('job requests retain single-flight automatic refresh and persist rotated to
   assert.equal(refreshes, 1);
   assert.equal(client.getAccessToken(), 'renewed');
   assert.equal(client.getRefreshToken(), 'rotated');
-  assert.equal(client.localStorage.data.get('forma.access_token'), 'renewed');
-  assert.equal(client.localStorage.data.get('forma.refresh_token'), 'rotated');
+  assert.equal(client.localStorage.data.size, 0);
+  assert.equal(client.sessionStorage.data.size, 0);
 });
 
 test('job field errors use the existing envelope mapper', async () => {

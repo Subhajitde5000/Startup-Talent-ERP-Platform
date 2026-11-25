@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import { api, ApiError, FILE_ACCEPT, fileFieldErrors, FileKind, FileRead } from '@/lib/api/client';
 
 type Props = {
-  orgId: string;
+  orgId?: string;
   kind: FileKind;
   disabled?: boolean;
   label?: string;
@@ -38,7 +38,7 @@ export default function FileUploadControl({ orgId, kind, disabled, label = 'Uplo
     if (file) setCandidate(null);
     try {
       let row = file
-        ? await api.files.uploadOrganization(orgId, kind, file, active.signal)
+        ? await (orgId ? api.files.uploadOrganization(orgId, kind, file, active.signal) : api.files.uploadPersonal(kind, file, active.signal))
         : candidate;
       if (!row) return;
       setCandidate(row);

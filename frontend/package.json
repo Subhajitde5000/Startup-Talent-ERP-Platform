@@ -4,6 +4,7 @@
     "start": "next start -H 0.0.0.0",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test:hiring": "node --test tests/hiring-client.test.cjs",
     "test:applicants": "node --test tests/applicants-client.test.cjs",
     "test:careers": "node --test tests/careers-client.test.cjs",
     "test:jobs": "node --test tests/jobs-client.test.cjs",

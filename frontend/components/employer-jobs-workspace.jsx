@@ -25,7 +25,7 @@ export function jobError(error) {
   return 'Could not connect. Please try again.';
 }
 
-function JobsWorkspace({ children }) {
+function JobsWorkspace({ children, activeNav }) {
   const { user, loading: authLoading, hasRole } = useAuth();
   const params = useSearchParams();
   const pathname = usePathname();
@@ -49,7 +49,7 @@ function JobsWorkspace({ children }) {
   const href = useCallback(path => org ? `${path}${path.includes('?') ? '&' : '?'}org_id=${encodeURIComponent(org.id)}` : path, [org]);
   const canWrite = Boolean(org && ['owner', 'admin'].includes(org.my_role));
   const workspace = { user, org, canWrite, href };
-  return <EmployerShell activeNav="Hiring" jobsWorkspace={workspace}>
+  return <EmployerShell activeNav={activeNav || "Hiring"} jobsWorkspace={workspace}>
     <div className="mx-auto max-w-[1280px] space-y-6 min-w-0 pb-10">
       {!state.loading && state.orgs.length > 1 && <div className="rounded-2xl border border-[#E5E1D8] bg-white p-4 text-xs">
         <label htmlFor="jobs-organization" className="mr-3 font-semibold">Organization</label>
@@ -67,8 +67,8 @@ function JobsWorkspace({ children }) {
   </EmployerShell>;
 }
 
-export function JobsPage({ children }) {
-  return <Suspense fallback={<div className="p-8" role="status">Loading jobs…</div>}><JobsWorkspace>{children}</JobsWorkspace></Suspense>;
+export function JobsPage({ children, activeNav }) {
+  return <Suspense fallback={<div className="p-8" role="status">Loading jobs…</div>}><JobsWorkspace activeNav={activeNav}>{children}</JobsWorkspace></Suspense>;
 }
 
 export function useJobsWorkspace() {

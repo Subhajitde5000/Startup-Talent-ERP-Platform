@@ -173,72 +173,9 @@ export const applications = [
   },
 ];
 
-export const interviews = [
-  {
-    id: 'int-1',
-    company: 'Northstar Labs',
-    title: 'Senior Product Designer',
-    round: 'Portfolio Deep Dive & Case Study Review',
-    datetime: 'Thu, Nov 12, 2026 · 11:00 AM – 12:00 PM IST',
-    format: 'Video call (Google Meet)',
-    interviewers: ['Rhea Mukherjee (VP Product Design)', 'Arjun Rao (Senior Staff Engineer)'],
-    prepItems: [
-      'Prepare 2 key portfolio projects highlighting business impact',
-      'Review Northstar Labs component library philosophy',
-      'Test microphone and camera setup beforehand',
-    ],
-    status: 'Confirmed',
-  },
-  {
-    id: 'int-2',
-    company: 'Morrow Health',
-    title: 'Product Designer',
-    round: 'Recruiter Screening Call',
-    datetime: 'Mon, Nov 16, 2026 · 3:30 PM – 4:00 PM IST',
-    format: 'Phone call',
-    interviewers: ['Pooja Sharma (Talent Lead)'],
-    prepItems: [
-      'Prepare summary of experience in healthtech / regulated UX',
-      'Prepare salary expectation rationale and notice period availability',
-    ],
-    status: 'Scheduled',
-  },
-];
 
-export const offers = [
-  {
-    id: 'off-1',
-    company: 'Fieldnote',
-    role: 'Senior Product Designer',
-    logo: 'F',
-    status: 'Received',
-    baseSalary: '₹22,00,000',
-    bonus: '₹2,00,000 annual performance',
-    equity: '₹6,00,000 ESOPs vested over 4 years',
-    totalComp: '₹24,00,000 / year (First year ₹24L cash + equity)',
-    joiningBonus: '₹1,00,000',
-    deadline: 'Nov 20, 2026 (12 days left)',
-    startDate: 'Jan 05, 2027',
-    loc: 'Bengaluru / Remote hybrid',
-    perks: ['Health insurance ₹10L floater', 'Home office setup ₹75k', 'Flexible hours'],
-  },
-  {
-    id: 'off-2',
-    company: 'OrbitPay',
-    role: 'Product Designer II',
-    logo: 'O',
-    status: 'Under Review',
-    baseSalary: '₹19,50,000',
-    bonus: '₹1,50,000',
-    equity: '₹4,00,000 ESOPs',
-    totalComp: '₹21,00,000 / year',
-    joiningBonus: '₹50,000',
-    deadline: 'Nov 18, 2026 (10 days left)',
-    startDate: 'Dec 15, 2026',
-    loc: 'Remote · India',
-    perks: ['Full health cover', 'Annual learning grant ₹40k', 'Gym membership'],
-  },
-];
+
+
 
 export const resumes = [
   {

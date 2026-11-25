@@ -42,7 +42,7 @@ test('all nine pipeline methods share scoped bearer transport and exact payloads
  assert.ok(calls[7].url.endsWith('/review-settings'));assert.deepEqual(JSON.parse(calls[8].options.body),{});
  assert.ok(calls[9].url.includes('disposition=inline'));
  assert.ok(calls.every(call=>call.options.headers.Authorization==='Bearer access'));
- assert.equal(client.localStorage.data.get('forma.access_token'),'access');assert.equal(client.sessionStorage.data.size,0);
+ assert.equal(client.localStorage.data.size,0);assert.equal(client.sessionStorage.data.size,0);
 });
 
 test('pipeline refresh uses the existing single-flight refresh and field error mapping',async()=>{
@@ -56,7 +56,7 @@ test('pipeline refresh uses the existing single-flight refresh and field error m
  for(const result of await Promise.allSettled([client.api.applicants.update('org','job','a',{assignee_id:'foreign'}),client.api.applicants.update('org','job','b',{assignee_id:'foreign'})])){
   assert.equal(result.status,'rejected');assert.equal(client.fileFieldErrors(result.reason).assignee_id,'Same organization required');
  }
- assert.equal(refreshes,1);assert.equal(client.localStorage.data.get('forma.access_token'),'new');
+ assert.equal(refreshes,1);assert.equal(client.localStorage.data.size,0);
 });
 
 test('signed development resume URLs reuse the same-origin storage helper',()=>{

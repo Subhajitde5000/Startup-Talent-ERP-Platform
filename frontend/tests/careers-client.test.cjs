@@ -63,7 +63,7 @@ test('application requests share rotating refresh and map nested server validati
  client.setTokens({access_token:'old',refresh_token:'refresh'});
  await Promise.all([client.api.careers.context('job'),client.api.careers.application('app')]);assert.equal(refreshes,1);
  await assert.rejects(client.api.careers.submit('job',{}),error=>error instanceof client.ApiError && error.details[0].loc.join('.')==='body.contact.email');
- assert.equal(client.getRefreshToken(),'rotated');assert.equal(client.localStorage.data.get('forma.refresh_token'),'rotated');assert.equal(client.sessionStorage.data.size,0);
+ assert.equal(client.getRefreshToken(),'rotated');assert.equal(client.localStorage.data.size,0);assert.equal(client.sessionStorage.data.size,0);
 });
 
 test('personal resume upload reserves/confirms with bearer auth but signed byte PUT has none', async()=>{

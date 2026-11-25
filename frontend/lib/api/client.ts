@@ -3,7 +3,7 @@
  *
  * - Base URL comes from NEXT_PUBLIC_API_URL (defaults to the same-origin
  *   "/api/v1", which next.config.js proxies to the backend).
- * - Bearer access token is attached automatically from local storage.
+ * - Bearer access token is attached automatically from memory only.
  * - A 401 triggers a single-flight refresh; the original request is retried
  *   once with the new access token.
  * - Every failure surfaces as an ApiError carrying the backend's
@@ -71,8 +71,8 @@ export type TaskPriority = components["schemas"]["TaskPriority"];
 export type TaskCreate = components["schemas"]["TaskCreate"];
 export type TaskUpdate = components["schemas"]["TaskUpdate"];
 export type TaskMove = components["schemas"]["TaskMove"];
-export type TaskRead = components["schemas"]["TaskRead"];
-export type TaskPage = components["schemas"]["TaskPage"];
+export type TaskRead = components["schemas"]["app__schemas__task__TaskRead"];
+export type TaskPage = components["schemas"]["app__schemas__task__TaskPage"];
 export type ReadinessStatus = components["schemas"]["ReadinessStatus"];
 export type ReadinessCriterionRead = components["schemas"]["ReadinessCriterionRead"];
 export type ReadinessBoard = components["schemas"]["ReadinessBoard"];
@@ -560,58 +560,31 @@ const REFRESH_KEY = "forma.refresh_token";
 
 /* ------------------------------------------------------------------ tokens */
 
-function getStorageItem(key: string): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function setStorageItem(key: string, value: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(key, value);
-  } catch { /* Storage might be restricted; memory cache still works */ }
-}
-
-function removeStorageItem(key: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(key);
-  } catch { /* Storage might be restricted */ }
-}
-
 let cachedAccessToken: string | null = null;
 let cachedRefreshToken: string | null = null;
 
-export function getAccessToken(): string | null {
-  if (cachedAccessToken) return cachedAccessToken;
-  const stored = getStorageItem(ACCESS_KEY);
-  if (stored) cachedAccessToken = stored;
-  return stored;
+/** Remove legacy persistence without ever importing credentials from browser storage. */
+function clearLegacyTokens(): void {
+  if (typeof window === "undefined") return;
+  for (const kind of ["localStorage", "sessionStorage"] as const) {
+    try {
+      window[kind].removeItem(ACCESS_KEY);
+      window[kind].removeItem(REFRESH_KEY);
+    } catch { /* Storage may be disabled. Session credentials still remain memory-only. */ }
+  }
 }
-
-export function getRefreshToken(): string | null {
-  if (cachedRefreshToken) return cachedRefreshToken;
-  const stored = getStorageItem(REFRESH_KEY);
-  if (stored) cachedRefreshToken = stored;
-  return stored;
-}
-
+clearLegacyTokens();
+export function getAccessToken(): string | null { return cachedAccessToken; }
+export function getRefreshToken(): string | null { return cachedRefreshToken; }
 export function setTokens(tokens: { access_token: string; refresh_token: string }): void {
+  clearLegacyTokens();
   cachedAccessToken = tokens.access_token;
   cachedRefreshToken = tokens.refresh_token;
-  setStorageItem(ACCESS_KEY, tokens.access_token);
-  setStorageItem(REFRESH_KEY, tokens.refresh_token);
 }
-
 export function clearTokens(): void {
   cachedAccessToken = null;
   cachedRefreshToken = null;
-  removeStorageItem(ACCESS_KEY);
-  removeStorageItem(REFRESH_KEY);
+  clearLegacyTokens();
 }
 
 /** Fired when the session is gone (refresh failed) so the app can react. */
@@ -897,8 +870,8 @@ export type RoomPut = components["schemas"]["RoomPut"];
 export type FolderRead = components["schemas"]["FolderRead"];
 export type FolderCreate = components["schemas"]["FolderCreate"];
 export type FolderUpdate = components["schemas"]["FolderUpdate"];
-export type DocumentRead = components["schemas"]["DocumentRead"];
-export type DocumentCreate = components["schemas"]["DocumentCreate"];
+export type DocumentRead = components["schemas"]["app__schemas__data_room__DocumentRead"];
+export type DocumentCreate = components["schemas"]["app__schemas__data_room__DocumentCreate"];
 export type DocumentUpdate = components["schemas"]["DocumentUpdate"];
 export type VersionRead = components["schemas"]["VersionRead"];
 export type AccessRead = components["schemas"]["AccessRead"];
@@ -969,7 +942,69 @@ export type PipelinePatch = components["schemas"]["PipelinePatch"];
 const pipelinePath = (orgId: string, jobId: string) => `/organizations/${orgId}/jobs/${jobId}`;
 const applicantPath = (orgId: string, jobId: string, id: string) => `${pipelinePath(orgId, jobId)}/applications/${id}`;
 
+// Steps 7e–7h: generated command/read/query contracts, shared transport.
+
 export const api = {
+  hiring: {
+    cards: (org: string, query: NonNullable<operations["list_cards_api_v1_organizations__org_id__scorecards_get"]["parameters"]["query"]> = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["CardPage"]>(`/organizations/${org}/scorecards`, { query, signal }),
+    createCard: (org: string, body: components["schemas"]["CardCreate"], signal?: AbortSignal) => apiRequest<components["schemas"]["CardRead"]>(`/organizations/${org}/scorecards`, { method: "POST", body, signal }),
+    card: (org: string, id: string, signal?: AbortSignal) => apiRequest<components["schemas"]["CardRead"]>(`/organizations/${org}/scorecards/${id}`, { signal }),
+    patchCard: (org: string, id: string, body: components["schemas"]["CardPatch"], signal?: AbortSignal) => apiRequest<components["schemas"]["CardRead"]>(`/organizations/${org}/scorecards/${id}`, { method: "PATCH", body, signal }),
+    archiveCard: (org: string, id: string, signal?: AbortSignal) => apiRequest<void>(`/organizations/${org}/scorecards/${id}`, { method: "DELETE", signal }),
+    jobCard: (org: string, job: string, signal?: AbortSignal) => apiRequest<components["schemas"]["CardRead"]>(`/organizations/${org}/jobs/${job}/scorecard`, { signal }),
+    selectCard: (org: string, job: string, body: components["schemas"]["CardSelect"], signal?: AbortSignal) => apiRequest<components["schemas"]["CardRead"]>(`/organizations/${org}/jobs/${job}/scorecard`, { method: "PUT", body, signal }),
+    scores: (org: string, job: string, id: string, signal?: AbortSignal) => apiRequest<components["schemas"]["ApplicationEvaluation"]>(`/organizations/${org}/jobs/${job}/applications/${id}/scores`, { signal }),
+    saveScores: (org: string, job: string, id: string, body: components["schemas"]["RatingsPut"], signal?: AbortSignal) => apiRequest<components["schemas"]["ApplicationEvaluation"]>(`/organizations/${org}/jobs/${job}/applications/${id}/scores/me`, { method: "PUT", body, signal }),
+    compare: (org: string, job: string, query: NonNullable<operations["compare_api_v1_organizations__org_id__jobs__job_id__compare_get"]["parameters"]["query"]>, signal?: AbortSignal) => apiRequest<components["schemas"]["ComparisonRead"]>(`/organizations/${org}/jobs/${job}/compare`, { query, signal }),
+    interviews: (org: string, query: NonNullable<operations["listing_api_v1_organizations__org_id__interviews_get"]["parameters"]["query"]> = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["InterviewPage"]>(`/organizations/${org}/interviews`, { query, signal }),
+    interview: (org: string, id: string, signal?: AbortSignal) => apiRequest<components["schemas"]["InterviewRead"]>(`/organizations/${org}/interviews/${id}`, { signal }),
+    attendance: (org: string, id: string, body: components["schemas"]["AttendancePut"], signal?: AbortSignal) => apiRequest<components["schemas"]["InterviewRead"]>(`/organizations/${org}/interviews/${id}/attendance/me`, { method: "PUT", body, signal }),
+    schedule: (org: string, body: components["schemas"]["InterviewCreate"], signal?: AbortSignal) => apiRequest<components["schemas"]["InterviewRead"]>(`/organizations/${org}/interviews`, { method: "POST", body, signal }),
+    reschedule: (org: string, id: string, body: components["schemas"]["InterviewPatch"], signal?: AbortSignal) => apiRequest<components["schemas"]["InterviewRead"]>(`/organizations/${org}/interviews/${id}`, { method: "PATCH", body, signal }),
+    participants: (org: string, id: string, body: components["schemas"]["ParticipantsPut"], signal?: AbortSignal) => apiRequest<components["schemas"]["InterviewRead"]>(`/organizations/${org}/interviews/${id}/participants`, { method: "PUT", body, signal }),
+    interviewTransition: (org: string, id: string, body: components["schemas"]["InterviewTransition"], signal?: AbortSignal) => apiRequest<components["schemas"]["InterviewRead"]>(`/organizations/${org}/interviews/${id}/transitions`, { method: "POST", body, signal }),
+    feedback: (org: string, id: string, query: NonNullable<operations["feedback_api_v1_organizations__org_id__interviews__id___feedback_get"]["parameters"]["query"]> = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["FeedbackPage"]>(`/organizations/${org}/interviews/${id}/feedback`, { query, signal }),
+    saveFeedback: (org: string, id: string, body: components["schemas"]["FeedbackPut"], signal?: AbortSignal) => apiRequest<components["schemas"]["FeedbackRead"]>(`/organizations/${org}/interviews/${id}/feedback/me`, { method: "PUT", body, signal }),
+    ownInterviews: (query: NonNullable<operations["own_list_api_v1_interviews_get"]["parameters"]["query"]> = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["InterviewPage"]>(`/interviews`, { query, signal }),
+    ownInterview: (id: string, signal?: AbortSignal) => apiRequest<components["schemas"]["InterviewRead"]>(`/interviews/${id}`, { signal }),
+    ownAttendance: (id: string, body: components["schemas"]["AttendancePut"], signal?: AbortSignal) => apiRequest<components["schemas"]["InterviewRead"]>(`/interviews/${id}/attendance/me`, { method: "PUT", body, signal }),
+    offers: (org: string, query: NonNullable<operations["listing_api_v1_organizations__org_id__job_offers_get"]["parameters"]["query"]> = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["StaffOfferPage"]>(`/organizations/${org}/job-offers`, { query, signal }),
+    offer: (org: string, id: string, signal?: AbortSignal) => apiRequest<components["schemas"]["StaffOfferRead"]>(`/organizations/${org}/job-offers/${id}`, { signal }),
+    offerDocument: (org: string, id: string, signal?: AbortSignal) => apiRequest<components["schemas"]["FileDownloadRead"]>(`/organizations/${org}/job-offers/${id}/document-download`, { method: "POST", body: {}, signal }),
+    createOffer: (org: string, body: components["schemas"]["OfferCreate"], signal?: AbortSignal) => apiRequest<components["schemas"]["StaffOfferRead"]>(`/organizations/${org}/job-offers`, { method: "POST", body, signal }),
+    patchOffer: (org: string, id: string, body: components["schemas"]["OfferPatch"], signal?: AbortSignal) => apiRequest<components["schemas"]["StaffOfferRead"]>(`/organizations/${org}/job-offers/${id}`, { method: "PATCH", body, signal }),
+    archiveOffer: (org: string, id: string, signal?: AbortSignal) => apiRequest<void>(`/organizations/${org}/job-offers/${id}`, { method: "DELETE", signal }),
+    submitOffer: (org: string, id: string, body: components["schemas"]["ApprovalRequest"], signal?: AbortSignal) => apiRequest<components["schemas"]["StaffOfferRead"]>(`/organizations/${org}/job-offers/${id}/submit`, { method: "POST", body, signal }),
+    approvals: (org: string, id: string, query: NonNullable<operations["approvals_api_v1_organizations__org_id__job_offers__id___approvals_get"]["parameters"]["query"]> = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["ApprovalPage"]>(`/organizations/${org}/job-offers/${id}/approvals`, { query, signal }),
+    decideOffer: (org: string, id: string, body: components["schemas"]["ApprovalDecision"], signal?: AbortSignal) => apiRequest<components["schemas"]["StaffOfferRead"]>(`/organizations/${org}/job-offers/${id}/approvals/me`, { method: "PUT", body, signal }),
+    sendOffer: (org: string, id: string, body: components["schemas"]["Expected"], signal?: AbortSignal) => apiRequest<components["schemas"]["StaffOfferRead"]>(`/organizations/${org}/job-offers/${id}/send`, { method: "POST", body, signal }),
+    withdrawOffer: (org: string, id: string, body: components["schemas"]["Expected"], signal?: AbortSignal) => apiRequest<components["schemas"]["StaffOfferRead"]>(`/organizations/${org}/job-offers/${id}/withdraw`, { method: "POST", body, signal }),
+    reviseOffer: (org: string, id: string, body: components["schemas"]["OfferRevision"], signal?: AbortSignal) => apiRequest<components["schemas"]["StaffOfferRead"]>(`/organizations/${org}/job-offers/${id}/revisions`, { method: "POST", body, signal }),
+    expireOffer: (org: string, id: string, body: components["schemas"]["Expected"], signal?: AbortSignal) => apiRequest<components["schemas"]["StaffOfferRead"]>(`/organizations/${org}/job-offers/${id}/expire`, { method: "POST", body, signal }),
+    ownOffers: (query: NonNullable<operations["own_list_api_v1_job_offers_get"]["parameters"]["query"]> = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["OfferPage"]>(`/job-offers`, { query, signal }),
+    ownOffer: (id: string, signal?: AbortSignal) => apiRequest<components["schemas"]["OfferRead"]>(`/job-offers/${id}`, { signal }),
+    ownOfferDocument: (id: string, signal?: AbortSignal) => apiRequest<components["schemas"]["FileDownloadRead"]>(`/job-offers/${id}/document-download`, { method: "POST", body: {}, signal }),
+    respondOffer: (id: string, body: components["schemas"]["OfferResponse"], signal?: AbortSignal) => apiRequest<components["schemas"]["OfferRead"]>(`/job-offers/${id}/respond`, { method: "POST", body, signal }),
+    counterOffer: (id: string, body: components["schemas"]["OfferCounter"], signal?: AbortSignal) => apiRequest<components["schemas"]["OfferRead"]>(`/job-offers/${id}/counter`, { method: "POST", body, signal }),
+    compareOffers: (query: NonNullable<operations["compare_api_v1_job_offers_compare_get"]["parameters"]["query"]>, signal?: AbortSignal) => apiRequest<components["schemas"]["OfferPage"]>(`/job-offers/compare`, { query, signal }),
+    declineReasons: (query: NonNullable<operations["reasons_api_v1_job_offers_decline_reasons_get"]["parameters"]["query"]> = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["DeclineReasonPage"]>(`/job-offers/decline-reasons`, { query, signal }),
+    templates: (org: string, query: NonNullable<operations["template_list_api_v1_organizations__org_id__onboarding_templates_get"]["parameters"]["query"]> = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["TemplatePage"]>(`/organizations/${org}/onboarding-templates`, { query, signal }),
+    createTemplate: (org: string, body: components["schemas"]["OnboardingTemplateInput"], signal?: AbortSignal) => apiRequest<components["schemas"]["OnboardingTemplateRead"]>(`/organizations/${org}/onboarding-templates`, { method: "POST", body, signal }),
+    template: (org: string, id: string, signal?: AbortSignal) => apiRequest<components["schemas"]["OnboardingTemplateRead"]>(`/organizations/${org}/onboarding-templates/${id}`, { signal }),
+    saveTemplate: (org: string, id: string, body: components["schemas"]["OnboardingTemplateInput"], signal?: AbortSignal) => apiRequest<components["schemas"]["OnboardingTemplateRead"]>(`/organizations/${org}/onboarding-templates/${id}`, { method: "PUT", body, signal }),
+    archiveTemplate: (org: string, id: string, signal?: AbortSignal) => apiRequest<void>(`/organizations/${org}/onboarding-templates/${id}`, { method: "DELETE", signal }),
+    hires: (org: string, query: NonNullable<operations["listing_api_v1_organizations__org_id__hires_get"]["parameters"]["query"]> = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["HirePage"]>(`/organizations/${org}/hires`, { query, signal }),
+    createHire: (org: string, body: components["schemas"]["HireCreate"], signal?: AbortSignal) => apiRequest<components["schemas"]["HireRead"]>(`/organizations/${org}/hires`, { method: "POST", body, signal }),
+    hire: (org: string, id: string, signal?: AbortSignal) => apiRequest<components["schemas"]["HireRead"]>(`/organizations/${org}/hires/${id}`, { signal }),
+    patchHire: (org: string, id: string, body: components["schemas"]["HirePatch"], signal?: AbortSignal) => apiRequest<components["schemas"]["HireRead"]>(`/organizations/${org}/hires/${id}`, { method: "PATCH", body, signal }),
+    hireTransition: (org: string, id: string, body: components["schemas"]["HireTransition"], signal?: AbortSignal) => apiRequest<components["schemas"]["HireRead"]>(`/organizations/${org}/hires/${id}/transitions`, { method: "POST", body, signal }),
+    tasks: (org: string, id: string, query: NonNullable<operations["tasks_api_v1_organizations__org_id__hires__id___checklist_get"]["parameters"]["query"]> = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["app__schemas__hiring_workflow__TaskPage"]>(`/organizations/${org}/hires/${id}/checklist`, { query, signal }),
+    saveTask: (org: string, id: string, item: string, body: components["schemas"]["TaskPatch"], signal?: AbortSignal) => apiRequest<components["schemas"]["app__schemas__hiring_workflow__TaskRead"]>(`/organizations/${org}/hires/${id}/checklist/${item}`, { method: "PATCH", body, signal }),
+    documents: (org: string, id: string, query: NonNullable<operations["documents_api_v1_organizations__org_id__hires__id___documents_get"]["parameters"]["query"]> = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["DocumentPage"]>(`/organizations/${org}/hires/${id}/documents`, { query, signal }),
+    requestDocument: (org: string, id: string, body: components["schemas"]["app__schemas__hiring_workflow__DocumentCreate"], signal?: AbortSignal) => apiRequest<components["schemas"]["app__schemas__hiring_workflow__DocumentRead"]>(`/organizations/${org}/hires/${id}/documents`, { method: "POST", body, signal }),
+    reviewDocument: (org: string, id: string, item: string, body: components["schemas"]["DocumentPatch"], signal?: AbortSignal) => apiRequest<components["schemas"]["app__schemas__hiring_workflow__DocumentRead"]>(`/organizations/${org}/hires/${id}/documents/${item}`, { method: "PATCH", body, signal }),
+    hireDocument: (org: string, id: string, item: string, signal?: AbortSignal) => apiRequest<components["schemas"]["FileDownloadRead"]>(`/organizations/${org}/hires/${id}/documents/${item}/download`, { method: "POST", body: {}, signal }),
+  },
   applicants: {
     list: (org: string, job: string, query: ApplicantQuery = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["ApplicantPage"]>(`${pipelinePath(org, job)}/applications`, { query, signal }),
     get: (org: string, job: string, id: string, signal?: AbortSignal) => apiRequest<ApplicantRead>(applicantPath(org, job, id), { signal }),

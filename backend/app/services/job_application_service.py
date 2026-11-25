@@ -389,6 +389,9 @@ async def withdraw(db: AsyncSession, user: User, id_: uuid.UUID) -> ApplicationR
     before = row.stage
     row.stage = "withdrawn"
     row.withdrawn_at = row.stage_changed_at = row.updated_at = datetime.now(UTC)
+    from app.services.hiring_workflow_service import cancel_pending
+
+    await cancel_pending(db, user, row, uuid.UUID(row.job_snapshot["org_id"]))
     db.add(
         ApplicationStageEvent(
             application_id=row.id,

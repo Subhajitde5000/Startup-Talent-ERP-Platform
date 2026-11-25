@@ -51,6 +51,7 @@ from app.routers import (
     organizations,
     public,
     readiness,
+    scorecards,
     session,
     session_review,
     skills,
@@ -140,6 +141,18 @@ def create_app() -> FastAPI:
     app.include_router(job_discovery.router, prefix=settings.API_V1_PREFIX)
     app.include_router(job_applications.router, prefix=settings.API_V1_PREFIX)
     app.include_router(applicant_pipeline.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(scorecards.router, prefix=settings.API_V1_PREFIX)
+    from app.routers import interviews
+
+    app.include_router(interviews.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(interviews.candidate_router, prefix=settings.API_V1_PREFIX)
+    from app.routers import job_offers
+
+    app.include_router(job_offers.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(job_offers.candidate_router, prefix=settings.API_V1_PREFIX)
+    from app.routers import onboarding
+
+    app.include_router(onboarding.router, prefix=settings.API_V1_PREFIX)
     app.include_router(startup_profile.router, prefix=settings.API_V1_PREFIX)
     app.include_router(milestones.router, prefix=settings.API_V1_PREFIX)
     app.include_router(funding_round.router, prefix=settings.API_V1_PREFIX)

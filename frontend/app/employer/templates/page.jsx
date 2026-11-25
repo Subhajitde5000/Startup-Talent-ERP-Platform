@@ -1,6 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { Suspense, useState, useMemo } from 'react';
+import {useSearchParams} from 'next/navigation';
+import {HiringPage, useJobsWorkspace} from '@/components/hiring-ui';
+import {ScorecardTemplates} from '@/components/hiring-scorecards';
+import {OnboardingTemplates} from '@/components/hiring-onboarding';
 import Link from 'next/link';
 import {
   EmployerShell,
@@ -29,10 +33,30 @@ import {
 } from 'lucide-react';
 
 export default function EmployerTemplatesPage() {
+  return <Suspense fallback={<p>Loading templates…</p>}><TemplatesRoute/></Suspense>;
+}
+function TemplatesRoute() {
+  const category = useSearchParams().get('category');
+  return ['scorecards', 'onboarding'].includes(category)
+    ? <HiringPage><LiveTemplates category={category}/></HiringPage>
+    : <OtherTemplates/>;
+}
+function LiveTemplates({category}) {
+  const {href} = useJobsWorkspace();
+  return <>
+    <nav className="flex flex-wrap gap-3 text-xs underline">
+      <Link href={href('/employer/templates?category=scorecards')}>Scorecards</Link>
+      <Link href={href('/employer/templates?category=onboarding')}>Onboarding</Link>
+      <Link href="/employer/templates">Other template categories (demo)</Link>
+    </nav>
+    {category === 'scorecards' ? <ScorecardTemplates/> : <OnboardingTemplates/>}
+  </>;
+}
+function OtherTemplates() {
   const [activeTab, setActiveTab] = useState('All');
   const [viewMode, setViewMode] = useState('cards');
   const [searchQuery, setSearchQuery] = useState('');
-  const [templatesList, setTemplatesList] = useState(initialTemplates);
+  const [templatesList, setTemplatesList] = useState(initialTemplates.filter(t=>t.type!=='Scorecards'));
   const [toastMessage, setToastMessage] = useState(null);
 
   // New Template Modal
@@ -92,6 +116,7 @@ export default function EmployerTemplatesPage() {
     'Job posts',
     'Pipelines',
     'Scorecards',
+    'Onboarding',
     'Screening questions',
     'Interview guides',
     'Offers',
@@ -160,7 +185,6 @@ export default function EmployerTemplatesPage() {
                 >
                   <option value="Job posts">Job Post Template</option>
                   <option value="Pipelines">Hiring Stage Pipeline</option>
-                  <option value="Scorecards">Interview Scorecard</option>
                   <option value="Screening questions">Screening Questions</option>
                   <option value="Offers">Offer Letter Package</option>
                 </select>
@@ -289,6 +313,7 @@ export default function EmployerTemplatesPage() {
           <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
             {tabs.map((tab) => {
               const active = activeTab === tab;
+              if (['Scorecards','Onboarding'].includes(tab)) return <Link key={tab} className="whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium text-[#806236] underline" href={`/employer/templates?category=${tab.toLowerCase()}`}>{tab}</Link>;
               return (
                 <button
                   key={tab}
