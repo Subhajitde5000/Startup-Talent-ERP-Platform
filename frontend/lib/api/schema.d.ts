@@ -1659,6 +1659,779 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/{org_id}/scorecards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List organization scorecards
+         * @description Eligible non-viewer hiring members. Templates by default; nested criteria are bounded to 20.
+         */
+        get: operations["list_cards_api_v1_organizations__org_id__scorecards_get"];
+        put?: never;
+        /**
+         * Create an organization scorecard template
+         * @description Owner/admin only; no platform, job, author or lifecycle fields accepted.
+         */
+        post: operations["create_api_v1_organizations__org_id__scorecards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/scorecards/{card_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a scoped scorecard */
+        get: operations["get_api_v1_organizations__org_id__scorecards__card_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Archive an unscored scorecard
+         * @description Owner/admin only. Scored rubrics cannot be archived; template copies remain independent.
+         */
+        delete: operations["archive_api_v1_organizations__org_id__scorecards__card_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit an unscored scorecard
+         * @description Owner/admin only. Criteria replacement is atomic; the first score permanently locks a job rubric.
+         */
+        patch: operations["patch_api_v1_organizations__org_id__scorecards__card_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/scorecard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the selected job rubric */
+        get: operations["get_job_card_api_v1_organizations__org_id__jobs__job_id__scorecard_get"];
+        /**
+         * Copy an organization template into a job rubric
+         * @description Owner/admin only. Same-template retries return the existing copy, not a second rubric.
+         *     Replacing a scored rubric is forbidden even after all reviewers withdraw their ratings.
+         */
+        put: operations["select_job_card_api_v1_organizations__org_id__jobs__job_id__scorecard_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/applications/{application_id}/scores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read own scores and anonymous numeric aggregates
+         * @description Uses existing owned-job/assigned-application scope. Peer notes and scorer IDs are never returned.
+         */
+        get: operations["application_scores_api_v1_organizations__org_id__jobs__job_id__applications__application_id__scores_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/applications/{application_id}/scores/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace only my own application ratings
+         * @description Each criterion must belong to this job's rubric. Empty scores withdraw only the caller's ratings.
+         *     This does not unlock the rubric, change stages, reveal identity or write panel-private notes.
+         */
+        put: operations["put_scores_api_v1_organizations__org_id__jobs__job_id__applications__application_id__scores_me_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare two to five authorized applicants on one rubric
+         * @description Every selected application must be in scope. Preserves request order and 7d blind projection.
+         *     Means use observed criteria only and include coverage; no ATS score, ranking or recommendation.
+         */
+        get: operations["compare_api_v1_organizations__org_id__jobs__job_id__compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/interviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List authorized interviews */
+        get: operations["listing_api_v1_organizations__org_id__interviews_get"];
+        put?: never;
+        /** Schedule an interview with an idempotency key */
+        post: operations["create_api_v1_organizations__org_id__interviews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/interviews/{id_}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read an interview within pipeline scope */
+        get: operations["get_api_v1_organizations__org_id__interviews__id___get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Reschedule and reset attendance */
+        patch: operations["patch_api_v1_organizations__org_id__interviews__id___patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/interviews/{id_}/participants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace the panel of a pending interview */
+        put: operations["participants_api_v1_organizations__org_id__interviews__id___participants_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/interviews/{id_}/transitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel, complete, or record a no-show */
+        post: operations["transition_api_v1_organizations__org_id__interviews__id___transitions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/interviews/{id_}/attendance/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Respond as the authenticated panel participant */
+        put: operations["attendance_api_v1_organizations__org_id__interviews__id___attendance_me_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/interviews/{id_}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read only my private feedback */
+        get: operations["feedback_api_v1_organizations__org_id__interviews__id___feedback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/interviews/{id_}/feedback/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save my feedback after completion */
+        put: operations["save_feedback_api_v1_organizations__org_id__interviews__id___feedback_me_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/interviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my interviews without panel/private feedback */
+        get: operations["own_list_api_v1_interviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/interviews/{id_}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read my interview */
+        get: operations["own_get_api_v1_interviews__id___get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/interviews/{id_}/attendance/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Respond as the applicant participant */
+        put: operations["own_attendance_api_v1_interviews__id___attendance_me_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/job-offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List offers in pipeline scope */
+        get: operations["listing_api_v1_organizations__org_id__job_offers_get"];
+        put?: never;
+        /** Create a private offer draft */
+        post: operations["create_api_v1_organizations__org_id__job_offers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/job-offers/{id_}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read an internal offer version */
+        get: operations["get_api_v1_organizations__org_id__job_offers__id___get"];
+        put?: never;
+        post?: never;
+        /** Archive an unsubmitted draft */
+        delete: operations["archive_api_v1_organizations__org_id__job_offers__id___delete"];
+        options?: never;
+        head?: never;
+        /** Edit only unsubmitted draft terms */
+        patch: operations["patch_api_v1_organizations__org_id__job_offers__id___patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/job-offers/{id_}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Freeze terms and request independent approvals */
+        post: operations["submit_api_v1_organizations__org_id__job_offers__id___submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/job-offers/{id_}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List approvals of this immutable version */
+        get: operations["approvals_api_v1_organizations__org_id__job_offers__id___approvals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/job-offers/{id_}/approvals/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Decide only my assigned approval */
+        put: operations["decide_api_v1_organizations__org_id__job_offers__id___approvals_me_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/job-offers/{id_}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send after every active approver approved */
+        post: operations["send_api_v1_organizations__org_id__job_offers__id___send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/job-offers/{id_}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw an actionable offer */
+        post: operations["withdraw_api_v1_organizations__org_id__job_offers__id___withdraw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/job-offers/{id_}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Supersede with a new draft requiring fresh approvals */
+        post: operations["revision_api_v1_organizations__org_id__job_offers__id___revisions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/job-offers/{id_}/expire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Persist an overdue offer expiry */
+        post: operations["expire_api_v1_organizations__org_id__job_offers__id___expire_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/job-offers/{id_}/document-download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign a scoped private offer document */
+        post: operations["staff_document_api_v1_organizations__org_id__job_offers__id___document_download_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List only my sent and historical offers */
+        get: operations["own_list_api_v1_job_offers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-offers/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compare two to five of my visible offers */
+        get: operations["compare_api_v1_job_offers_compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-offers/decline-reasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List active decline reasons */
+        get: operations["reasons_api_v1_job_offers_decline_reasons_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-offers/{id_}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read my offer without internal approvals */
+        get: operations["own_get_api_v1_job_offers__id___get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-offers/{id_}/respond": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept or decline an unexpired current offer */
+        post: operations["respond_api_v1_job_offers__id___respond_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-offers/{id_}/counter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Counter without mutating employer terms */
+        post: operations["counter_api_v1_job_offers__id___counter_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-offers/{id_}/document-download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign only my visible offer document */
+        post: operations["own_document_api_v1_job_offers__id___document_download_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/onboarding-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List organization onboarding templates */
+        get: operations["template_list_api_v1_organizations__org_id__onboarding_templates_get"];
+        put?: never;
+        /** Create an organization onboarding template */
+        post: operations["template_create_api_v1_organizations__org_id__onboarding_templates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/onboarding-templates/{id_}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a template and its bounded items */
+        get: operations["template_get_api_v1_organizations__org_id__onboarding_templates__id___get"];
+        /** Replace template items without changing existing hires */
+        put: operations["template_patch_api_v1_organizations__org_id__onboarding_templates__id___put"];
+        post?: never;
+        /** Archive a template without changing copied checklists */
+        delete: operations["template_archive_api_v1_organizations__org_id__onboarding_templates__id___delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/hires": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List authorized hires */
+        get: operations["listing_api_v1_organizations__org_id__hires_get"];
+        put?: never;
+        /** Convert a current accepted offer exactly once */
+        post: operations["create_api_v1_organizations__org_id__hires_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/hires/{id_}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a scoped hire and checklist progress */
+        get: operations["get_api_v1_organizations__org_id__hires__id___get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change onboarding ownership or start date explicitly */
+        patch: operations["patch_api_v1_organizations__org_id__hires__id___patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/hires/{id_}/transitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Manually onboard, activate, cancel or record a no-show */
+        post: operations["transition_api_v1_organizations__org_id__hires__id___transitions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/hires/{id_}/checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List authorized copied checklist items */
+        get: operations["tasks_api_v1_organizations__org_id__hires__id___checklist_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/hires/{id_}/checklist/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a checklist item within manager or assignee scope */
+        patch: operations["task_patch_api_v1_organizations__org_id__hires__id___checklist__task_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/hires/{id_}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List private hire document requests */
+        get: operations["documents_api_v1_organizations__org_id__hires__id___documents_get"];
+        put?: never;
+        /** Request a document with explicit purpose and retention */
+        post: operations["document_create_api_v1_organizations__org_id__hires__id___documents_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/hires/{id_}/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Attach a clean private file or record a review */
+        patch: operations["document_patch_api_v1_organizations__org_id__hires__id___documents__document_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/hires/{id_}/documents/{document_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign a document only for an explicit private hire grant */
+        post: operations["document_download_api_v1_organizations__org_id__hires__id___documents__document_id__download_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{org_id}/startup-profile": {
         parameters: {
             query?: never;
@@ -4771,6 +5544,10 @@ export interface components {
             currency: string;
             /** Resume Available */
             resume_available: boolean;
+            /** Resume File Name */
+            resume_file_name?: string | null;
+            /** Resume Content Type */
+            resume_content_type?: string | null;
             /** Rejected Reason */
             rejected_reason: string | null;
             /** Rejected At */
@@ -4853,6 +5630,11 @@ export interface components {
             /** Consent Share */
             consent_share: boolean;
         };
+        /** ApplicationEvaluation */
+        ApplicationEvaluation: {
+            scorecard: components["schemas"]["CardRead"];
+            evaluation: components["schemas"]["EvaluationRead"];
+        };
         /** ApplicationPage */
         ApplicationPage: {
             /** Items */
@@ -4930,6 +5712,64 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** ApprovalDecision */
+        ApprovalDecision: {
+            /** Expected Version */
+            expected_version: number;
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approved" | "rejected";
+            /** Note */
+            note?: string | null;
+        };
+        /** ApprovalPage */
+        ApprovalPage: {
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["ApprovalRead"][];
+        };
+        /** ApprovalRead */
+        ApprovalRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Approver Id */
+            approver_id: string | null;
+            /** Status */
+            status: string;
+            /** Note */
+            note: string | null;
+            /** Decided At */
+            decided_at: string | null;
+        };
+        /** ApprovalRequest */
+        ApprovalRequest: {
+            /** Expected Version */
+            expected_version: number;
+            /** Approver Ids */
+            approver_ids: string[];
+        };
+        /** AttendancePut */
+        AttendancePut: {
+            /** Expected Version */
+            expected_version: number;
+            /**
+             * Response
+             * @enum {string}
+             */
+            response: "accepted" | "declined" | "tentative";
         };
         /**
          * AttendeeRole
@@ -5178,6 +6018,76 @@ export interface components {
             /** Inputs */
             inputs: components["schemas"]["MetricKey"][];
         };
+        /** CardCreate */
+        CardCreate: {
+            /** Name */
+            name: string;
+            /** Criteria */
+            criteria: components["schemas"]["CriterionInput"][];
+        };
+        /** CardPage */
+        CardPage: {
+            /** Items */
+            items: components["schemas"]["CardRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /** CardPatch */
+        CardPatch: {
+            /** Name */
+            name?: string | null;
+            /** Criteria */
+            criteria?: components["schemas"]["CriterionInput"][] | null;
+        };
+        /** CardRead */
+        CardRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Job Id */
+            job_id: string | null;
+            /** Name */
+            name: string;
+            /** Is Platform */
+            is_platform: boolean;
+            /** Source Scorecard Id */
+            source_scorecard_id: string | null;
+            /** Locked At */
+            locked_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Criteria */
+            criteria: components["schemas"]["CriterionRead"][];
+        };
+        /** CardSelect */
+        CardSelect: {
+            /**
+             * Template Id
+             * Format: uuid
+             */
+            template_id: string;
+        };
         /**
          * CasePriority
          * @enum {string}
@@ -5331,6 +6241,17 @@ export interface components {
             /** Committed On */
             committed_on?: string | null;
         };
+        /** ComparisonItem */
+        ComparisonItem: {
+            applicant: components["schemas"]["ApplicantRead"];
+            evaluation: components["schemas"]["EvaluationRead"];
+        };
+        /** ComparisonRead */
+        ComparisonRead: {
+            scorecard: components["schemas"]["CardRead"];
+            /** Items */
+            items: components["schemas"]["ComparisonItem"][];
+        };
         /**
          * CompetitorCreate
          * @description Add a competitor. Server-owned fields are absent, not ignored.
@@ -5447,6 +6368,46 @@ export interface components {
          * @enum {string}
          */
         Confidence: "high" | "medium" | "low";
+        /** CriterionAggregate */
+        CriterionAggregate: {
+            /**
+             * Criterion Id
+             * Format: uuid
+             */
+            criterion_id: string;
+            /** Rating Count */
+            rating_count: number;
+            /** Mean */
+            mean: string | null;
+        };
+        /** CriterionInput */
+        CriterionInput: {
+            /** Name */
+            name: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight?: number;
+            /** Anchors */
+            anchors?: string[];
+        };
+        /** CriterionRead */
+        CriterionRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Weight */
+            weight: number;
+            /** Anchors */
+            anchors: string[];
+            /** Display Order */
+            display_order: number;
+        };
         /** DailyCount */
         DailyCount: {
             /**
@@ -5632,6 +6593,31 @@ export interface components {
          * @enum {string}
          */
         DataRequestType: "access" | "erasure" | "rectification" | "portability" | "restriction" | "objection";
+        /** DeclineReasonPage */
+        DeclineReasonPage: {
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["DeclineReasonRead"][];
+        };
+        /** DeclineReasonRead */
+        DeclineReasonRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
+        };
         /**
          * DeleteRequestRead
          * @description A self-service data (erasure) request as seen by its owner.
@@ -5966,66 +6952,32 @@ export interface components {
             /** Response */
             response?: string | null;
         };
-        /** DocumentCreate */
-        DocumentCreate: {
+        /** DocumentPage */
+        DocumentPage: {
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["app__schemas__hiring_workflow__DocumentRead"][];
+        };
+        /** DocumentPatch */
+        DocumentPatch: {
+            /** Expected Version */
+            expected_version: number;
             /**
-             * Folder Id
-             * Format: uuid
-             */
-            folder_id: string;
-            /**
-             * File Id
-             * Format: uuid
-             */
-            file_id: string;
-            /** Name */
-            name: string;
-            /**
-             * Visibility
-             * @default private
+             * Action
              * @enum {string}
              */
-            visibility?: "private" | "approved_investors";
-        };
-        /** DocumentRead */
-        DocumentRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /**
-             * Folder Id
-             * Format: uuid
-             */
-            folder_id: string;
-            /**
-             * File Id
-             * Format: uuid
-             */
-            file_id: string;
-            /** Name */
-            name: string;
-            /** Visibility */
-            visibility: string;
-            /** Version */
-            version: string;
-            /** Version Number */
-            version_number: number;
-            /** View Count */
-            view_count: number;
-            /** Updated By */
-            updated_by: string | null;
+            action: "attach" | "verify" | "reject" | "expire";
+            /** File Id */
+            file_id?: string | null;
+            /** Reason */
+            reason?: string | null;
         };
         /** DocumentUpdate */
         DocumentUpdate: {
@@ -6292,6 +7244,86 @@ export interface components {
             /** Message */
             message?: string | null;
         };
+        /** EvaluationRead */
+        EvaluationRead: {
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /**
+             * Scorecard Id
+             * Format: uuid
+             */
+            scorecard_id: string;
+            /** Own Scores */
+            own_scores: components["schemas"]["OwnRatingRead"][];
+            /** Aggregates */
+            aggregates: components["schemas"]["CriterionAggregate"][];
+            /** Weighted Mean */
+            weighted_mean: string | null;
+            /** Rated Criteria */
+            rated_criteria: number;
+            /** Total Criteria */
+            total_criteria: number;
+            /** Coverage Pct */
+            coverage_pct: string;
+        };
+        /** Expected */
+        Expected: {
+            /** Expected Version */
+            expected_version: number;
+        };
+        /** FeedbackPage */
+        FeedbackPage: {
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["FeedbackRead"][];
+        };
+        /** FeedbackPut */
+        FeedbackPut: {
+            /**
+             * Recommendation
+             * @enum {string}
+             */
+            recommendation: "strong_yes" | "yes" | "no" | "strong_no";
+            /** Summary */
+            summary: string;
+        };
+        /** FeedbackRead */
+        FeedbackRead: {
+            /**
+             * Recommendation
+             * @enum {string}
+             */
+            recommendation: "strong_yes" | "yes" | "no" | "strong_no";
+            /** Summary */
+            summary: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Author Id */
+            author_id: string | null;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** FileConfirmCreate */
         FileConfirmCreate: Record<string, never>;
         /** FileDownloadCreate */
@@ -6309,6 +7341,10 @@ export interface components {
             url: string;
             /** Expires In */
             expires_in: number;
+            /** File Name */
+            file_name?: string | null;
+            /** Mime Type */
+            mime_type?: string | null;
         };
         /**
          * FileKind
@@ -6630,6 +7666,119 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HireCreate */
+        HireCreate: {
+            /**
+             * Offer Id
+             * Format: uuid
+             */
+            offer_id: string;
+            /** Template Id */
+            template_id?: string | null;
+            department?: components["schemas"]["Department"] | null;
+            /** Manager Id */
+            manager_id?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+        };
+        /** HirePage */
+        HirePage: {
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["HireRead"][];
+        };
+        /** HirePatch */
+        HirePatch: {
+            /** Expected Version */
+            expected_version: number;
+            /** Start Date */
+            start_date?: string | null;
+            /** Manager Id */
+            manager_id?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+        };
+        /** HireRead */
+        HireRead: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Job Title */
+            job_title: string;
+            /** Can Edit */
+            can_edit: boolean;
+            /** Can Manage Tasks */
+            can_manage_tasks: boolean;
+            /** Can Access Documents */
+            can_access_documents: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /**
+             * Offer Id
+             * Format: uuid
+             */
+            offer_id: string;
+            /** Applicant Label */
+            applicant_label: string;
+            department: components["schemas"]["Department"] | null;
+            /** Manager Id */
+            manager_id: string | null;
+            /** Owner Id */
+            owner_id: string | null;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending_onboarding" | "onboarding" | "active" | "no_show" | "cancelled";
+            /** Version */
+            version: number;
+            /** Completed Items */
+            completed_items: number;
+            /** Total Items */
+            total_items: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** HireTransition */
+        HireTransition: {
+            /** Expected Version */
+            expected_version: number;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "onboard" | "activate" | "no_show" | "cancel";
+        };
         /** HiringCompany */
         HiringCompany: {
             /**
@@ -6915,6 +8064,158 @@ export interface components {
          * @enum {string}
          */
         InstrumentType: "equity" | "safe" | "convertible_note" | "ccd" | "ccps" | "debt" | "other";
+        /** InterviewCreate */
+        InterviewCreate: {
+            /** Participants */
+            participants: components["schemas"]["ParticipantInput"][];
+            /** Round Name */
+            round_name: string;
+            /**
+             * Format
+             * @default video
+             * @enum {string}
+             */
+            format?: "video" | "phone" | "onsite" | "async";
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /**
+             * Duration Min
+             * @default 45
+             */
+            duration_min?: number;
+            /** Location */
+            location?: string | null;
+            /** Meeting Url */
+            meeting_url?: string | null;
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** InterviewPage */
+        InterviewPage: {
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["InterviewRead"][];
+        };
+        /** InterviewPatch */
+        InterviewPatch: {
+            /** Expected Version */
+            expected_version: number;
+            /** Round Name */
+            round_name: string;
+            /**
+             * Format
+             * @default video
+             * @enum {string}
+             */
+            format?: "video" | "phone" | "onsite" | "async";
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /**
+             * Duration Min
+             * @default 45
+             */
+            duration_min?: number;
+            /** Location */
+            location?: string | null;
+            /** Meeting Url */
+            meeting_url?: string | null;
+        };
+        /** InterviewRead */
+        InterviewRead: {
+            /** Company Name */
+            company_name: string;
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage?: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /** Applicant Label */
+            applicant_label: string;
+            /** Job Title */
+            job_title: string;
+            /** Round Name */
+            round_name: string;
+            /**
+             * Format
+             * @enum {string}
+             */
+            format: "video" | "phone" | "onsite" | "async";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "scheduled" | "confirmed" | "completed" | "cancelled" | "no_show";
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Location */
+            location: string | null;
+            /** Meeting Url */
+            meeting_url: string | null;
+            /** Cancelled Reason */
+            cancelled_reason: string | null;
+            /** Version */
+            version: number;
+            /** Participants */
+            participants: components["schemas"]["ParticipantRead"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** InterviewTransition */
+        InterviewTransition: {
+            /** Expected Version */
+            expected_version: number;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "cancel" | "complete" | "no_show";
+            /** Reason */
+            reason?: string | null;
+        };
         /**
          * InvestorDealCreate
          * @description Create a deal on the investor's board.
@@ -9561,6 +10862,69 @@ export interface components {
             /** Items */
             items: components["schemas"]["NotificationPreferenceItem"][];
         };
+        /** OfferCounter */
+        OfferCounter: {
+            /** Expected Version */
+            expected_version: number;
+            /** Note */
+            note: string;
+        };
+        /** OfferCreate */
+        OfferCreate: {
+            /** Title */
+            title: string;
+            /** Base Salary */
+            base_salary: number | string;
+            /** Bonus Amount */
+            bonus_amount?: number | string | null;
+            /** Equity Pct */
+            equity_pct?: number | string | null;
+            /** Joining Bonus */
+            joining_bonus?: number | string | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** @default annual */
+            salary_period?: components["schemas"]["SalaryPeriod"];
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * Expires On
+             * Format: date
+             */
+            expires_on: string;
+            /** Payment Terms */
+            payment_terms?: string | null;
+            /** Bonus Terms */
+            bonus_terms?: string | null;
+            /** Probation Terms */
+            probation_terms?: string | null;
+            /** Notice Terms */
+            notice_terms?: string | null;
+            /** Vesting Terms */
+            vesting_terms?: string | null;
+            /** Exercise Price Terms */
+            exercise_price_terms?: string | null;
+            /** Joining Bonus Terms */
+            joining_bonus_terms?: string | null;
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /** Document File Id */
+            document_file_id?: string | null;
+        };
         /** OfferHistoryPage */
         OfferHistoryPage: {
             /** Items */
@@ -9571,6 +10935,254 @@ export interface components {
             limit: number;
             /** Offset */
             offset: number;
+        };
+        /** OfferPage */
+        OfferPage: {
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["OfferRead"][];
+        };
+        /** OfferPatch */
+        OfferPatch: {
+            /** Expected Version */
+            expected_version: number;
+            /** Title */
+            title: string;
+            /** Base Salary */
+            base_salary: number | string;
+            /** Bonus Amount */
+            bonus_amount?: number | string | null;
+            /** Equity Pct */
+            equity_pct?: number | string | null;
+            /** Joining Bonus */
+            joining_bonus?: number | string | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** @default annual */
+            salary_period?: components["schemas"]["SalaryPeriod"];
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * Expires On
+             * Format: date
+             */
+            expires_on: string;
+            /** Payment Terms */
+            payment_terms?: string | null;
+            /** Bonus Terms */
+            bonus_terms?: string | null;
+            /** Probation Terms */
+            probation_terms?: string | null;
+            /** Notice Terms */
+            notice_terms?: string | null;
+            /** Vesting Terms */
+            vesting_terms?: string | null;
+            /** Exercise Price Terms */
+            exercise_price_terms?: string | null;
+            /** Joining Bonus Terms */
+            joining_bonus_terms?: string | null;
+            /** Document File Id */
+            document_file_id?: string | null;
+        };
+        /** OfferRead */
+        OfferRead: {
+            /** Title */
+            title: string;
+            /** Base Salary */
+            base_salary: string;
+            /** Bonus Amount */
+            bonus_amount?: string | null;
+            /** Equity Pct */
+            equity_pct?: string | null;
+            /** Joining Bonus */
+            joining_bonus?: string | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** @default annual */
+            salary_period?: components["schemas"]["SalaryPeriod"];
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * Expires On
+             * Format: date
+             */
+            expires_on: string;
+            /** Payment Terms */
+            payment_terms?: string | null;
+            /** Bonus Terms */
+            bonus_terms?: string | null;
+            /** Probation Terms */
+            probation_terms?: string | null;
+            /** Notice Terms */
+            notice_terms?: string | null;
+            /** Vesting Terms */
+            vesting_terms?: string | null;
+            /** Exercise Price Terms */
+            exercise_price_terms?: string | null;
+            /** Joining Bonus Terms */
+            joining_bonus_terms?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "sent" | "countered" | "accepted" | "declined" | "expired" | "withdrawn";
+            /** Version */
+            version: number;
+            /** Terms Version */
+            terms_version: number;
+            /** Parent Offer Id */
+            parent_offer_id: string | null;
+            job_snapshot: components["schemas"]["OfferSnapshot"];
+            /** Document Available */
+            document_available: boolean;
+            /** Sent At */
+            sent_at: string | null;
+            /** Responded At */
+            responded_at: string | null;
+            /** Counter Note */
+            counter_note: string | null;
+            /** Decline Reason Id */
+            decline_reason_id: string | null;
+            /** Decline Detail */
+            decline_detail: string | null;
+            /** Superseded At */
+            superseded_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** OfferResponse */
+        OfferResponse: {
+            /** Expected Version */
+            expected_version: number;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "accept" | "decline";
+            /** Decline Reason Id */
+            decline_reason_id?: string | null;
+            /** Decline Detail */
+            decline_detail?: string | null;
+            /**
+             * Share Decline Reason
+             * @default false
+             */
+            share_decline_reason?: boolean;
+        };
+        /** OfferRevision */
+        OfferRevision: {
+            /** Expected Version */
+            expected_version: number;
+            /** Title */
+            title: string;
+            /** Base Salary */
+            base_salary: number | string;
+            /** Bonus Amount */
+            bonus_amount?: number | string | null;
+            /** Equity Pct */
+            equity_pct?: number | string | null;
+            /** Joining Bonus */
+            joining_bonus?: number | string | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** @default annual */
+            salary_period?: components["schemas"]["SalaryPeriod"];
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * Expires On
+             * Format: date
+             */
+            expires_on: string;
+            /** Payment Terms */
+            payment_terms?: string | null;
+            /** Bonus Terms */
+            bonus_terms?: string | null;
+            /** Probation Terms */
+            probation_terms?: string | null;
+            /** Notice Terms */
+            notice_terms?: string | null;
+            /** Vesting Terms */
+            vesting_terms?: string | null;
+            /** Exercise Price Terms */
+            exercise_price_terms?: string | null;
+            /** Joining Bonus Terms */
+            joining_bonus_terms?: string | null;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /** Document File Id */
+            document_file_id?: string | null;
+        };
+        /** OfferSnapshot */
+        OfferSnapshot: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Title */
+            title: string;
+            /** Company Name */
+            company_name: string;
+            /** Location */
+            location: string | null;
+            /** Work Mode */
+            work_mode: string;
+            /** Employment Type */
+            employment_type: string;
+            /** Benefits */
+            benefits: string[];
         };
         /**
          * OfferStatus
@@ -9603,6 +11215,35 @@ export interface components {
             status: components["schemas"]["OfferStatus"];
             /** Parent Offer Id */
             parent_offer_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** OnboardingTemplateInput */
+        OnboardingTemplateInput: {
+            /** Name */
+            name: string;
+            /** Items */
+            items: components["schemas"]["TemplateItemInput"][];
+        };
+        /** OnboardingTemplateRead */
+        OnboardingTemplateRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Items */
+            items: components["schemas"]["TemplateItemRead"][];
             /**
              * Created At
              * Format: date-time
@@ -9759,6 +11400,33 @@ export interface components {
             /** Logo File Id */
             logo_file_id?: string | null;
         };
+        /** OwnRatingRead */
+        OwnRatingRead: {
+            /**
+             * Criterion Id
+             * Format: uuid
+             */
+            criterion_id: string;
+            /** Score */
+            score: number;
+            /** Note */
+            note?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** Page[AccessRead] */
         Page_AccessRead_: {
             /** Items */
@@ -9773,7 +11441,7 @@ export interface components {
         /** Page[DocumentRead] */
         Page_DocumentRead_: {
             /** Items */
-            items: components["schemas"]["DocumentRead"][];
+            items: components["schemas"]["app__schemas__data_room__DocumentRead"][];
             /** Total */
             total: number;
             /** Limit */
@@ -9835,6 +11503,40 @@ export interface components {
             limit: number;
             /** Offset */
             offset: number;
+        };
+        /** ParticipantInput */
+        ParticipantInput: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /**
+             * Side
+             * @default interviewer
+             * @enum {string}
+             */
+            side?: "interviewer" | "observer";
+        };
+        /** ParticipantRead */
+        ParticipantRead: {
+            /** User Id */
+            user_id: string | null;
+            /** Display Name */
+            display_name: string;
+            /** Side */
+            side: string;
+            /** Response */
+            response: ("accepted" | "declined" | "tentative") | null;
+            /** Responded At */
+            responded_at: string | null;
+        };
+        /** ParticipantsPut */
+        ParticipantsPut: {
+            /** Expected Version */
+            expected_version: number;
+            /** Participants */
+            participants: components["schemas"]["ParticipantInput"][];
         };
         /** PipelinePatch */
         PipelinePatch: {
@@ -9902,6 +11604,23 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** RatingInput */
+        RatingInput: {
+            /**
+             * Criterion Id
+             * Format: uuid
+             */
+            criterion_id: string;
+            /** Score */
+            score: number;
+            /** Note */
+            note?: string | null;
+        };
+        /** RatingsPut */
+        RatingsPut: {
+            /** Scores */
+            scores: components["schemas"]["RatingInput"][];
         };
         /**
          * ReadinessBoard
@@ -10643,6 +12362,119 @@ export interface components {
              * Format: date
              */
             period_end: string;
+        };
+        /** StaffOfferPage */
+        StaffOfferPage: {
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["StaffOfferRead"][];
+        };
+        /** StaffOfferRead */
+        StaffOfferRead: {
+            /** Title */
+            title: string;
+            /** Base Salary */
+            base_salary: string;
+            /** Bonus Amount */
+            bonus_amount?: string | null;
+            /** Equity Pct */
+            equity_pct?: string | null;
+            /** Joining Bonus */
+            joining_bonus?: string | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** @default annual */
+            salary_period?: components["schemas"]["SalaryPeriod"];
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * Expires On
+             * Format: date
+             */
+            expires_on: string;
+            /** Payment Terms */
+            payment_terms?: string | null;
+            /** Bonus Terms */
+            bonus_terms?: string | null;
+            /** Probation Terms */
+            probation_terms?: string | null;
+            /** Notice Terms */
+            notice_terms?: string | null;
+            /** Vesting Terms */
+            vesting_terms?: string | null;
+            /** Exercise Price Terms */
+            exercise_price_terms?: string | null;
+            /** Joining Bonus Terms */
+            joining_bonus_terms?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "sent" | "countered" | "accepted" | "declined" | "expired" | "withdrawn";
+            /** Version */
+            version: number;
+            /** Terms Version */
+            terms_version: number;
+            /** Parent Offer Id */
+            parent_offer_id: string | null;
+            job_snapshot: components["schemas"]["OfferSnapshot"];
+            /** Document Available */
+            document_available: boolean;
+            /** Sent At */
+            sent_at: string | null;
+            /** Responded At */
+            responded_at: string | null;
+            /** Counter Note */
+            counter_note: string | null;
+            /** Decline Reason Id */
+            decline_reason_id: string | null;
+            /** Decline Detail */
+            decline_detail: string | null;
+            /** Superseded At */
+            superseded_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Applicant Label */
+            applicant_label: string;
+            /** Pipeline Writable */
+            pipeline_writable: boolean;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
         };
         /**
          * StageChange
@@ -11567,19 +13399,18 @@ export interface components {
             /** After Id */
             after_id?: string | null;
         };
-        /**
-         * TaskPage
-         * @description Paginated list envelope (limit/offset, same shape as 5b).
-         */
-        TaskPage: {
-            /** Items */
-            items: components["schemas"]["TaskRead"][];
-            /** Total */
-            total: number;
-            /** Limit */
-            limit: number;
-            /** Offset */
-            offset: number;
+        /** TaskPatch */
+        TaskPatch: {
+            /** Expected Version */
+            expected_version: number;
+            /** Status */
+            status?: ("pending" | "in_progress" | "done" | "blocked" | "waived") | null;
+            /** Note */
+            note?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Due On */
+            due_on?: string | null;
         };
         /**
          * TaskPriority
@@ -11587,58 +13418,6 @@ export interface components {
          * @enum {string}
          */
         TaskPriority: "low" | "medium" | "high" | "urgent";
-        /**
-         * TaskRead
-         * @description Member shape. ``readiness_id`` arrived with Step 5f (D1 deferral
-         *     honoured): the linked readiness item, or null.
-         */
-        TaskRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Org Id
-             * Format: uuid
-             */
-            org_id: string;
-            /** Title */
-            title: string;
-            /** Description */
-            description: string | null;
-            status: components["schemas"]["TaskStatus"];
-            priority: components["schemas"]["TaskPriority"];
-            /** Milestone Id */
-            milestone_id: string | null;
-            /** Assignee Id */
-            assignee_id: string | null;
-            /** Readiness Id */
-            readiness_id: string | null;
-            /** Created By */
-            created_by: string | null;
-            /** Due On */
-            due_on: string | null;
-            /** Completed At */
-            completed_at: string | null;
-            /** Display Order */
-            display_order: number;
-            /**
-             * Labels
-             * @default []
-             */
-            labels?: components["schemas"]["TaskLabelRead"][];
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
         /**
          * TaskStatus
          * @description schema.sql ``task_status``. The UI maps its four columns onto
@@ -11689,6 +13468,54 @@ export interface components {
              */
             deactivated_members?: number;
             my_role: components["schemas"]["OrgRole"];
+        };
+        /** TemplateItemInput */
+        TemplateItemInput: {
+            /** Section */
+            section: string;
+            /** Title */
+            title: string;
+            /** Owner Role */
+            owner_role?: ("owner" | "manager") | null;
+            /**
+             * Due Offset Days
+             * @default 0
+             */
+            due_offset_days?: number;
+        };
+        /** TemplateItemRead */
+        TemplateItemRead: {
+            /** Section */
+            section: string;
+            /** Title */
+            title: string;
+            /** Owner Role */
+            owner_role?: ("owner" | "manager") | null;
+            /**
+             * Due Offset Days
+             * @default 0
+             */
+            due_offset_days?: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Order */
+            display_order: number;
+        };
+        /** TemplatePage */
+        TemplatePage: {
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["OnboardingTemplateRead"][];
         };
         /** TokenResponse */
         TokenResponse: {
@@ -12110,6 +13937,153 @@ export interface components {
             /** Restricted */
             restricted: string[];
         };
+        /** DocumentCreate */
+        app__schemas__data_room__DocumentCreate: {
+            /**
+             * Folder Id
+             * Format: uuid
+             */
+            folder_id: string;
+            /**
+             * File Id
+             * Format: uuid
+             */
+            file_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Visibility
+             * @default private
+             * @enum {string}
+             */
+            visibility?: "private" | "approved_investors";
+        };
+        /** DocumentRead */
+        app__schemas__data_room__DocumentRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Folder Id
+             * Format: uuid
+             */
+            folder_id: string;
+            /**
+             * File Id
+             * Format: uuid
+             */
+            file_id: string;
+            /** Name */
+            name: string;
+            /** Visibility */
+            visibility: string;
+            /** Version */
+            version: string;
+            /** Version Number */
+            version_number: number;
+            /** View Count */
+            view_count: number;
+            /** Updated By */
+            updated_by: string | null;
+        };
+        /** DocumentCreate */
+        app__schemas__hiring_workflow__DocumentCreate: {
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /** Name */
+            name: string;
+            /** Purpose */
+            purpose: string;
+            /** Retention */
+            retention: string;
+            /** Due On */
+            due_on?: string | null;
+        };
+        /** DocumentRead */
+        app__schemas__hiring_workflow__DocumentRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Purpose */
+            purpose: string;
+            /** Retention */
+            retention: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "requested" | "received" | "verified" | "rejected" | "expired";
+            /** Due On */
+            due_on: string | null;
+            /** Reviewed By */
+            reviewed_by: string | null;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** Review Reason */
+            review_reason: string | null;
+            /** Version */
+            version: number;
+        };
+        /** TaskPage */
+        app__schemas__hiring_workflow__TaskPage: {
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["app__schemas__hiring_workflow__TaskRead"][];
+        };
+        /** TaskRead */
+        app__schemas__hiring_workflow__TaskRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Section */
+            section: string;
+            /** Title */
+            title: string;
+            /** Owner Id */
+            owner_id: string | null;
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "in_progress" | "done" | "blocked" | "waived";
+            /** Note */
+            note: string | null;
+            /** Version */
+            version: number;
+        };
         /**
          * DashboardSummary
          * @description The dashboard top stat strip + sidebar cards (9l).
@@ -12192,6 +14166,72 @@ export interface components {
             signed_off_at: string | null;
             /** Updated At */
             updated_at: string | null;
+        };
+        /**
+         * TaskPage
+         * @description Paginated list envelope (limit/offset, same shape as 5b).
+         */
+        app__schemas__task__TaskPage: {
+            /** Items */
+            items: components["schemas"]["app__schemas__task__TaskRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * TaskRead
+         * @description Member shape. ``readiness_id`` arrived with Step 5f (D1 deferral
+         *     honoured): the linked readiness item, or null.
+         */
+        app__schemas__task__TaskRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            status: components["schemas"]["TaskStatus"];
+            priority: components["schemas"]["TaskPriority"];
+            /** Milestone Id */
+            milestone_id: string | null;
+            /** Assignee Id */
+            assignee_id: string | null;
+            /** Readiness Id */
+            readiness_id: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Due On */
+            due_on: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /** Display Order */
+            display_order: number;
+            /**
+             * Labels
+             * @default []
+             */
+            labels?: components["schemas"]["TaskLabelRead"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
     };
     responses: never;
@@ -12789,7 +14829,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DocumentCreate"];
+                "application/json": components["schemas"]["app__schemas__data_room__DocumentCreate"];
             };
         };
         responses: {
@@ -12799,7 +14839,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DocumentRead"];
+                    "application/json": components["schemas"]["app__schemas__data_room__DocumentRead"];
                 };
             };
             /** @description Authentication required */
@@ -12949,7 +14989,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DocumentRead"];
+                    "application/json": components["schemas"]["app__schemas__data_room__DocumentRead"];
                 };
             };
             /** @description Authentication required */
@@ -18609,7 +20649,9 @@ export interface operations {
     };
     resume_download_api_v1_organizations__org_id__jobs__job_id__applications__application_id__resume_download_post: {
         parameters: {
-            query?: never;
+            query?: {
+                disposition?: "attachment" | "inline";
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -18690,6 +20732,5258 @@ export interface operations {
                 };
             };
             /** @description Applicant or file-download rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_cards_api_v1_organizations__org_id__scorecards_get: {
+        parameters: {
+            query?: {
+                kind?: "templates" | "jobs" | "all";
+                job_id?: string | null;
+                q?: string | null;
+                sort?: "newest" | "oldest" | "name" | "updated";
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardPage"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or write permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource missing or outside permitted scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scored rubric locked, or pipeline read-only */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or cross-rubric reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring actor operation limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_api_v1_organizations__org_id__scorecards_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardRead"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or write permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource missing or outside permitted scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scored rubric locked, or pipeline read-only */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or cross-rubric reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring actor operation limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_api_v1_organizations__org_id__scorecards__card_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                card_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardRead"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or write permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource missing or outside permitted scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scored rubric locked, or pipeline read-only */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or cross-rubric reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring actor operation limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    archive_api_v1_organizations__org_id__scorecards__card_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                card_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or write permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource missing or outside permitted scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scored rubric locked, or pipeline read-only */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or cross-rubric reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring actor operation limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_api_v1_organizations__org_id__scorecards__card_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                card_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardRead"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or write permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource missing or outside permitted scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scored rubric locked, or pipeline read-only */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or cross-rubric reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring actor operation limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_job_card_api_v1_organizations__org_id__jobs__job_id__scorecard_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardRead"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or write permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource missing or outside permitted scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scored rubric locked, or pipeline read-only */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or cross-rubric reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring actor operation limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    select_job_card_api_v1_organizations__org_id__jobs__job_id__scorecard_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardSelect"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardRead"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or write permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource missing or outside permitted scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scored rubric locked, or pipeline read-only */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or cross-rubric reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring actor operation limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    application_scores_api_v1_organizations__org_id__jobs__job_id__applications__application_id__scores_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationEvaluation"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or write permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource missing or outside permitted scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scored rubric locked, or pipeline read-only */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or cross-rubric reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring actor operation limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_scores_api_v1_organizations__org_id__jobs__job_id__applications__application_id__scores_me_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatingsPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationEvaluation"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or write permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource missing or outside permitted scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scored rubric locked, or pipeline read-only */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or cross-rubric reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring actor operation limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    compare_api_v1_organizations__org_id__jobs__job_id__compare_get: {
+        parameters: {
+            query: {
+                application_ids: string[];
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComparisonRead"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or write permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource missing or outside permitted scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scored rubric locked, or pipeline read-only */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or cross-rubric reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring actor operation limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    listing_api_v1_organizations__org_id__interviews_get: {
+        parameters: {
+            query?: {
+                status?: ("scheduled" | "confirmed" | "completed" | "cancelled" | "no_show") | null;
+                view?: ("upcoming" | "past" | "needs_feedback" | "needs_action") | null;
+                q?: string | null;
+                scheduled_from?: string | null;
+                scheduled_until?: string | null;
+                job_id?: string | null;
+                application_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_api_v1_organizations__org_id__interviews_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_api_v1_organizations__org_id__interviews__id___get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_api_v1_organizations__org_id__interviews__id___patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    participants_api_v1_organizations__org_id__interviews__id___participants_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantsPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    transition_api_v1_organizations__org_id__interviews__id___transitions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewTransition"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    attendance_api_v1_organizations__org_id__interviews__id___attendance_me_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttendancePut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    feedback_api_v1_organizations__org_id__interviews__id___feedback_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    save_feedback_api_v1_organizations__org_id__interviews__id___feedback_me_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    own_list_api_v1_interviews_get: {
+        parameters: {
+            query?: {
+                status?: ("scheduled" | "confirmed" | "completed" | "cancelled" | "no_show") | null;
+                view?: ("upcoming" | "past" | "needs_feedback" | "needs_action") | null;
+                q?: string | null;
+                scheduled_from?: string | null;
+                scheduled_until?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    own_get_api_v1_interviews__id___get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    own_attendance_api_v1_interviews__id___attendance_me_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttendancePut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    listing_api_v1_organizations__org_id__job_offers_get: {
+        parameters: {
+            query?: {
+                status?: ("draft" | "sent" | "countered" | "accepted" | "declined" | "expired" | "withdrawn") | null;
+                application_id?: string | null;
+                submitted?: boolean | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOfferPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_api_v1_organizations__org_id__job_offers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOfferRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_api_v1_organizations__org_id__job_offers__id___get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOfferRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    archive_api_v1_organizations__org_id__job_offers__id___delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_api_v1_organizations__org_id__job_offers__id___patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOfferRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    submit_api_v1_organizations__org_id__job_offers__id___submit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOfferRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    approvals_api_v1_organizations__org_id__job_offers__id___approvals_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    decide_api_v1_organizations__org_id__job_offers__id___approvals_me_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOfferRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    send_api_v1_organizations__org_id__job_offers__id___send_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Expected"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOfferRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    withdraw_api_v1_organizations__org_id__job_offers__id___withdraw_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Expected"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOfferRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    revision_api_v1_organizations__org_id__job_offers__id___revisions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferRevision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOfferRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    expire_api_v1_organizations__org_id__job_offers__id___expire_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Expected"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOfferRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    staff_document_api_v1_organizations__org_id__job_offers__id___document_download_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileDownloadRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    own_list_api_v1_job_offers_get: {
+        parameters: {
+            query?: {
+                status?: ("draft" | "sent" | "countered" | "accepted" | "declined" | "expired" | "withdrawn") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    compare_api_v1_job_offers_compare_get: {
+        parameters: {
+            query: {
+                offer_ids: string[];
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    reasons_api_v1_job_offers_decline_reasons_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeclineReasonPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    own_get_api_v1_job_offers__id___get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    respond_api_v1_job_offers__id___respond_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferResponse"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    counter_api_v1_job_offers__id___counter_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferCounter"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    own_document_api_v1_job_offers__id___document_download_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileDownloadRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    template_list_api_v1_organizations__org_id__onboarding_templates_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplatePage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    template_create_api_v1_organizations__org_id__onboarding_templates_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardingTemplateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingTemplateRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    template_get_api_v1_organizations__org_id__onboarding_templates__id___get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingTemplateRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    template_patch_api_v1_organizations__org_id__onboarding_templates__id___put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardingTemplateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingTemplateRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    template_archive_api_v1_organizations__org_id__onboarding_templates__id___delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    listing_api_v1_organizations__org_id__hires_get: {
+        parameters: {
+            query?: {
+                status?: ("pending_onboarding" | "onboarding" | "active" | "no_show" | "cancelled") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HirePage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_api_v1_organizations__org_id__hires_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HireCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HireRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_api_v1_organizations__org_id__hires__id___get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HireRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_api_v1_organizations__org_id__hires__id___patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HirePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HireRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    transition_api_v1_organizations__org_id__hires__id___transitions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HireTransition"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HireRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    tasks_api_v1_organizations__org_id__hires__id___checklist_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__schemas__hiring_workflow__TaskPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    task_patch_api_v1_organizations__org_id__hires__id___checklist__task_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__schemas__hiring_workflow__TaskRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    documents_api_v1_organizations__org_id__hires__id___documents_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    document_create_api_v1_organizations__org_id__hires__id___documents_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__schemas__hiring_workflow__DocumentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__schemas__hiring_workflow__DocumentRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    document_patch_api_v1_organizations__org_id__hires__id___documents__document_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__schemas__hiring_workflow__DocumentRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    document_download_api_v1_organizations__org_id__hires__id___documents__document_id__download_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                id_: string;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileDownloadRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -22162,7 +29456,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TaskPage"];
+                    "application/json": components["schemas"]["app__schemas__task__TaskPage"];
                 };
             };
             /** @description Validation Error */
@@ -22199,7 +29493,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TaskRead"];
+                    "application/json": components["schemas"]["app__schemas__task__TaskRead"];
                 };
             };
             /** @description Validation Error */
@@ -22233,7 +29527,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TaskRead"];
+                    "application/json": components["schemas"]["app__schemas__task__TaskRead"];
                 };
             };
             /** @description Validation Error */
@@ -22303,7 +29597,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TaskRead"];
+                    "application/json": components["schemas"]["app__schemas__task__TaskRead"];
                 };
             };
             /** @description Validation Error */
@@ -22341,7 +29635,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TaskRead"];
+                    "application/json": components["schemas"]["app__schemas__task__TaskRead"];
                 };
             };
             /** @description Validation Error */

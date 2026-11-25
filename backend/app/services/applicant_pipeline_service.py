@@ -76,8 +76,10 @@ async def scoped(
     application_id: uuid.UUID,
     *,
     write: bool = False,
+    _member: OrganizationMember | None = None,
 ) -> tuple[OrganizationMember, Job, JobApplication]:
-    member = await authorize(db, user, org_id, write=write)
+    # Internal workflow callers may already have charged the shared actor guard.
+    member = _member if _member is not None else await authorize(db, user, org_id, write=write)
     # Same lock order as job settings/application submission: job, then application.
     job = await job_service._job(db, org_id, job_id, lock=write, include_archived=True)
     stmt = select(JobApplication).where(
@@ -371,6 +373,9 @@ async def patch(
             if payload.rejection_detail:
                 row.rejected_reason = f"{payload.rejected_reason}: {payload.rejection_detail}"
             row.rejected_at = now
+            from app.services.hiring_workflow_service import cancel_pending
+
+            await cancel_pending(db, user, row, job.org_id)
         db.add(
             ApplicationStageEvent(
                 application_id=row.id,

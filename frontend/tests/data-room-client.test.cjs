@@ -11,6 +11,7 @@ function loadClient(fetch) {
   const sandbox = { exports, process: { env: {} }, fetch, Blob, Response, URLSearchParams, Event, AbortController, setTimeout, clearTimeout, window: { localStorage: { getItem: key => tokens.get(key) ?? null, setItem: (key, value) => tokens.set(key, value), removeItem: key => tokens.delete(key) }, dispatchEvent() {} } };
   const code = ts.transpileModule(readFileSync(path.join(__dirname, '../lib/api/client.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   vm.runInNewContext(code, sandbox);
+  exports.setTokens({ access_token: 'old-access', refresh_token: 'old-refresh' });
   return { ...exports, tokens };
 }
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
@@ -30,7 +31,7 @@ test('protected bytes survive a 401 refresh/retry without JSON decoding', async 
   assert.equal(calls[0].url, '/api/v1/data-room-documents/doc-id/content?version_id=version-id');
   assert.equal(calls[1].options.headers.Authorization, undefined);
   assert.equal(calls[2].options.headers.Authorization, 'Bearer new-access');
-  assert.equal(tokens.get('forma.refresh_token'), 'new-refresh');
+  assert.equal(tokens.size, 0);
 });
 test('NDA bytes map backend errors through ApiError, not an empty Blob', async () => {
   const { api, ApiError } = loadClient(async () => json({ error: { code: 'NDA_MISMATCH', message: 'Pinned agreement changed', details: [{ loc: ['body', 'nda_checksum'], msg: 'Mismatch' }] } }, 409));

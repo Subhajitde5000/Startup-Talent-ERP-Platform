@@ -476,72 +476,9 @@ export const applications = [
   },
 ];
 
-export const interviews = [
-  {
-    id: "int-1",
-    time: "11:00 AM IST",
-    date: "Today",
-    candidate: "Aanya Sen",
-    job: "Product Designer",
-    round: "Final",
-    format: "Video",
-    duration: "45 min",
-    interviewers: "Priya · Rahul",
-    status: "Scheduled",
-    join: false,
-  },
-  {
-    id: "int-2",
-    time: "2:30 PM IST",
-    date: "Today",
-    candidate: "Candidate #44",
-    job: "Software Engineer",
-    round: "Technical",
-    format: "Video",
-    duration: "60 min",
-    interviewers: "Sana",
-    status: "Confirmed by candidate",
-    join: true,
-  },
-  {
-    id: "int-3",
-    time: "10:00 AM IST",
-    date: "Tomorrow",
-    candidate: "Rohan Kapoor",
-    job: "UX Researcher",
-    round: "Screening call",
-    format: "Phone",
-    duration: "30 min",
-    interviewers: "Priya",
-    status: "Scheduled",
-    join: false,
-  },
-];
 
-export const offers = [
-  {
-    id: "off-1",
-    candidate: "Aanya Sen",
-    job: "Product Designer",
-    title: "Product Designer",
-    compensation: "₹22L",
-    startDate: "Jan 2",
-    status: "Sent",
-    expiry: "in 48 hours",
-    owner: "Priya Mehta",
-  },
-  {
-    id: "off-2",
-    candidate: "Rohan Kapoor",
-    job: "UX Researcher",
-    title: "UX Researcher",
-    compensation: "₹18L",
-    startDate: "Jan 15",
-    status: "Awaiting approval",
-    expiry: "in 6 days",
-    owner: "Sana Desai",
-  },
-];
+
+
 
 export const talentResults = [
   {
@@ -592,12 +529,7 @@ export const templateKpis = [
   { label: "Last updated", value: "3 days ago" },
 ];
 
-export const hireKpis = [
-  { label: "Upcoming starts (30 days)", value: "4" },
-  { label: "Documents pending", value: "3", delta: "warning" },
-  { label: "Checks in progress", value: "2" },
-  { label: "Offer-to-start drop-off", value: "1 of 14 did not join" },
-];
+
 
 export const templates = [
   {
@@ -627,20 +559,6 @@ export const templates = [
     updatedBy: "Owner account",
     version: "v2",
     platform: true,
-  },
-  {
-    id: "tpl-3",
-    name: "Technical scorecard",
-    type: "Scorecard",
-    scope: "Team",
-    status: "Needs review",
-    desc: "Problem solving, Communication, Role skills, Ownership.",
-    category: "Engineering",
-    usedIn: 2,
-    updated: "5 days ago",
-    updatedBy: "Rahul Verma",
-    version: "v1",
-    platform: false,
   },
   {
     id: "tpl-4",
@@ -686,64 +604,9 @@ export const templates = [
   },
 ];
 
-export const scorecardCriteria = [
-  { name: "Problem solving", weight: 25, anchors: ["1 = No example given", "4 = Specific example with measurable outcome"] },
-  { name: "Communication", weight: 20, anchors: ["1 = Unclear responses", "4 = Clear, structured, audience-appropriate"] },
-  { name: "Role skills", weight: 30, anchors: ["1 = Below required level", "4 = Exceeds requirements"] },
-  { name: "Ownership", weight: 15, anchors: ["1 = Needs constant direction", "4 = Drives work to completion"] },
-  { name: "Collaboration", weight: 10, anchors: ["1 = Works in isolation", "4 = Actively helps teammates"] },
-];
 
-export const hires = [
-  {
-    id: "hire-1",
-    name: "Aanya Sen",
-    blind: false,
-    role: "Product Designer",
-    job: "Product Designer",
-    department: "Product",
-    manager: "Priya Mehta",
-    owner: "Priya Mehta",
-    startDate: "Dec 2, 2025",
-    status: "Documents pending",
-    checklist: { done: 6, total: 10 },
-    documents: { received: 2, total: 4 },
-    lastActivity: "Oct 30",
-    actions: ["Open", "Message"],
-  },
-  {
-    id: "hire-2",
-    name: "Candidate #44",
-    blind: true,
-    role: "Software Engineer",
-    job: "Software Engineer",
-    department: "Engineering",
-    manager: "Rahul Verma",
-    owner: "Rahul Verma",
-    startDate: "Jan 15, 2026",
-    status: "Checks in progress",
-    checklist: { done: 4, total: 10 },
-    documents: { received: 1, total: 3 },
-    lastActivity: "Oct 28",
-    actions: ["Open", "Message"],
-  },
-  {
-    id: "hire-3",
-    name: "Rohan Kapoor",
-    blind: false,
-    role: "UX Researcher",
-    job: "UX Researcher",
-    department: "Design",
-    manager: "Sana Desai",
-    owner: "Sana Desai",
-    startDate: "Feb 1, 2026",
-    status: "Ready to start",
-    checklist: { done: 10, total: 10 },
-    documents: { received: 4, total: 4 },
-    lastActivity: "Oct 25",
-    actions: ["Open", "Message"],
-  },
-];
+
+
 
 /* ------------------------------------------------------------------ */
 /*  Shared UI primitives (accessible sizes, WCAG AA)                  */

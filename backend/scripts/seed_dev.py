@@ -2292,6 +2292,412 @@ async def seed_step7d_pipeline(db: AsyncSession, org: Organization, owner: User)
         await db.commit()
 
 
+async def seed_step7eh_workflows(
+    db: AsyncSession, org: Organization, owner: User, candidate: User
+) -> None:
+    """Fill-only UUID-linked 7e–7h development examples; no existing decisions are changed."""
+    if get_settings().ENVIRONMENT != "development":
+        raise RuntimeError("Hiring workflow samples require ENVIRONMENT=development")
+    from app.models.hiring_workflow import (
+        Hire,
+        HireDocument,
+        HireOnboardingItem,
+        Interview,
+        InterviewFeedback,
+        InterviewParticipant,
+        JobOffer,
+        JobOfferApproval,
+        OnboardingTemplate,
+        OnboardingTemplateItem,
+    )
+    from app.models.job_application import ApplicationStageEvent, JobApplication
+    from app.models.scorecard import ApplicationScore, Scorecard, ScorecardCriterion
+    from app.schemas.job_application import ApplicationCreate
+    from app.services import job_application_service
+
+    if (
+        org.deleted_at
+        or org.status != "active"
+        or org.type != "employer"
+        or owner.primary_email != "employer@forma.dev"
+        or candidate.deleted_at
+        or candidate.status != AccountStatus.active
+        or owner.status != AccountStatus.active
+    ):
+        return
+    ns = uuid.uuid5(org.id, "step7eh:development")
+
+    def uid(key: str) -> uuid.UUID:
+        return uuid.uuid5(ns, key)
+
+    now = datetime.now(UTC)
+    day = now.date()
+    approver = (
+        await db.execute(
+            select(User)
+            .join(OrganizationMember, OrganizationMember.user_id == User.id)
+            .where(
+                User.primary_email == "hiring-admin@forma.dev",
+                User.deleted_at.is_(None),
+                User.status == AccountStatus.active,
+                User.email_verified_at.is_not(None),
+                OrganizationMember.org_id == org.id,
+                OrganizationMember.status == "active",
+                OrganizationMember.deleted_at.is_(None),
+                OrganizationMember.role.in_([OrgRole.owner, OrgRole.admin]),
+            )
+        )
+    ).scalar_one_or_none()
+    if approver is None:
+        return  # Do not fabricate sent/accepted workflows without an independent active approver.
+    template_id = uid("onboarding-template")
+    if await db.get(OnboardingTemplate, template_id) is None:
+        db.add(
+            OnboardingTemplate(
+                id=template_id, org_id=org.id, name="Engineering onboarding — development"
+            )
+        )
+        await db.flush()
+        db.add_all(
+            [
+                OnboardingTemplateItem(
+                    id=uid(f"template-item:{i}"),
+                    template_id=template_id,
+                    section=section,
+                    title=title,
+                    owner_role="owner",
+                    due_offset_days=offset,
+                    display_order=i,
+                )
+                for i, (section, title, offset) in enumerate(
+                    [
+                        ("Before joining", "Confirm employment documentation", -3),
+                        ("Day one", "Provision equipment and workspace", 0),
+                        ("First week", "Meet the team and agree goals", 5),
+                    ]
+                )
+            ]
+        )
+    card_id = uid("scorecard-template")
+    if await db.get(Scorecard, card_id) is None:
+        db.add(
+            Scorecard(id=card_id, org_id=org.id, name="Engineering interview rubric — development")
+        )
+        await db.flush()
+        db.add_all(
+            [
+                ScorecardCriterion(
+                    id=uid(f"template-criterion:{i}"),
+                    scorecard_id=card_id,
+                    name=name,
+                    weight=weight,
+                    anchors=["1: Needs support", "3: Meets expectations", "5: Strong evidence"],
+                    display_order=i,
+                )
+                for i, (name, weight) in enumerate(
+                    [("Technical depth", 3), ("Problem solving", 2), ("Communication", 1)]
+                )
+            ]
+        )
+    await db.commit()
+    # Separate jobs avoid changing the existing 7a–7d samples or candidate decisions.
+    for index, (title, salary, offer_status) in enumerate(
+        [
+            ("Senior Product Designer", "2400000.00", "sent"),
+            ("UX Engineer", "2200000.00", "draft"),
+            ("Senior Frontend Engineer", "2600000.00", "accepted"),
+        ]
+    ):
+        job_id, app_id, offer_id = (
+            uid(f"job:{index}"),
+            uid(f"application:{index}"),
+            uid(f"offer:{index}"),
+        )
+        job = await db.get(Job, job_id)
+        if job is None:
+            job = Job(
+                id=job_id,
+                org_id=org.id,
+                title=title + " — development",
+                description="Synthetic development role, not a real vacancy.",
+                requirements="Role-related engineering/design experience.",
+                work_mode="remote",
+                status="open",
+                owner_id=owner.id,
+                created_by=owner.id,
+                fair_hiring_confirmed=True,
+                posted_at=now,
+            )
+            db.add(job)
+            await db.flush()
+        if job.deleted_at or job.status != "open":
+            continue
+        app = await db.get(JobApplication, app_id)
+        if (
+            app is None
+            and not (
+                await db.execute(
+                    select(JobApplication.id).where(
+                        JobApplication.job_id == job.id, JobApplication.applicant_id == candidate.id
+                    )
+                )
+            ).first()
+        ):
+            payload = ApplicationCreate(accuracy_confirmed=True, consent_share=True)
+            stage = "hired" if index == 2 else "offered" if index == 0 else "shortlisted"
+            app = JobApplication(
+                id=app_id,
+                job_id=job.id,
+                applicant_id=candidate.id,
+                stage=stage,
+                source="platform",
+                is_blind=False,
+                consent_share=True,
+                accuracy_confirmed_at=now,
+                consent_shared_at=now,
+                profile_snapshot=await job_application_service.snapshot(db, candidate, payload),
+                job_snapshot={
+                    "id": str(job.id),
+                    "org_id": str(org.id),
+                    "title": job.title,
+                    "company_name": org.name,
+                },
+                screening_answers=[],
+                submission_fingerprint=job_application_service.fingerprint(payload),
+                assignee_id=owner.id,
+                stage_changed_at=now,
+            )
+            db.add(app)
+            await db.flush()
+            db.add(
+                ApplicationStageEvent(
+                    application_id=app.id, from_stage=None, to_stage=stage, actor_id=owner.id
+                )
+            )
+        if app is None or app.deleted_at:
+            continue
+        if index == 0:
+            comparison_user = (
+                await db.execute(
+                    select(User).where(
+                        User.primary_email == "pipeline-aanya@forma.dev", User.deleted_at.is_(None)
+                    )
+                )
+            ).scalar_one_or_none()
+            if (
+                comparison_user
+                and not (
+                    await db.execute(
+                        select(JobApplication.id).where(
+                            JobApplication.job_id == job.id,
+                            JobApplication.applicant_id == comparison_user.id,
+                        )
+                    )
+                ).first()
+            ):
+                comparison_payload = ApplicationCreate(accuracy_confirmed=True, consent_share=True)
+                comparison_app = JobApplication(
+                    id=uid("comparison-application"),
+                    job_id=job.id,
+                    applicant_id=comparison_user.id,
+                    stage="shortlisted",
+                    source="platform",
+                    is_blind=False,
+                    consent_share=True,
+                    accuracy_confirmed_at=now,
+                    consent_shared_at=now,
+                    profile_snapshot=await job_application_service.snapshot(
+                        db, comparison_user, comparison_payload
+                    ),
+                    job_snapshot=app.job_snapshot,
+                    screening_answers=[],
+                    stage_changed_at=now,
+                    assignee_id=owner.id,
+                    submission_fingerprint=job_application_service.fingerprint(comparison_payload),
+                )
+                db.add(comparison_app)
+                await db.flush()
+                db.add(
+                    ApplicationStageEvent(
+                        application_id=comparison_app.id,
+                        from_stage=None,
+                        to_stage="shortlisted",
+                        actor_id=owner.id,
+                    )
+                )
+        job_card = uid(f"job-card:{index}")
+        if not (await db.execute(select(Scorecard.id).where(Scorecard.job_id == job.id))).first():
+            db.add(
+                Scorecard(
+                    id=job_card,
+                    org_id=org.id,
+                    job_id=job.id,
+                    source_scorecard_id=card_id,
+                    name="Engineering interview rubric — development",
+                    locked_at=now,
+                )
+            )
+            await db.flush()
+            for i, (name, weight) in enumerate(
+                [("Technical depth", 3), ("Problem solving", 2), ("Communication", 1)]
+            ):
+                criterion_id = uid(f"criterion:{index}:{i}")
+                db.add(
+                    ScorecardCriterion(
+                        id=criterion_id,
+                        scorecard_id=job_card,
+                        name=name,
+                        weight=weight,
+                        anchors=[],
+                        display_order=i,
+                    )
+                )
+                await db.flush()
+                db.add(
+                    ApplicationScore(
+                        id=uid(f"rating:{index}:{i}"),
+                        application_id=app.id,
+                        criterion_id=criterion_id,
+                        interviewer_id=owner.id,
+                        score=[4, 3, 4][i],
+                        note="Synthetic development evaluation; not a real assessment.",
+                    )
+                )
+        if index < 2 and await db.get(Interview, uid(f"interview:{index}")) is None:
+            interview_id = uid(f"interview:{index}")
+            db.add(
+                Interview(
+                    id=interview_id,
+                    application_id=app.id,
+                    round_name="Portfolio review" if index == 0 else "Technical discussion",
+                    format="video",
+                    status="scheduled" if index == 0 else "completed",
+                    scheduled_at=now + timedelta(days=2) if index == 0 else now - timedelta(days=2),
+                    duration_min=45,
+                    created_by=owner.id,
+                    request_id=uid(f"interview-request:{index}"),
+                    fingerprint=hashlib.sha256(str(interview_id).encode()).hexdigest(),
+                )
+            )
+            await db.flush()
+            db.add_all(
+                [
+                    InterviewParticipant(
+                        interview_id=interview_id, user_id=owner.id, side="interviewer"
+                    ),
+                    InterviewParticipant(
+                        interview_id=interview_id, user_id=candidate.id, side="candidate"
+                    ),
+                ]
+            )
+            if index == 1:
+                db.add(
+                    InterviewFeedback(
+                        id=uid("feedback"),
+                        interview_id=interview_id,
+                        author_id=owner.id,
+                        recommendation="yes",
+                        summary="Synthetic development feedback: clear problem-solving process.",
+                    )
+                )
+        # Only create the complete initial offer graph if this specific offer never existed.
+        if (
+            approver
+            and await db.get(JobOffer, offer_id) is None
+            and not (
+                await db.execute(select(JobOffer.id).where(JobOffer.application_id == app.id))
+            ).first()
+        ):
+            sent = offer_status != "draft"
+            db.add(
+                JobOffer(
+                    id=offer_id,
+                    application_id=app.id,
+                    title=title,
+                    base_salary=Decimal(salary),
+                    bonus_amount=Decimal("100000.00"),
+                    currency="INR",
+                    salary_period="annual",
+                    equity_pct=Decimal("0.10"),
+                    start_date=day + timedelta(days=21),
+                    expires_on=day + timedelta(days=7),
+                    status=offer_status,
+                    created_by=owner.id,
+                    owner_id=owner.id,
+                    submitted_by=owner.id if sent else None,
+                    submitted_at=now if sent else None,
+                    sent_at=now if sent else None,
+                    responded_at=now if index == 2 else None,
+                    request_id=uid(f"offer-request:{index}"),
+                    fingerprint=hashlib.sha256(str(offer_id).encode()).hexdigest(),
+                    job_snapshot={
+                        **app.job_snapshot,
+                        "location": None,
+                        "work_mode": "remote",
+                        "employment_type": "full_time",
+                        "benefits": [],
+                    },
+                    payment_terms="Monthly payroll. Synthetic development terms only.",
+                    probation_terms="Three months. Synthetic development example.",
+                    notice_terms="Thirty days. Synthetic development example.",
+                    vesting_terms="Four years, one year cliff. Synthetic development example.",
+                )
+            )
+            await db.flush()
+            if sent:
+                db.add(
+                    JobOfferApproval(
+                        id=uid(f"approval:{index}"),
+                        offer_id=offer_id,
+                        approver_id=approver.id,
+                        status="approved",
+                        note="Synthetic development approval.",
+                        decided_at=now,
+                    )
+                )
+            if index == 2:
+                hire_id = uid("hire")
+                db.add(
+                    Hire(
+                        id=hire_id,
+                        application_id=app.id,
+                        offer_id=offer_id,
+                        org_id=org.id,
+                        user_id=candidate.id,
+                        fingerprint=hashlib.sha256(str(hire_id).encode()).hexdigest(),
+                        owner_id=owner.id,
+                        manager_id=approver.id,
+                        start_date=day + timedelta(days=21),
+                        status="pending_onboarding",
+                        department="engineering",
+                    )
+                )
+                await db.flush()
+                db.add(
+                    HireOnboardingItem(
+                        id=uid("hire-task"),
+                        hire_id=hire_id,
+                        section="Before joining",
+                        title="Confirm employment documentation",
+                        owner_id=owner.id,
+                        due_on=day + timedelta(days=18),
+                    )
+                )
+                db.add(
+                    HireDocument(
+                        id=uid("hire-document"),
+                        hire_id=hire_id,
+                        name="Employment documentation",
+                        purpose="Document the employment agreement (synthetic development request).",
+                        retention="Development data only; delete when resetting this workspace.",
+                        request_id=uid("document-request"),
+                        fingerprint=hashlib.sha256(str(hire_id).encode()).hexdigest(),
+                        requested_by=owner.id,
+                    )
+                )
+        await db.commit()
+
+
 async def seed() -> None:
     settings = get_settings()
     if settings.ENVIRONMENT != "development":
@@ -4135,6 +4541,12 @@ async def seed() -> None:
         careers_candidate = (await db.execute(select(User).where(User.primary_email == "jobseeker@forma.dev"))).scalar_one_or_none()
         if careers_owner and careers_candidate:
             await seed_step7bc_careers(db, careers_owner, careers_candidate)
+            workflow_org = (await db.execute(select(Organization).join(OrganizationMember, OrganizationMember.org_id == Organization.id).where(
+                OrganizationMember.user_id == careers_owner.id, OrganizationMember.role == OrgRole.owner,
+                Organization.type == "employer", Organization.deleted_at.is_(None),
+            ).order_by(Organization.created_at, Organization.id))).scalars().first()
+            if workflow_org:
+                await seed_step7eh_workflows(db, workflow_org, careers_owner, careers_candidate)
 
     await engine.dispose()
 

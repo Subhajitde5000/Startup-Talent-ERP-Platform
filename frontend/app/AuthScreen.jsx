@@ -394,10 +394,7 @@ export default function AuthScreen({ page }) {
                 </>
               )}
               {page === 'login' && (
-                <label className="flex items-center gap-2 text-sm text-stone-700">
-                  <input type="checkbox" className="h-4 w-4 accent-ink" />
-                  Keep me signed in
-                </label>
+                <p className="text-sm text-stone-700">Your session stays in this tab’s memory. Reloading or opening a new tab requires signing in again.</p>
               )}
               {err && (
                 <p role="alert" className="text-sm text-[#B42318]">{err}</p>

@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import {ApplicantScorecard} from "./hiring-scorecards";
+import {InterviewList, ApplicantScheduleButton} from "./hiring-interviews";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -574,14 +576,7 @@ function ApplicantDetail({ jobId, applicationId }) {
               {isShortlisted ? <Check size={14} /> : <UserCheck size={14} />}
               {isShortlisted ? "Shortlisted" : "Shortlist"}
             </EmployerBtn>
-            <EmployerBtn
-              secondary
-              small
-              disabled
-              title="Interview scheduling is not connected"
-            >
-              Schedule interview
-            </EmployerBtn>
+            <ApplicantScheduleButton applicationId={applicationId} disabled={locked || row.stage === "offered"} onScheduled={resource.reload}/>
             <EmployerBtn
               secondary
               small
@@ -717,16 +712,14 @@ function ApplicantDetail({ jobId, applicationId }) {
           {tab === "Activity" && (
             <StageHistory jobId={jobId} applicationId={applicationId} />
           )}
+          {tab === "Interviews and feedback" && <InterviewList orgId={org.id} user={user} applicationId={applicationId} canSchedule={!locked && row.stage !== "offered"}/>}
           {[
             "Interview practice",
-            "Interviews and feedback",
             "Messages",
           ].includes(tab) && (
             <EmployerCard title={tab}>
               <p className="text-sm">
-                {tab === "Interviews and feedback"
-                  ? "Interview scheduling and scorecard feedback are not connected. No rounds or recommendations are available."
-                  : tab === "Interview practice"
+                {tab === "Interview practice"
                     ? "Shared practice results are not connected. No practice score or consent is inferred."
                     : "Candidate messaging is not connected. No messages are sent by this page."}
               </p>
@@ -766,10 +759,7 @@ function ApplicantDetail({ jobId, applicationId }) {
             <h3 className="text-xs font-semibold mt-4">
               Quick Evaluation Score
             </h3>
-            <p className="text-xs mt-2">
-              Scorecards and comparison are unavailable until the Step 7e
-              backend is connected.
-            </p>
+            <Link className="text-xs underline" href={href(`/employer/jobs/${jobId}/compare`)}>Compare candidates using scorecards</Link>
           </EmployerCard>
           <EmployerCard title="Application Details">
             <dl className="text-xs space-y-3">
@@ -839,12 +829,9 @@ function ApplicantDetail({ jobId, applicationId }) {
             onSave={(assignee_id) => mutate({ assignee_id })}
             fields={action.fields}
           />
-          <EmployerCard title="Candidate Comparison">
-            <p className="text-xs">
-              Not connected: comparison requires Step 7e. No ATS match, ranking
-              or panel consensus is fabricated.
-            </p>
-          </EmployerCard>
+          <ApplicantScorecard jobId={jobId} applicationId={applicationId} locked={locked}/>
+          <EmployerCard title="Candidate Comparison"><Link className="text-xs underline" href={href(`/employer/jobs/${jobId}/compare`)}>Open candidate comparison</Link></EmployerCard>
+          <EmployerCard title="Offers"><Link className="text-xs underline" href={href(`/employer/offers?application_id=${applicationId}`)}>View applicant offers</Link></EmployerCard>
         </aside>
       </div>
       {rejection && (

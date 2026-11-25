@@ -44,7 +44,7 @@ function JobDetail() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1 min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h1 className="text-xl md:text-2xl font-serif font-bold text-[#0F1B2D]">{job.title}</h1><StageChip stage={jobLabel(job.status)} /></div><p className="text-xs text-[#6B7280]">{jobLabel(job.department)} · {job.location || 'Not specified'} ({jobLabel(job.work_mode)}) · {jobSalary(job)}</p></div>
         <div className="flex flex-wrap items-center gap-2">
-          <span title="Candidate comparison is deferred to Step 7e"><EmployerBtn secondary small disabled><Columns size={13} />Compare Candidates</EmployerBtn></span>
+          <Link className="rounded-xl border border-[#E5E1D8] bg-white px-3 py-2 text-xs inline-flex gap-2 items-center" href={href(`/employer/jobs/${jobId}/compare`)}><Columns size={13}/>Compare Candidates</Link>
           {canWrite && <Link href={href(`/employer/jobs/${job.id}/edit`)}><EmployerBtn secondary small><Edit3 size={13} />Edit Job</EmployerBtn></Link>}
           <span title="Talent sourcing is deferred to Step 7j"><EmployerBtn primary small disabled>Source Talent</EmployerBtn></span>
           {canWrite && actions.map(([action, label]) => <EmployerBtn key={action} secondary small disabled={busy} onClick={() => changeStatus(action)}>{busy ? 'Working…' : label}</EmployerBtn>)}
