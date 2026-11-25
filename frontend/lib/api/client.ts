@@ -969,6 +969,39 @@ export type PipelinePatch = components["schemas"]["PipelinePatch"];
 const pipelinePath = (orgId: string, jobId: string) => `/organizations/${orgId}/jobs/${jobId}`;
 const applicantPath = (orgId: string, jobId: string, id: string) => `${pipelinePath(orgId, jobId)}/applications/${id}`;
 
+// Step 7e: scorecard templates, per-applicant scores and blind-safe compare.
+export type ScorecardRead = components["schemas"]["ScorecardRead"];
+export type ScorecardPage = components["schemas"]["ScorecardPage"];
+export type ApplicationScoresRead = components["schemas"]["ApplicationScoresRead"];
+export type ScoresPut = components["schemas"]["ScoresPut"];
+export type CompareRead = components["schemas"]["CompareRead"];
+export type ScorecardQuery = NonNullable<
+  import("./schema").operations["list_scorecards_api_v1_organizations__org_id__scorecards_get"]["parameters"]["query"]
+>;
+
+// Step 7f: interviews, participants and panel feedback.
+export type InterviewCreate = components["schemas"]["InterviewCreate"];
+export type InterviewUpdate = components["schemas"]["InterviewUpdate"];
+export type InterviewCancel = components["schemas"]["InterviewCancel"];
+export type InterviewRead = components["schemas"]["InterviewRead"];
+export type InterviewDetailRead = components["schemas"]["InterviewDetailRead"];
+export type InterviewPage = components["schemas"]["InterviewPage"];
+export type InterviewFeedbackPut = components["schemas"]["FeedbackPut"];
+export type InterviewFeedbackRead = components["schemas"]["FeedbackRead"];
+export type InterviewRespondPut = components["schemas"]["RespondPut"];
+export type InterviewParticipantRead = components["schemas"]["ParticipantRead"];
+export type CandidateInterviewRead = components["schemas"]["CandidateInterviewRead"];
+export type CandidateInterviewPage = components["schemas"]["CandidateInterviewPage"];
+export type InterviewQuery = NonNullable<
+  import("./schema").operations["list_interviews_api_v1_organizations__org_id__interviews_get"]["parameters"]["query"]
+>;
+
+const scorecardPath = (orgId: string) => `/organizations/${orgId}/scorecards`;
+const interviewListPath = (orgId: string) => `/organizations/${orgId}/interviews`;
+const interviewPath = (orgId: string, id: string) => `${interviewListPath(orgId)}/${id}`;
+const scheduleInterviewPath = (orgId: string, jobId: string, applicationId: string) =>
+  `${pipelinePath(orgId, jobId)}/applications/${applicationId}/interviews`;
+
 export const api = {
   applicants: {
     list: (org: string, job: string, query: ApplicantQuery = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["ApplicantPage"]>(`${pipelinePath(org, job)}/applications`, { query, signal }),
@@ -981,6 +1014,38 @@ export const api = {
     settings: (org: string, job: string, body: components["schemas"]["ReviewSettingsPatch"]) => apiRequest<components["schemas"]["ReviewSettingsRead"]>(`${pipelinePath(org, job)}/review-settings`, { method: "PATCH", body }),
     resume: (org: string, job: string, id: string, query: { disposition?: "attachment" | "inline" } = {}, signal?: AbortSignal) =>
       apiRequest<FileDownloadRead>(`${applicantPath(org, job, id)}/resume-download`, { method: "POST", body: {}, query, signal }),
+  },
+  scorecards: {
+    list: (org: string, query: ScorecardQuery = {}, signal?: AbortSignal) =>
+      apiRequest<ScorecardPage>(scorecardPath(org), { query, signal }),
+    scores: (org: string, job: string, application: string, signal?: AbortSignal) =>
+      apiRequest<ApplicationScoresRead>(`${applicantPath(org, job, application)}/scores`, { signal }),
+    putScores: (org: string, job: string, application: string, body: ScoresPut) =>
+      apiRequest<ApplicationScoresRead>(`${applicantPath(org, job, application)}/scores`, { method: "PUT", body }),
+    compare: (org: string, job: string, applicationIds: string[], signal?: AbortSignal) =>
+      apiRequest<CompareRead>(`${pipelinePath(org, job)}/compare`, { query: { application_ids: applicationIds }, signal }),
+  },
+  interviews: {
+    list: (org: string, query: InterviewQuery = {}, signal?: AbortSignal) =>
+      apiRequest<InterviewPage>(interviewListPath(org), { query, signal }),
+    get: (org: string, id: string, signal?: AbortSignal) =>
+      apiRequest<InterviewDetailRead>(interviewPath(org, id), { signal }),
+    schedule: (org: string, job: string, application: string, body: InterviewCreate) =>
+      apiRequest<InterviewDetailRead>(scheduleInterviewPath(org, job, application), { method: "POST", body }),
+    patch: (org: string, id: string, body: InterviewUpdate) =>
+      apiRequest<InterviewDetailRead>(interviewPath(org, id), { method: "PATCH", body }),
+    cancel: (org: string, id: string, body: InterviewCancel) =>
+      apiRequest<InterviewDetailRead>(`${interviewPath(org, id)}/cancel`, { method: "POST", body }),
+    complete: (org: string, id: string) =>
+      apiRequest<InterviewDetailRead>(`${interviewPath(org, id)}/complete`, { method: "POST", body: {} }),
+    putFeedback: (org: string, id: string, body: InterviewFeedbackPut) =>
+      apiRequest<InterviewFeedbackRead>(`${interviewPath(org, id)}/feedback`, { method: "PUT", body }),
+    respond: (id: string, body: InterviewRespondPut) =>
+      apiRequest<InterviewParticipantRead>(`/interviews/${id}/respond`, { method: "PUT", body }),
+    candidateList: (application: string, query: { limit?: number; offset?: number } = {}, signal?: AbortSignal) =>
+      apiRequest<CandidateInterviewPage>(`/applications/${application}/interviews`, { query, signal }),
+    candidateGet: (application: string, id: string, signal?: AbortSignal) =>
+      apiRequest<CandidateInterviewRead>(`/applications/${application}/interviews/${id}`, { signal }),
   },
   careers: {
     jobs: (query: JobDiscoveryQuery = {}, authenticated = false, signal?: AbortSignal) => apiRequest<components["schemas"]["MarketplaceJobPage"]>(`${authenticated ? "" : "/public"}/jobs`, { query, auth: authenticated, signal }),

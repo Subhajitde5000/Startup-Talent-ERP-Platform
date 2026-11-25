@@ -25,7 +25,6 @@ import {
   nextActions,
   attention as initialAttention,
   jobs,
-  candidates,
   todayInterviews,
   pendingOffers,
   teamActivity,
@@ -331,36 +330,16 @@ export default function EmployerDashboardPage() {
                 </Link>
               }
             >
-              <div className="space-y-3">
-                {candidates.slice(0, 3).map((cand) => (
-                  <div
-                    key={cand.id}
-                    className="rounded-xl border border-[#E5E1D8] p-4 flex flex-wrap items-center justify-between gap-3 hover:bg-[#FAF8F4]/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3EBDD] font-bold text-xs text-[#806236]">
-                        {cand.avatar || cand.name[0]}
-                      </span>
-                      <div className="min-w-0">
-                        <Link
-                          href={`/employer/jobs/job-1/applicants/${cand.id}`}
-                          className="text-sm font-semibold text-[#0F1B2D] hover:underline block truncate"
-                        >
-                          {cand.name}
-                        </Link>
-                        <p className="text-xs text-[#6B7280] truncate">
-                          Applied for {cand.appliedJob} · ATS Match: <strong>{cand.matchScore}%</strong>
-                        </p>
-                      </div>
-                    </div>
-
-                    <Link href={`/employer/jobs/job-1/applicants/${cand.id}`}>
-                      <EmployerBtn primary small>
-                        Review Profile
-                      </EmployerBtn>
-                    </Link>
-                  </div>
-                ))}
+              <div className="rounded-xl border border-dashed border-[#E5E1D8] bg-[#FAF8F4]/60 p-6 text-center">
+                <p className="text-xs text-[#6B7280]">
+                  Recent candidate summaries are not available on this dashboard.
+                </p>
+                <Link
+                  href="/employer/hiring"
+                  className="mt-2 inline-block text-xs font-semibold text-[#806236] hover:underline"
+                >
+                  View applications
+                </Link>
               </div>
             </EmployerCard>
           </div>

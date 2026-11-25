@@ -222,6 +222,16 @@ class Settings(BaseSettings):
     APPLICANT_READ_LIMIT: int = Field(default=120, ge=1)
     APPLICANT_WRITE_LIMIT: int = Field(default=60, ge=1)
 
+    # Step 7e: scorecard template CRUD has its own keys; application score
+    # reads/writes reuse the 7d applicant budget through the shared scope.
+    SCORECARD_READ_LIMIT: int = Field(default=120, ge=1)
+    SCORECARD_WRITE_LIMIT: int = Field(default=60, ge=1)
+
+    # Step 7f: interviews are read far more often than they are changed.
+    INTERVIEW_READ_LIMIT: int = Field(default=120, ge=1)
+    INTERVIEW_WRITE_LIMIT: int = Field(default=30, ge=1)
+    INTERVIEW_WRITE_WINDOW_SECONDS: int = Field(default=60, ge=1)
+
     # CORS: explicit allow-list only, never "*" with credentials.
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { EmployerBtn, EmployerCard, StageChip } from "@/components";
+import { ErrorBlock } from "@/components/async-state";
 import {
   api,
   ApiError,
@@ -239,14 +240,11 @@ function PipelineContent({ jobId }) {
             <h2 className="font-serif text-lg font-bold">
               {data.context.title} — Applicant pipeline
             </h2>
-            <EmployerBtn
-              secondary
-              small
-              disabled
-              title="Scorecards and comparison require the Step 7e backend"
-            >
-              Compare Candidates (not connected)
-            </EmployerBtn>
+            <Link href={`/employer/jobs/${jobId}/compare`}>
+              <EmployerBtn secondary small>
+                Compare Candidates
+              </EmployerBtn>
+            </Link>
           </div>
           <p className="text-xs text-[#6B7280]">
             Only applicants within your hiring permissions are shown. Identity
@@ -459,6 +457,264 @@ export function ApplicantDetailPage({ jobId, applicationId }) {
     </JobsPage>
   );
 }
+/** Step 7f: this application's interviews, from the org interview list. */
+function ApplicantInterviews({ jobId, applicationId }) {
+  const { org } = useJobsWorkspace();
+  const resource = useCareerResource(
+    `applicant-interviews:${org.id}:${jobId}:${applicationId}`,
+    (signal) => api.interviews.list(org.id, { job_id: jobId, limit: 50 }, signal),
+  );
+  const items = (resource.data?.items || []).filter(
+    (item) => item.application_id === applicationId,
+  );
+  if (resource.loading && !resource.data)
+    return <p className="text-sm text-[#6B7280]">Loading interviews…</p>;
+  if (resource.error)
+    return (
+      <ErrorBlock
+        message={
+          resource.error instanceof ApiError
+            ? resource.error.message
+            : "Could not load interviews."
+        }
+        onRetry={resource.reload}
+        title="Could not load interviews"
+      />
+    );
+  if (items.length === 0)
+    return (
+      <div className="space-y-2">
+        <p className="text-sm">
+          No interviews scheduled for this applicant yet.
+        </p>
+        <Link
+          href="/employer/interviews"
+          className="text-xs font-semibold text-[#806236] hover:underline"
+        >
+          Open Interview Management →
+        </Link>
+      </div>
+    );
+  return (
+    <ul className="space-y-3">
+      {items.map((item) => {
+        const when = new Date(item.scheduled_at);
+        const panelists = item.participants
+          .filter((p) => p.side === "interviewer")
+          .map((p) => p.display_name);
+        return (
+          <li
+            key={item.id}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-3"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">
+                {item.round_name || "Interview"} ·{" "}
+                {when.toLocaleString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+              <p className="text-xs text-[#6B7280]">
+                {panelists.length > 0 ? panelists.join(", ") : "No panelists"} ·{" "}
+                {item.duration_min} min
+              </p>
+            </div>
+            <StageChip stage={item.status.charAt(0).toUpperCase() + item.status.slice(1)} />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
+ * Step 7e: the applicant-page scoring panel. Loads the organization's
+ * scorecards (preferring one attached to this job), shows my current
+ * scores with team averages, and saves through the replace-set PUT.
+ */
+function EvaluationScorePanel({ jobId, applicationId, locked }) {
+  const { org } = useJobsWorkspace();
+  const cardsRes = useCareerResource(`scorecards:${org.id}`, (signal) =>
+    api.scorecards.list(org.id, { limit: 20 }, signal),
+  );
+  const scoresRes = useCareerResource(
+    `scores:${org.id}:${jobId}:${applicationId}`,
+    (signal) => api.scorecards.scores(org.id, jobId, applicationId, signal),
+  );
+  const [edits, setEdits] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [fields, setFields] = useState({});
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!scoresRes.data) return;
+    const next = {};
+    for (const item of scoresRes.data.items) {
+      next[item.criterion_id] = item.my_score == null ? "" : String(item.my_score);
+    }
+    setEdits(next);
+  }, [scoresRes.data]);
+
+  const cards = cardsRes.data?.items || [];
+  const card =
+    cards.find((c) => c.job_id === jobId) || cards.find((c) => !c.job_id) || cards[0];
+
+  const save = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    setFields({});
+    setSaved(false);
+    try {
+      const scores = Object.entries(edits)
+        .filter(([, value]) => value !== "")
+        .map(([criterionId, value]) => ({
+          criterion_id: criterionId,
+          score: Number(value),
+        }));
+      await api.scorecards.putScores(org.id, jobId, applicationId, { scores });
+      setSaved(true);
+      scoresRes.reload();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 422 && Array.isArray(err.details)) {
+        const next = {};
+        for (const d of err.details) {
+          const loc = Array.isArray(d.loc) ? d.loc : [];
+          const key = loc[loc.length - 1];
+          if (typeof key === "string" && !next[key]) next[key] = d.msg || "Invalid value.";
+        }
+        setFields(next);
+      }
+      setError(
+        err instanceof ApiError ? err.message : "Could not save scores. Please try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (cardsRes.loading || (scoresRes.loading && !scoresRes.data))
+    return <p className="text-xs text-[#6B7280] mt-2">Loading scorecard…</p>;
+  if (cardsRes.error || scoresRes.error)
+    return (
+      <div className="mt-2">
+        <ErrorBlock
+          message={
+            (cardsRes.error instanceof ApiError
+              ? cardsRes.error.message
+              : cardsRes.error
+                ? "Could not load scorecards."
+                : null) ||
+            (scoresRes.error instanceof ApiError
+              ? scoresRes.error.message
+              : "Could not load scores.")
+          }
+          onRetry={() => {
+            if (cardsRes.error) cardsRes.reload();
+            if (scoresRes.error) scoresRes.reload();
+          }}
+          title="Scorecard unavailable"
+        />
+      </div>
+    );
+  if (!card)
+    return (
+      <p className="text-xs mt-2 text-[#6B7280]">
+        No scorecard template yet. Create an organization scorecard to start
+        scoring this applicant.
+      </p>
+    );
+  if (card.criteria.length === 0)
+    return (
+      <p className="text-xs mt-2 text-[#6B7280]">
+        The “{card.name}” scorecard has no criteria yet.
+      </p>
+    );
+
+  const totals = scoresRes.data;
+  return (
+    <div className="mt-2 space-y-3">
+      <p className="text-xs text-[#6B7280]">
+        {card.name}
+        {totals?.my_weighted_total != null && (
+          <span className="font-semibold text-[#0F1B2D]">
+            {" "}
+            · my total {totals.my_weighted_total.toFixed(1)}/5
+          </span>
+        )}
+        {totals?.weighted_total != null && (
+          <span className="text-[#6B7280]"> · team {totals.weighted_total.toFixed(1)}/5</span>
+        )}
+      </p>
+      {error && (
+        <p className="text-xs text-[#B42318]" role="alert">
+          {error}
+        </p>
+      )}
+      {fields.scores && (
+        <p className="text-xs text-[#B42318]" role="alert">
+          {fields.scores}
+        </p>
+      )}
+      {card.criteria.map((criterion) => {
+        const item = totals?.items.find((i) => i.criterion_id === criterion.id);
+        return (
+          <label key={criterion.id} className="flex items-center justify-between gap-2 text-xs">
+            <span className="min-w-0 truncate text-[#4A5568]">
+              {criterion.name}{" "}
+              <span className="text-[#A0A7B4]">({criterion.weight}%)</span>
+              {item?.average != null && (
+                <span className="text-[#A0A7B4]"> · avg {item.average.toFixed(1)}</span>
+              )}
+            </span>
+            <select
+              aria-label={`Score for ${criterion.name}`}
+              className={`${input} w-20 shrink-0`}
+              value={edits[criterion.id] ?? ""}
+              disabled={locked || busy}
+              onChange={(e) => {
+                setSaved(false);
+                setEdits((prev) => ({ ...prev, [criterion.id]: e.target.value }));
+              }}
+            >
+              <option value="">—</option>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        );
+      })}
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <button
+          type="button"
+          className="text-xs font-semibold text-[#806236] hover:underline disabled:opacity-50"
+          disabled={locked || busy}
+          onClick={save}
+        >
+          {busy ? "Saving…" : "Save scores"}
+        </button>
+        {saved && (
+          <span className="text-xs text-[#286749]" role="status">
+            Saved
+          </span>
+        )}
+      </div>
+      {locked && (
+        <p className="text-xs text-[#6B7280]">
+          This application is read-only, so scores cannot be changed.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function ApplicantGate(props) {
   const { org } = useJobsWorkspace();
   return org.my_role === "viewer" ? (
@@ -717,19 +973,18 @@ function ApplicantDetail({ jobId, applicationId }) {
           {tab === "Activity" && (
             <StageHistory jobId={jobId} applicationId={applicationId} />
           )}
-          {[
-            "Interview practice",
-            "Interviews and feedback",
-            "Messages",
-          ].includes(tab) && (
+          {["Interview practice", "Messages"].includes(tab) && (
             <EmployerCard title={tab}>
               <p className="text-sm">
-                {tab === "Interviews and feedback"
-                  ? "Interview scheduling and scorecard feedback are not connected. No rounds or recommendations are available."
-                  : tab === "Interview practice"
-                    ? "Shared practice results are not connected. No practice score or consent is inferred."
-                    : "Candidate messaging is not connected. No messages are sent by this page."}
+                {tab === "Interview practice"
+                  ? "Shared practice results are not connected. No practice score or consent is inferred."
+                  : "Candidate messaging is not connected. No messages are sent by this page."}
               </p>
+            </EmployerCard>
+          )}
+          {tab === "Interviews and feedback" && (
+            <EmployerCard title="Interviews and feedback">
+              <ApplicantInterviews jobId={jobId} applicationId={applicationId} />
             </EmployerCard>
           )}
         </div>
@@ -766,10 +1021,11 @@ function ApplicantDetail({ jobId, applicationId }) {
             <h3 className="text-xs font-semibold mt-4">
               Quick Evaluation Score
             </h3>
-            <p className="text-xs mt-2">
-              Scorecards and comparison are unavailable until the Step 7e
-              backend is connected.
-            </p>
+            <EvaluationScorePanel
+              jobId={jobId}
+              applicationId={applicationId}
+              locked={locked}
+            />
           </EmployerCard>
           <EmployerCard title="Application Details">
             <dl className="text-xs space-y-3">

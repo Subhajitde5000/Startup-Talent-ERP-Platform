@@ -8,38 +8,67 @@ import {
   Video,
   Sparkles,
   Search,
-  CheckCircle2,
   Calendar,
-  ChevronRight,
-  ExternalLink,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
-import {
-  JobBtn,
-  defaultUser,
-} from '@/components/jobseeker-ui';
-import { interviews } from '../jobseeker-data';
+import { JobBtn } from '@/components/jobseeker-ui';
+import { LoadingBlock, EmptyBlock, ErrorBlock, FieldError } from '@/components/async-state';
+import { useCareerResource } from '@/components/career-data';
+import { api, ApiError } from '@/lib/api/client';
+import { useAuth } from '@/lib/auth-context';
+
+const formatLabel = (format) =>
+  ({ video: 'Video Call', phone: 'Phone Call', onsite: 'On-site', async: 'Async' })[format] || format;
+
+const whenLabel = (iso) => {
+  const d = new Date(iso);
+  return {
+    date: d.toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' }),
+    time: d.toLocaleLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+  };
+};
+
+const LIVE = ['scheduled', 'confirmed'];
 
 export default function InterviewsPage() {
+  const { user } = useAuth();
   const [tab, setTab] = useState('Upcoming');
   const [search, setSearch] = useState('');
-  const [confirmedSlots, setConfirmedSlots] = useState({});
+  const [responding, setResponding] = useState({ id: '', busy: false, error: '' });
 
-  const upcoming = interviews.filter(
-    (i) => i.status !== 'Completed' && i.status !== 'Cancelled'
-  );
-  const needsAction = interviews.filter((i) => i.status === 'Proposed times');
-  const past = interviews.filter((i) => i.status === 'Completed');
+  const resource = useCareerResource('jobseeker-interviews', async (signal) => {
+    const apps = await api.careers.applications({ limit: 100 }, signal);
+    const pages = await Promise.all(
+      apps.items.map((app) => api.interviews.candidateList(app.id, { limit: 100 }, signal))
+    );
+    return pages.flatMap((page, i) => page.items.map((item) => ({ ...item, application_id: apps.items[i].id })));
+  });
 
-  const filtered = (tab === 'Upcoming' ? upcoming : tab === 'Needs action' ? needsAction : past).filter(
-    (i) => {
-      if (search.trim()) {
-        const hay = `${i.title} ${i.company}`.toLowerCase();
-        if (!hay.includes(search.toLowerCase())) return false;
-      }
-      return true;
+  const interviews = resource.data || [];
+  const myResponse = (item) => item.participants.find((p) => p.user_id === user?.id)?.response ?? null;
+  const upcoming = interviews.filter((i) => LIVE.includes(i.status) && new Date(i.scheduled_at) > new Date());
+  const needsAction = upcoming.filter((i) => myResponse(i) === null);
+  const past = interviews.filter((i) => !LIVE.includes(i.status) || new Date(i.scheduled_at) <= new Date());
+
+  const filtered = (tab === 'Upcoming' ? upcoming : tab === 'Needs action' ? needsAction : past).filter((i) => {
+    if (!search.trim()) return true;
+    const hay = `${i.job_title} ${i.company_name}`.toLowerCase();
+    return hay.includes(search.toLowerCase());
+  });
+
+  const respond = async (item, response) => {
+    setResponding({ id: item.id, busy: true, error: '' });
+    try {
+      await api.interviews.respond(item.id, { response });
+      resource.reload();
+    } catch (error) {
+      setResponding({
+        id: item.id,
+        busy: false,
+        error: error instanceof ApiError ? error.message : 'Could not send your response. Please try again.',
+      });
     }
-  );
+  };
 
   return (
     <JobSeekerShell active="Interviews">
@@ -99,78 +128,130 @@ export default function InterviewsPage() {
           </div>
         </div>
 
-        {/* List of interviews */}
-        {filtered.length === 0 ? (
-          <div className="rounded-xl border border-[#E5E1D8] bg-white p-12 text-center space-y-3">
-            <span className="grid h-12 w-12 mx-auto place-items-center rounded-full bg-[#FAF8F4] text-[#A0A7B4]">
-              <CalendarDays size={22} />
-            </span>
-            <h3 className="text-base font-semibold text-[#0F1B2D]">
-              No {tab.toLowerCase()} interviews
-            </h3>
-            <p className="text-xs text-[#6B7280] max-w-sm mx-auto">
-              {tab === 'Upcoming'
+        {resource.loading ? (
+          <LoadingBlock label="Loading interviews…" />
+        ) : resource.error ? (
+          <ErrorBlock
+            message={
+              resource.error instanceof ApiError
+                ? resource.error.message
+                : 'Could not load your interviews. Please try again.'
+            }
+            onRetry={resource.reload}
+          />
+        ) : filtered.length === 0 ? (
+          <EmptyBlock
+            title={`No ${tab.toLowerCase()} interviews`}
+            hint={
+              tab === 'Upcoming'
                 ? 'When employers shortlist your profile and propose interview slots, they will appear here.'
-                : 'All clear! No pending interview actions required.'}
-            </p>
-            <Link href="/jobseeker/practice" className="inline-block pt-2">
+                : tab === 'Needs action'
+                  ? 'All clear! No pending interview actions required.'
+                  : 'Completed and cancelled interviews will appear here.'
+            }
+          >
+            <Link href="/jobseeker/practice" className="inline-block">
               <JobBtn secondary small>
                 Prepare with AI Practice
               </JobBtn>
             </Link>
-          </div>
+          </EmptyBlock>
         ) : (
           <div className="space-y-4">
-            {filtered.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border border-[#E5E1D8] bg-white p-5 shadow-sm space-y-4"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-sm font-semibold text-[#0F1B2D]">{item.title}</h2>
-                      <span className="rounded-full bg-[#E7F3EC] px-2 py-0.5 text-xs text-[#286749] font-medium">
-                        {item.type || 'Video Call'}
-                      </span>
+            {filtered.map((item) => {
+              const { date, time } = whenLabel(item.scheduled_at);
+              const interviewers = item.participants
+                .filter((p) => p.side === 'interviewer')
+                .map((p) => p.display_name);
+              const pending = LIVE.includes(item.status) && myResponse(item) === null;
+              return (
+                <div key={item.id} className="rounded-xl border border-[#E5E1D8] bg-white p-5 shadow-sm space-y-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-semibold text-[#0F1B2D]">{item.job_title}</h2>
+                        <span className="rounded-full bg-[#E7F3EC] px-2 py-0.5 text-xs text-[#286749] font-medium">
+                          {formatLabel(item.format)}
+                        </span>
+                        <span className="rounded-full bg-[#FAF8F4] border border-[#E5E1D8] px-2 py-0.5 text-xs text-[#4A5568] capitalize">
+                          {item.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#6B7280]">
+                        with <strong className="text-[#0F1B2D]">{item.company_name}</strong>{' '}
+                        {interviewers.length > 0 ? `· ${interviewers.join(', ')}` : ''}
+                      </p>
                     </div>
-                    <p className="text-xs text-[#6B7280]">
-                      with <strong className="text-[#0F1B2D]">{item.company}</strong> · {item.interviewer || 'Founders'}
-                    </p>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {item.meeting_url && (
+                        <a
+                          href={item.meeting_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 min-h-[34px] px-3.5 rounded-lg bg-[#0F1B2D] text-white text-xs font-semibold hover:bg-[#1C2B42]"
+                        >
+                          <Video size={13} /> Join Call
+                        </a>
+                      )}
+                      <Link href={`/jobseeker/practice/new?role=${encodeURIComponent(item.job_title)}`}>
+                        <JobBtn secondary small className="flex items-center gap-1.5">
+                          <Sparkles size={13} className="text-[#806236]" /> AI Prep Drill
+                        </JobBtn>
+                      </Link>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    {item.meetingLink && (
-                      <a
-                        href={item.meetingLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 min-h-[34px] px-3.5 rounded-lg bg-[#0F1B2D] text-white text-xs font-semibold hover:bg-[#1C2B42]"
-                      >
-                        <Video size={13} /> Join Call
-                      </a>
+                  {pending && (
+                    <div className="rounded-lg border border-[#E5E1D8] bg-[#FAF8F4] p-3 space-y-2">
+                      <p className="text-xs font-medium text-[#0F1B2D]">
+                        The employer is waiting for your response to this slot.
+                      </p>
+                      {responding.id === item.id && responding.error && (
+                        <FieldError>{responding.error}</FieldError>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          ['accepted', 'Accept'],
+                          ['tentative', 'Maybe'],
+                          ['declined', 'Decline'],
+                        ].map(([value, label]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            disabled={responding.busy}
+                            onClick={() => respond(item, value)}
+                            className={`min-h-[32px] rounded-lg px-3.5 text-xs font-semibold border transition-colors disabled:opacity-60 ${
+                              value === 'accepted'
+                                ? 'border-[#286749] bg-[#E7F3EC] text-[#286749] hover:bg-[#D7EDE1]'
+                                : 'border-[#E5E1D8] bg-white text-[#4A5568] hover:bg-[#FAF8F4]'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-y-1.5 gap-x-4 text-xs text-[#4A5568] pt-3 border-t border-[#F0EBE0]">
+                    <span className="flex items-center gap-1">
+                      <Calendar size={13} className="text-[#A0A7B4]" /> {date}
+                    </span>
+                    <span>·</span>
+                    <span className="flex items-center gap-1">
+                      <Clock size={13} className="text-[#A0A7B4]" /> {time} ({item.duration_min} mins)
+                    </span>
+                    {item.location && (
+                      <>
+                        <span>·</span>
+                        <span className="text-[#9A7A45] font-medium">{item.location}</span>
+                      </>
                     )}
-                    <Link href={`/jobseeker/practice/new?role=${encodeURIComponent(item.title)}`}>
-                      <JobBtn secondary small className="flex items-center gap-1.5">
-                        <Sparkles size={13} className="text-[#806236]" /> AI Prep Drill
-                      </JobBtn>
-                    </Link>
                   </div>
                 </div>
-
-                <div className="flex flex-wrap items-center gap-y-1.5 gap-x-4 text-xs text-[#4A5568] pt-3 border-t border-[#F0EBE0]">
-                  <span className="flex items-center gap-1">
-                    <Calendar size={13} className="text-[#A0A7B4]" /> {item.date || 'Thursday, Nov 6, 2026'}
-                  </span>
-                  <span>·</span>
-                  <span className="flex items-center gap-1">
-                    <Clock size={13} className="text-[#A0A7B4]" /> {item.time || '11:00 AM IST'} ({item.duration || '45 mins'})
-                  </span>
-                  <span>·</span>
-                  <span className="text-[#9A7A45] font-medium">Google Meet / Platform Video</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

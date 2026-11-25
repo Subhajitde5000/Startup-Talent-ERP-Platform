@@ -173,38 +173,6 @@ export const applications = [
   },
 ];
 
-export const interviews = [
-  {
-    id: 'int-1',
-    company: 'Northstar Labs',
-    title: 'Senior Product Designer',
-    round: 'Portfolio Deep Dive & Case Study Review',
-    datetime: 'Thu, Nov 12, 2026 · 11:00 AM – 12:00 PM IST',
-    format: 'Video call (Google Meet)',
-    interviewers: ['Rhea Mukherjee (VP Product Design)', 'Arjun Rao (Senior Staff Engineer)'],
-    prepItems: [
-      'Prepare 2 key portfolio projects highlighting business impact',
-      'Review Northstar Labs component library philosophy',
-      'Test microphone and camera setup beforehand',
-    ],
-    status: 'Confirmed',
-  },
-  {
-    id: 'int-2',
-    company: 'Morrow Health',
-    title: 'Product Designer',
-    round: 'Recruiter Screening Call',
-    datetime: 'Mon, Nov 16, 2026 · 3:30 PM – 4:00 PM IST',
-    format: 'Phone call',
-    interviewers: ['Pooja Sharma (Talent Lead)'],
-    prepItems: [
-      'Prepare summary of experience in healthtech / regulated UX',
-      'Prepare salary expectation rationale and notice period availability',
-    ],
-    status: 'Scheduled',
-  },
-];
-
 export const offers = [
   {
     id: 'off-1',

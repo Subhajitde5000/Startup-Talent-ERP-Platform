@@ -1659,6 +1659,283 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/{org_id}/scorecards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List organization scorecards
+         * @description Owner/admin/member read. Soft-deleted templates are excluded.
+         */
+        get: operations["list_scorecards_api_v1_organizations__org_id__scorecards_get"];
+        put?: never;
+        /**
+         * Create a scorecard template with criteria
+         * @description Owner/admin only. ``display_order`` follows list position;
+         *     ``org_id``/``is_platform`` are server-controlled.
+         */
+        post: operations["create_scorecard_api_v1_organizations__org_id__scorecards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/scorecards/{scorecard_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one scorecard */
+        get: operations["get_scorecard_api_v1_organizations__org_id__scorecards__scorecard_id__get"];
+        put?: never;
+        post?: never;
+        /** Soft-delete a scorecard (scores are preserved) */
+        delete: operations["delete_scorecard_api_v1_organizations__org_id__scorecards__scorecard_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit a scorecard
+         * @description Owner/admin only. ``criteria`` is a replace-set: omitted existing
+         *     criteria are deleted unless they already have scores (409).
+         */
+        patch: operations["patch_scorecard_api_v1_organizations__org_id__scorecards__scorecard_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/applications/{application_id}/scores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read all scores for an applicant
+         * @description Weighted totals are computed server-side from stored rows.
+         */
+        get: operations["get_scores_api_v1_organizations__org_id__jobs__job_id__applications__application_id__scores_get"];
+        /**
+         * Replace my scores for an applicant
+         * @description Applicant read-scope callers only (owner/admin; member who owns the
+         *     job or is assigned). Replace-set of the caller's OWN rows; an empty
+         *     list clears them. Closed jobs and terminal applications are 409.
+         */
+        put: operations["put_scores_api_v1_organizations__org_id__jobs__job_id__applications__application_id__scores_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Side-by-side compare of 2 to 5 applicants for one job
+         * @description Blind-safe projections only; never returns applicant_id, raw
+         *     snapshots or feedback. ATS percentages and notice periods do not
+         *     exist in the backend and are not invented.
+         */
+        get: operations["compare_applicants_api_v1_organizations__org_id__jobs__job_id__compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/jobs/{job_id}/applications/{application_id}/interviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Schedule an interview for an applicant
+         * @description Owner/admin/job-owner only; closed jobs and terminal applications
+         *     are 409. Panelists must be eligible hiring members (422). Scheduling
+         *     never changes the application stage (plan D8).
+         */
+        post: operations["schedule_interview_api_v1_organizations__org_id__jobs__job_id__applications__application_id__interviews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/interviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List this organization's interviews
+         * @description Owner/admin see every org interview; ordinary members see their own
+         *     jobs, assigned applications and interviews they sit on.
+         */
+        get: operations["list_interviews_api_v1_organizations__org_id__interviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/interviews/{interview_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one interview with participants and feedback
+         * @description In-scope members and any participant; outsiders get 404.
+         */
+        get: operations["get_interview_api_v1_organizations__org_id__interviews__interview_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Reschedule or edit a scheduled interview
+         * @description Owner/admin/job-owner only. Moving the slot resets every
+         *     participant's response (plan D4) and re-checks panelist conflicts.
+         */
+        patch: operations["patch_interview_api_v1_organizations__org_id__interviews__interview_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/interviews/{interview_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel an interview */
+        post: operations["cancel_interview_api_v1_organizations__org_id__interviews__interview_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/interviews/{interview_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark an interview completed (enables feedback) */
+        post: operations["complete_interview_api_v1_organizations__org_id__interviews__interview_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/interviews/{interview_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Submit or replace my panel feedback
+         * @description Interviewer participants only, after completion; upserts the
+         *     caller's single row. Candidates can never call this (403).
+         */
+        put: operations["put_feedback_api_v1_organizations__org_id__interviews__interview_id__feedback_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/interviews/{interview_id}/respond": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Accept, decline or mark tentative (either side)
+         * @description Only actual participants; everyone else gets 404.
+         */
+        put: operations["respond_api_v1_interviews__interview_id__respond_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{application_id}/interviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List interviews for my application
+         * @description Own application only (404 otherwise). Never exposes feedback,
+         *     scores or internal cancellation reasons.
+         */
+        get: operations["candidate_interviews_api_v1_applications__application_id__interviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{application_id}/interviews/{interview_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one of my application's interviews */
+        get: operations["candidate_interview_api_v1_applications__application_id__interviews__interview_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{org_id}/startup-profile": {
         parameters: {
             query?: never;
@@ -4771,6 +5048,10 @@ export interface components {
             currency: string;
             /** Resume Available */
             resume_available: boolean;
+            /** Resume File Name */
+            resume_file_name?: string | null;
+            /** Resume Content Type */
+            resume_content_type?: string | null;
             /** Rejected Reason */
             rejected_reason: string | null;
             /** Rejected At */
@@ -4930,6 +5211,20 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** ApplicationScoresRead */
+        ApplicationScoresRead: {
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /** Items */
+            items: components["schemas"]["CriterionScoresRead"][];
+            /** Weighted Total */
+            weighted_total: number | null;
+            /** My Weighted Total */
+            my_weighted_total: number | null;
         };
         /**
          * AttendeeRole
@@ -5178,6 +5473,80 @@ export interface components {
             /** Inputs */
             inputs: components["schemas"]["MetricKey"][];
         };
+        /** CandidateInterviewPage */
+        CandidateInterviewPage: {
+            /** Items */
+            items: components["schemas"]["CandidateInterviewRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /**
+         * CandidateInterviewRead
+         * @description Candidate-safe projection: never feedback, internal reason or ids
+         *     they do not need.
+         */
+        CandidateInterviewRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Job Title */
+            job_title: string;
+            /** Company Name */
+            company_name: string;
+            /** Round Name */
+            round_name: string | null;
+            /**
+             * Format
+             * @enum {string}
+             */
+            format: "video" | "phone" | "onsite" | "async";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "scheduled" | "confirmed" | "completed" | "cancelled" | "no_show" | "rescheduled";
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Location */
+            location: string | null;
+            /** Meeting Url */
+            meeting_url: string | null;
+            /** Participants */
+            participants: components["schemas"]["ParticipantRead"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /**
          * CasePriority
          * @enum {string}
@@ -5331,6 +5700,76 @@ export interface components {
             /** Committed On */
             committed_on?: string | null;
         };
+        /** CompareApplicant */
+        CompareApplicant: {
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /** Stage */
+            stage: string;
+            /** Is Blind */
+            is_blind: boolean;
+            /** Label */
+            label: string;
+            /** Salary Expectation */
+            salary_expectation: string | null;
+            /** Currency */
+            currency: string;
+            /** Experience Years */
+            experience_years: string | null;
+            /** Headline */
+            headline: string | null;
+            /** Skills */
+            skills: string[] | null;
+            /** Weighted Total */
+            weighted_total: number | null;
+            /** Scored Count */
+            scored_count: number;
+            /** Scores */
+            scores: components["schemas"]["CompareCell"][];
+        };
+        /** CompareCell */
+        CompareCell: {
+            /**
+             * Criterion Id
+             * Format: uuid
+             */
+            criterion_id: string;
+            /** Average */
+            average: number | null;
+            /** Scored Count */
+            scored_count: number;
+            /** My Score */
+            my_score: number | null;
+        };
+        /** CompareCriterion */
+        CompareCriterion: {
+            /**
+             * Criterion Id
+             * Format: uuid
+             */
+            criterion_id: string;
+            /** Name */
+            name: string;
+            /** Weight */
+            weight: number;
+        };
+        /** CompareRead */
+        CompareRead: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Job Title */
+            job_title: string;
+            /** Criteria */
+            criteria: components["schemas"]["CompareCriterion"][];
+            /** Items */
+            items: components["schemas"]["CompareApplicant"][];
+        };
         /**
          * CompetitorCreate
          * @description Add a competitor. Server-owned fields are absent, not ignored.
@@ -5447,6 +5886,71 @@ export interface components {
          * @enum {string}
          */
         Confidence: "high" | "medium" | "low";
+        /** CriterionCreate */
+        CriterionCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight?: number;
+            /** Anchors */
+            anchors?: string[];
+        };
+        /** CriterionRead */
+        CriterionRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Weight */
+            weight: number;
+            /** Anchors */
+            anchors: string[] | null;
+            /** Display Order */
+            display_order: number;
+        };
+        /** CriterionScoresRead */
+        CriterionScoresRead: {
+            /**
+             * Criterion Id
+             * Format: uuid
+             */
+            criterion_id: string;
+            /** Name */
+            name: string;
+            /** Weight */
+            weight: number;
+            /** Scores */
+            scores: components["schemas"]["ScoreEntry"][];
+            /** My Score */
+            my_score: number | null;
+            /** Average */
+            average: number | null;
+            /** Scored Count */
+            scored_count: number;
+        };
+        /**
+         * CriterionUpdate
+         * @description One replace-set item: ``id=None`` creates, an existing id updates.
+         */
+        CriterionUpdate: {
+            /** Id */
+            id?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight?: number;
+            /** Anchors */
+            anchors?: string[];
+        };
         /** DailyCount */
         DailyCount: {
             /**
@@ -6292,6 +6796,47 @@ export interface components {
             /** Message */
             message?: string | null;
         };
+        /** FeedbackPut */
+        FeedbackPut: {
+            /**
+             * Recommendation
+             * @enum {string}
+             */
+            recommendation: "strong_yes" | "yes" | "no" | "strong_no";
+            /** Summary */
+            summary: string;
+        };
+        /** FeedbackRead */
+        FeedbackRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Interview Id
+             * Format: uuid
+             */
+            interview_id: string;
+            /** Author Id */
+            author_id: string | null;
+            /** Author Name */
+            author_name: string;
+            /** Recommendation */
+            recommendation: ("strong_yes" | "yes" | "no" | "strong_no") | null;
+            /** Summary */
+            summary: string | null;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** FileConfirmCreate */
         FileConfirmCreate: Record<string, never>;
         /** FileDownloadCreate */
@@ -6309,6 +6854,10 @@ export interface components {
             url: string;
             /** Expires In */
             expires_in: number;
+            /** File Name */
+            file_name?: string | null;
+            /** Mime Type */
+            mime_type?: string | null;
         };
         /**
          * FileKind
@@ -6915,6 +7464,204 @@ export interface components {
          * @enum {string}
          */
         InstrumentType: "equity" | "safe" | "convertible_note" | "ccd" | "ccps" | "debt" | "other";
+        /** InterviewCancel */
+        InterviewCancel: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /** InterviewCreate */
+        InterviewCreate: {
+            /** Round Name */
+            round_name?: string | null;
+            /**
+             * Format
+             * @default video
+             * @enum {string}
+             */
+            format?: "video" | "phone" | "onsite" | "async";
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /**
+             * Duration Min
+             * @default 45
+             */
+            duration_min?: number;
+            /** Location */
+            location?: string | null;
+            /** Meeting Url */
+            meeting_url?: string | null;
+            /** Interviewer Ids */
+            interviewer_ids: string[];
+        };
+        /** InterviewDetailRead */
+        InterviewDetailRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Job Title */
+            job_title: string;
+            /** Candidate Label */
+            candidate_label: string;
+            /** Is Blind */
+            is_blind: boolean;
+            /** Round Name */
+            round_name: string | null;
+            /**
+             * Format
+             * @enum {string}
+             */
+            format: "video" | "phone" | "onsite" | "async";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "scheduled" | "confirmed" | "completed" | "cancelled" | "no_show" | "rescheduled";
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Location */
+            location: string | null;
+            /** Meeting Url */
+            meeting_url: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Cancelled Reason */
+            cancelled_reason: string | null;
+            /** Participants */
+            participants: components["schemas"]["ParticipantRead"][];
+            /** Needs My Feedback */
+            needs_my_feedback: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Feedback */
+            feedback: components["schemas"]["FeedbackRead"][];
+        };
+        /** InterviewPage */
+        InterviewPage: {
+            /** Items */
+            items: components["schemas"]["InterviewRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /**
+         * InterviewRead
+         * @description Employer-side interview row (list and detail base).
+         */
+        InterviewRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Job Title */
+            job_title: string;
+            /** Candidate Label */
+            candidate_label: string;
+            /** Is Blind */
+            is_blind: boolean;
+            /** Round Name */
+            round_name: string | null;
+            /**
+             * Format
+             * @enum {string}
+             */
+            format: "video" | "phone" | "onsite" | "async";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "scheduled" | "confirmed" | "completed" | "cancelled" | "no_show" | "rescheduled";
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Location */
+            location: string | null;
+            /** Meeting Url */
+            meeting_url: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Cancelled Reason */
+            cancelled_reason: string | null;
+            /** Participants */
+            participants: components["schemas"]["ParticipantRead"][];
+            /** Needs My Feedback */
+            needs_my_feedback: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * InterviewUpdate
+         * @description Reschedule/edit. Only scheduled or confirmed interviews accept it.
+         */
+        InterviewUpdate: {
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /** Duration Min */
+            duration_min?: number | null;
+            /** Round Name */
+            round_name?: string | null;
+            /** Format */
+            format?: ("video" | "phone" | "onsite" | "async") | null;
+            /** Location */
+            location?: string | null;
+            /** Meeting Url */
+            meeting_url?: string | null;
+        };
         /**
          * InvestorDealCreate
          * @description Create a deal on the investor's board.
@@ -9836,6 +10583,25 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** ParticipantRead */
+        ParticipantRead: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "interviewer" | "candidate" | "observer";
+            /** Display Name */
+            display_name: string;
+            /** Response */
+            response: ("accepted" | "declined" | "tentative") | null;
+            /** Responded At */
+            responded_at: string | null;
+        };
         /** PipelinePatch */
         PipelinePatch: {
             /** Stage */
@@ -10036,6 +10802,14 @@ export interface components {
             token: string;
             /** New Password */
             new_password: string;
+        };
+        /** RespondPut */
+        RespondPut: {
+            /**
+             * Response
+             * @enum {string}
+             */
+            response: "accepted" | "declined" | "tentative";
         };
         /**
          * RetentionBlock
@@ -10333,6 +11107,108 @@ export interface components {
             signed_off_at: string | null;
             /** Updated At */
             updated_at: string | null;
+        };
+        /** ScoreEntry */
+        ScoreEntry: {
+            /** Interviewer Id */
+            interviewer_id: string | null;
+            /** Score */
+            score: number;
+            /** Note */
+            note: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ScoreInput */
+        ScoreInput: {
+            /**
+             * Criterion Id
+             * Format: uuid
+             */
+            criterion_id: string;
+            /** Score */
+            score: number;
+            /** Note */
+            note?: string | null;
+        };
+        /** ScorecardCreate */
+        ScorecardCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Job Id
+             * @description Optional same-organization job to attach to.
+             */
+            job_id?: string | null;
+            /** Criteria */
+            criteria: components["schemas"]["CriterionCreate"][];
+        };
+        /** ScorecardPage */
+        ScorecardPage: {
+            /** Items */
+            items: components["schemas"]["ScorecardRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /** ScorecardRead */
+        ScorecardRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Name */
+            name: string;
+            /** Job Id */
+            job_id: string | null;
+            /** Is Platform */
+            is_platform: boolean;
+            /** Criteria */
+            criteria: components["schemas"]["CriterionRead"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ScorecardUpdate */
+        ScorecardUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Criteria */
+            criteria?: components["schemas"]["CriterionUpdate"][] | null;
+        };
+        /**
+         * ScoresPut
+         * @description Replace-set of the caller's own scores; an empty list clears them.
+         */
+        ScoresPut: {
+            /** Scores */
+            scores: components["schemas"]["ScoreInput"][];
         };
         /** ScreeningAnswer */
         ScreeningAnswer: {
@@ -18609,7 +19485,9 @@ export interface operations {
     };
     resume_download_api_v1_organizations__org_id__jobs__job_id__applications__application_id__resume_download_post: {
         parameters: {
-            query?: never;
+            query?: {
+                disposition?: "attachment" | "inline";
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -18690,6 +19568,1584 @@ export interface operations {
                 };
             };
             /** @description Applicant or file-download rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_scorecards_api_v1_organizations__org_id__scorecards_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                job_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScorecardPage"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or foreign references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scorecard or applicant rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_scorecard_api_v1_organizations__org_id__scorecards_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScorecardCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScorecardRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or foreign references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scorecard or applicant rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_scorecard_api_v1_organizations__org_id__scorecards__scorecard_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                scorecard_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScorecardRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or foreign references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scorecard or applicant rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_scorecard_api_v1_organizations__org_id__scorecards__scorecard_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                scorecard_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not found or already deleted */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or foreign references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scorecard or applicant rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_scorecard_api_v1_organizations__org_id__scorecards__scorecard_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                scorecard_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScorecardUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScorecardRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or foreign references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scorecard or applicant rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_scores_api_v1_organizations__org_id__jobs__job_id__applications__application_id__scores_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationScoresRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Read-only job or terminal application */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or foreign references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scorecard or applicant rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_scores_api_v1_organizations__org_id__jobs__job_id__applications__application_id__scores_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScoresPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationScoresRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Read-only job or terminal application */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or foreign references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scorecard or applicant rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    compare_applicants_api_v1_organizations__org_id__jobs__job_id__compare_get: {
+        parameters: {
+            query: {
+                /** @description Application UUIDs of this job, in display order. */
+                application_ids: string[];
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompareRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 64 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or foreign references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Scorecard or applicant rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    schedule_interview_api_v1_organizations__org_id__jobs__job_id__applications__application_id__interviews_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                job_id: string;
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewDetailRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid interview state, read-only job or panelist conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or panelist references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Interview rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_interviews_api_v1_organizations__org_id__interviews_get: {
+        parameters: {
+            query?: {
+                /** @description upcoming = live and not started; past = everything else. */
+                window?: ("upcoming" | "past") | null;
+                status?: ("scheduled" | "confirmed" | "completed" | "cancelled" | "no_show" | "rescheduled") | null;
+                /** @description Completed interviews where I owe feedback. */
+                needs_feedback?: boolean;
+                job_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewPage"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid interview state, read-only job or panelist conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or panelist references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Interview rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_interview_api_v1_organizations__org_id__interviews__interview_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                interview_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewDetailRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid interview state, read-only job or panelist conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or panelist references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Interview rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    patch_interview_api_v1_organizations__org_id__interviews__interview_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                interview_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewDetailRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid interview state, read-only job or panelist conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or panelist references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Interview rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancel_interview_api_v1_organizations__org_id__interviews__interview_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                interview_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewCancel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewDetailRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid interview state, read-only job or panelist conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or panelist references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Interview rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    complete_interview_api_v1_organizations__org_id__interviews__interview_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                interview_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewDetailRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid interview state, read-only job or panelist conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or panelist references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Interview rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_feedback_api_v1_organizations__org_id__interviews__interview_id__feedback_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+                interview_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid interview state, read-only job or panelist conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or panelist references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Interview rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    respond_api_v1_interviews__interview_id__respond_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                interview_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RespondPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid interview state, read-only job or panelist conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or panelist references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Interview rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    candidate_interviews_api_v1_applications__application_id__interviews_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateInterviewPage"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid interview state, read-only job or panelist conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or panelist references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Interview rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    candidate_interview_api_v1_applications__application_id__interviews__interview_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                application_id: string;
+                interview_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateInterviewRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid interview state, read-only job or panelist conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or panelist references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Interview rate limit */
             429: {
                 headers: {
                     [name: string]: unknown;
