@@ -1,8 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import React, { useEffect, useState, Suspense } from 'react';
 import {
   EmployerShell,
   EmployerBtn,
@@ -10,115 +8,426 @@ import {
   StageChip,
   EmployerSafetyStrip as SafetyStrip,
 } from '@/components';
-import {
-  interviews as initialInterviews,
-  jobs,
-  applications,
-} from '@/app/employer/employer-data';
-import {
-  Calendar as CalendarIcon,
-  CheckCircle2,
-  Clock,
-  ExternalLink,
-  MessageSquare,
-  Plus,
-  RefreshCw,
-  User,
-  Video,
-  X,
-  AlertCircle,
-} from 'lucide-react';
+import { JobsPage, useJobsWorkspace } from '@/components/employer-jobs-workspace';
+import { LoadingBlock, EmptyBlock, ErrorBlock, FieldError, fieldErrorsFrom } from '@/components/async-state';
+import { useCareerResource } from '@/components/career-data';
+import { api, ApiError } from '@/lib/api/client';
+import { useAuth } from '@/lib/auth-context';
+import { CheckCircle2, Plus, Video, X } from 'lucide-react';
+
+const formatLabel = (format) =>
+  ({ video: 'Video', phone: 'Phone', onsite: 'On-site', async: 'Async' })[format] || format;
+
+const statusChip = (status) =>
+  ({ scheduled: 'Scheduled', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled', no_show: 'No show', rescheduled: 'Rescheduled' })[status] || status;
+
+const whenLabel = (iso) => {
+  const d = new Date(iso);
+  return {
+    date: d.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }),
+    time: d.toLocaleLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+  };
+};
+
+const toLocalInput = (iso) => {
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const tomorrow = () => {
+  const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+const LIVE = ['scheduled', 'confirmed'];
 
 function InterviewsContent() {
-  const searchParams = useSearchParams();
-  const prefillCandidate = searchParams?.get('candidate') || '';
+  const { org } = useJobsWorkspace();
+  const { user } = useAuth();
+  const isViewer = org.my_role === 'viewer';
+  // D5: owner/admin may act on any interview; a member only on jobs they own.
+  const canLifecycle = (item) => {
+    if (['owner', 'admin'].includes(org.my_role)) return true;
+    const job = (jobsRes.data?.items || []).find((j) => j.id === item.job_id);
+    return Boolean(job && user && job.owner_id === user.id);
+  };
 
   const [activeTab, setActiveTab] = useState('Upcoming');
-  const [interviews, setInterviews] = useState(initialInterviews);
   const [toastMessage, setToastMessage] = useState(null);
 
-  // Schedule modal state
-  const [showScheduleModal, setShowScheduleModal] = useState(!!prefillCandidate);
-  const [schedCandidate, setSchedCandidate] = useState(prefillCandidate || 'Aanya Sen');
-  const [schedJob, setSchedJob] = useState(jobs[0]?.title || 'Senior Product Designer');
-  const [schedRound, setSchedRound] = useState('Technical Panel');
-  const [schedFormat, setSchedFormat] = useState('Video (Platform Room)');
-  const [schedDate, setSchedDate] = useState('2026-11-12');
-  const [schedTime, setSchedTime] = useState('14:30');
+  const upcomingRes = useCareerResource(
+    `interviews-upcoming:${org.id}`,
+    (signal) =>
+      isViewer
+        ? Promise.resolve(null)
+        : api.interviews.list(org.id, { window: 'upcoming', limit: 50 }, signal)
+  );
+  const needsRes = useCareerResource(
+    `interviews-needs:${org.id}`,
+    (signal) =>
+      isViewer
+        ? Promise.resolve(null)
+        : api.interviews.list(org.id, { needs_feedback: true, limit: 50 }, signal)
+  );
+  const pastRes = useCareerResource(
+    `interviews-past:${org.id}`,
+    (signal) =>
+      isViewer ? Promise.resolve(null) : api.interviews.list(org.id, { window: 'past', limit: 50 }, signal)
+  );
+  const jobsRes = useCareerResource(
+    `interview-schedule-jobs:${org.id}`,
+    (signal) => (isViewer ? Promise.resolve(null) : api.jobs.list(org.id, { limit: 100 }, signal))
+  );
+  const membersRes = useCareerResource(
+    `interview-schedule-members:${org.id}`,
+    (signal) =>
+      isViewer
+        ? Promise.resolve(null)
+        : api.organizations.members(org.id, { limit: 100, status: 'active' }, signal)
+  );
 
-  // Scorecard modal state
-  const [scorecardInterview, setScorecardInterview] = useState(null);
-  const [scoreComm, setScoreComm] = useState('4');
-  const [scoreTech, setScoreTech] = useState('4');
-  const [scoreDecision, setScoreDecision] = useState('Advance');
-  const [scoreComments, setScoreComments] = useState('');
-
-  // Reschedule modal state
-  const [rescheduleItem, setRescheduleItem] = useState(null);
-  const [rescheduleDate, setRescheduleDate] = useState('');
+  const reloadAll = () => {
+    upcomingRes.reload();
+    needsRes.reload();
+    pastRes.reload();
+  };
 
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleCreateInterview = (e) => {
-    e.preventDefault();
-    const newInt = {
-      id: `int-${Date.now()}`,
-      time: `${schedTime} IST`,
-      date: schedDate,
-      candidate: schedCandidate,
-      job: schedJob,
-      round: schedRound,
-      format: schedFormat.includes('Video') ? 'Video' : 'Phone',
-      duration: '45 min',
-      interviewers: 'Priya Mehta · Rahul Verma',
-      status: 'Scheduled',
-      join: true,
-    };
-    setInterviews([newInt, ...interviews]);
-    setShowScheduleModal(false);
-    showToast(`Interview scheduled with ${schedCandidate} for ${schedDate}`);
+  // Schedule modal state
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [schedJob, setSchedJob] = useState('');
+  const [schedApplication, setSchedApplication] = useState('');
+  const [schedRound, setSchedRound] = useState('Technical Panel');
+  const [schedFormat, setSchedFormat] = useState('video');
+  const [schedDate, setSchedDate] = useState(tomorrow);
+  const [schedTime, setSchedTime] = useState('14:30');
+  const [schedPanelists, setSchedPanelists] = useState([]);
+  const [schedErrors, setSchedErrors] = useState({});
+  const [schedError, setSchedError] = useState('');
+  const [schedBusy, setSchedBusy] = useState(false);
+  const [applicants, setApplicants] = useState({ items: [], loading: false, error: '' });
+
+  const openJobs = (jobsRes.data?.items || []).filter((j) => j.status === 'open');
+
+  useEffect(() => {
+    if (!showScheduleModal || !schedJob) {
+      setApplicants({ items: [], loading: false, error: '' });
+      setSchedApplication('');
+      return undefined;
+    }
+    const controller = new AbortController();
+    setApplicants({ items: [], loading: true, error: '' });
+    api.applicants
+      .list(org.id, schedJob, { limit: 100 }, controller.signal)
+      .then((page) => {
+        if (!controller.signal.aborted) {
+          setApplicants({ items: page.items, loading: false, error: '' });
+          setSchedApplication((prev) => (page.items.some((a) => a.id === prev) ? prev : page.items[0]?.id || ''));
+        }
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          setApplicants({ items: [], loading: false, error: error instanceof ApiError ? error.message : 'Could not load applicants.' });
+        }
+      });
+    return () => controller.abort();
+  }, [showScheduleModal, schedJob, org.id]);
+
+  // Feedback modal state
+  const [feedbackItem, setFeedbackItem] = useState(null);
+  const [fbRecommendation, setFbRecommendation] = useState('yes');
+  const [fbSummary, setFbSummary] = useState('');
+  const [fbErrors, setFbErrors] = useState({});
+  const [fbError, setFbError] = useState('');
+  const [fbBusy, setFbBusy] = useState(false);
+
+  // Reschedule modal state
+  const [rescheduleItem, setRescheduleItem] = useState(null);
+  const [rescheduleWhen, setRescheduleWhen] = useState('');
+  const [rescheduleError, setRescheduleError] = useState('');
+  const [rescheduleErrors, setRescheduleErrors] = useState({});
+  const [rescheduleBusy, setRescheduleBusy] = useState(false);
+
+  const openSchedule = () => {
+    setSchedErrors({});
+    setSchedError('');
+    setShowScheduleModal(true);
   };
 
-  const handleScorecardSubmit = (e) => {
+  const handleCreateInterview = async (e) => {
     e.preventDefault();
-    showToast(`Scorecard submitted for ${scorecardInterview.candidate}. Decision: ${scoreDecision}`);
-    setScorecardInterview(null);
-    setScoreComments('');
+    setSchedErrors({});
+    setSchedError('');
+    if (!schedApplication) {
+      setSchedError('Pick a job with at least one applicant to schedule against.');
+      return;
+    }
+    if (schedPanelists.length === 0) {
+      setSchedErrors({ interviewer_ids: 'Select at least one panelist.' });
+      return;
+    }
+    setSchedBusy(true);
+    try {
+      const when = new Date(`${schedDate}T${schedTime}`);
+      await api.interviews.schedule(org.id, schedJob, schedApplication, {
+        round_name: schedRound,
+        format: schedFormat,
+        scheduled_at: when.toISOString(),
+        duration_min: 45,
+        interviewer_ids: schedPanelists,
+      });
+      setShowScheduleModal(false);
+      setSchedPanelists([]);
+      showToast('Interview scheduled.');
+      reloadAll();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 422) {
+        setSchedErrors(fieldErrorsFrom(error));
+      }
+      setSchedError(error instanceof ApiError ? error.message : 'Could not schedule the interview. Please try again.');
+    } finally {
+      setSchedBusy(false);
+    }
   };
 
-  const handleConfirmReschedule = (e) => {
+  const handleScorecardSubmit = async (e) => {
+    e.preventDefault();
+    if (!feedbackItem) return;
+    setFbErrors({});
+    setFbError('');
+    setFbBusy(true);
+    try {
+      await api.interviews.putFeedback(org.id, feedbackItem.id, {
+        recommendation: fbRecommendation,
+        summary: fbSummary,
+      });
+      setFeedbackItem(null);
+      setFbSummary('');
+      showToast('Scorecard submitted.');
+      reloadAll();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 422) setFbErrors(fieldErrorsFrom(error));
+      setFbError(error instanceof ApiError ? error.message : 'Could not submit the scorecard. Please try again.');
+    } finally {
+      setFbBusy(false);
+    }
+  };
+
+  const handleConfirmReschedule = async (e) => {
     e.preventDefault();
     if (!rescheduleItem) return;
-    setInterviews((prev) =>
-      prev.map((i) =>
-        i.id === rescheduleItem.id ? { ...i, date: rescheduleDate || 'Rescheduled' } : i
-      )
-    );
-    showToast(`Interview with ${rescheduleItem.candidate} rescheduled`);
-    setRescheduleItem(null);
+    setRescheduleErrors({});
+    setRescheduleError('');
+    setRescheduleBusy(true);
+    try {
+      await api.interviews.patch(org.id, rescheduleItem.id, {
+        scheduled_at: new Date(rescheduleWhen).toISOString(),
+      });
+      setRescheduleItem(null);
+      showToast('Interview rescheduled. Panel responses were reset.');
+      reloadAll();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 422) setRescheduleErrors(fieldErrorsFrom(error));
+      setRescheduleError(error instanceof ApiError ? error.message : 'Could not reschedule. Please try again.');
+    } finally {
+      setRescheduleBusy(false);
+    }
   };
 
-  const pendingFeedback = [
-    {
-      id: 'fb-1',
-      candidate: 'Rohan Kapoor',
-      job: 'UX Researcher',
-      round: 'Technical Interview',
-      finished: '2 hours ago',
-      overdue: false,
-    },
-    {
-      id: 'fb-2',
-      candidate: 'Candidate #44',
-      job: 'Senior Backend Engineer',
-      round: 'System Architecture',
-      finished: '26 hours ago',
-      overdue: true,
-    },
-  ];
+  const runLifecycle = async (item, action, successMsg) => {
+    try {
+      if (action === 'cancel') await api.interviews.cancel(org.id, item.id, {});
+      else await api.interviews.complete(org.id, item.id);
+      showToast(successMsg);
+      reloadAll();
+    } catch (error) {
+      showToast(error instanceof ApiError ? error.message : 'The action failed. Please try again.');
+    }
+  };
+
+  const togglePanelist = (userId) =>
+    setSchedPanelists((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+
+  const upcoming = upcomingRes.data?.items || [];
+  const needs = needsRes.data?.items || [];
+  const past = pastRes.data?.items || [];
+  const listRes = activeTab === 'Upcoming' ? upcomingRes : activeTab === 'Needs feedback' ? needsRes : pastRes;
+  const items = activeTab === 'Upcoming' ? upcoming : activeTab === 'Needs feedback' ? needs : past;
+
+  // Weekly metrics, computed from the loaded lists (never invented).
+  const weekStart = (() => {
+    const d = new Date();
+    const day = (d.getDay() + 6) % 7; // Monday-first
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - day);
+    return d;
+  })();
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 7);
+  const thisWeek = upcoming.filter((i) => {
+    const t = new Date(i.scheduled_at);
+    return t >= weekStart && t < weekEnd;
+  });
+  const awaitingConfirmation = upcoming.filter((i) => {
+    const candidate = i.participants.find((p) => p.side === 'candidate');
+    return candidate && candidate.response === null;
+  }).length;
+
+  const renderCard = (item, { showFeedbackButton = false, showLifecycle = false } = {}) => {
+    const { date, time } = whenLabel(item.scheduled_at);
+    const panelists = item.participants
+      .filter((p) => p.side === 'interviewer')
+      .map((p) => p.display_name);
+    return (
+      <div
+        key={item.id}
+        className="rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-sm transition hover:border-[#B8955A] space-y-3"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[#E5E1D8] pb-3">
+          <div className="flex items-center gap-2.5">
+            <span className="font-serif text-sm font-bold text-[#0F1B2D]">
+              {date} · {time}
+            </span>
+            <StageChip stage={statusChip(item.status)} />
+          </div>
+          <div className="flex items-center gap-2">
+            {item.meeting_url && LIVE.includes(item.status) && (
+              <EmployerBtn
+                primary
+                small
+                onClick={() => window.open(item.meeting_url, '_blank', 'noopener,noreferrer')}
+              >
+                <Video size={14} className="mr-1.5" /> Join Room
+              </EmployerBtn>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[#4A5568]">
+          <div>
+            <h3 className="font-serif text-base font-bold text-[#0F1B2D]">{item.candidate_label}</h3>
+            <p className="mt-0.5">
+              {item.job_title} · <span className="font-medium text-[#806236]">{item.round_name || 'Interview'}</span>
+            </p>
+          </div>
+          <div className="flex items-center gap-3 text-xs">
+            <span className="inline-flex items-center gap-1 rounded bg-[#FAF8F4] px-2 py-1 text-[#0F1B2D]">
+              {formatLabel(item.format)} · {item.duration_min} min
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E5E1D8] pt-3 text-xs text-[#4A5568]">
+          <span>Panelists: {panelists.length > 0 ? panelists.join(', ') : 'None assigned'}</span>
+          <div className="flex items-center gap-3">
+            {showFeedbackButton && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFbErrors({});
+                  setFbError('');
+                  setFbSummary('');
+                  setFeedbackItem(item);
+                }}
+                className="text-[#806236] font-semibold hover:underline"
+              >
+                Submit Scorecard
+              </button>
+            )}
+            {showLifecycle && LIVE.includes(item.status) && canLifecycle(item) && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRescheduleErrors({});
+                    setRescheduleError('');
+                    setRescheduleWhen(toLocalInput(item.scheduled_at));
+                    setRescheduleItem(item);
+                  }}
+                  className="text-[#806236] hover:underline"
+                >
+                  Reschedule
+                </button>
+                <span>·</span>
+                <button
+                  type="button"
+                  onClick={() => runLifecycle(item, 'complete', 'Interview marked completed.')}
+                  className="text-[#806236] hover:underline"
+                >
+                  Mark completed
+                </button>
+                <span>·</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('Cancel this interview? The panel and candidate will see it as cancelled.')) {
+                      runLifecycle(item, 'cancel', 'Interview cancelled.');
+                    }
+                  }}
+                  className="text-[#B42318] hover:underline"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderList = (list, opts) => {
+    if (listRes.loading && !listRes.data) return <LoadingBlock label="Loading interviews…" />;
+    if (listRes.error)
+      return (
+        <ErrorBlock
+          message={
+            listRes.error instanceof ApiError ? listRes.error.message : 'Could not load interviews.'
+          }
+          onRetry={listRes.reload}
+        />
+      );
+    if (list.length === 0)
+      return (
+        <EmptyBlock
+          title={
+            activeTab === 'Upcoming'
+              ? 'No upcoming interviews'
+              : activeTab === 'Needs feedback'
+                ? 'No scorecards pending'
+                : 'No past interviews'
+          }
+          hint={
+            activeTab === 'Upcoming'
+              ? 'Scheduled and confirmed interviews for your open pipelines will appear here.'
+              : activeTab === 'Needs feedback'
+                ? 'When a panel interview you sat on is completed, your scorecard will appear here.'
+                : 'Completed and cancelled interviews will appear here.'
+          }
+        />
+      );
+    return <div className="space-y-4">{list.map((item) => renderCard(item, opts))}</div>;
+  };
+
+  if (isViewer) {
+    return (
+      <EmployerShell active="/employer/interviews">
+        <div className="mx-auto max-w-[1280px]">
+          <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center text-sm text-[#4A5568]">
+            Viewers cannot access interview schedules.
+          </div>
+        </div>
+      </EmployerShell>
+    );
+  }
 
   return (
     <EmployerShell active="/employer/interviews">
@@ -156,20 +465,11 @@ function InterviewsContent() {
               </button>
             </div>
             <form onSubmit={handleCreateInterview} className="mt-4 space-y-4">
-              <div>
-                <label htmlFor="sched-cand" className="block text-xs font-medium text-[#0F1B2D] mb-1">
-                  Candidate Name
-                </label>
-                <input
-                  id="sched-cand"
-                  type="text"
-                  required
-                  value={schedCandidate}
-                  onChange={(e) => setSchedCandidate(e.target.value)}
-                  className="w-full rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
-                />
-              </div>
-
+              {schedError && (
+                <div role="alert" className="rounded-lg border border-[#F1C6C1] bg-[#FEF3F2] p-2.5 text-xs text-[#B42318]">
+                  {schedError}
+                </div>
+              )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor="sched-job" className="block text-xs font-medium text-[#0F1B2D] mb-1">
@@ -179,15 +479,44 @@ function InterviewsContent() {
                     id="sched-job"
                     value={schedJob}
                     onChange={(e) => setSchedJob(e.target.value)}
+                    required
                     className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
                   >
-                    {jobs.map((j) => (
-                      <option key={j.id} value={j.title}>
+                    <option value="">Select a job…</option>
+                    {openJobs.map((j) => (
+                      <option key={j.id} value={j.id}>
                         {j.title}
                       </option>
                     ))}
                   </select>
+                  {jobsRes.error && <FieldError>Could not load jobs.</FieldError>}
                 </div>
+                <div>
+                  <label htmlFor="sched-app" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                    Applicant
+                  </label>
+                  <select
+                    id="sched-app"
+                    value={schedApplication}
+                    onChange={(e) => setSchedApplication(e.target.value)}
+                    required
+                    disabled={!schedJob || applicants.loading}
+                    className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none disabled:bg-[#FAF8F4]"
+                  >
+                    <option value="">
+                      {applicants.loading ? 'Loading applicants…' : 'Select an applicant…'}
+                    </option>
+                    {applicants.items.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.label}
+                      </option>
+                    ))}
+                  </select>
+                  {applicants.error && <FieldError>{applicants.error}</FieldError>}
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor="sched-round" className="block text-xs font-medium text-[#0F1B2D] mb-1">
                     Interview Round
@@ -203,6 +532,24 @@ function InterviewsContent() {
                     <option value="Portfolio Walkthrough">Portfolio Walkthrough (45 min)</option>
                     <option value="Executive / Founder Fit">Executive / Founder Fit (45 min)</option>
                   </select>
+                  <FieldError>{schedErrors.round_name}</FieldError>
+                </div>
+                <div>
+                  <label htmlFor="sched-format" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                    Interview Format
+                  </label>
+                  <select
+                    id="sched-format"
+                    value={schedFormat}
+                    onChange={(e) => setSchedFormat(e.target.value)}
+                    className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+                  >
+                    <option value="video">Video call</option>
+                    <option value="phone">Phone / audio only</option>
+                    <option value="onsite">On-site</option>
+                    <option value="async">Async (take-home)</option>
+                  </select>
+                  <FieldError>{schedErrors.format}</FieldError>
                 </div>
               </div>
 
@@ -219,10 +566,11 @@ function InterviewsContent() {
                     onChange={(e) => setSchedDate(e.target.value)}
                     className="w-full rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
                   />
+                  <FieldError>{schedErrors.scheduled_at}</FieldError>
                 </div>
                 <div>
                   <label htmlFor="sched-time" className="block text-xs font-medium text-[#0F1B2D] mb-1">
-                    Time (IST)
+                    Time
                   </label>
                   <input
                     id="sched-time"
@@ -236,26 +584,31 @@ function InterviewsContent() {
               </div>
 
               <div>
-                <label htmlFor="sched-format" className="block text-xs font-medium text-[#0F1B2D] mb-1">
-                  Interview Format
-                </label>
-                <select
-                  id="sched-format"
-                  value={schedFormat}
-                  onChange={(e) => setSchedFormat(e.target.value)}
-                  className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
-                >
-                  <option value="Video (Platform Room)">Northstar Secure Video Call</option>
-                  <option value="Google Meet">Google Meet Integration</option>
-                  <option value="Phone Call">Phone / Audio Only</option>
-                </select>
+                <span className="block text-xs font-medium text-[#0F1B2D] mb-1">Panelists</span>
+                <div className="max-h-36 overflow-y-auto rounded-lg border border-[#E5E1D8] p-2 space-y-1">
+                  {(membersRes.data?.items || [])
+                    .filter((m) => m.role !== 'viewer')
+                    .map((m) => (
+                      <label key={m.user_id} className="flex items-center gap-2 text-xs text-[#0F1B2D]">
+                        <input
+                          type="checkbox"
+                          className="accent-ink"
+                          checked={schedPanelists.includes(m.user_id)}
+                          onChange={() => togglePanelist(m.user_id)}
+                        />
+                        {m.display_name} ({m.role})
+                      </label>
+                    ))}
+                  {membersRes.error && <FieldError>Could not load team members.</FieldError>}
+                </div>
+                <FieldError>{schedErrors.interviewer_ids}</FieldError>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <EmployerBtn variant="secondary" size="sm" onClick={() => setShowScheduleModal(false)}>
+                <EmployerBtn secondary small onClick={() => setShowScheduleModal(false)}>
                   Cancel
                 </EmployerBtn>
-                <EmployerBtn type="submit" variant="primary" size="sm">
+                <EmployerBtn type="submit" primary small disabled={schedBusy}>
                   Send Calendar Invite
                 </EmployerBtn>
               </div>
@@ -287,27 +640,36 @@ function InterviewsContent() {
               </button>
             </div>
             <form onSubmit={handleConfirmReschedule} className="mt-4 space-y-4">
+              {rescheduleError && (
+                <div role="alert" className="rounded-lg border border-[#F1C6C1] bg-[#FEF3F2] p-2.5 text-xs text-[#B42318]">
+                  {rescheduleError}
+                </div>
+              )}
               <p className="text-xs text-[#4A5568]">
-                Rescheduling interview with <span className="font-semibold text-[#0F1B2D]">{rescheduleItem.candidate}</span> for <span className="font-semibold text-[#0F1B2D]">{rescheduleItem.round}</span>.
+                Rescheduling interview with{' '}
+                <span className="font-semibold text-[#0F1B2D]">{rescheduleItem.candidate_label}</span> for{' '}
+                <span className="font-semibold text-[#0F1B2D]">{rescheduleItem.round_name || 'Interview'}</span>.
+                Panel responses reset when the slot moves.
               </p>
               <div>
-                <label htmlFor="new-date" className="block text-xs font-medium text-[#0F1B2D] mb-1">
-                  New Proposed Date & Time
+                <label htmlFor="new-when" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                  New Date & Time
                 </label>
                 <input
-                  id="new-date"
+                  id="new-when"
                   type="datetime-local"
                   required
-                  value={rescheduleDate}
-                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  value={rescheduleWhen}
+                  onChange={(e) => setRescheduleWhen(e.target.value)}
                   className="w-full rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
                 />
+                <FieldError>{rescheduleErrors.scheduled_at}</FieldError>
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <EmployerBtn variant="secondary" size="sm" onClick={() => setRescheduleItem(null)}>
+                <EmployerBtn secondary small onClick={() => setRescheduleItem(null)}>
                   Cancel
                 </EmployerBtn>
-                <EmployerBtn type="submit" variant="primary" size="sm">
+                <EmployerBtn type="submit" primary small disabled={rescheduleBusy}>
                   Confirm Reschedule
                 </EmployerBtn>
               </div>
@@ -317,7 +679,7 @@ function InterviewsContent() {
       )}
 
       {/* Scorecard Modal */}
-      {scorecardInterview && (
+      {feedbackItem && (
         <div
           role="dialog"
           aria-modal="true"
@@ -331,12 +693,12 @@ function InterviewsContent() {
                   Submit Interview Scorecard
                 </h3>
                 <p className="text-xs text-[#4A5568]">
-                  {scorecardInterview.candidate} · {scorecardInterview.round}
+                  {feedbackItem.candidate_label} · {feedbackItem.round_name || 'Interview'}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setScorecardInterview(null)}
+                onClick={() => setFeedbackItem(null)}
                 className="text-[#4A5568] hover:text-[#0F1B2D]"
                 aria-label="Close dialog"
               >
@@ -344,57 +706,27 @@ function InterviewsContent() {
               </button>
             </div>
             <form onSubmit={handleScorecardSubmit} className="mt-4 space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="sc-comm" className="block text-xs font-medium text-[#0F1B2D] mb-1">
-                    Communication (1-5)
-                  </label>
-                  <select
-                    id="sc-comm"
-                    value={scoreComm}
-                    onChange={(e) => setScoreComm(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
-                  >
-                    <option value="5">5 - Excellent</option>
-                    <option value="4">4 - Strong</option>
-                    <option value="3">3 - Adequate</option>
-                    <option value="2">2 - Needs Work</option>
-                    <option value="1">1 - Poor</option>
-                  </select>
+              {fbError && (
+                <div role="alert" className="rounded-lg border border-[#F1C6C1] bg-[#FEF3F2] p-2.5 text-xs text-[#B42318]">
+                  {fbError}
                 </div>
-                <div>
-                  <label htmlFor="sc-tech" className="block text-xs font-medium text-[#0F1B2D] mb-1">
-                    Technical Depth (1-5)
-                  </label>
-                  <select
-                    id="sc-tech"
-                    value={scoreTech}
-                    onChange={(e) => setScoreTech(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
-                  >
-                    <option value="5">5 - Excellent</option>
-                    <option value="4">4 - Strong</option>
-                    <option value="3">3 - Adequate</option>
-                    <option value="2">2 - Needs Work</option>
-                    <option value="1">1 - Poor</option>
-                  </select>
-                </div>
-              </div>
-
+              )}
               <div>
-                <label htmlFor="sc-decision" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                <label htmlFor="sc-recommendation" className="block text-xs font-medium text-[#0F1B2D] mb-1">
                   Overall Panel Recommendation
                 </label>
                 <select
-                  id="sc-decision"
-                  value={scoreDecision}
-                  onChange={(e) => setScoreDecision(e.target.value)}
+                  id="sc-recommendation"
+                  value={fbRecommendation}
+                  onChange={(e) => setFbRecommendation(e.target.value)}
                   className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
                 >
-                  <option value="Advance to Next Round">Strong Yes (Advance to next round)</option>
-                  <option value="Advance with Reservations">Yes, with reservations</option>
-                  <option value="Decline">No (Decline candidate)</option>
+                  <option value="strong_yes">Strong Yes (Advance to next round)</option>
+                  <option value="yes">Yes, with reservations</option>
+                  <option value="no">No (Decline candidate)</option>
+                  <option value="strong_no">Strong No (Decline)</option>
                 </select>
+                <FieldError>{fbErrors.recommendation}</FieldError>
               </div>
 
               <div>
@@ -403,20 +735,21 @@ function InterviewsContent() {
                 </label>
                 <textarea
                   id="sc-comments"
-                  rows={3}
+                  rows={4}
                   required
-                  value={scoreComments}
-                  onChange={(e) => setScoreComments(e.target.value)}
+                  value={fbSummary}
+                  onChange={(e) => setFbSummary(e.target.value)}
                   placeholder="Summarize candidate answers, problem solving approach, and strengths..."
                   className="w-full rounded-lg border border-[#E5E1D8] p-2.5 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
                 />
+                <FieldError>{fbErrors.summary}</FieldError>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <EmployerBtn variant="secondary" size="sm" onClick={() => setScorecardInterview(null)}>
+                <EmployerBtn secondary small onClick={() => setFeedbackItem(null)}>
                   Cancel
                 </EmployerBtn>
-                <EmployerBtn type="submit" variant="primary" size="sm">
+                <EmployerBtn type="submit" primary small disabled={fbBusy}>
                   Submit Scorecard
                 </EmployerBtn>
               </div>
@@ -437,11 +770,7 @@ function InterviewsContent() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <EmployerBtn
-              variant="primary"
-              size="sm"
-              onClick={() => setShowScheduleModal(true)}
-            >
+            <EmployerBtn primary small onClick={openSchedule}>
               <Plus size={14} className="mr-1.5" /> Schedule interview
             </EmployerBtn>
           </div>
@@ -462,7 +791,9 @@ function InterviewsContent() {
                     : 'text-[#4A5568] hover:bg-[#FAF8F4] hover:text-[#0F1B2D]'
                 }`}
               >
-                {tab === 'Needs feedback' ? `Needs Feedback (${pendingFeedback.length})` : tab}
+                {tab === 'Needs feedback'
+                  ? `Needs Feedback (${needsRes.data?.total ?? '…'})`
+                  : tab}
               </button>
             );
           })}
@@ -472,163 +803,78 @@ function InterviewsContent() {
         <div className="grid gap-6 lg:grid-cols-12 min-w-0">
           {/* Main Interview Area */}
           <div className="lg:col-span-8 space-y-4 min-w-0">
-            {activeTab === 'Upcoming' && (
-              <div className="space-y-4">
-                {interviews.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-sm transition hover:border-[#B8955A] space-y-3"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[#E5E1D8] pb-3">
-                      <div className="flex items-center gap-2.5">
-                        <span className="font-serif text-sm font-bold text-[#0F1B2D]">
-                          {item.date} · {item.time}
-                        </span>
-                        <StageChip stage={item.status} />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {item.join ? (
-                          <EmployerBtn
-                            variant="primary"
-                            size="sm"
-                            onClick={() => showToast('Launching Northstar Secure Meeting Room...')}
-                          >
-                            <Video size={14} className="mr-1.5" /> Join Room
-                          </EmployerBtn>
-                        ) : (
-                          <EmployerBtn
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => showToast('Preparation notes loaded')}
-                          >
-                            Prepare Notes
-                          </EmployerBtn>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[#4A5568]">
-                      <div>
-                        <h3 className="font-serif text-base font-bold text-[#0F1B2D]">
-                          {item.candidate}
-                        </h3>
-                        <p className="mt-0.5">
-                          {item.job} · <span className="font-medium text-[#806236]">{item.round}</span>
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs">
-                        <span className="inline-flex items-center gap-1 rounded bg-[#FAF8F4] px-2 py-1 text-[#0F1B2D]">
-                          {item.format} · {item.duration}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E5E1D8] pt-3 text-xs text-[#4A5568]">
-                      <span>Panelists: {item.interviewers}</span>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => showToast('Calendar .ics file downloaded')}
-                          className="text-[#806236] hover:underline"
-                        >
-                          Add to Calendar
-                        </button>
-                        <span>·</span>
-                        <button
-                          type="button"
-                          onClick={() => setRescheduleItem(item)}
-                          className="text-[#806236] hover:underline"
-                        >
-                          Reschedule
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
+            {activeTab === 'Upcoming' && renderList(upcoming, { showLifecycle: true })}
             {activeTab === 'Needs feedback' && (
               <div className="space-y-4">
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 leading-relaxed">
                   <p className="font-semibold mb-0.5">Prompt Feedback Policy</p>
                   <p>
-                    Please submit your scorecard within 24 hours of completing the interview to ensure fair and timely communication with candidates.
+                    Please submit your scorecard within 24 hours of completing the interview to ensure fair and
+                    timely communication with candidates.
                   </p>
                 </div>
-
-                {pendingFeedback.map((fb) => (
-                  <div
-                    key={fb.id}
-                    className="rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-sm space-y-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-serif text-base font-bold text-[#0F1B2D]">
-                          {fb.candidate}
-                        </h3>
-                        <p className="text-xs text-[#4A5568]">{fb.job} · {fb.round}</p>
-                      </div>
-                      {fb.overdue && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
-                          <AlertCircle size={12} /> Overdue ({fb.finished})
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between border-t border-[#E5E1D8] pt-3">
-                      <span className="text-xs text-[#4A5568]">Interview completed {fb.finished}</span>
-                      <EmployerBtn
-                        variant="primary"
-                        size="sm"
-                        onClick={() => setScorecardInterview(fb)}
-                      >
-                        Submit Scorecard
-                      </EmployerBtn>
-                    </div>
-                  </div>
-                ))}
+                {renderList(needs, { showFeedbackButton: true })}
               </div>
             )}
-
-            {activeTab === 'Past' && (
-              <div className="rounded-2xl border border-[#E5E1D8] bg-white p-6 text-center text-xs text-[#4A5568]">
-                <Clock size={28} className="mx-auto text-[#4A5568]/50 mb-2" />
-                <p className="font-medium text-[#0F1B2D]">14 Completed Interviews in Previous Cycles</p>
-                <p className="mt-1">All scorecards recorded and safely archived in hiring history.</p>
-              </div>
-            )}
-
+            {activeTab === 'Past' && renderList(past, {})}
             {activeTab === 'Calendar View' && (
               <div className="rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-sm space-y-4">
                 <div className="flex items-center justify-between border-b border-[#E5E1D8] pb-3 text-xs">
-                  <span className="font-bold text-[#0F1B2D]">Week of Nov 08 – Nov 14, 2026</span>
-                  <span className="text-[#4A5568]">IST Timezone</span>
+                  <span className="font-bold text-[#0F1B2D]">
+                    Week of{' '}
+                    {weekStart.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} –{' '}
+                    {new Date(weekEnd.getTime() - 1).toLocaleDateString('en-IN', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </span>
+                  <span className="text-[#4A5568]">Local timezone</span>
                 </div>
-                <div className="grid grid-cols-5 gap-2 text-center text-xs">
-                  {['Mon 08', 'Tue 09', 'Wed 10', 'Thu 11', 'Fri 12'].map((day, idx) => (
-                    <div key={day} className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-3 space-y-2">
-                      <span className="font-bold text-[#0F1B2D] block">{day}</span>
-                      {idx === 0 && (
-                        <div className="rounded-lg bg-emerald-100 p-2 text-[11px] text-emerald-900 text-left">
-                          <p className="font-semibold">11:00 AM</p>
-                          <p className="truncate">Aanya Sen</p>
+                {upcomingRes.loading && !upcomingRes.data ? (
+                  <LoadingBlock label="Loading calendar…" rows={1} />
+                ) : upcomingRes.error ? (
+                  <ErrorBlock
+                    message={
+                      upcomingRes.error instanceof ApiError
+                        ? upcomingRes.error.message
+                        : 'Could not load interviews.'
+                    }
+                    onRetry={upcomingRes.reload}
+                  />
+                ) : (
+                  <div className="grid grid-cols-5 gap-2 text-center text-xs">
+                    {Array.from({ length: 5 }, (_, idx) => {
+                      const day = new Date(weekStart);
+                      day.setDate(weekStart.getDate() + idx);
+                      const dayEnd = new Date(day);
+                      dayEnd.setDate(day.getDate() + 1);
+                      const dayItems = upcoming.filter((i) => {
+                        const t = new Date(i.scheduled_at);
+                        return t >= day && t < dayEnd;
+                      });
+                      return (
+                        <div
+                          key={idx}
+                          className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-3 space-y-2 min-h-[96px] text-left"
+                        >
+                          <span className="font-bold text-[#0F1B2D] block text-center">
+                            {day.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit' })}
+                          </span>
+                          {dayItems.map((i) => (
+                            <div
+                              key={i.id}
+                              className="rounded-lg bg-emerald-100 p-2 text-[11px] text-emerald-900"
+                            >
+                              <p className="font-semibold">{whenLabel(i.scheduled_at).time}</p>
+                              <p className="truncate">{i.candidate_label}</p>
+                            </div>
+                          ))}
                         </div>
-                      )}
-                      {idx === 0 && (
-                        <div className="rounded-lg bg-blue-100 p-2 text-[11px] text-blue-900 text-left">
-                          <p className="font-semibold">2:30 PM</p>
-                          <p className="truncate">Candidate #44</p>
-                        </div>
-                      )}
-                      {idx === 1 && (
-                        <div className="rounded-lg bg-amber-100 p-2 text-[11px] text-amber-900 text-left">
-                          <p className="font-semibold">10:00 AM</p>
-                          <p className="truncate">Rohan Kapoor</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -639,19 +885,15 @@ function InterviewsContent() {
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between items-center">
                   <span className="text-[#4A5568]">Interviews This Week:</span>
-                  <span className="font-bold text-[#0F1B2D]">9</span>
+                  <span className="font-bold text-[#0F1B2D]">{thisWeek.length}</span>
                 </div>
                 <div className="flex justify-between items-center py-1 border-t border-[#E5E1D8]">
                   <span className="text-[#4A5568]">Awaiting Candidate Confirmation:</span>
-                  <span className="font-bold text-[#806236]">1</span>
+                  <span className="font-bold text-[#806236]">{awaitingConfirmation}</span>
                 </div>
                 <div className="flex justify-between items-center py-1 border-t border-[#E5E1D8]">
-                  <span className="text-[#4A5568]">Scorecards Overdue:</span>
-                  <span className="font-bold text-red-600">1</span>
-                </div>
-                <div className="flex justify-between items-center py-1 border-t border-[#E5E1D8]">
-                  <span className="text-[#4A5568]">Average Days Interview → Offer:</span>
-                  <span className="font-bold text-emerald-700">5.2 days</span>
+                  <span className="text-[#4A5568]">Scorecards Pending:</span>
+                  <span className="font-bold text-red-600">{needsRes.data?.total ?? '—'}</span>
                 </div>
               </div>
             </EmployerCard>
@@ -667,8 +909,9 @@ function InterviewsContent() {
 export default function EmployerInterviewsPage() {
   return (
     <Suspense fallback={<div className="p-8 text-center text-sm text-[#4A5568]">Loading interviews...</div>}>
-      <InterviewsContent />
+      <JobsPage>
+        <InterviewsContent />
+      </JobsPage>
     </Suspense>
   );
 }
-

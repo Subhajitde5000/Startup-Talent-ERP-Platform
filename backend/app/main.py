@@ -30,6 +30,7 @@ from app.routers import (
     earning,
     files,
     funding_round,
+    interviews,
     investor_deal,
     investor_directory,
     investor_discovery,
@@ -51,6 +52,7 @@ from app.routers import (
     organizations,
     public,
     readiness,
+    scorecards,
     session,
     session_review,
     skills,
@@ -140,6 +142,16 @@ def create_app() -> FastAPI:
     app.include_router(job_discovery.router, prefix=settings.API_V1_PREFIX)
     app.include_router(job_applications.router, prefix=settings.API_V1_PREFIX)
     app.include_router(applicant_pipeline.router, prefix=settings.API_V1_PREFIX)
+    # Step 7e: scorecard templates, applicant scores and compare.
+    app.include_router(scorecards.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(scorecards.scores_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(scorecards.compare_router, prefix=settings.API_V1_PREFIX)
+    # Step 7f: interviews (nested schedule path, org lifecycle, flat
+    # respond, candidate view).
+    app.include_router(interviews.application_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(interviews.org_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(interviews.flat_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(interviews.candidate_router, prefix=settings.API_V1_PREFIX)
     app.include_router(startup_profile.router, prefix=settings.API_V1_PREFIX)
     app.include_router(milestones.router, prefix=settings.API_V1_PREFIX)
     app.include_router(funding_round.router, prefix=settings.API_V1_PREFIX)

@@ -193,51 +193,6 @@ export const jobs = [
   },
 ];
 
-export const candidates = [
-  {
-    id: "cand-1",
-    name: "Aanya Sen",
-    blind: false,
-    headline: "Senior Product Designer",
-    job: "Product Designer",
-    applied: "2 days ago",
-    source: "Job search",
-    match: "5 of 7 must-have skills on resume",
-    resume: true,
-    screening: true,
-    practice: true,
-    actions: ["Shortlist", "Reject kindly"],
-  },
-  {
-    id: "cand-2",
-    name: "Candidate #23",
-    blind: true,
-    headline: "Software Engineer",
-    job: "Software Engineer",
-    applied: "4 days ago",
-    source: "Startups hiring",
-    match: "4 of 6 must-have skills on resume",
-    resume: true,
-    screening: false,
-    practice: false,
-    actions: ["Shortlist", "Reject kindly"],
-  },
-  {
-    id: "cand-3",
-    name: "Rohan Kapoor",
-    blind: false,
-    headline: "UX Researcher",
-    job: "UX Researcher",
-    applied: "6 days ago",
-    source: "Recommendation",
-    match: "6 of 7 must-have skills on resume",
-    resume: true,
-    screening: true,
-    practice: true,
-    actions: ["Shortlist", "Reject kindly"],
-  },
-];
-
 export const todayInterviews = [
   {
     time: "11:00 AM IST",
@@ -476,48 +431,6 @@ export const applications = [
   },
 ];
 
-export const interviews = [
-  {
-    id: "int-1",
-    time: "11:00 AM IST",
-    date: "Today",
-    candidate: "Aanya Sen",
-    job: "Product Designer",
-    round: "Final",
-    format: "Video",
-    duration: "45 min",
-    interviewers: "Priya · Rahul",
-    status: "Scheduled",
-    join: false,
-  },
-  {
-    id: "int-2",
-    time: "2:30 PM IST",
-    date: "Today",
-    candidate: "Candidate #44",
-    job: "Software Engineer",
-    round: "Technical",
-    format: "Video",
-    duration: "60 min",
-    interviewers: "Sana",
-    status: "Confirmed by candidate",
-    join: true,
-  },
-  {
-    id: "int-3",
-    time: "10:00 AM IST",
-    date: "Tomorrow",
-    candidate: "Rohan Kapoor",
-    job: "UX Researcher",
-    round: "Screening call",
-    format: "Phone",
-    duration: "30 min",
-    interviewers: "Priya",
-    status: "Scheduled",
-    join: false,
-  },
-];
-
 export const offers = [
   {
     id: "off-1",
@@ -684,14 +597,6 @@ export const templates = [
     version: "v1",
     platform: false,
   },
-];
-
-export const scorecardCriteria = [
-  { name: "Problem solving", weight: 25, anchors: ["1 = No example given", "4 = Specific example with measurable outcome"] },
-  { name: "Communication", weight: 20, anchors: ["1 = Unclear responses", "4 = Clear, structured, audience-appropriate"] },
-  { name: "Role skills", weight: 30, anchors: ["1 = Below required level", "4 = Exceeds requirements"] },
-  { name: "Ownership", weight: 15, anchors: ["1 = Needs constant direction", "4 = Drives work to completion"] },
-  { name: "Collaboration", weight: 10, anchors: ["1 = Works in isolation", "4 = Actively helps teammates"] },
 ];
 
 export const hires = [

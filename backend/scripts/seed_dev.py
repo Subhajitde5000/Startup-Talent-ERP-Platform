@@ -2172,6 +2172,9 @@ STEP7D_APPLICANTS = [
     ("aanya", "Aanya Sen", "Senior Product Designer", "job-1", "applied", False, "2200000.00"),
     ("blind", "Development Blind Applicant", "Software Engineer", "blind", "shortlisted", True, "1800000.00"),
     ("rohan", "Rohan Kapoor", "UX Researcher", "job-3", "interview", False, "2000000.00"),
+    # Second applicant on job-1 so the Step 7e compare page has a real
+    # side-by-side (the wired page requires at least two per job).
+    ("meera", "Meera Iyer", "Product Designer", "job-1", "review", False, "1950000.00"),
 ]
 
 
@@ -2290,6 +2293,219 @@ async def seed_step7d_pipeline(db: AsyncSession, org: Organization, owner: User)
                 body="Strong design portfolio, specifically in design systems and multi-platform consistency. Recommended for technical panel. (Synthetic development note.)",
             ))
         await db.commit()
+
+
+# Step 7e/7f: scorecard, score and interview samples moved out of the wired
+# compare / scoring-panel / interview pages' former demo data.
+STEP7E_SCORECARD_CRITERIA = [
+    ("Problem solving", 25, ["1 = No example given", "4 = Specific example with measurable outcome"]),
+    ("Communication", 20, ["1 = Unclear responses", "4 = Clear, structured, audience-appropriate"]),
+    ("Role skills", 30, ["1 = Below required level", "4 = Exceeds requirements"]),
+    ("Ownership", 15, ["1 = Needs constant direction", "4 = Drives work to completion"]),
+    ("Collaboration", 10, ["1 = Works in isolation", "4 = Actively helps teammates"]),
+]
+
+
+async def seed_step7e7f(db: AsyncSession) -> None:
+    """Fill-only scorecard/score/interview samples; never rewrites existing rows."""
+    if get_settings().ENVIRONMENT != "development":
+        raise RuntimeError("Step 7e/7f samples require ENVIRONMENT=development")
+    from app.models.interview import Interview, InterviewFeedback, InterviewParticipant
+    from app.models.job_application import JobApplication
+    from app.models.scorecard import ApplicationScore, Scorecard, ScorecardCriterion
+
+    now = datetime.now(UTC)
+    owner = (await db.execute(select(User).where(User.primary_email == "employer@forma.dev"))).scalar_one_or_none()
+    if owner is None or owner.deleted_at or owner.status != AccountStatus.active:
+        return
+    org = (await db.execute(
+        select(Organization)
+        .join(OrganizationMember, OrganizationMember.org_id == Organization.id)
+        .where(
+            OrganizationMember.user_id == owner.id,
+            OrganizationMember.role == OrgRole.owner,
+            Organization.type == "employer",
+            Organization.deleted_at.is_(None),
+        )
+    )).scalars().first()
+    if org is None or org.deleted_at or org.status != "active":
+        return
+    member = (await db.execute(
+        select(User)
+        .join(OrganizationMember, OrganizationMember.user_id == User.id)
+        .where(
+            OrganizationMember.org_id == org.id,
+            User.primary_email == "hiring-member@forma.dev",
+            User.deleted_at.is_(None),
+            User.status == AccountStatus.active,
+            OrganizationMember.status == "active",
+            OrganizationMember.deleted_at.is_(None),
+            OrganizationMember.role != "viewer",
+        )
+    )).scalars().first()
+
+    # --- Step 7e: one org-level scorecard (skip orgs that already have cards).
+    card_id = uuid.uuid5(org.id, "step7e:scorecard")
+    card = await db.get(Scorecard, card_id)
+    if card is None:
+        foreign = (await db.execute(
+            select(Scorecard.id).where(Scorecard.org_id == org.id).limit(1)
+        )).first()
+        if foreign is None:
+            card = Scorecard(
+                id=card_id, org_id=org.id, name="Hiring Panel Scorecard",
+                job_id=None, is_platform=False,
+            )
+            db.add(card)
+            await db.flush()
+            for order, (name, weight, anchors) in enumerate(STEP7E_SCORECARD_CRITERIA):
+                db.add(ScorecardCriterion(
+                    id=uuid.uuid5(card_id, f"criterion:{order}"),
+                    scorecard_id=card_id, name=name, weight=weight,
+                    anchors=anchors, display_order=order,
+                ))
+            await db.flush()
+    if card is None:
+        await db.commit()
+        return
+
+    # Owner scores Aanya; the member scores Rohan (fill-only per author+cell).
+    for app_key, scorer, values in (
+        ("aanya", owner, (4, 5, 4, 3, 4)),
+        ("rohan", member, (3, 4, 5, 3, 5)),
+    ):
+        if scorer is None:
+            continue
+        app_id = uuid.uuid5(org.id, "step7d:application:" + app_key)
+        if await db.get(JobApplication, app_id) is None:
+            continue
+        for order, value in enumerate(values):
+            criterion_id = uuid.uuid5(card_id, f"criterion:{order}")
+            prior = (await db.execute(
+                select(ApplicationScore.id).where(
+                    ApplicationScore.application_id == app_id,
+                    ApplicationScore.criterion_id == criterion_id,
+                    ApplicationScore.interviewer_id == scorer.id,
+                )
+            )).first()
+            if prior is not None:
+                continue
+            db.add(ApplicationScore(
+                id=uuid.uuid5(card_id, f"score:{scorer.id}:{app_id}:{order}"),
+                application_id=app_id, criterion_id=criterion_id,
+                interviewer_id=scorer.id, score=value,
+            ))
+
+    # --- Step 7f: employer interviews on the 7d pipeline applications.
+    def _at(days: int, hour: int) -> datetime:
+        return (now + timedelta(days=days)).replace(
+            hour=hour, minute=0, second=0, microsecond=0
+        )
+
+    async def _add_interview(
+        iid: uuid.UUID, application_id: uuid.UUID, round_name: str,
+        fmt: str, status: str, at: datetime, duration: int,
+        meeting_url: str | None, panelists: list[User],
+        responses: dict[uuid.UUID, str], feedback: list[tuple[User, str, str]],
+    ) -> None:
+        application = await db.get(JobApplication, application_id)
+        if application is None:
+            return
+        if await db.get(Interview, iid) is None:
+            db.add(Interview(
+                id=iid, application_id=application_id, round_name=round_name,
+                format=fmt, status=status, scheduled_at=at,
+                duration_min=duration, meeting_url=meeting_url,
+                created_by=owner.id,
+            ))
+            await db.flush()
+        for user_id, side in (
+            [(application.applicant_id, "candidate")]
+            + [(p.id, "interviewer") for p in panelists]
+        ):
+            existing = await db.get(InterviewParticipant, (iid, user_id))
+            if existing is not None:
+                continue
+            response = responses.get(user_id)
+            db.add(InterviewParticipant(
+                interview_id=iid, user_id=user_id, side=side,
+                response=response,
+                responded_at=(
+                    min(at - timedelta(days=1), now) if response else None
+                ),
+            ))
+        for author, recommendation, summary in feedback:
+            fb_id = uuid.uuid5(iid, f"feedback:{author.id}")
+            prior = (await db.execute(
+                select(InterviewFeedback.id).where(
+                    InterviewFeedback.interview_id == iid,
+                    InterviewFeedback.author_id == author.id,
+                )
+            )).first()
+            if prior is not None:
+                continue
+            db.add(InterviewFeedback(
+                id=fb_id, interview_id=iid, author_id=author.id,
+                recommendation=recommendation, summary=summary,
+                submitted_at=now - timedelta(days=1),
+            ))
+        await db.flush()
+
+    aanya_app = uuid.uuid5(org.id, "step7d:application:aanya")
+    rohan_app = uuid.uuid5(org.id, "step7d:application:rohan")
+    if member is not None:
+        await _add_interview(
+            uuid.uuid5(org.id, "step7f:interview:aanya-panel"),
+            aanya_app, "Technical Panel", "video", "scheduled",
+            _at(2, 10), 45, "https://meet.forma.dev/interview-aanya-panel-dev",
+            [owner, member],
+            {member.id: "accepted"},
+            [],
+        )
+    await _add_interview(
+        uuid.uuid5(org.id, "step7f:interview:rohan-screen"),
+        rohan_app, "Recruiter Screen", "phone", "scheduled",
+        _at(4, 11), 30, None,
+        [owner],
+        {},
+        [],
+    )
+    if member is not None:
+        await _add_interview(
+            uuid.uuid5(org.id, "step7f:interview:rohan-final"),
+            rohan_app, "Final Round", "video", "completed",
+            _at(-2, 14), 60, "https://meet.forma.dev/interview-rohan-final-dev",
+            [owner, member],
+            {},
+            [(owner, "yes", "Strong research portfolio; clear problem framing. Hire.")],
+        )
+
+    # --- Step 7f: two interviews for the jobseeker dev account (7bc apps).
+    candidate = (await db.execute(
+        select(User).where(User.primary_email == "jobseeker@forma.dev")
+    )).scalar_one_or_none()
+    if candidate is not None and not candidate.deleted_at:
+        ns = uuid.uuid5(uuid.NAMESPACE_URL, "forma:development:careers:7bc")
+        spd_app = uuid.uuid5(ns, "application:senior-product-designer")
+        pd_app = uuid.uuid5(ns, "application:product-designer")
+        await _add_interview(
+            uuid.uuid5(spd_app, "step7f:interview:js-portfolio"),
+            spd_app, "Portfolio Conversation", "video", "scheduled",
+            _at(3, 15), 45, "https://meet.forma.dev/interview-jobseeker-portfolio-dev",
+            [owner],
+            {},
+            [],
+        )
+        await _add_interview(
+            uuid.uuid5(pd_app, "step7f:interview:js-manager"),
+            pd_app, "Hiring Manager Chat", "video", "completed",
+            _at(-5, 12), 30, "https://meet.forma.dev/interview-jobseeker-manager-dev",
+            [owner],
+            {candidate.id: "accepted"},
+            [(owner, "yes", "Solid portfolio walkthrough; move forward with the panel.")],
+        )
+
+    await db.commit()
 
 
 async def seed() -> None:
@@ -4135,6 +4351,9 @@ async def seed() -> None:
         careers_candidate = (await db.execute(select(User).where(User.primary_email == "jobseeker@forma.dev"))).scalar_one_or_none()
         if careers_owner and careers_candidate:
             await seed_step7bc_careers(db, careers_owner, careers_candidate)
+
+        # Step 7e/7f samples; after7bc so the jobseeker's applications exist.
+        await seed_step7e7f(db)
 
     await engine.dispose()
 

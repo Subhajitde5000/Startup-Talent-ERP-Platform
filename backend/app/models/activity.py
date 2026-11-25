@@ -48,6 +48,17 @@ class ActivityEventType(enum.StrEnum):
     job_paused = "job_paused"
     job_closed = "job_closed"
     job_archived = "job_archived"
+    # Step 7e: template lifecycle and per-applicant scoring.
+    scorecard_created = "scorecard_created"
+    scorecard_updated = "scorecard_updated"
+    scorecard_deleted = "scorecard_deleted"
+    application_scores_submitted = "application_scores_submitted"
+    # Step 7f: interview lifecycle and panel feedback.
+    interview_scheduled = "interview_scheduled"
+    interview_rescheduled = "interview_rescheduled"
+    interview_cancelled = "interview_cancelled"
+    interview_completed = "interview_completed"
+    interview_feedback_submitted = "interview_feedback_submitted"
 
     data_room_changed = "data_room_changed"
     data_room_access_changed = "data_room_access_changed"
