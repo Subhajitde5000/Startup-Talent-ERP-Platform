@@ -1386,6 +1386,10 @@ SEED_USERS = [
     ("rhea@forma.dev", "Rhea Mukherjee", UserRole.mentor, True),
     ("arjun@forma.dev", "Arjun Mehta", UserRole.mentor, True),
     ("naina@forma.dev", "Naina Roy", UserRole.mentor, True),
+    # Step 7j: two opted-in job seekers (moved from the employer demo store's
+    # talentResults) so /employer/talent search has real cards in development.
+    ("talent-designer@forma.dev", "Ananya Ghosh", UserRole.jobseeker, True),
+    ("talent-engineer@forma.dev", "Karthik Iyer", UserRole.jobseeker, True),
 ]
 
 
@@ -2508,6 +2512,524 @@ async def seed_step7e7f(db: AsyncSession) -> None:
     await db.commit()
 
 
+
+# Step 7g/7h: job-offer, hire and onboarding-checklist samples (fill-only).
+async def seed_step7g7h(db: AsyncSession) -> None:
+    """Fill-only offer/hire/checklist samples; never rewrites an existing row."""
+    if get_settings().ENVIRONMENT != "development":
+        raise RuntimeError("Step 7g/7h samples require ENVIRONMENT=development")
+    from app.models.hire import (
+        Hire,
+        HireOnboardingItem,
+        HireStatus,
+        OnboardingItemStatus,
+        OnboardingTemplate,
+        OnboardingTemplateItem,
+    )
+    from app.models.job_application import ApplicationStageEvent, JobApplication
+    from app.models.offer import JobOffer, JobOfferStatus
+
+    now = datetime.now(UTC)
+    owner = (
+        await db.execute(select(User).where(User.primary_email == "employer@forma.dev"))
+    ).scalar_one_or_none()
+    if owner is None or owner.deleted_at or owner.status != AccountStatus.active:
+        return
+    org = (
+        await db.execute(
+            select(Organization)
+            .join(OrganizationMember, OrganizationMember.org_id == Organization.id)
+            .where(
+                OrganizationMember.user_id == owner.id,
+                OrganizationMember.role == OrgRole.owner,
+                Organization.type == "employer",
+                Organization.deleted_at.is_(None),
+            )
+        )
+    ).scalars().first()
+    if org is None or org.deleted_at or org.status != "active":
+        return
+    member = (
+        await db.execute(
+            select(User)
+            .join(OrganizationMember, OrganizationMember.user_id == User.id)
+            .where(
+                OrganizationMember.org_id == org.id,
+                User.primary_email == "hiring-member@forma.dev",
+                User.deleted_at.is_(None),
+                User.status == AccountStatus.active,
+                OrganizationMember.status == "active",
+                OrganizationMember.deleted_at.is_(None),
+                OrganizationMember.role != "viewer",
+            )
+        )
+    ).scalars().first()
+    candidate = (
+        await db.execute(select(User).where(User.primary_email == "jobseeker@forma.dev"))
+    ).scalar_one_or_none()
+
+    def _offer_stage_move(app: JobApplication, to_stage: str) -> None:
+        """Mirror send()/create_from_offer stage movement (fill-only)."""
+        if app.stage == to_stage:
+            return
+        db.add(
+            ApplicationStageEvent(
+                application_id=app.id,
+                from_stage=app.stage,
+                to_stage=to_stage,
+                actor_id=owner.id,
+                created_at=now,
+            )
+        )
+        app.stage = to_stage
+        app.stage_changed_at = now
+
+    async def _seed_offer(
+        *,
+        app_id: uuid.UUID,
+        suffix: str,
+        status: str,
+        base: str,
+        bonus: str,
+        equity: str | None,
+        joining: str | None,
+        created_days_ago: int,
+        expires_in_days: int,
+        responded_days_ago: int | None = None,
+        owner_id: uuid.UUID | None = None,
+        namespace: uuid.UUID | None = None,
+    ) -> uuid.UUID | None:
+        app = await db.get(JobApplication, app_id)
+        if app is None or app.deleted_at is not None:
+            return None
+        ns = namespace or org.id
+        offer_id = uuid.uuid5(ns, f"step7g7h:offer:{suffix}")
+        if await db.get(JobOffer, offer_id) is not None:
+            return offer_id
+        job = await db.get(Job, app.job_id)
+        offer = JobOffer(
+            id=offer_id,
+            application_id=app.id,
+            title=job.title if job is not None else "Development sample offer",
+            base_salary=Decimal(base),
+            bonus_amount=Decimal(bonus),
+            equity_pct=Decimal(equity) if equity is not None else None,
+            joining_bonus=Decimal(joining) if joining is not None else None,
+            currency="INR",
+            start_date=(now + timedelta(days=30)).date(),
+            expires_on=(now + timedelta(days=expires_in_days)).date(),
+            status=JobOfferStatus(status),
+            owner_id=owner_id or owner.id,
+            responded_at=(
+                now - timedelta(days=responded_days_ago)
+                if responded_days_ago is not None
+                else None
+            ),
+            created_at=now - timedelta(days=created_days_ago),
+        )
+        db.add(offer)
+        # A non-draft offer was sent at least once (mirrors the send flow).
+        if status != "draft":
+            _offer_stage_move(app, "offered")
+        await db.flush()
+        return offer_id
+
+    # --- Onboarding checklist templates (org-scoped;1-2 fill-only rows).
+    tpl_specs = [
+        (
+            "engineering",
+            "Engineering Onboarding",
+            [
+                ("Admin", "Laptop, email and tool access", "admin", 0),
+                ("Week 1", "Team introductions and org overview", "owner", 1),
+                ("Week 1", "Repository and staging environment access", "member", 2),
+                ("Week 2", "First deliverable check-in", "owner", 7),
+            ],
+        ),
+        (
+            "general",
+            "General Onboarding",
+            [
+                ("Admin", "Contract and payroll details", "admin", 0),
+                ("Week 1", "Handbook, policies and benefits enrolment", "admin", 1),
+                ("Week 2", "30-day goals with the manager", "owner", 14),
+            ],
+        ),
+    ]
+    templates: dict[str, OnboardingTemplate] = {}
+    for key, name, item_specs in tpl_specs:
+        template_id = uuid.uuid5(org.id, f"step7g7h:template:{key}")
+        template = await db.get(OnboardingTemplate, template_id)
+        if template is None:
+            template = OnboardingTemplate(
+                id=template_id, org_id=org.id, name=name, is_platform=False
+            )
+            db.add(template)
+            await db.flush()
+            for order, (section, title, role, offset) in enumerate(item_specs):
+                db.add(
+                    OnboardingTemplateItem(
+                        id=uuid.uuid5(template_id, f"item:{order}"),
+                        template_id=template_id,
+                        section=section,
+                        title=title,
+                        owner_role=role,
+                        due_offset_days=offset,
+                        display_order=order,
+                    )
+                )
+            await db.flush()
+        templates[key] = template
+    await db.flush()
+
+    # --- Employer-side offers on the Step 7d pipeline applications:
+    # draft / sent / accepted / expired mix (one live offer per application).
+    aanya_app = uuid.uuid5(org.id, "step7d:application:aanya")
+    rohan_app = uuid.uuid5(org.id, "step7d:application:rohan")
+    meera_app = uuid.uuid5(org.id, "step7d:application:meera")
+    blind_app = uuid.uuid5(org.id, "step7d:application:blind")
+
+    await _seed_offer(
+        app_id=aanya_app, suffix="aanya:draft", status="draft",
+        base="2200000", bonus="200000", equity="0.30", joining=None,
+        created_days_ago=1, expires_in_days=5,
+    )
+    await _seed_offer(
+        app_id=rohan_app, suffix="rohan:sent", status="sent",
+        base="2000000", bonus="150000", equity="0.25", joining=None,
+        created_days_ago=2, expires_in_days=7,
+        owner_id=member.id if member is not None else None,
+    )
+    meera_offer = await _seed_offer(
+        app_id=meera_app, suffix="meera:accepted", status="accepted",
+        base="1950000", bonus="100000", equity="0.20", joining="50000",
+        created_days_ago=3, expires_in_days=10, responded_days_ago=1,
+    )
+    await _seed_offer(
+        app_id=blind_app, suffix="blind:expired", status="expired",
+        base="1800000", bonus="100000", equity=None, joining=None,
+        created_days_ago=12, expires_in_days=-3,
+    )
+
+    # --- One hire from Meera's accepted offer, with the general checklist
+    # copied onto the hire (mirrors create_from_offer's template copy).
+    if meera_offer is not None:
+        hire_id = uuid.uuid5(org.id, "step7g7h:hire:meera")
+        if await db.get(Hire, hire_id) is None:
+            meera_user_id = uuid.uuid5(org.id, "step7d:person:meera")
+            meera_app_row = await db.get(JobApplication, meera_app)
+            job = await db.get(Job, meera_app_row.job_id) if meera_app_row else None
+            start_date = (now + timedelta(days=14)).date()
+            hire = Hire(
+                id=hire_id,
+                application_id=meera_app,
+                offer_id=meera_offer,
+                org_id=org.id,
+                user_id=meera_user_id,
+                department=(job.department if job is not None else None) or "design",
+                manager_id=member.id if member is not None else owner.id,
+                owner_id=owner.id,
+                start_date=start_date,
+                status=HireStatus.pending_onboarding,
+            )
+            db.add(hire)
+            await db.flush()
+            general = templates.get("general")
+            if general is not None:
+                items = (
+                    await db.execute(
+                        select(OnboardingTemplateItem)
+                        .where(OnboardingTemplateItem.template_id == general.id)
+                        .order_by(OnboardingTemplateItem.display_order, OnboardingTemplateItem.id)
+                    )
+                ).scalars().all()
+                for order, item in enumerate(items):
+                    db.add(
+                        HireOnboardingItem(
+                            id=uuid.uuid5(hire_id, f"item:{order}"),
+                            hire_id=hire_id,
+                            section=item.section,
+                            title=item.title,
+                            owner_id=None,  # role -> person is assigned per hire
+                            due_on=(
+                                start_date + timedelta(days=item.due_offset_days)
+                                if item.due_offset_days is not None
+                                else None
+                            ),
+                            status=OnboardingItemStatus.pending,
+                        )
+                    )
+            if meera_app_row is not None:
+                _offer_stage_move(meera_app_row, "hired")
+            await db.flush()
+
+    # --- Jobseeker-side offers on the Step 7bc career applications:
+    # two sent (Active tab + compare needs two) and one accepted.
+    if candidate is not None and not candidate.deleted_at and candidate.status == AccountStatus.active:
+        ns = uuid.uuid5(uuid.NAMESPACE_URL, "forma:development:careers:7bc")
+        for job_key, status, base, bonus, equity, joining, created_days, expires_in, responded in (
+            ("senior-product-designer", "sent", "2400000", "200000", "0.50", None, 2, 7, None),
+            ("product-designer", "sent", "1800000", "100000", "0.25", None, 2, 7, None),
+            ("ux-researcher", "accepted", "1600000", "80000", "0.10", "25000", 4, 10, 1),
+        ):
+            await _seed_offer(
+                app_id=uuid.uuid5(ns, f"application:{job_key}"),
+                suffix=job_key,
+                status=status,
+                base=base,
+                bonus=bonus,
+                equity=equity,
+                joining=joining,
+                created_days_ago=created_days,
+                expires_in_days=expires_in,
+                responded_days_ago=responded,
+                namespace=ns,
+            )
+
+    await db.commit()
+
+
+
+# Step 7i: the three hiring requests formerly hard-coded in
+# frontend/app/employer/employer-data.js (hiringRequests). Requester emails
+# map the demo names onto the seeded Northstar team; the demo's viewer
+# requester (a viewer cannot request) is attributed to the member instead.
+STEP7I_REQUESTS = [
+    {
+        "key": "senior-product-designer",
+        "role_title": "Senior Product Designer",
+        "department": "product",
+        "headcount": 1,
+        "urgency": "high",
+        "requested_by": "hiring-admin@forma.dev",
+        "approver": "employer@forma.dev",
+        "target_start": date(2026, 12, 1),
+        "budget_amount": Decimal("2400000.00"),
+        "status": "approved",
+        "employment_type": "full_time",
+        "work_mode": "hybrid",
+        "hiring_manager": "hiring-admin@forma.dev",
+        "skills": ["Figma", "Design Systems", "User research"],
+        "why_now": "growth",
+        "justification": "Second product squad starts in December and has no design owner.",
+    },
+    {
+        "key": "software-engineer",
+        "role_title": "Software Engineer",
+        "department": "engineering",
+        "headcount": 2,
+        "urgency": "normal",
+        "requested_by": "hiring-member@forma.dev",
+        "approver": "hiring-admin@forma.dev",
+        "target_start": date(2027, 1, 15),
+        "budget_amount": Decimal("2000000.00"),
+        "status": "pending",
+        "employment_type": "full_time",
+        "work_mode": "remote",
+        "hiring_manager": "hiring-member@forma.dev",
+        "skills": ["React", "Node.js", "TypeScript"],
+        "why_now": "new_project",
+        "justification": "Patient-portal rewrite needs two more full-stack engineers for Q1.",
+    },
+    {
+        "key": "ux-researcher",
+        "role_title": "UX Researcher",
+        "department": "design",
+        "headcount": 1,
+        "urgency": "low",
+        "requested_by": "hiring-member@forma.dev",
+        "approver": None,
+        "target_start": date(2027, 2, 1),
+        "budget_amount": Decimal("2200000.00"),
+        "status": "draft",
+        "employment_type": "contract",
+        "work_mode": "onsite",
+        "hiring_manager": None,
+        "skills": ["User research"],
+        "why_now": "skill_gap",
+        "justification": None,
+    },
+]
+
+# Step 7j: talent profiles for the two seeded seekers (formerly the demo
+# store's talentResults) plus the "Backend 2026" shortlist (formerly
+# shortlists) and one sent invitation so the outreach tab has history.
+STEP7J_TALENT = [
+    {
+        "email": "talent-designer@forma.dev",
+        "headline": "Product Designer",
+        "total_experience_yrs": Decimal("3.0"),
+        "current_location": "Kolkata",
+        "preferred_mode": "hybrid",
+        "availability": "immediate",
+        "skills": ["Figma", "React", "User research"],
+    },
+    {
+        "email": "talent-engineer@forma.dev",
+        "headline": "Software Engineer",
+        "total_experience_yrs": Decimal("6.0"),
+        "current_location": "Remote",
+        "preferred_mode": "remote",
+        "availability": "one_month",
+        "skills": ["React", "Node.js", "TypeScript"],
+    },
+]
+
+
+async def seed_step7i7j(db: AsyncSession) -> None:
+    """Fill-only hiring-request / talent-sourcing samples for the Northstar
+    employer org; never rewrites an existing row. Dev only."""
+    if get_settings().ENVIRONMENT != "development":
+        raise RuntimeError("Step 7i/7j samples require ENVIRONMENT=development")
+    from app.models.hiring_request import HiringRequest
+    from app.models.talent import AvailabilityMode, TalentProfile, TalentProfileSkill
+    from app.models.talent import WorkMode as TalentWorkMode
+    from app.models.talent_sourcing import (
+        TalentOutreach,
+        TalentShortlist,
+        TalentShortlistMember,
+    )
+    from app.services.talent_service import resolve_skills
+
+    users = {
+        u.primary_email: u
+        for u in (
+            await db.execute(
+                select(User).where(
+                    User.deleted_at.is_(None),
+                    User.primary_email.like("%@forma.dev"),
+                )
+            )
+        ).scalars()
+    }
+    owner = users.get("employer@forma.dev")
+    if owner is None or owner.status != AccountStatus.active:
+        return
+    org = (
+        await db.execute(
+            select(Organization)
+            .join(OrganizationMember, OrganizationMember.org_id == Organization.id)
+            .where(
+                OrganizationMember.user_id == owner.id,
+                OrganizationMember.role == OrgRole.owner,
+                Organization.type == "employer",
+                Organization.deleted_at.is_(None),
+            )
+        )
+    ).scalars().first()
+    if org is None or org.status != "active":
+        return
+    namespace = uuid.uuid5(org.id, "step7i7j")
+
+    # 7i: hiring requests (by fixed id; never overwritten).
+    for spec in STEP7I_REQUESTS:
+        request_id = uuid.uuid5(namespace, "request:" + str(spec["key"]))
+        if await db.get(HiringRequest, request_id) is not None:
+            continue
+        requester = users.get(str(spec["requested_by"]))
+        approver = users.get(str(spec["approver"])) if spec["approver"] else None
+        manager = users.get(str(spec["hiring_manager"])) if spec["hiring_manager"] else None
+        db.add(
+            HiringRequest(
+                id=request_id,
+                org_id=org.id,
+                role_title=spec["role_title"],
+                department=spec["department"],
+                headcount=spec["headcount"],
+                urgency=spec["urgency"],
+                requested_by=requester.id if requester else owner.id,
+                approver_id=approver.id if approver else None,
+                target_start=spec["target_start"],
+                budget_amount=spec["budget_amount"],
+                currency="INR",
+                status=spec["status"],
+                employment_type=spec["employment_type"],
+                work_mode=spec["work_mode"],
+                hiring_manager_id=manager.id if manager else None,
+                skills=list(spec["skills"]),  # type: ignore[call-overload]
+                why_now=spec["why_now"],
+                justification=spec["justification"],
+            )
+        )
+    await db.commit()
+
+    # 7j: searchable talent profiles for the seeded seekers.
+    seekers: list[User] = []
+    for spec in STEP7J_TALENT:
+        seeker = users.get(str(spec["email"]))
+        if seeker is None or seeker.status != AccountStatus.active:
+            continue
+        seekers.append(seeker)
+        if await db.get(TalentProfile, seeker.id) is not None:
+            continue
+        db.add(
+            TalentProfile(
+                user_id=seeker.id,
+                headline=spec["headline"],
+                total_experience_yrs=spec["total_experience_yrs"],
+                current_location=spec["current_location"],
+                preferred_mode=TalentWorkMode(str(spec["preferred_mode"])),
+                availability=AvailabilityMode(str(spec["availability"])),
+                is_searchable=True,
+            )
+        )
+        await db.flush()
+        for skill in await resolve_skills(db, list(spec["skills"])):  # type: ignore[call-overload]
+            db.add(TalentProfileSkill(user_id=seeker.id, skill_id=skill.id))
+    await db.commit()
+
+    # 7j: the "Backend 2026" shortlist with the seeded seekers.
+    shortlist_id = uuid.uuid5(namespace, "shortlist:backend-2026")
+    if await db.get(TalentShortlist, shortlist_id) is None:
+        db.add(
+            TalentShortlist(
+                id=shortlist_id, org_id=org.id, name="Backend 2026", created_by=owner.id
+            )
+        )
+        await db.flush()
+        for seeker in seekers:
+            db.add(
+                TalentShortlistMember(
+                    shortlist_id=shortlist_id, user_id=seeker.id, added_by=owner.id
+                )
+            )
+        await db.commit()
+
+    # 7j: one sent invitation (engineer -> an open Northstar job).
+    engineer = users.get("talent-engineer@forma.dev")
+    open_job = (
+        await db.execute(
+            select(Job)
+            .where(Job.org_id == org.id, Job.status == "open", Job.deleted_at.is_(None))
+            .order_by(Job.created_at)
+            .limit(1)
+        )
+    ).scalars().first()
+    if engineer is not None and open_job is not None:
+        outreach_id = uuid.uuid5(namespace, "outreach:engineer")
+        exists = (
+            await db.execute(
+                select(TalentOutreach.id).where(
+                    TalentOutreach.org_id == org.id,
+                    TalentOutreach.candidate_user_id == engineer.id,
+                    TalentOutreach.job_id == open_job.id,
+                )
+            )
+        ).first()
+        if exists is None and await db.get(TalentOutreach, outreach_id) is None:
+            db.add(
+                TalentOutreach(
+                    id=outreach_id,
+                    org_id=org.id,
+                    candidate_user_id=engineer.id,
+                    job_id=open_job.id,
+                    note="Your Node.js and TypeScript work looks like a great fit.",
+                    sent_by=owner.id,
+                )
+            )
+            await db.commit()
+
+
 async def seed() -> None:
     settings = get_settings()
     if settings.ENVIRONMENT != "development":
@@ -2543,6 +3065,11 @@ async def seed() -> None:
             created.append(f"{email} ({role.value})")
 
         await db.commit()
+
+        # Step 7g: platform offer decline reasons (idempotent, plan D5).
+        from app.services.offer_service import seed_decline_reasons
+
+        await seed_decline_reasons(db)
 
         # Step 3: fill profile fields that are still empty (never clobber).
         profile_filled = 0
@@ -4354,6 +4881,12 @@ async def seed() -> None:
 
         # Step 7e/7f samples; after7bc so the jobseeker's applications exist.
         await seed_step7e7f(db)
+
+        # Step 7g/7h samples; after 7d/7e/7f so the pipeline applications exist.
+        await seed_step7g7h(db)
+
+        # Step 7i/7j samples; after 7a so Northstar's team and jobs exist.
+        await seed_step7i7j(db)
 
     await engine.dispose()
 

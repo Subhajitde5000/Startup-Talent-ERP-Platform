@@ -284,6 +284,19 @@ async def delete_file(db: AsyncSession, user: User, file_id: uuid.UUID) -> None:
         .where(StartupProfile.pitch_deck_file_id == row.id)
         .values(pitch_deck_file_id=None)
     )
+    # Step 7g/7h: offer letters and hire documents reference the file by
+    # id; the rows survive, the pointer clears (SET NULL semantics).
+    from app.models.hire import HireDocument
+    from app.models.offer import JobOffer
+
+    await db.execute(
+        update(JobOffer)
+        .where(JobOffer.document_file_id == row.id)
+        .values(document_file_id=None)
+    )
+    await db.execute(
+        update(HireDocument).where(HireDocument.file_id == row.id).values(file_id=None)
+    )
     row.deleted_at = now()
     audit(db, row, ActivityEventType.file_deleted, user.id)
     await db.commit()

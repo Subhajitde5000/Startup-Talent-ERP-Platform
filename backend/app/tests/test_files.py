@@ -36,7 +36,7 @@ class MemoryStorage:
         self.uploads.append((key, mime, ttl))
         return "https://storage.example.test/upload"
 
-    async def sign_download(self, key, name, mime, ttl, *, image=False):
+    async def sign_download(self, key, name, mime, ttl, *, image=False, inline=False):
         self.downloads.append((key, name, mime, ttl, image))
         return "https://storage.example.test/download"
 

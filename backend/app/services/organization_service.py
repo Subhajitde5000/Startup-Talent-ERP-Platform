@@ -201,6 +201,38 @@ async def require_active_member_ref(
         )
 
 
+async def require_owner_ref(
+    db: AsyncSession,
+    org_id,
+    user_id,
+    *,
+    field: str,
+    label: str,
+) -> None:  # noqa: ANN001
+    """Owner-type reference (7a job owner, 7g offer owner, 7h hire
+    owner/manager): an active member who is NOT a viewer — a viewer can
+    never act on what they would own. Same two-step rule as
+    ``job_service._references``; a viewer is 422 with
+    ``loc: [body, field]``."""
+    await require_active_member_ref(db, org_id, user_id, field=field, label=label)
+    role = (
+        await db.execute(
+            select(OrganizationMember.role).where(
+                OrganizationMember.org_id == org_id,
+                OrganizationMember.user_id == user_id,
+                OrganizationMember.deleted_at.is_(None),
+                OrganizationMember.status == MemberStatus.active,
+            )
+        )
+    ).scalar_one()
+    if role == OrgRole.viewer:
+        message = f"{label} cannot be a viewer."
+        raise validation_error(
+            message,
+            details=[{"loc": ["body", field], "msg": message, "type": "value_error"}],
+        )
+
+
 async def _active_member_count(db: AsyncSession, org_id, role: OrgRole | None = None) -> int:  # noqa: ANN001
     from sqlalchemy import func
 

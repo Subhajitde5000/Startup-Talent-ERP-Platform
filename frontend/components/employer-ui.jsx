@@ -71,6 +71,21 @@ export function StageChip({ stage, className = '' }) {
     Offered: 'bg-[#B8955A] text-white border-transparent',
     Hired: 'bg-[#286749] text-white border-transparent',
     Rejected: 'bg-[#FCE8E6] text-[#B42318] border-[#F8D7DA]',
+    // Step 7g/7h: real offer and hire statuses (additive only).
+    Sent: 'bg-[#F3EBDD] text-[#806236] border-[#B8955A]',
+    Countered: 'bg-[#FFF8E8] text-[#806236] border-[#D4C3A3]',
+    Accepted: 'bg-[#E7F3EC] text-[#286749] border-[#CDE5D7]',
+    Declined: 'bg-[#FCE8E6] text-[#B42318] border-[#F8D7DA]',
+    Expired: 'bg-[#F3F4F6] text-[#6B7280] border-[#E5E1D8]',
+    Withdrawn: 'bg-[#F3F4F6] text-[#4A5568] border-[#E5E1D8]',
+    'Pending onboarding': 'bg-[#FFF8E8] text-[#806236] border-[#D4C3A3]',
+    Onboarding: 'bg-[#F3EBDD] text-[#806236] border-[#B8955A]',
+    'No show': 'bg-[#FCE8E6] text-[#B42318] border-[#F8D7DA]',
+    Cancelled: 'bg-[#F3F4F6] text-[#4A5568] border-[#E5E1D8]',
+    // Step 7i: hiring-request statuses (additive only).
+    'Pending approval': 'bg-[#FFF8E8] text-[#806236] border-[#D4C3A3]',
+    Approved: 'bg-[#E7F3EC] text-[#286749] border-[#CDE5D7]',
+    Fulfilled: 'bg-[#286749] text-white border-transparent',
   };
 
   return (

@@ -6,70 +6,253 @@ import { useParams } from 'next/navigation';
 import {
   EmployerShell,
   EmployerBtn,
-  EmployerCard,
   StageChip,
   EmployerSafetyStrip as SafetyStrip,
 } from '@/components';
-import { offers } from '@/app/employer/employer-data';
+import { useJobsWorkspace } from '@/components/employer-jobs-workspace';
+import { LoadingBlock, EmptyBlock, ErrorBlock, FieldError, fieldErrorsFrom } from '@/components/async-state';
+import { useCareerResource } from '@/components/career-data';
+import { api, ApiError } from '@/lib/api/client';
+import { formatMoney, formatDate } from '@/lib/mentorship-labels';
 import {
   ArrowLeft,
-  Calendar,
   CheckCircle2,
-  Clock,
   Download,
-  FileCheck,
   FileText,
-  Mail,
   MessageSquare,
   RefreshCw,
   Send,
-  ShieldCheck,
   X,
-  AlertTriangle,
 } from 'lucide-react';
+
+const OFFER_LABEL = {
+  draft: 'Draft',
+  sent: 'Sent',
+  countered: 'Countered',
+  accepted: 'Accepted',
+  declined: 'Declined',
+  expired: 'Expired',
+  withdrawn: 'Withdrawn',
+};
+
+const statusLabel = (status) => OFFER_LABEL[status] || status;
 
 export default function EmployerOfferDetailPage() {
   const params = useParams();
-  const offerId = params?.offerId || 'off-1';
-  const offer = offers.find((o) => o.id === offerId) || offers[0];
+  const offerId = params?.offerId;
 
   const [activeTab, setActiveTab] = useState('Terms');
   const [toastMessage, setToastMessage] = useState(null);
-  const [offerStatus, setOfferStatus] = useState(offer.status || 'Sent');
-  const [expiryText, setExpiryText] = useState(offer.expiry || 'in 48 hours');
+
+  const { org } = useJobsWorkspace();
+  const offerRes = useCareerResource(`job-offer:${offerId}`, (signal) =>
+    api.jobOffers.get(String(offerId), signal)
+  );
+  const offer = offerRes.data;
 
   // Modals
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [extendDays, setExtendDays] = useState('5');
+  const [extendError, setExtendError] = useState('');
+  const [extendBusy, setExtendBusy] = useState(false);
   const [showReviseModal, setShowReviseModal] = useState(false);
-  const [revisedSalary, setRevisedSalary] = useState(offer.compensation || '₹22,00,000');
+  const [revisedSalary, setRevisedSalary] = useState('');
+  const [reviseErrors, setReviseErrors] = useState({});
+  const [reviseError, setReviseError] = useState('');
+  const [reviseBusy, setReviseBusy] = useState(false);
+
+  // Create-hire modal (accepted offers only)
+  const [showHireModal, setShowHireModal] = useState(false);
+  const [hireTemplate, setHireTemplate] = useState('');
+  const [hireStartDate, setHireStartDate] = useState('');
+  const [hireDepartment, setHireDepartment] = useState('');
+  const [hireManager, setHireManager] = useState('');
+  const [hireOwner, setHireOwner] = useState('');
+  const [hireErrors, setHireErrors] = useState({});
+  const [hireError, setHireError] = useState('');
+  const [hireBusy, setHireBusy] = useState(false);
+
+  const templatesRes = useCareerResource(
+    `hire-templates:${org.id}`,
+    (signal) =>
+      showHireModal
+        ? api.onboardingTemplates
+            .list(org.id, { limit: 100 }, signal)
+            .catch(() => ({ items: [] }))
+        : Promise.resolve(null)
+  );
+  const membersRes = useCareerResource(
+    `hire-members:${org.id}`,
+    (signal) =>
+      showHireModal
+        ? api.organizations
+            .members(org.id, { limit: 100, status: 'active' }, signal)
+            .catch(() => ({ items: [] }))
+        : Promise.resolve(null)
+  );
 
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleExtendExpiry = (e) => {
-    e.preventDefault();
-    setExpiryText(`extended by ${extendDays} days`);
-    setShowExtendModal(false);
-    showToast(`Offer validity extended by ${extendDays} days. Candidate notified.`);
-  };
+  const canWrite = ['owner', 'admin'].includes(org.my_role);
+  const status = offer?.status;
+  const isDraft = status === 'draft';
+  const isLive = ['draft', 'sent', 'countered'].includes(status);
+  const canExtend = ['sent', 'countered'].includes(status);
 
-  const handleReviseOffer = (e) => {
+  const handleExtendExpiry = async (e) => {
     e.preventDefault();
-    setShowReviseModal(false);
-    showToast(`Revised offer created with CTC ${revisedSalary}. Re-routed for internal sign-off.`);
-  };
-
-  const handleWithdraw = () => {
-    if (confirm('Are you certain you want to withdraw this active offer?')) {
-      setOfferStatus('Withdrawn');
-      showToast('Offer withdrawn and marked inactive.');
+    setExtendError('');
+    setExtendBusy(true);
+    try {
+      const next = new Date();
+      next.setDate(next.getDate() + Number(extendDays));
+      await api.jobOffers.patch(String(offerId), {
+        expires_on: next.toISOString().slice(0, 10),
+      });
+      setShowExtendModal(false);
+      showToast('Offer validity extended.');
+      offerRes.reload();
+    } catch (error) {
+      setExtendError(
+        error instanceof ApiError ? error.message : 'Could not extend the expiry. Please try again.'
+      );
+    } finally {
+      setExtendBusy(false);
     }
   };
 
-  const tabs = ['Terms', 'Approvals', 'Negotiation', 'Documents', 'History'];
+  const handleReviseOffer = async (e) => {
+    e.preventDefault();
+    setReviseErrors({});
+    setReviseError('');
+    setReviseBusy(true);
+    try {
+      await api.jobOffers.patch(String(offerId), { base_salary: Number(revisedSalary) });
+      setShowReviseModal(false);
+      showToast('Offer terms updated.');
+      offerRes.reload();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 422) {
+        setReviseErrors(fieldErrorsFrom(error));
+      }
+      setReviseError(
+        error instanceof ApiError ? error.message : 'Could not update the offer. Please try again.'
+      );
+    } finally {
+      setReviseBusy(false);
+    }
+  };
+
+  const runOfferAction = async (action, successMsg) => {
+    try {
+      if (action === 'send') await api.jobOffers.send(String(offerId));
+      else if (action === 'withdraw') await api.jobOffers.withdraw(String(offerId));
+      showToast(successMsg);
+      offerRes.reload();
+    } catch (error) {
+      showToast(error instanceof ApiError ? error.message : 'The action failed. Please try again.');
+    }
+  };
+
+  const openRevise = () => {
+    setReviseErrors({});
+    setReviseError('');
+    setRevisedSalary(offer?.base_salary != null ? String(offer.base_salary) : '');
+    setShowReviseModal(true);
+  };
+
+  const openHire = () => {
+    setHireErrors({});
+    setHireError('');
+    setHireTemplate('');
+    setHireStartDate(offer?.start_date || '');
+    setHireDepartment('');
+    setHireManager('');
+    setHireOwner('');
+    setShowHireModal(true);
+  };
+
+  const handleCreateHire = async (e) => {
+    e.preventDefault();
+    setHireErrors({});
+    setHireError('');
+    setHireBusy(true);
+    try {
+      await api.hires.createFromOffer(String(offerId), {
+        template_id: hireTemplate || null,
+        start_date: hireStartDate || null,
+        department: hireDepartment || null,
+        manager_id: hireManager || null,
+        owner_id: hireOwner || null,
+      });
+      setShowHireModal(false);
+      showToast('Hire created from this offer.');
+      offerRes.reload();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 422) {
+        setHireErrors(fieldErrorsFrom(error));
+      }
+      setHireError(
+        error instanceof ApiError ? error.message : 'Could not create the hire. Please try again.'
+      );
+    } finally {
+      setHireBusy(false);
+    }
+  };
+
+  // Offer letter file (only when attached).
+  const fileId = offer?.document_file_id;
+  const fileRes = useCareerResource(
+    `offer-file:${fileId}`,
+    (signal) => (fileId ? api.files.get(String(fileId), signal) : Promise.resolve(null))
+  );
+
+  const downloadOfferLetter = async () => {
+    try {
+      const result = await api.files.download(String(fileId));
+      window.open(result.url, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      showToast(error instanceof ApiError ? error.message : 'Could not open the document.');
+    }
+  };
+
+  if (offerRes.loading) {
+    return (
+      <EmployerShell active="/employer/offers">
+        <div className="mx-auto max-w-[1280px]">
+          <LoadingBlock label="Loading offer…" />
+        </div>
+      </EmployerShell>
+    );
+  }
+
+  if (offerRes.error || !offer) {
+    return (
+      <EmployerShell active="/employer/offers">
+        <div className="mx-auto max-w-[1280px] space-y-4">
+          <ErrorBlock
+            message={
+              offerRes.error instanceof ApiError
+                ? offerRes.error.message
+                : 'Could not load this offer.'
+            }
+            onRetry={offerRes.reload}
+          />
+          <Link
+            href="/employer/offers"
+            className="inline-flex items-center gap-1 text-xs font-medium text-[#806236] hover:underline"
+          >
+            <ArrowLeft size={14} /> Back to all offers
+          </Link>
+        </div>
+      </EmployerShell>
+    );
+  }
+
+  const tabs = ['Terms', 'Negotiation', 'Documents', 'History'];
 
   return (
     <EmployerShell active="/employer/offers">
@@ -107,8 +290,17 @@ export default function EmployerOfferDetailPage() {
               </button>
             </div>
             <form onSubmit={handleExtendExpiry} className="mt-4 space-y-4">
+              {extendError && (
+                <div role="alert" className="rounded-lg border border-[#F1C6C1] bg-[#FEF3F2] p-2.5 text-xs text-[#B42318]">
+                  {extendError}
+                </div>
+              )}
               <p className="text-xs text-[#4A5568]">
-                Grant <span className="font-semibold text-[#0F1B2D]">{offer.candidate}</span> additional time to review the offer package.
+                Grant{' '}
+                <span className="font-semibold text-[#0F1B2D]">
+                  {offer.candidate_name || 'the candidate'}
+                </span>{' '}
+                additional time to review the offer package.
               </p>
               <div>
                 <label htmlFor="extend-days" className="block text-xs font-medium text-[#0F1B2D] mb-1">
@@ -127,11 +319,11 @@ export default function EmployerOfferDetailPage() {
                 </select>
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <EmployerBtn variant="secondary" size="sm" onClick={() => setShowExtendModal(false)}>
+                <EmployerBtn secondary small onClick={() => setShowExtendModal(false)}>
                   Cancel
                 </EmployerBtn>
-                <EmployerBtn type="submit" variant="primary" size="sm">
-                  Apply Extension
+                <EmployerBtn type="submit" primary small disabled={extendBusy}>
+                  {extendBusy ? 'Applying…' : 'Apply Extension'}
                 </EmployerBtn>
               </div>
             </form>
@@ -139,7 +331,7 @@ export default function EmployerOfferDetailPage() {
         </div>
       )}
 
-      {/* Revise Offer Modal */}
+      {/* Revise Offer Modal (draft full edit — salary only in this form) */}
       {showReviseModal && (
         <div
           role="dialog"
@@ -162,25 +354,175 @@ export default function EmployerOfferDetailPage() {
               </button>
             </div>
             <form onSubmit={handleReviseOffer} className="mt-4 space-y-4">
+              {reviseError && (
+                <div role="alert" className="rounded-lg border border-[#F1C6C1] bg-[#FEF3F2] p-2.5 text-xs text-[#B42318]">
+                  {reviseError}
+                </div>
+              )}
               <div>
                 <label htmlFor="revised-salary" className="block text-xs font-medium text-[#0F1B2D] mb-1">
-                  Adjusted Base Compensation
+                  Adjusted Base Compensation (INR)
                 </label>
                 <input
                   id="revised-salary"
-                  type="text"
+                  type="number"
+                  min="0"
+                  step="1000"
                   required
                   value={revisedSalary}
                   onChange={(e) => setRevisedSalary(e.target.value)}
                   className="w-full rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
                 />
+                <FieldError>{reviseErrors.base_salary}</FieldError>
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <EmployerBtn variant="secondary" size="sm" onClick={() => setShowReviseModal(false)}>
+                <EmployerBtn secondary small onClick={() => setShowReviseModal(false)}>
                   Cancel
                 </EmployerBtn>
-                <EmployerBtn type="submit" variant="primary" size="sm">
-                  Issue v3 Version
+                <EmployerBtn type="submit" primary small disabled={reviseBusy}>
+                  {reviseBusy ? 'Saving…' : 'Save Terms'}
+                </EmployerBtn>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Hire Modal (accepted offers only) */}
+      {showHireModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="hire-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        >
+          <div className="w-full max-w-lg rounded-2xl border border-[#E5E1D8] bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5E1D8]">
+              <h3 id="hire-modal-title" className="text-base font-semibold text-[#0F1B2D]">
+                Create Hire from Offer
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowHireModal(false)}
+                className="text-[#4A5568] hover:text-[#0F1B2D]"
+                aria-label="Close dialog"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateHire} className="mt-4 space-y-4">
+              {hireError && (
+                <div role="alert" className="rounded-lg border border-[#F1C6C1] bg-[#FEF3F2] p-2.5 text-xs text-[#B42318]">
+                  {hireError}
+                </div>
+              )}
+              <p className="text-xs text-[#4A5568]">
+                Turn the accepted offer for{' '}
+                <span className="font-semibold text-[#0F1B2D]">
+                  {offer.candidate_name || 'this candidate'}
+                </span>{' '}
+                into a hire. Empty fields fall back to server defaults (start date from the offer,
+                department from the job, owner = you).
+              </p>
+              <div>
+                <label htmlFor="hire-template" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                  Onboarding Template
+                </label>
+                <select
+                  id="hire-template"
+                  value={hireTemplate}
+                  onChange={(e) => setHireTemplate(e.target.value)}
+                  className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+                >
+                  <option value="">No template (start empty)</option>
+                  {(templatesRes.data?.items || []).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} · {t.items.length} items
+                    </option>
+                  ))}
+                </select>
+                <FieldError>{hireErrors.template_id}</FieldError>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="hire-start" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    id="hire-start"
+                    type="date"
+                    value={hireStartDate}
+                    onChange={(e) => setHireStartDate(e.target.value)}
+                    className="w-full rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+                  />
+                  <FieldError>{hireErrors.start_date}</FieldError>
+                </div>
+                <div>
+                  <label htmlFor="hire-dept" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                    Department
+                  </label>
+                  <select
+                    id="hire-dept"
+                    value={hireDepartment}
+                    onChange={(e) => setHireDepartment(e.target.value)}
+                    className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+                  >
+                    <option value="">From the job</option>
+                    {['engineering', 'product', 'design', 'sales', 'marketing', 'operations', 'finance', 'people', 'legal', 'support', 'other'].map((d) => (
+                      <option key={d} value={d}>
+                        {d.charAt(0).toUpperCase() + d.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                  <FieldError>{hireErrors.department}</FieldError>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="hire-manager" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                    Hiring Manager
+                  </label>
+                  <select
+                    id="hire-manager"
+                    value={hireManager}
+                    onChange={(e) => setHireManager(e.target.value)}
+                    className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+                  >
+                    <option value="">Default (job owner)</option>
+                    {(membersRes.data?.items || []).map((m) => (
+                      <option key={m.user_id} value={m.user_id}>
+                        {m.display_name}
+                      </option>
+                    ))}
+                  </select>
+                  <FieldError>{hireErrors.manager_id}</FieldError>
+                </div>
+                <div>
+                  <label htmlFor="hire-owner" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                    Hire Owner
+                  </label>
+                  <select
+                    id="hire-owner"
+                    value={hireOwner}
+                    onChange={(e) => setHireOwner(e.target.value)}
+                    className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+                  >
+                    <option value="">Default (job owner)</option>
+                    {(membersRes.data?.items || []).map((m) => (
+                      <option key={m.user_id} value={m.user_id}>
+                        {m.display_name}
+                      </option>
+                    ))}
+                  </select>
+                  <FieldError>{hireErrors.owner_id}</FieldError>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <EmployerBtn secondary small onClick={() => setShowHireModal(false)}>
+                  Cancel
+                </EmployerBtn>
+                <EmployerBtn type="submit" primary small disabled={hireBusy}>
+                  {hireBusy ? 'Creating…' : 'Create Hire'}
                 </EmployerBtn>
               </div>
             </form>
@@ -198,7 +540,9 @@ export default function EmployerOfferDetailPage() {
             <ArrowLeft size={14} /> Back to all offers
           </Link>
           <span>/</span>
-          <span className="text-[#0F1B2D] font-medium">{offer.candidate}</span>
+          <span className="text-[#0F1B2D] font-medium">
+            {offer.candidate_name || 'Candidate (blind review)'}
+          </span>
         </div>
 
         {/* Offer Header Card */}
@@ -207,50 +551,54 @@ export default function EmployerOfferDetailPage() {
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="font-serif text-xl sm:text-2xl font-bold text-[#0F1B2D]">
-                  Offer — {offer.candidate}
+                  Offer — {offer.candidate_name || 'Candidate (blind review)'}
                 </h1>
-                <StageChip stage={offerStatus} />
-                <span className="rounded-full bg-[#FAF8F4] px-2.5 py-0.5 text-xs font-medium text-[#806236] border border-[#E5E1D8]">
-                  v2 Draft
-                </span>
+                <StageChip stage={statusLabel(status)} />
               </div>
               <p className="text-xs sm:text-sm text-[#4A5568]">
-                {offer.job || offer.title} · Sent to candidate · Expires {expiryText}
+                {offer.job_title} · {offer.company_name} ·{' '}
+                {offer.expires_on ? `Expires ${formatDate(offer.expires_on)}` : 'No expiry set'}
               </p>
             </div>
 
-            {/* Action buttons toolbar - flex-wrap prevents 452px blowout */}
-            <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0">
-              <EmployerBtn
-                variant="primary"
-                size="sm"
-                onClick={() => setShowReviseModal(true)}
-              >
-                Revise Offer
-              </EmployerBtn>
-              <EmployerBtn
-                variant="secondary"
-                size="sm"
-                onClick={() => setShowExtendModal(true)}
-              >
-                Extend Expiry
-              </EmployerBtn>
-              <EmployerBtn
-                variant="secondary"
-                size="sm"
-                onClick={() => setActiveTab('Negotiation')}
-              >
-                <MessageSquare size={14} className="mr-1.5" /> Message
-              </EmployerBtn>
-              <EmployerBtn
-                variant="secondary"
-                size="sm"
-                onClick={handleWithdraw}
-                className="text-[#B42318] hover:bg-red-50 hover:border-red-200"
-              >
-                Withdraw
-              </EmployerBtn>
-            </div>
+            {/* Action buttons toolbar */}
+            {canWrite && (
+              <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0">
+                {isDraft && (
+                  <EmployerBtn primary small onClick={() => runOfferAction('send', 'Offer sent to the candidate.')}>
+                    <Send size={14} className="mr-1.5" /> Send Offer
+                  </EmployerBtn>
+                )}
+                {isDraft && (
+                  <EmployerBtn secondary small onClick={openRevise}>
+                    Revise Offer
+                  </EmployerBtn>
+                )}
+                {canExtend && (
+                  <EmployerBtn secondary small onClick={() => { setExtendError(''); setShowExtendModal(true); }}>
+                    <RefreshCw size={14} className="mr-1.5" /> Extend Expiry
+                  </EmployerBtn>
+                )}
+                {status === 'accepted' && (
+                  <EmployerBtn primary small onClick={openHire}>
+                    Create Hire
+                  </EmployerBtn>
+                )}
+                {isLive && (
+                  <EmployerBtn
+                    destructive
+                    small
+                    onClick={() => {
+                      if (confirm('Are you certain you want to withdraw this active offer?')) {
+                        runOfferAction('withdraw', 'Offer withdrawn and marked inactive.');
+                      }
+                    }}
+                  >
+                    Withdraw
+                  </EmployerBtn>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Navigation Tabs */}
@@ -279,181 +627,153 @@ export default function EmployerOfferDetailPage() {
         <div className="grid gap-6 lg:grid-cols-12 min-w-0">
           <div className="lg:col-span-8 space-y-6 min-w-0">
             {activeTab === 'Terms' && (
-              <EmployerCard title="Offer Financial & Contract Terms">
+              <div className="rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-sm">
+                <h2 className="font-serif text-base font-bold text-[#0F1B2D] mb-4">
+                  Offer Financial & Contract Terms
+                </h2>
                 <div className="space-y-4">
                   <div className="divide-y divide-[#E5E1D8] text-xs">
                     <div className="flex justify-between py-2.5">
                       <span className="text-[#4A5568]">Annual Fixed CTC:</span>
-                      <span className="font-semibold text-sm text-[#0F1B2D]">{offer.compensation || '₹22,00,000'}</span>
+                      <span className="font-semibold text-sm text-[#0F1B2D]">
+                        {formatMoney(offer.base_salary, offer.currency) || '—'}
+                      </span>
                     </div>
                     <div className="flex justify-between py-2.5">
                       <span className="text-[#4A5568]">Annual Performance Variable:</span>
-                      <span className="font-semibold text-sm text-[#0F1B2D]">₹2,00,000</span>
+                      <span className="font-semibold text-sm text-[#0F1B2D]">
+                        {formatMoney(offer.bonus_amount, offer.currency) || '—'}
+                      </span>
                     </div>
                     <div className="flex justify-between py-2.5">
                       <span className="text-[#4A5568]">Joining Bonus:</span>
-                      <span className="font-semibold text-sm text-[#0F1B2D]">₹1,00,000 (12m clawback)</span>
+                      <span className="font-semibold text-sm text-[#0F1B2D]">
+                        {formatMoney(offer.joining_bonus, offer.currency) || '—'}
+                      </span>
                     </div>
                     <div className="flex justify-between py-2.5">
                       <span className="text-[#4A5568]">Equity Grant (ESOP):</span>
-                      <span className="font-semibold text-sm text-[#806236]">0.20% · 4-yr vesting · 1-yr cliff</span>
+                      <span className="font-semibold text-sm text-[#806236]">
+                        {offer.equity_pct != null ? `${offer.equity_pct}%` : '—'}
+                      </span>
                     </div>
                     <div className="flex justify-between py-2.5">
                       <span className="text-[#4A5568]">Target Start Date:</span>
-                      <span className="font-semibold text-sm text-[#0F1B2D]">{offer.startDate || 'Jan 2, 2027'}</span>
+                      <span className="font-semibold text-sm text-[#0F1B2D]">
+                        {formatDate(offer.start_date) || '—'}
+                      </span>
                     </div>
                     <div className="flex justify-between py-2.5">
                       <span className="text-[#4A5568]">Offer Expiry:</span>
-                      <span className="font-semibold text-sm text-amber-700">{expiryText}</span>
+                      <span className="font-semibold text-sm text-amber-700">
+                        {offer.expires_on ? formatDate(offer.expires_on) : 'None'}
+                      </span>
                     </div>
                   </div>
                   <p className="text-xs text-[#4A5568] border-t border-[#E5E1D8] pt-3">
-                    Formal legal employment agreement will be generated automatically upon digital acceptance.
+                    Formal legal employment agreement will be generated automatically upon digital
+                    acceptance.
                   </p>
                 </div>
-              </EmployerCard>
-            )}
-
-            {activeTab === 'Approvals' && (
-              <EmployerCard title="Internal Approval Sequence">
-                <div className="space-y-4">
-                  <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-xs font-semibold text-[#0F1B2D]">Meera Shah (Finance Director)</h4>
-                        <p className="text-xs text-[#4A5568]">Threshold review for packages &gt; ₹20L</p>
-                      </div>
-                      <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200">
-                        Approved
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#4A5568]">"Compensation aligned with Series A budget allocations."</p>
-                  </div>
-
-                  <div className="rounded-xl border border-[#E5E1D8] bg-white p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-xs font-semibold text-[#0F1B2D]">Priya Mehta (Hiring Recruiter)</h4>
-                        <p className="text-xs text-[#4A5568]">Primary offer author</p>
-                      </div>
-                      <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200">
-                        Submitted
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </EmployerCard>
+              </div>
             )}
 
             {activeTab === 'Negotiation' && (
-              <EmployerCard title="Candidate Counter & Negotiation Log">
-                <div className="space-y-4">
-                  <div className="rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-4 space-y-3 text-xs">
-                    <div className="rounded-lg bg-[#0F1B2D] p-3 text-white max-w-[85%]">
-                      <p className="font-semibold text-[11px] text-[#D4AF37]">Northstar Offer Sent (v1)</p>
-                      <p className="mt-1">Fixed CTC ₹20L + 0.15% ESOP with 4-year vesting schedule.</p>
-                    </div>
-                    <div className="rounded-lg bg-white border border-[#E5E1D8] p-3 text-[#0F1B2D] max-w-[85%] ml-auto">
-                      <p className="font-semibold text-[11px] text-[#806236]">Aanya Sen (Candidate Counter)</p>
-                      <p className="mt-1">"Thank you so much! In light of other competing offers, could we discuss ₹22L fixed CTC?"</p>
-                    </div>
-                    <div className="rounded-lg bg-[#0F1B2D] p-3 text-white max-w-[85%]">
-                      <p className="font-semibold text-[11px] text-[#D4AF37]">Northstar Offer Revised (v2)</p>
-                      <p className="mt-1">Adjusted to ₹22L base + 0.20% ESOP. Valid for 48 hours.</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    <EmployerBtn variant="primary" size="sm" onClick={() => showToast('Terms locked and candidate reminded')}>
-                      Lock Terms
-                    </EmployerBtn>
-                    <EmployerBtn variant="secondary" size="sm" onClick={() => setShowReviseModal(true)}>
-                      Counter with v3
-                    </EmployerBtn>
-                  </div>
-                </div>
-              </EmployerCard>
+              <div className="rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-sm">
+                <h2 className="font-serif text-base font-bold text-[#0F1B2D] mb-4">
+                  Candidate Counter & Negotiation Log
+                </h2>
+                <EmptyBlock
+                  title="No negotiation messages yet"
+                  hint="Candidate counters and offer discussions arrive with messaging in a later step. Until then, revisions happen through “Revise Offer” on a draft."
+                />
+              </div>
             )}
 
             {activeTab === 'Documents' && (
-              <EmployerCard title="Offer Documents & Legal Attachments">
-                <div className="divide-y divide-[#E5E1D8] text-xs">
-                  <div className="flex items-center justify-between py-3">
-                    <div className="flex items-center gap-2.5">
-                      <FileText size={18} className="text-[#806236]" />
-                      <div>
-                        <p className="font-semibold text-[#0F1B2D]">Formal_Offer_Letter_v2.pdf</p>
-                        <p className="text-[#4A5568]">184 KB · Generated by Platform</p>
+              <div className="rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-sm">
+                <h2 className="font-serif text-base font-bold text-[#0F1B2D] mb-4">
+                  Offer Documents & Legal Attachments
+                </h2>
+                {!fileId ? (
+                  <EmptyBlock
+                    title="No offer letter attached"
+                    hint="Attach an organization document to this offer when preparing it, and it will appear here for download."
+                  />
+                ) : fileRes.loading ? (
+                  <LoadingBlock label="Loading document…" rows={1} />
+                ) : fileRes.error ? (
+                  <ErrorBlock
+                    message={fileRes.error instanceof ApiError ? fileRes.error.message : 'Could not load the document.'}
+                    onRetry={fileRes.reload}
+                    title="Could not load the document"
+                  />
+                ) : (
+                  <div className="divide-y divide-[#E5E1D8] text-xs">
+                    <div className="flex items-center justify-between py-3">
+                      <div className="flex items-center gap-2.5">
+                        <FileText size={18} className="text-[#806236]" />
+                        <div>
+                          <p className="font-semibold text-[#0F1B2D]">
+                            {fileRes.data?.name || 'Offer letter'}
+                          </p>
+                          <p className="text-[#4A5568]">
+                            {fileRes.data?.size_bytes
+                              ? `${Math.max(1, Math.round(fileRes.data.size_bytes / 1024))} KB · `
+                              : ''}
+                            Organization document
+                          </p>
+                        </div>
                       </div>
+                      <EmployerBtn secondary small onClick={downloadOfferLetter}>
+                        <Download size={14} className="mr-1" /> Download
+                      </EmployerBtn>
                     </div>
-                    <EmployerBtn
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => showToast('Offer letter PDF downloaded')}
-                    >
-                      <Download size={14} className="mr-1" /> Download
-                    </EmployerBtn>
                   </div>
-
-                  <div className="flex items-center justify-between py-3">
-                    <div className="flex items-center gap-2.5">
-                      <FileCheck size={18} className="text-[#806236]" />
-                      <div>
-                        <p className="font-semibold text-[#0F1B2D]">Proprietary_Information_Agreement.pdf</p>
-                        <p className="text-[#4A5568]">Draft ready for digital signature</p>
-                      </div>
-                    </div>
-                    <span className="text-amber-700 font-medium">Pending Acceptance</span>
-                  </div>
-                </div>
-              </EmployerCard>
+                )}
+              </div>
             )}
 
             {activeTab === 'History' && (
-              <EmployerCard title="Offer Activity History">
-                <div className="space-y-3 text-xs text-[#4A5568]">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
-                    <span>Nov 2 — Approved by Meera Shah (Finance)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <RefreshCw size={14} className="text-[#806236] shrink-0" />
-                    <span>Nov 1 — Offer updated to v2 with adjusted compensation</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock size={14} className="text-[#4A5568] shrink-0" />
-                    <span>Oct 31 — Candidate reviewed v1 letter</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Send size={14} className="text-[#4A5568] shrink-0" />
-                    <span>Oct 30 — Initial offer dispatched by Priya Mehta</span>
-                  </div>
-                </div>
-              </EmployerCard>
+              <div className="rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-sm">
+                <h2 className="font-serif text-base font-bold text-[#0F1B2D] mb-4">
+                  Offer Activity History
+                </h2>
+                <EmptyBlock
+                  title="History is not available yet"
+                  hint="Offer activity is recorded on the server; browsing it arrives with the organization activity feed in Step 7l."
+                />
+              </div>
             )}
           </div>
 
           {/* Right Summary Sidebar */}
           <div className="lg:col-span-4 space-y-6 min-w-0">
-            <EmployerCard title="Offer Overview">
+            <div className="rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-sm">
+              <h3 className="font-serif text-sm font-bold text-[#0F1B2D] mb-3">Offer Overview</h3>
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between items-center">
                   <span className="text-[#4A5568]">Pipeline Status:</span>
-                  <StageChip stage={offerStatus} />
-                </div>
-                <div className="flex justify-between items-center py-1 border-t border-[#E5E1D8]">
-                  <span className="text-[#4A5568]">Document Version:</span>
-                  <span className="font-bold text-[#0F1B2D]">v2</span>
+                  <StageChip stage={statusLabel(status)} />
                 </div>
                 <div className="flex justify-between items-center py-1 border-t border-[#E5E1D8]">
                   <span className="text-[#4A5568]">Countdown:</span>
-                  <span className="font-bold text-amber-700">{expiryText}</span>
+                  <span className="font-bold text-amber-700">
+                    {offer.expires_on ? formatDate(offer.expires_on) : 'None'}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center py-1 border-t border-[#E5E1D8]">
                   <span className="text-[#4A5568]">Managing Recruiter:</span>
-                  <span className="font-semibold text-[#0F1B2D]">Priya Mehta</span>
+                  <span className="font-semibold text-[#0F1B2D]">{offer.owner_name || '—'}</span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-t border-[#E5E1D8]">
+                  <span className="text-[#4A5568]">Responded:</span>
+                  <span className="font-semibold text-[#0F1B2D]">
+                    {offer.responded_at ? formatDate(offer.responded_at) : 'Pending'}
+                  </span>
                 </div>
               </div>
-            </EmployerCard>
+            </div>
 
             <SafetyStrip />
           </div>
