@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   ChevronLeft,
   CheckCircle2,
@@ -13,25 +13,79 @@ import {
   Check,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
-import { JobBtn, SafetyStrip } from '@/components/jobseeker-ui';
+import { JobBtn, SafetyStrip, SaveToggle } from '@/components/jobseeker-ui';
 import {
   api,
   useCareerResource,
   jobView,
   ResourceState,
   ApplicationAction,
+  errorLabel,
 } from '@/components/career-data';
 import { useAuth } from '@/lib/auth-context';
 
 export default function JobDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const rawId = params?.jobId;
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const resource = useCareerResource(`job:${rawId}`, (signal) =>
     api.careers.job(rawId, Boolean(user), signal)
   );
   const job = resource.data ? jobView(resource.data) : null;
   const [copied, setCopied] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  useEffect(() => {
+    if (!user || !hasRole('jobseeker') || !rawId) {
+      setIsSaved(false);
+      return;
+    }
+    let active = true;
+    api.savedJobs
+      .get(rawId)
+      .then(() => {
+        if (active) setIsSaved(true);
+      })
+      .catch(() => {
+        if (active) setIsSaved(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user, hasRole, rawId]);
+
+  const handleToggleSave = async () => {
+    if (!user) {
+      router.push(`/login?next=${encodeURIComponent(`/jobseeker/jobs/${rawId}`)}`);
+      return;
+    }
+    if (!hasRole('jobseeker')) {
+      setSaveError('Job-seeker role required to save jobs');
+      return;
+    }
+    if (saving) return;
+
+    setSaving(true);
+    setSaveError('');
+    const prevSaved = isSaved;
+    setIsSaved(!prevSaved);
+
+    try {
+      if (prevSaved) {
+        await api.savedJobs.delete(rawId);
+      } else {
+        await api.savedJobs.create({ job_id: rawId });
+      }
+    } catch (err) {
+      setIsSaved(prevSaved);
+      setSaveError(errorLabel(err));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleShare = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -108,18 +162,29 @@ export default function JobDetailPage() {
             </div>
 
             {/* Actions */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-[#6B7280]">Saving unavailable</span>
-              <button
-                type="button"
-                onClick={handleShare}
-                className="inline-flex items-center justify-center gap-1.5 min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs font-medium text-[#0F1B2D] hover:bg-[#F4F1EA] transition-colors"
-              >
-                <Share2 size={14} />
-                <span>{copied ? 'Link Copied!' : 'Share'}</span>
-              </button>
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <SaveToggle
+                  saved={isSaved}
+                  onChange={handleToggleSave}
+                  disabled={saving}
+                />
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  className="inline-flex items-center justify-center gap-1.5 min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs font-medium text-[#0F1B2D] hover:bg-[#F4F1EA] transition-colors"
+                >
+                  <Share2 size={14} />
+                  <span>{copied ? 'Link Copied!' : 'Share'}</span>
+                </button>
 
-              <ApplicationAction job={resource.data} />
+                <ApplicationAction job={resource.data} />
+              </div>
+              {saveError && (
+                <span className="text-[11px] text-red-600 font-medium" role="alert">
+                  {saveError}
+                </span>
+              )}
             </div>
           </div>
 

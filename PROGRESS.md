@@ -191,12 +191,12 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [ ] B: /employer/templates (message part) wired; demo data removed
 
 ### 7l Employer dashboard, analytics and activity
-- [ ] A: Read-only: hiring funnel, time to hire, activity feed
-- [ ] B: /employer/dashboard, /employer/analytics, /employer/activity wired; demo data removed
+- [ ] A: Read-only: hiring funnel, time to hire, activity feed. **Implemented; verification pending.** Startup/employer org member reads; funnel computed in service rather than a view; hiring activity excludes non-hiring events and redacts sensitive application/interview/offer details. SQLite feature tests pass. PostgreSQL tests and migration cycle still required; Docker/PostgreSQL unavailable in this environment.
+- [ ] B: /employer/dashboard, /employer/analytics, /employer/activity wired; demo data removed. **Wiring implemented; verification pending.** Uses the shared client and active employer/startup org selection; unsupported analytics and audit capabilities are labeled unavailable. Build, focused lint and typecheck passed; HTTP smoke checks passed for employer owner/admin/member/viewer and startup owner against SQLite. Browser hand-testing and PostgreSQL verification remain outstanding. Existing shared auth persists tokens in localStorage; resolution requires a separate app-wide auth decision.
 
 ### 7m Saved jobs and alerts (job seeker)
-- [ ] A: Save and unsave jobs, saved searches as alerts (delivery is Step 12)
-- [ ] B: /jobseeker/saved, /jobseeker/alerts wired; demo data removed
+- [ ] A: Save and unsave jobs, saved searches as alerts (delivery is Step 12). **Implemented; verification pending.** Migration 0047 adds saved jobs with private notes and typed-criteria alerts; draft/unavailable job details and hidden salaries are redacted. SQLite feature tests pass. PostgreSQL tests and migration cycle still required; Docker/PostgreSQL unavailable in this environment.
+- [ ] B: /jobseeker/saved, /jobseeker/alerts wired; demo data removed. **Wiring implemented; verification pending.** Saved notes and removal, alert CRUD, pagination and dev-only sample records are in place; alert delivery and recommendations remain unavailable. The job discovery pages remain outside this step and do not yet offer a save action. Build, focused lint and typecheck passed; jobseeker API smoke checks passed against SQLite. Browser hand-testing, PostgreSQL verification and the existing localStorage token issue remain outstanding.
 
 ### 7n Resume builder
 - [ ] A: Resumes, sections, versions, ordering, duplicate and delete
