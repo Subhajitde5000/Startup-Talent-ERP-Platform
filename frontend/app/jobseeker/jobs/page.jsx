@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Search,
@@ -10,6 +10,9 @@ import {
   Briefcase,
   ArrowRight,
   Filter,
+  Sparkles,
+  Building2,
+  CheckCircle2,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
 import { JobBtn } from '@/components/jobseeker-ui';
@@ -20,6 +23,7 @@ import {
   CareerJobCard,
   ResourceState,
   Pagination,
+  dateLabel,
 } from '@/components/career-data';
 import { useAuth } from '@/lib/auth-context';
 
@@ -97,6 +101,26 @@ export default function JobSearchPage() {
     setOffset(next);
   };
 
+  const [invitations, setInvitations] = useState({ items: [], total: 0 });
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    api.talent
+      .myInvitations({ limit: 10 })
+      .then((data) => {
+        if (active && data) {
+          setInvitations(data);
+        }
+      })
+      .catch(() => {
+        // Silent catch: candidate may not have outreach yet
+      });
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
   return (
     <JobSeekerShell active="Jobs" liveData>
       <div className="space-y-6">
@@ -160,6 +184,110 @@ export default function JobSearchPage() {
             </div>
           </div>
         </section>
+
+        {/* Direct Employer Invitations */}
+        {user && invitations.items.length > 0 && (
+          <section className="rounded-2xl border border-[#D5C29D] bg-gradient-to-br from-[#FCF9F3] via-white to-[#F9F5EC] p-5 md:p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-[#EADFCB] pb-3.5 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#F5EBD7] text-[#8C6D37]">
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <h2 className="text-base font-serif font-bold text-[#0F1B2D]">
+                    Invitations to Apply ({invitations.total})
+                  </h2>
+                  <p className="text-xs text-[#5D6B82]">
+                    Employers and hiring founders who directly invited you to apply based on your talent profile.
+                  </p>
+                </div>
+              </div>
+              <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-[#EFE4CF] px-2.5 py-0.5 text-xs font-semibold text-[#785A28]">
+                Direct Outreach
+              </span>
+            </div>
+
+            <div className="grid gap-3.5 md:grid-cols-2">
+              {invitations.items.map((inv) => (
+                <div
+                  key={inv.id}
+                  className="flex flex-col justify-between rounded-xl border border-[#E5DEC9] bg-white p-4 shadow-xs transition hover:border-[#C4A972] hover:shadow-sm"
+                >
+                  <div className="space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <Link
+                          href={`/jobseeker/jobs/${inv.job_id}`}
+                          className="text-sm font-semibold text-[#0F1B2D] hover:text-[#9A7A45] transition-colors"
+                        >
+                          {inv.job_title}
+                        </Link>
+                        <div className="flex items-center gap-1.5 text-xs text-[#4A5568] mt-0.5">
+                          <Building2 size={13} className="text-[#8C6D37]" />
+                          <span className="font-medium text-[#1E293B]">{inv.org_name}</span>
+                          {inv.job_location && (
+                            <>
+                              <span>•</span>
+                              <span>{inv.job_location}</span>
+                            </>
+                          )}
+                          {inv.job_work_mode && (
+                            <span className="capitalize text-[#718096]">({inv.job_work_mode})</span>
+                          )}
+                        </div>
+                      </div>
+                      {inv.applied ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 border border-emerald-200 shrink-0">
+                          <CheckCircle2 size={11} /> Applied
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 border border-amber-200 shrink-0">
+                          Invited
+                        </span>
+                      )}
+                    </div>
+
+                    {inv.note && (
+                      <div className="rounded-lg bg-[#FAF8F4] border-l-2 border-[#B8955A] px-3 py-2 text-xs italic text-[#4A5568]">
+                        “{inv.note}”
+                      </div>
+                    )}
+
+                    <div className="text-[11px] text-[#718096]">
+                      Invited {inv.sent_by_name ? `by ${inv.sent_by_name}` : ''} • {dateLabel(inv.created_at)}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-[#F0EBE0] flex items-center justify-end gap-2">
+                    {inv.applied ? (
+                      <Link
+                        href={`/jobseeker/applications/${inv.application_id}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition"
+                      >
+                        Track Application <ArrowRight size={13} />
+                      </Link>
+                    ) : (
+                      <>
+                        <Link
+                          href={`/jobseeker/jobs/${inv.job_id}`}
+                          className="inline-flex items-center gap-1 rounded-lg border border-[#E5E1D8] bg-white px-3 py-1.5 text-xs font-medium text-[#0F1B2D] hover:bg-[#FAF8F4] transition"
+                        >
+                          View Job
+                        </Link>
+                        <Link
+                          href={`/jobseeker/jobs/${inv.job_id}/apply`}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-[#B8955A] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#9E7D42] shadow-xs transition"
+                        >
+                          Apply Now <ArrowRight size={13} />
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Results Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3">

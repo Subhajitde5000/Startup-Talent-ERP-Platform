@@ -134,6 +134,29 @@ class ActivityEventType(enum.StrEnum):
     offer_declined = "offer_declined"
     offer_withdrawn = "offer_withdrawn"
     offer_expired = "offer_expired"
+    # Step 7g/7h: job offers and hires reuse the offer_* vocabulary above
+    # (entity_type distinguishes "job_offer" from "investor_offer"); the new
+    # members below cover hires, onboarding and hire documents.
+    hire_created = "hire_created"
+    hire_updated = "hire_updated"
+    onboarding_item_updated = "onboarding_item_updated"
+    onboarding_template_created = "onboarding_template_created"
+    onboarding_template_updated = "onboarding_template_updated"
+    hire_document_requested = "hire_document_requested"
+    hire_document_updated = "hire_document_updated"
+    # Step 7i: hiring-request lifecycle (submit/approve/reject/convert are
+    # status moves, so they get their own members rather than a generic
+    # "updated").
+    hiring_request_created = "hiring_request_created"
+    hiring_request_updated = "hiring_request_updated"
+    hiring_request_approved = "hiring_request_approved"
+    hiring_request_rejected = "hiring_request_rejected"
+    hiring_request_converted = "hiring_request_converted"
+    hiring_request_cancelled = "hiring_request_cancelled"
+    # Step 7j: shortlist lifecycle + outreach history.
+    talent_shortlist_created = "talent_shortlist_created"
+    talent_shortlist_deleted = "talent_shortlist_deleted"
+    talent_outreach_sent = "talent_outreach_sent"
     # Step 9j: commitments and holdings are financial records the
     # investor manages, so every mutation is audited in the same
     # transaction as the write.

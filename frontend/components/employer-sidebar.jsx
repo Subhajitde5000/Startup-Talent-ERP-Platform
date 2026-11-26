@@ -21,12 +21,14 @@ import {
   ChevronRight,
   X,
   Check,
+  UserCheck,
   MessageSquare,
 } from 'lucide-react';
 
 export const EMPLOYER_NAV_ITEMS = [
   ['Dashboard', LayoutDashboard, '/employer/dashboard'],
   ['Hiring', Briefcase, '/employer/hiring'],
+  ['Candidates', UserCheck, '/employer/candidates'],
   ['Talent', Users, '/employer/talent'],
   ['Interviews', CalendarDays, '/employer/interviews'],
   ['Offers', Mail, '/employer/offers'],

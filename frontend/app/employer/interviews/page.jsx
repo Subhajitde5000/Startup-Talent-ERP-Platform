@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   EmployerShell,
   EmployerBtn,
@@ -25,7 +26,7 @@ const whenLabel = (iso) => {
   const d = new Date(iso);
   return {
     date: d.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }),
-    time: d.toLocaleLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+    time: d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
   };
 };
 
@@ -100,6 +101,10 @@ function InterviewsContent() {
   };
 
   // Schedule modal state
+  const searchParams = useSearchParams();
+  const qJobId = searchParams?.get('jobId') || '';
+  const qAppId = searchParams?.get('applicationId') || '';
+
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [schedJob, setSchedJob] = useState('');
   const [schedApplication, setSchedApplication] = useState('');
@@ -116,6 +121,16 @@ function InterviewsContent() {
   const openJobs = (jobsRes.data?.items || []).filter((j) => j.status === 'open');
 
   useEffect(() => {
+    if (qJobId) {
+      setSchedJob(qJobId);
+      if (qAppId) {
+        setSchedApplication(qAppId);
+      }
+      setShowScheduleModal(true);
+    }
+  }, [qJobId, qAppId]);
+
+  useEffect(() => {
     if (!showScheduleModal || !schedJob) {
       setApplicants({ items: [], loading: false, error: '' });
       setSchedApplication('');
@@ -128,7 +143,11 @@ function InterviewsContent() {
       .then((page) => {
         if (!controller.signal.aborted) {
           setApplicants({ items: page.items, loading: false, error: '' });
-          setSchedApplication((prev) => (page.items.some((a) => a.id === prev) ? prev : page.items[0]?.id || ''));
+          setSchedApplication((prev) => {
+            if (prev && page.items.some((a) => a.id === prev)) return prev;
+            if (qAppId && page.items.some((a) => a.id === qAppId)) return qAppId;
+            return page.items[0]?.id || '';
+          });
         }
       })
       .catch((error) => {
@@ -137,7 +156,7 @@ function InterviewsContent() {
         }
       });
     return () => controller.abort();
-  }, [showScheduleModal, schedJob, org.id]);
+  }, [showScheduleModal, schedJob, org.id, qAppId]);
 
   // Feedback modal state
   const [feedbackItem, setFeedbackItem] = useState(null);

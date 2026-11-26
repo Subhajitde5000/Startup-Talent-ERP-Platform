@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.exceptions import conflict, not_found, rate_limited, validation_error
 from app.models.activity import ActivityEventType
+from app.models.hiring_request import HiringRequest
 from app.models.job import Job, JobBenefit, JobSkill, JobStatus, WorkMode
 from app.models.organization import Department, Organization, OrganizationMember, OrgRole, OrgType
 from app.models.profile import Skill
@@ -260,8 +261,30 @@ async def _finish(db: AsyncSession, row: Job) -> JobRead:
     return (await _reads(db, [row]))[0]
 
 
-async def create(db: AsyncSession, user: User, org_id: uuid.UUID, payload: JobCreate) -> JobRead:
+async def create(
+    db: AsyncSession,
+    user: User,
+    org_id: uuid.UUID,
+    payload: JobCreate,
+    *,
+    request_id: uuid.UUID | None = None,
+) -> JobRead:
+    """Create a draft job. ``request_id`` is a SERVER-ONLY kwarg for the
+    7i hiring-request conversion — it is deliberately not part of
+    JobCreate, so clients can never set it. When given, the request must
+    exist in this org (defence in depth; convert already scoped it)."""
     await _authorize(db, user, org_id, write=True)
+    if request_id is not None:
+        owned = (
+            await db.execute(
+                select(HiringRequest.id).where(
+                    HiringRequest.id == request_id,
+                    HiringRequest.org_id == org_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if owned is None:
+            raise not_found("Hiring request not found.")
     await _references(db, org_id, payload, {"owner_id", "skills"})
     row = Job(
         **{key: payload.model_dump()[key] for key in CONTENT_FIELDS if key != "owner_id"},
@@ -269,6 +292,7 @@ async def create(db: AsyncSession, user: User, org_id: uuid.UUID, payload: JobCr
         created_by=user.id,
         owner_id=payload.owner_id or user.id,
         status=JobStatus.draft,
+        request_id=request_id,
     )
     db.add(row)
     await db.flush()

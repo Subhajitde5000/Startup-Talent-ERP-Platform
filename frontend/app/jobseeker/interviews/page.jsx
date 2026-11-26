@@ -24,7 +24,7 @@ const whenLabel = (iso) => {
   const d = new Date(iso);
   return {
     date: d.toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' }),
-    time: d.toLocaleLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+    time: d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
   };
 };
 

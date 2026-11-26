@@ -232,6 +232,33 @@ class Settings(BaseSettings):
     INTERVIEW_WRITE_LIMIT: int = Field(default=30, ge=1)
     INTERVIEW_WRITE_WINDOW_SECONDS: int = Field(default=60, ge=1)
 
+    # Step 7g: job offers are read often (lists, candidate views) and edited
+    # in bursts while an employer negotiates terms. Reuse the shared limiter.
+    # Named JOB_OFFER_* because Step 9i already owns OFFER_WRITE_* for
+    # investor offers — two features, two budgets, one limiter.
+    JOB_OFFER_READ_LIMIT: int = Field(default=120, ge=1)
+    JOB_OFFER_WRITE_LIMIT: int = Field(default=30, ge=1)
+    JOB_OFFER_WRITE_WINDOW_SECONDS: int = Field(default=60, ge=1)
+
+    # Step 7h: hires, onboarding and hire documents. The same read/write
+    # split as the rest of the pipeline.
+    HIRE_READ_LIMIT: int = Field(default=120, ge=1)
+    HIRE_WRITE_LIMIT: int = Field(default=30, ge=1)
+    HIRE_WRITE_WINDOW_SECONDS: int = Field(default=60, ge=1)
+
+    # Step 7i: hiring requests. Read-heavy list plus calm submit/approve/
+    # convert writes; the window matches the pipeline's 60s.
+    HIRING_REQUEST_READ_LIMIT: int = Field(default=120, ge=1)
+    HIRING_REQUEST_WRITE_LIMIT: int = Field(default=30, ge=1)
+    HIRING_REQUEST_WRITE_WINDOW_SECONDS: int = Field(default=60, ge=1)
+
+    # Step 7j: talent search, shortlist writes, and outreach sends.
+    # Outreach is a per-user per-UTC-day budget (86400s), not a minute.
+    TALENT_SEARCH_LIMIT: int = Field(default=60, ge=1)
+    TALENT_SHORTLIST_WRITE_LIMIT: int = Field(default=60, ge=1)
+    TALENT_OUTREACH_DAILY_LIMIT: int = Field(default=50, ge=1)
+    TALENT_OUTREACH_DAILY_WINDOW_SECONDS: int = Field(default=86400, ge=1)
+
     # CORS: explicit allow-list only, never "*" with credentials.
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])
 

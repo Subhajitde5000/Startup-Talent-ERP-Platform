@@ -108,6 +108,12 @@ class Job(Base):
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), index=True
     )
+    # 7i: hiring request this job was converted from (schema.sql jobs
+    # line 739, deferred by 7a and added by migration 0044). Deleting the
+    # request leaves the job in place with request_id NULL.
+    request_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("hiring_requests.id", ondelete="SET NULL"), default=None
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -187,6 +193,9 @@ class Job(Base):
             sqlite_where=text("status = 'open'"),
             postgresql_where=text("status = 'open'"),
         ),
+        # Reverse lookup for the request detail (converted job) — the
+        # jobs_request_idx created by migration 0044.
+        Index("jobs_request_idx", "request_id"),
     )
 
 

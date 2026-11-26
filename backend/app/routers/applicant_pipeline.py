@@ -57,12 +57,69 @@ router = APIRouter(
         429: {"model": _ErrorResponse, "description": "Applicant or file-download rate limit"},
     },
 )
+org_router = APIRouter(
+    route_class=PipelineRoute,
+    prefix="/organizations/{org_id}",
+    tags=["applicant-pipeline"],
+    responses={
+        401: {"model": _ErrorResponse, "description": "Missing or invalid authentication"},
+        403: {
+            "model": _ErrorResponse,
+            "description": "Hiring role, membership or action permission required",
+        },
+        404: {
+            "model": _ErrorResponse,
+            "description": "Resource unavailable or outside the authorized scope",
+        },
+        409: {
+            "model": _ErrorResponse,
+            "description": "Stale stage, terminal application, read-only job or locked setting",
+        },
+        413: {"model": _ErrorResponse, "description": "Metadata exceeds 32 KiB"},
+        422: {"model": _ErrorResponse, "description": "Invalid fields or assignee reference"},
+        429: {"model": _ErrorResponse, "description": "Applicant or file-download rate limit"},
+    },
+)
 DB = Annotated[AsyncSession, Depends(get_db)]
 Actor = Annotated[User, Depends(get_current_user)]
 Limit = Annotated[int, Query(ge=1, le=100)]
 Offset = Annotated[int, Query(ge=0)]
 Source = Literal["platform", "referral", "marketplace", "outreach", "agency", "other"]
 _EMPTY = JobAction()
+
+
+@org_router.get(
+    "/applications",
+    response_model=ApplicantPage,
+    summary="List organization applicants across all jobs within my hiring scope",
+)
+async def org_applicants(
+    org_id: uuid.UUID,
+    db: DB,
+    user: Actor,
+    job_id: uuid.UUID | None = None,
+    stage: ApplicationStage | None = None,
+    source: Source | None = None,
+    assignee_id: uuid.UUID | None = None,
+    q: Annotated[str | None, Query(max_length=100)] = None,
+    sort: PipelineSort = "newest",
+    limit: Limit = 20,
+    offset: Offset = 0,
+) -> ApplicantPage:
+    """List applications across jobs for the organization with blind projection and stage counts."""
+    return await service.list_org_applicants(
+        db,
+        user,
+        org_id,
+        job_id=job_id,
+        stage=stage,
+        source=source,
+        assignee_id=assignee_id,
+        q=q,
+        sort=sort,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get(

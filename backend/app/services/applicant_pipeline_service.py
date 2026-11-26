@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import cast
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -284,6 +284,130 @@ async def list_applicants(
     return ApplicantPage(
         context=context,
         items=await projections(db, rows, context),
+        stage_counts=counts,
+        total=total,
+        limit=limit,
+        offset=offset,
+        has_more=offset + len(rows) < total,
+    )
+
+
+async def list_org_applicants(
+    db: AsyncSession,
+    user: User,
+    org_id: uuid.UUID,
+    *,
+    job_id: uuid.UUID | None = None,
+    stage: str | None = None,
+    source: str | None = None,
+    assignee_id: uuid.UUID | None = None,
+    q: str | None = None,
+    sort: PipelineSort = "newest",
+    limit: int = 20,
+    offset: int = 0,
+) -> ApplicantPage:
+    member = await authorize(db, user, org_id)
+    stmt = (
+        select(JobApplication, Job)
+        .join(Job, Job.id == JobApplication.job_id)
+        .where(
+            Job.org_id == org_id,
+            JobApplication.deleted_at.is_(None),
+        )
+    )
+    if job_id:
+        stmt = stmt.where(JobApplication.job_id == job_id)
+    if member.role not in MANAGERS:
+        stmt = stmt.where(
+            or_(
+                Job.owner_id == user.id,
+                JobApplication.assignee_id == user.id,
+            )
+        )
+    if source:
+        stmt = stmt.where(JobApplication.source == source)
+    if assignee_id:
+        await organization_service.require_active_member_ref(
+            db, org_id, assignee_id, field="assignee_id", label="Assignee"
+        )
+        stmt = stmt.where(JobApplication.assignee_id == assignee_id)
+    if q and q.strip():
+        stmt = stmt.where(
+            JobApplication.is_blind.is_(False),
+            JobApplication.profile_snapshot["contact"]["name"]
+            .as_string()
+            .ilike(f"%{job_service._escape_like(q.strip())}%", escape="\\"),
+        )
+
+    stage_sub = stmt.subquery()
+    counts: dict = dict(
+        (
+            await db.execute(
+                select(stage_sub.c.stage, func.count()).group_by(stage_sub.c.stage)
+            )
+        ).all()
+    )
+
+    if stage:
+        stmt = stmt.where(JobApplication.stage == stage)
+
+    total = (
+        await db.execute(select(func.count()).select_from(stmt.subquery()))
+    ).scalar_one()
+
+    ordering = {
+        "newest": (JobApplication.created_at.desc(), JobApplication.id.desc()),
+        "oldest": (JobApplication.created_at.asc(), JobApplication.id.asc()),
+        "stage_changed": (JobApplication.stage_changed_at.desc(), JobApplication.id.desc()),
+    }[sort]
+
+    results = (
+        await db.execute(stmt.order_by(*ordering).limit(limit).offset(offset))
+    ).all()
+    rows = [r[0] for r in results]
+    jobs_by_id = {r[1].id: r[1] for r in results}
+
+    ids = {row.resume_file_id for row in rows if not row.is_blind and row.resume_file_id}
+    files = (
+        {
+            file.id: file
+            for file in (await db.execute(select(File).where(File.id.in_(ids)))).scalars()
+        }
+        if ids
+        else {}
+    )
+
+    items = []
+    for app in rows:
+        job = jobs_by_id[app.job_id]
+        ctx = JobReviewContext(
+            id=job.id,
+            title=job.title,
+            status=job.status,
+            archived=job.deleted_at is not None,
+            owner_id=job.owner_id,
+            blind_review_enabled=job.blind_review_enabled,
+            review_settings_locked=True,
+        )
+        file = files.get(app.resume_file_id) if app.resume_file_id else None
+        items.append(project(app, ctx, file))
+
+    single_ctx = None
+    if job_id and job_id in jobs_by_id:
+        job = jobs_by_id[job_id]
+        single_ctx = JobReviewContext(
+            id=job.id,
+            title=job.title,
+            status=job.status,
+            archived=job.deleted_at is not None,
+            owner_id=job.owner_id,
+            blind_review_enabled=job.blind_review_enabled,
+            review_settings_locked=True,
+        )
+
+    return ApplicantPage(
+        context=single_ctx,
+        items=items,
         stage_counts=counts,
         total=total,
         limit=limit,
