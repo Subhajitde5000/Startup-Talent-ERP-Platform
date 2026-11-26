@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
   ChevronLeft,
+  ChevronDown,
   Sparkles,
   Download,
   CheckCircle2,
@@ -13,12 +14,19 @@ import {
   Save,
   ArrowUp,
   ArrowDown,
+  Eye,
+  Wand2,
+  FileText,
+  FileType,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
 import { JobBtn } from '@/components/jobseeker-ui';
 import { api } from '@/lib/api/client';
 import { useCareerResource, ResourceState, errorLabel } from '@/components/career-data';
 import { FieldError, fieldErrorsFrom } from '@/components/async-state';
+import { exportResumeAsPdf, exportResumeAsDocx } from '@/lib/resume-export';
+import { ResumePreviewModal } from '@/components/resume-preview-modal';
+import { ResumeProfileWizardModal } from '@/components/resume-profile-wizard';
 
 const SECTIONS = ['Summary', 'Experience', 'Education', 'Skills', 'Projects'];
 
@@ -45,6 +53,50 @@ export default function ResumeEditorPage() {
   const [savedToast, setSavedToast] = useState('');
   const [saveError, setSaveError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
+
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [userContact, setUserContact] = useState(null);
+  const exportMenuRef = useRef(null);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    Promise.all([
+      api.users.me(ctrl.signal).catch(() => null),
+      api.talentProfile.me(ctrl.signal).catch(() => null),
+    ]).then(([u, tp]) => {
+      if (ctrl.signal.aborted || !u) return;
+      setUserContact({
+        display_name: u.display_name || '',
+        email: u.email || '',
+        phone: u.phone || '',
+        location: tp?.current_location || u.region || '',
+        linkedin_url: u.linkedin_url || '',
+        github_url: u.github_url || '',
+      });
+    });
+    return () => ctrl.abort();
+  }, []);
+
+  useEffect(() => {
+    if (!exportMenuOpen) return;
+    const onDocClick = (e) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+        setExportMenuOpen(false);
+      }
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') setExportMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [exportMenuOpen]);
 
   useEffect(() => {
     const r = resource.data;
@@ -132,19 +184,54 @@ export default function ResumeEditorPage() {
     }
   };
 
-  const handleExport = async () => {
+  const buildLiveResumePayload = () => ({
+    title: title.trim() || 'Untitled Resume',
+    target_role: targetRole.trim() || null,
+    summary: summaryText.trim() || null,
+    experiences: experiences.map((e) => ({
+      role_title: e.role_title.trim(),
+      company: e.company.trim(),
+      period_label: e.period_label.trim() || null,
+      bullets: (e.bulletsText || '')
+        .split('\n')
+        .map((b) => b.trim())
+        .filter(Boolean),
+    })),
+    education: education.map((ed) => ({
+      degree: ed.degree.trim(),
+      school: ed.school.trim(),
+      year_label: ed.year_label.trim() || null,
+    })),
+    skills: selectedSkills,
+  });
+
+  const handleExportPdf = async () => {
     if (!resumeId) return;
+    setExporting(true);
+    setExportMenuOpen(false);
+    setSaveError('');
     try {
       const data = await api.resumes.exportJson(resumeId);
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${(data.title || 'resume').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      exportResumeAsPdf(data, userContact);
     } catch (err) {
-      setSaveError(errorLabel(err, 'Could not export resume.'));
+      setSaveError(errorLabel(err, 'Could not export PDF.'));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportDocx = async () => {
+    if (!resumeId) return;
+    setExporting(true);
+    setExportMenuOpen(false);
+    setSaveError('');
+    try {
+      const data = await api.resumes.exportJson(resumeId);
+      await exportResumeAsDocx(data, userContact);
+    } catch (err) {
+      setSaveError(errorLabel(err, 'Could not export Word document.'));
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -218,6 +305,22 @@ export default function ResumeEditorPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                  <JobBtn
+                    secondary
+                    small
+                    onClick={() => setWizardOpen(true)}
+                    className="flex items-center gap-1.5"
+                  >
+                    <Wand2 size={13} className="text-[#806236]" /> Generate from Profile
+                  </JobBtn>
+                  <JobBtn
+                    secondary
+                    small
+                    onClick={() => setPreviewOpen(true)}
+                    className="flex items-center gap-1.5"
+                  >
+                    <Eye size={13} /> Preview
+                  </JobBtn>
                   <Link href={`/jobseeker/resumes/${resume.id}/tailor`}>
                     <JobBtn secondary small className="flex items-center gap-1.5">
                       <Sparkles size={13} className="text-[#806236]" /> Tailor to Job
@@ -228,9 +331,44 @@ export default function ResumeEditorPage() {
                       ATS Scan Breakdown
                     </JobBtn>
                   </Link>
-                  <JobBtn secondary small onClick={handleExport} className="flex items-center gap-1.5">
-                    <Download size={13} /> Export JSON
-                  </JobBtn>
+                  <div className="relative" ref={exportMenuRef}>
+                    <JobBtn
+                      secondary
+                      small
+                      onClick={() => setExportMenuOpen((v) => !v)}
+                      disabled={exporting}
+                      aria-expanded={exportMenuOpen}
+                      aria-haspopup="menu"
+                      className="flex items-center gap-1.5"
+                    >
+                      <Download size={13} />
+                      {exporting ? 'Exporting...' : 'Export'}
+                      <ChevronDown size={12} />
+                    </JobBtn>
+                    {exportMenuOpen && (
+                      <div
+                        role="menu"
+                        className="absolute right-0 mt-1.5 w-48 rounded-xl border border-[#E5E1D8] bg-white py-1.5 shadow-lg z-30"
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={handleExportPdf}
+                          className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#0F1B2D] hover:bg-[#FAF8F4] flex items-center gap-2"
+                        >
+                          <FileText size={14} className="text-[#B42318]" /> Export as PDF (.pdf)
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={handleExportDocx}
+                          className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#0F1B2D] hover:bg-[#FAF8F4] flex items-center gap-2"
+                        >
+                          <FileType size={14} className="text-[#1D4ED8]" /> Export as Word (.docx)
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   {activeSection !== 'Projects' && (
                     <JobBtn
                       primary
@@ -634,6 +772,34 @@ export default function ResumeEditorPage() {
           )}
         </ResourceState>
       </div>
+
+      <ResumePreviewModal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        resumeData={buildLiveResumePayload()}
+        contact={userContact}
+        onExportPdf={handleExportPdf}
+        onExportDocx={handleExportDocx}
+        exporting={exporting}
+      />
+
+      <ResumeProfileWizardModal
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        resumeId={resumeId}
+        currentResume={{
+          title,
+          targetRole,
+          summaryText,
+          experiences,
+          education,
+          selectedSkills,
+        }}
+        onApplied={() => {
+          resource.reload();
+          showSaved('Resume generated from your profile and saved.');
+        }}
+      />
     </JobSeekerShell>
   );
 }
