@@ -84,7 +84,11 @@ class TalentProfile(Base):
     open_to_relocate: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
-    resume_id: Mapped[uuid.UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
+    resume_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("resumes.id", ondelete="SET NULL", name="talent_profiles_resume_fk"),
+        nullable=True,
+    )
     is_searchable: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )

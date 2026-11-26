@@ -1,4 +1,5 @@
 from app.models.activity import ActivityEvent, ActivityEventType
+from app.models.ai_usage import AiUsageEvent
 from app.models.application_note import ApplicationNote
 from app.models.auth import AuthSession, EmailVerificationToken, LoginAttempt, PasswordResetToken
 from app.models.data_room import DataRoom, DataRoomDocument, DataRoomDocumentVersion, DataRoomFolder
@@ -19,6 +20,13 @@ from app.models.job import Job, JobBenefit, JobSkill
 from app.models.job_alert import AlertFrequency, JobAlert
 from app.models.job_application import ApplicationStageEvent, JobApplication
 from app.models.offer import JobOffer, JobOfferStatus, OfferDeclineReason
+from app.models.resume import (
+    Resume,
+    ResumeAtsRun,
+    ResumeEducation,
+    ResumeExperience,
+    ResumeSkill,
+)
 from app.models.saved_job import SavedJob
 from app.models.user import AccountStatus, ReviewState, User, UserRole, UserRoleRow
 
@@ -64,4 +72,10 @@ __all__ = [
     "User",
     "UserRole",
     "UserRoleRow",
+    "AiUsageEvent",
+    "Resume",
+    "ResumeExperience",
+    "ResumeEducation",
+    "ResumeSkill",
+    "ResumeAtsRun",
 ]

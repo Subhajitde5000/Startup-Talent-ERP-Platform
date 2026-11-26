@@ -3384,4 +3384,129 @@ export const api = {
         signal,
       }),
   },
+
+  // --- Steps 7n & 7o: resume builder, ATS check, and AI tailoring -----------
+  resumes: {
+    list: (
+      query: {
+        q?: string;
+        sort?: "updated_at" | "created_at";
+        order?: "asc" | "desc";
+        limit?: number;
+        offset?: number;
+      } = {},
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<components["schemas"]["ResumePage"]>("/resumes", {
+        method: "GET",
+        query,
+        signal,
+      }),
+
+    summary: (signal?: AbortSignal) =>
+      apiRequest<components["schemas"]["ResumeSummaryRead"]>("/resumes/summary", {
+        method: "GET",
+        signal,
+      }),
+
+    get: (resumeId: string, signal?: AbortSignal) =>
+      apiRequest<components["schemas"]["ResumeRead"]>(`/resumes/${resumeId}`, {
+        method: "GET",
+        signal,
+      }),
+
+    create: (body: components["schemas"]["ResumeCreate"]) =>
+      apiRequest<components["schemas"]["ResumeRead"]>("/resumes", {
+        method: "POST",
+        body,
+      }),
+
+    update: (resumeId: string, body: components["schemas"]["ResumeUpdate"]) =>
+      apiRequest<components["schemas"]["ResumeRead"]>(`/resumes/${resumeId}`, {
+        method: "PATCH",
+        body,
+      }),
+
+    remove: (resumeId: string) =>
+      apiRequest<void>(`/resumes/${resumeId}`, {
+        method: "DELETE",
+      }),
+
+    duplicate: (resumeId: string) =>
+      apiRequest<components["schemas"]["ResumeRead"]>(`/resumes/${resumeId}/duplicate`, {
+        method: "POST",
+        body: {},
+      }),
+
+    replaceExperiences: (
+      resumeId: string,
+      body: components["schemas"]["ResumeExperiencesReplace"],
+    ) =>
+      apiRequest<components["schemas"]["ResumeRead"]>(`/resumes/${resumeId}/experiences`, {
+        method: "PUT",
+        body,
+      }),
+
+    replaceEducation: (
+      resumeId: string,
+      body: components["schemas"]["ResumeEducationReplace"],
+    ) =>
+      apiRequest<components["schemas"]["ResumeRead"]>(`/resumes/${resumeId}/education`, {
+        method: "PUT",
+        body,
+      }),
+
+    replaceSkills: (
+      resumeId: string,
+      body: components["schemas"]["ResumeSkillsReplace"],
+    ) =>
+      apiRequest<components["schemas"]["ResumeRead"]>(`/resumes/${resumeId}/skills`, {
+        method: "PUT",
+        body,
+      }),
+
+    setDefault: (resumeId: string) =>
+      apiRequest<components["schemas"]["ResumeRead"]>(`/resumes/${resumeId}/set-default`, {
+        method: "POST",
+        body: {},
+      }),
+
+    exportJson: (resumeId: string, signal?: AbortSignal) =>
+      apiRequest<components["schemas"]["ResumeExportRead"]>(`/resumes/${resumeId}/export`, {
+        method: "GET",
+        signal,
+      }),
+
+    createAtsRun: (resumeId: string, body: components["schemas"]["AtsRunCreate"]) =>
+      apiRequest<components["schemas"]["AtsRunRead"]>(`/resumes/${resumeId}/ats-runs`, {
+        method: "POST",
+        body,
+      }),
+
+    listAtsRuns: (
+      resumeId: string,
+      query: { limit?: number; offset?: number } = {},
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<components["schemas"]["AtsRunPage"]>(`/resumes/${resumeId}/ats-runs`, {
+        method: "GET",
+        query,
+        signal,
+      }),
+
+    getAtsRun: (resumeId: string, runId: string, signal?: AbortSignal) =>
+      apiRequest<components["schemas"]["AtsRunRead"]>(
+        `/resumes/${resumeId}/ats-runs/${runId}`,
+        {
+          method: "GET",
+          signal,
+        },
+      ),
+
+    tailor: (resumeId: string, body: components["schemas"]["TailorRequest"]) =>
+      apiRequest<components["schemas"]["AtsRunRead"]>(`/resumes/${resumeId}/tailor`, {
+        method: "POST",
+        body,
+      }),
+  },
 };

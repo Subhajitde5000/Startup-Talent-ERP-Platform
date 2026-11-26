@@ -275,6 +275,18 @@ class Settings(BaseSettings):
     JOB_ALERTS_READ_LIMIT: int = Field(default=120, ge=1)
     JOB_ALERTS_READ_WINDOW_SECONDS: int = Field(default=60, ge=1)
 
+    # Step 7n/7o: resume builder, rule-based ATS check, and AI tailoring (Groq).
+    RESUME_READ_LIMIT: int = Field(default=120, ge=1)
+    RESUME_READ_WINDOW_SECONDS: int = Field(default=60, ge=1)
+    RESUME_WRITE_LIMIT: int = Field(default=60, ge=1)
+    RESUME_WRITE_WINDOW_SECONDS: int = Field(default=60, ge=1)
+    RESUME_ATS_WRITE_LIMIT: int = Field(default=30, ge=1)
+    RESUME_ATS_WRITE_WINDOW_SECONDS: int = Field(default=60, ge=1)
+    AI_TAILOR_LIMIT: int = Field(default=10, ge=1)
+    AI_TAILOR_WINDOW_SECONDS: int = Field(default=3600, ge=1)
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+
     # CORS: explicit allow-list only, never "*" with credentials.
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])
 

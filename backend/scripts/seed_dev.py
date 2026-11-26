@@ -3031,6 +3031,122 @@ async def seed_step7i7j(db: AsyncSession) -> None:
 
 
 
+async def seed_step7no_resumes(db: AsyncSession, candidate: User) -> None:
+    """Fill-only sample resumes and ATS run migrated from the old 7n/7o mock data."""
+    if get_settings().ENVIRONMENT != "development":
+        raise RuntimeError("Step 7n/7o samples require ENVIRONMENT=development")
+    from app.models.resume import (
+        Resume,
+        ResumeAtsRun,
+        ResumeEducation,
+        ResumeExperience,
+    )
+
+    existing = (
+        await db.execute(
+            select(Resume.id).where(Resume.user_id == candidate.id, Resume.deleted_at.is_(None))
+        )
+    ).first()
+    if existing is not None:
+        return
+
+    r1 = Resume(
+        user_id=candidate.id,
+        title="Senior Product Designer (Primary)",
+        target_role="Product Designer",
+        summary=(
+            "Senior Product Designer with 6+ years driving UX strategy, design systems, "
+            "and product metrics across B2B SaaS and enterprise marketplaces."
+        ),
+        template="Modern Clean",
+        source="manual",
+        ats_score=88,
+        is_default=True,
+    )
+    r2 = Resume(
+        user_id=candidate.id,
+        title="UX Researcher & Strategy",
+        target_role="UX Researcher",
+        summary=(
+            "UX Researcher focused on qualitative discovery, usability testing, "
+            "and cross-functional product roadmap alignment."
+        ),
+        template="Minimalist Tech",
+        source="manual",
+        ats_score=82,
+        is_default=False,
+    )
+    db.add_all([r1, r2])
+    await db.flush()
+
+    db.add_all(
+        [
+            ResumeExperience(
+                resume_id=r1.id,
+                role_title="Senior Product Designer",
+                company="Vanguard Systems",
+                period_label="2023 – Present",
+                bullets=[
+                    "Spearheaded enterprise dashboard redesign, reducing task completion time by 34%.",
+                    "Architected unified multi-brand design system in Figma adopted by 18 engineering squads.",
+                ],
+                display_order=0,
+            ),
+            ResumeExperience(
+                resume_id=r1.id,
+                role_title="Product Designer",
+                company="Pulse Digital",
+                period_label="2020 – 2023",
+                bullets=[
+                    "Led end-to-end design for consumer fintech onboarding with 22% conversion increase.",
+                    "Conducted 50+ qualitative user research sessions to map key churn triggers.",
+                ],
+                display_order=1,
+            ),
+            ResumeExperience(
+                resume_id=r2.id,
+                role_title="UX Research Associate",
+                company="Pulse Digital",
+                period_label="2020 – 2023",
+                bullets=[
+                    "Planned and executed foundational discovery studies for mobile payment features.",
+                ],
+                display_order=0,
+            ),
+            ResumeEducation(
+                resume_id=r1.id,
+                degree="B.Des in Interaction Design",
+                school="National Institute of Design (NID)",
+                year_label="2020",
+                display_order=0,
+            ),
+            ResumeEducation(
+                resume_id=r2.id,
+                degree="B.Des in Interaction Design",
+                school="National Institute of Design (NID)",
+                year_label="2020",
+                display_order=0,
+            ),
+            ResumeAtsRun(
+                resume_id=r1.id,
+                run_type="ats",
+                score=88,
+                matched_keywords=["Product Designer", "Design Systems", "Figma", "UX"],
+                missing_keywords=["WCAG 2.1", "Tokens Studio"],
+                suggestions=[
+                    {
+                        "section": "skills",
+                        "original": None,
+                        "tailored": "WCAG 2.1",
+                        "rationale": "Consider adding 'WCAG 2.1' to your skills if applicable.",
+                    }
+                ],
+            ),
+        ]
+    )
+    await db.commit()
+
+
 async def seed_step7lm(db: AsyncSession, candidate: User) -> None:
     """Fill-only bookmarks and alerts corresponding to the old 7m mock records."""
     if get_settings().ENVIRONMENT != "development":
@@ -4906,6 +5022,7 @@ async def seed() -> None:
         if careers_owner and careers_candidate:
             await seed_step7bc_careers(db, careers_owner, careers_candidate)
             await seed_step7lm(db, careers_candidate)
+            await seed_step7no_resumes(db, careers_candidate)
 
         # Step 7e/7f samples; after7bc so the jobseeker's applications exist.
         await seed_step7e7f(db)
