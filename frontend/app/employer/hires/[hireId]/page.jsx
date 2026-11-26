@@ -4,11 +4,10 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
-  EmployerShell,
   StageChip,
   EmployerSafetyStrip as SafetyStrip,
 } from '@/components';
-import { useJobsWorkspace } from '@/components/employer-jobs-workspace';
+import { JobsPage, useJobsWorkspace } from '@/components/employer-jobs-workspace';
 import { LoadingBlock, EmptyBlock, ErrorBlock } from '@/components/async-state';
 import { useCareerResource } from '@/components/career-data';
 import { api, ApiError } from '@/lib/api/client';
@@ -25,7 +24,7 @@ const HIRE_LABEL = {
 
 const hireLabel = (status) => HIRE_LABEL[status] || status;
 
-export default function EmployerHireDetailPage() {
+function EmployerHireDetailContent() {
   const params = useParams();
   const hireId = params?.hireId;
   const { org } = useJobsWorkspace();
@@ -49,17 +48,17 @@ export default function EmployerHireDetailPage() {
 
   if (hireRes.loading) {
     return (
-      <EmployerShell active="/employer/hires">
+      <>
         <div className="mx-auto max-w-[1280px]">
           <LoadingBlock label="Loading hire…" />
         </div>
-      </EmployerShell>
+      </>
     );
   }
 
   if (hireRes.error || !hire) {
     return (
-      <EmployerShell active="/employer/hires">
+      <>
         <div className="mx-auto max-w-[1280px] space-y-4">
           <ErrorBlock
             message={
@@ -76,14 +75,14 @@ export default function EmployerHireDetailPage() {
             <ArrowLeft size={14} /> Back to all hires
           </Link>
         </div>
-      </EmployerShell>
+      </>
     );
   }
 
   const tabs = ['Overview', 'Messages'];
 
   return (
-    <EmployerShell active="/employer/hires">
+    <>
       <div className="mx-auto max-w-[1280px] space-y-6">
         {/* Navigation Breadcrumb */}
         <div className="flex items-center gap-2 text-xs text-[#4A5568]">
@@ -250,6 +249,14 @@ export default function EmployerHireDetailPage() {
           </div>
         </div>
       </div>
-    </EmployerShell>
+    </>
+  );
+}
+
+export default function EmployerHireDetailPage() {
+  return (
+    <JobsPage activeNav="/employer/hires">
+      <EmployerHireDetailContent />
+    </JobsPage>
   );
 }

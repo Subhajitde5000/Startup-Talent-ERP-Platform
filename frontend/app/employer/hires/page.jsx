@@ -3,11 +3,10 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  EmployerShell,
   EmployerBtn,
   StageChip,
 } from '@/components';
-import { useJobsWorkspace } from '@/components/employer-jobs-workspace';
+import { JobsPage, useJobsWorkspace } from '@/components/employer-jobs-workspace';
 import { LoadingBlock, EmptyBlock, ErrorBlock } from '@/components/async-state';
 import { useCareerResource } from '@/components/career-data';
 import { api, ApiError } from '@/lib/api/client';
@@ -44,7 +43,7 @@ const startsInLabel = (iso) => {
 
 const TABS = ['All', 'Upcoming starts', 'Needs action', 'Started', 'Templates'];
 
-export default function EmployerHiresPage() {
+function EmployerHiresContent() {
   const { org } = useJobsWorkspace();
   const isViewer = org.my_role === 'viewer';
 
@@ -109,18 +108,18 @@ export default function EmployerHiresPage() {
 
   if (isViewer) {
     return (
-      <EmployerShell active="/employer/hires">
+      <>
         <div className="mx-auto max-w-[1280px]">
           <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center text-sm text-[#4A5568]">
             Viewers cannot access hires.
           </div>
         </div>
-      </EmployerShell>
+      </>
     );
   }
 
   return (
-    <EmployerShell active="/employer/hires">
+    <>
       {toastMessage && (
         <div
           role="status"
@@ -316,6 +315,14 @@ export default function EmployerHiresPage() {
           </div>
         )}
       </div>
-    </EmployerShell>
+    </>
+  );
+}
+
+export default function EmployerHiresPage() {
+  return (
+    <JobsPage activeNav="/employer/hires">
+      <EmployerHiresContent />
+    </JobsPage>
   );
 }
