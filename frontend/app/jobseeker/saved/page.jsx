@@ -19,40 +19,44 @@ import { JobSeekerShell } from '@/components';
 import {
   JobBtn,
   StatusChip,
-  defaultUser,
 } from '@/components/jobseeker-ui';
-import { jobs } from '../jobseeker-data';
+import { api } from '@/lib/api/client';
+import { useCareerResource, ResourceState, Pagination, errorLabel } from '@/components/career-data';
+import { FieldError, fieldErrorsFrom } from '@/components/async-state';
 
 export default function SavedJobsPage() {
-  const [savedIds, setSavedIds] = useState(defaultUser.savedIds);
   const [tab, setTab] = useState('All');
   const [viewMode, setViewMode] = useState('cards');
   const [editingNoteId, setEditingNoteId] = useState(null);
-  const [notes, setNotes] = useState({
-    'senior-product-designer': 'Spoke with founder at demo day. Fast-track intro.',
-    'ux-researcher': 'Series A fintech, 100% remote team.',
-  });
-
-  const savedList = jobs.filter((j) => savedIds.includes(j.id));
-
-  const filtered = savedList.filter((j) => {
-    if (tab === 'Open') return j.status === 'Open' || !j.status;
-    if (tab === 'Closing soon') return j.status === 'Closing soon';
-    return true;
-  });
-
-  const handleRemove = (id) => {
-    setSavedIds((prev) => prev.filter((item) => item !== id));
+  const [offset, setOffset] = useState(0);
+  const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [pending, setPending] = useState(false);
+  const resource = useCareerResource(`saved-jobs:${offset}`, signal => api.savedJobs.list({limit: 20, offset}, signal));
+  const savedList = (resource.data?.items || []).map(row => ({
+    id: row.job_id, title: row.job?.title || 'Job unavailable', status: row.status,
+    company: row.job?.org_name || '', loc: row.job?.location || 'Location not specified',
+    type: row.job?.employment_type?.replaceAll('_', ' ') || '', note: row.note || '',
+    salary: row.job?.salary_min || row.job?.salary_max ? `${row.job.currency} ${row.job.salary_min || '—'} – ${row.job.salary_max || '—'} / ${row.job.salary_period}` : 'Salary not disclosed',
+    deadline: row.job?.application_deadline, available: !!row.job,
+  }));
+  const filtered = savedList.filter(j => tab === 'Open' ? j.status === 'open' : tab === 'Closing soon' ? j.status === 'open' && j.deadline && new Date(j.deadline) >= new Date() && new Date(j.deadline) <= new Date(Date.now() + 7 * 86400000) : true);
+  const handleRemove = async id => {
+    setPending(true); setError('');
+    try { await api.savedJobs.delete(id); if (savedList.length === 1 && offset) setOffset(Math.max(0, offset - 20)); else resource.reload(); }
+    catch (err) { setError(errorLabel(err)); } finally { setPending(false); }
   };
-
-  const handleSaveNote = (id, text) => {
-    setNotes((prev) => ({ ...prev, [id]: text }));
-    setEditingNoteId(null);
+  const handleSaveNote = async (id, text) => {
+    setPending(true); setError(''); setFieldErrors({});
+    try { await api.savedJobs.update(id, {note: text || null}); setEditingNoteId(null); resource.reload(); }
+    catch (err) { setError(errorLabel(err)); setFieldErrors(fieldErrorsFrom(err)); } finally { setPending(false); }
   };
 
   return (
-    <JobSeekerShell active="Saved jobs">
+    <JobSeekerShell active="Saved jobs" liveData>
       <div className="space-y-6 max-w-5xl">
+        {resource.loading || resource.error ? <ResourceState resource={resource} /> : null}
+        {error && <div role="alert" className="text-red-700 text-sm">{error}</div>}
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -60,7 +64,7 @@ export default function SavedJobsPage() {
               Saved Jobs & Bookmarks
             </h1>
             <p className="text-xs md:text-sm text-[#6B7280] mt-1">
-              Keep track of roles you're considering and attach private application notes.
+              Keep track of roles you&apos;re considering and attach private application notes.
             </p>
           </div>
 
@@ -105,20 +109,20 @@ export default function SavedJobsPage() {
                   : 'text-[#4A5568] hover:bg-[#FAF8F4]'
               }`}
             >
-              {t} {t === 'All' ? `(${savedList.length})` : ''}
+              {t} {t === 'All' ? `(${resource.data?.total ?? 0})` : ''}
             </button>
           ))}
         </div>
 
         {/* Content Area */}
-        {filtered.length === 0 ? (
+        {!resource.loading && !resource.error && filtered.length === 0 ? (
           <div className="rounded-xl border border-[#E5E1D8] bg-white p-12 text-center space-y-3">
             <span className="grid h-12 w-12 mx-auto place-items-center rounded-full bg-[#FAF8F4] text-[#A0A7B4]">
               <Bookmark size={22} />
             </span>
             <h3 className="text-base font-semibold text-[#0F1B2D]">No saved jobs found</h3>
             <p className="text-xs text-[#6B7280] max-w-sm mx-auto">
-              Save jobs from your search to compare opportunities and keep private interview preparation notes.
+              Saved roles will appear here. Saving from job search is not wired yet.
             </p>
             <Link href="/jobseeker/jobs" className="inline-block pt-2">
               <JobBtn primary small>
@@ -128,8 +132,9 @@ export default function SavedJobsPage() {
           </div>
         ) : viewMode === 'cards' ? (
           <div className="space-y-4">
+            {tab !== 'All' && resource.data?.total > 20 && <p className="text-xs">Filters apply to the current page.</p>}
             {filtered.map((job) => {
-              const note = notes[job.id] || '';
+              const note = job.note;
               const isEditing = editingNoteId === job.id;
               return (
                 <div
@@ -143,13 +148,8 @@ export default function SavedJobsPage() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <Link
-                            href={`/jobseeker/jobs/${job.id}`}
-                            className="text-sm font-semibold text-[#0F1B2D] hover:underline"
-                          >
-                            {job.title}
-                          </Link>
-                          <StatusChip status={job.status || 'Open'} />
+                          {job.available ? <Link href={`/jobseeker/jobs/${job.id}`} className="text-sm font-semibold text-[#0F1B2D] hover:underline">{job.title}</Link> : <span className="text-sm font-semibold">{job.title}</span>}
+                          <StatusChip status={job.status ? job.status[0].toUpperCase() + job.status.slice(1) : 'Unavailable'} />
                         </div>
                         <p className="text-xs text-[#4A5568]">
                           {job.company?.name || job.company} · {job.loc} · {job.type}
@@ -159,13 +159,14 @@ export default function SavedJobsPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Link href={`/jobseeker/jobs/${job.id}/apply`}>
+                      {job.available && job.status === 'open' && <Link href={`/jobseeker/jobs/${job.id}/apply`}>
                         <JobBtn primary small>
                           Apply <ArrowRight size={13} />
                         </JobBtn>
-                      </Link>
+                      </Link>}
                       <button
                         type="button"
+                        disabled={pending}
                         onClick={() => handleRemove(job.id)}
                         className="p-2 text-[#A0A7B4] hover:text-[#B42318] transition-colors rounded-lg hover:bg-[#FCE8E6]"
                         title="Remove bookmark"
@@ -199,9 +200,11 @@ export default function SavedJobsPage() {
                           type="text"
                           defaultValue={note}
                           id={`note-${job.id}`}
-                          placeholder="E.g. Referral from Priya, prep portfolio for round 2..."
+                          maxLength={2000}
+                          placeholder="Add a private note"
                           className="w-full h-8 px-2.5 rounded border border-[#E5E1D8] bg-white text-xs text-[#0F1B2D] focus:outline-none focus:border-[#B8955A]"
                         />
+                        <FieldError>{fieldErrors.note}</FieldError>
                         <div className="flex justify-end gap-1.5">
                           <button
                             type="button"
@@ -250,12 +253,7 @@ export default function SavedJobsPage() {
                   {filtered.map((job) => (
                     <tr key={job.id} className="hover:bg-[#FAF8F4]/50 transition-colors">
                       <td className="p-3.5 pl-5">
-                        <Link
-                          href={`/jobseeker/jobs/${job.id}`}
-                          className="font-semibold hover:underline block"
-                        >
-                          {job.title}
-                        </Link>
+                        {job.available ? <Link href={`/jobseeker/jobs/${job.id}`} className="font-semibold hover:underline block">{job.title}</Link> : <span className="font-semibold">{job.title}</span>}
                         <span className="text-[#6B7280]">
                           {job.company?.name || job.company}
                         </span>
@@ -263,17 +261,18 @@ export default function SavedJobsPage() {
                       <td className="p-3.5 text-[#4A5568]">{job.loc}</td>
                       <td className="p-3.5 font-medium">{job.salary}</td>
                       <td className="p-3.5">
-                        <StatusChip status={job.status || 'Open'} />
+                        <StatusChip status={job.status ? job.status[0].toUpperCase() + job.status.slice(1) : 'Unavailable'} />
                       </td>
                       <td className="p-3.5 pr-5 text-right space-x-2">
-                        <Link href={`/jobseeker/jobs/${job.id}/apply`}>
+                        {job.available && job.status === 'open' && <Link href={`/jobseeker/jobs/${job.id}/apply`}>
                           <JobBtn primary small>
                             Apply
                           </JobBtn>
-                        </Link>
+                        </Link>}
                         <button
                           type="button"
-                          onClick={() => handleRemove(job.id)}
+                          disabled={pending}
+                        onClick={() => handleRemove(job.id)}
                           className="text-[#A0A7B4] hover:text-[#B42318] p-1.5"
                           title="Remove"
                           aria-label="Remove"
@@ -288,6 +287,7 @@ export default function SavedJobsPage() {
             </div>
           </div>
         )}
+        <Pagination page={resource.data} onChange={setOffset} />
       </div>
     </JobSeekerShell>
   );

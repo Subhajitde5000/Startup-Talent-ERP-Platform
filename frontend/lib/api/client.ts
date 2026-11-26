@@ -414,7 +414,7 @@ export type InsightsResponse = components["schemas"]["InsightsResponse"];
 export type MonthlyCount = components["schemas"]["MonthlyCount"];
 export type YourFunnelStats = components["schemas"]["YourFunnelStats"];
 export type ActivityEventRead = components["schemas"]["ActivityEventRead"];
-export type ActivityPage = components["schemas"]["ActivityPage"];
+export type ActivityPage = components["schemas"]["app__schemas__investor_workspace__ActivityPage"];
 export type ActivityStats = components["schemas"]["ActivityStats"];
 export type DailyCount = components["schemas"]["DailyCount"];
 
@@ -1421,6 +1421,26 @@ export const api = {
     /** Open a new erasure request; 409 CONFLICT when one is already open. */
     createDeleteRequest: () =>
       apiRequest<DeleteRequestRead>("/users/me/delete-request", { method: "POST" }),
+  },
+
+  hiringInsights: {
+    dashboard: (org: string, signal?: AbortSignal) => apiRequest<components["schemas"]["HiringDashboard"]>(`/organizations/${org}/hiring/dashboard`, { signal }),
+    analytics: (org: string, signal?: AbortSignal) => apiRequest<components["schemas"]["HiringAnalytics"]>(`/organizations/${org}/hiring/analytics`, { signal }),
+    activity: (org: string, query: {limit?: number; offset?: number} = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["app__schemas__employer_hiring__ActivityPage"]>(`/organizations/${org}/hiring/activity`, { query, signal }),
+  },
+  savedJobs: {
+    list: (query: {limit?: number; offset?: number} = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["SavedJobPage"]>("/saved-jobs", { query, signal }),
+    get: (id: string, signal?: AbortSignal) => apiRequest<components["schemas"]["SavedJobRead"]>(`/saved-jobs/${id}`, { signal }),
+    create: (body: components["schemas"]["SavedJobCreate"]) => apiRequest<components["schemas"]["SavedJobRead"]>("/saved-jobs", {method: "POST", body}),
+    update: (id: string, body: components["schemas"]["SavedJobUpdate"]) => apiRequest<components["schemas"]["SavedJobRead"]>(`/saved-jobs/${id}`, {method: "PATCH", body}),
+    delete: (id: string) => apiRequest<void>(`/saved-jobs/${id}`, {method: "DELETE"}),
+  },
+  jobAlerts: {
+    list: (query: {limit?: number; offset?: number} = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["JobAlertPage"]>("/job-alerts", { query, signal }),
+    get: (id: string, signal?: AbortSignal) => apiRequest<components["schemas"]["JobAlertRead"]>(`/job-alerts/${id}`, { signal }),
+    create: (body: components["schemas"]["JobAlertCreate"]) => apiRequest<components["schemas"]["JobAlertRead"]>("/job-alerts", {method: "POST", body}),
+    update: (id: string, body: components["schemas"]["JobAlertUpdate"]) => apiRequest<components["schemas"]["JobAlertRead"]>(`/job-alerts/${id}`, {method: "PATCH", body}),
+    delete: (id: string) => apiRequest<void>(`/job-alerts/${id}`, {method: "DELETE"}),
   },
 
   jobs: {

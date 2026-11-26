@@ -31,230 +31,13 @@ export const company = {
   featuredLeft: 2,
 };
 
-export const user = {
-  name: "Priya Mehta",
-  role: "Employer",
-  teamRole: "Recruiter",
-  signedIn: true,
-};
 
-export const kpis = [
-  {
-    label: "Open jobs",
-    value: "4",
-    caption: "1 closing this week",
-    change: "▲ 2 vs last week",
-    color: GOLD_DARK,
-    sparkline: [1, 2, 2, 3, 4],
-  },
-  {
-    label: "New applicants (7 days)",
-    value: "26",
-    caption: "",
-    change: "▲ 8 vs last week",
-    color: INK,
-    sparkline: [2, 4, 3, 5, 6],
-  },
-  {
-    label: "Interviews this week",
-    value: "9",
-    caption: "",
-    change: "▲ 1 vs last week",
-    color: GOLD_DARK,
-    sparkline: [1, 1, 2, 2, 2],
-  },
-  {
-    label: "Offers out",
-    value: "2",
-    caption: "1 expiring in 48h",
-    change: "▲ 0 vs last week",
-    color: INK,
-    sparkline: [0, 1, 1, 2, 2],
-  },
-];
 
-export const nextActions = [
-  {
-    label: "Review new applicants",
-    reason: "3 applicants unreviewed for 3+ days",
-    action: "Review",
-  },
-];
 
-export const attention = [
-  {
-    id: "a-1",
-    icon: Briefcase,
-    text: "5 new applicants unreviewed for Product Designer",
-    wait: "4 days",
-    chip: "Over 3 days",
-    chipType: "warning",
-    action: "Review applicants",
-    link: "/employer/jobs/job-1",
-  },
-  {
-    id: "a-2",
-    icon: Clock,
-    text: "Candidate waiting over 14 days — Software Engineer",
-    wait: "16 days",
-    chip: "No reply yet",
-    chipType: "error",
-    action: "Reply or reject kindly",
-    link: "/employer/jobs/job-2",
-  },
-  {
-    id: "a-3",
-    icon: ClipboardList,
-    text: "Interview feedback overdue — 2 scorecards",
-    wait: "1 day",
-    chip: "Overdue",
-    chipType: "warning",
-    action: "Submit scorecard",
-    link: "/employer/interviews",
-  },
-  {
-    id: "a-4",
-    icon: Mail,
-    text: "Offer expiring within 48 hours — Senior Designer",
-    wait: "48 hours",
-    chip: "Expiring soon",
-    chipType: "warning",
-    action: "Review offer",
-    link: "/employer/offers/off-1",
-  },
-  {
-    id: "a-5",
-    icon: ShieldAlert,
-    text: "Trust & Safety report — Job post #44",
-    wait: "2 days",
-    chip: "Needs review",
-    chipType: "error",
-    action: "Open report",
-    link: "/employer/trust?tab=reports",
-  },
-];
 
-export const jobs = [
-  {
-    id: "job-1",
-    title: "Product Designer",
-    status: "Open",
-    location: "Kolkata, West Bengal",
-    mode: "Hybrid",
-    daysOpen: 12,
-    owner: "Priya Mehta",
-    applicants: 24,
-    stages: { applied: 24, shortlisted: 6, interview: 3, offer: 1 },
-    badge: "+6 new",
-    hint: false,
-    flagged: false,
-  },
-  {
-    id: "job-2",
-    title: "Software Engineer",
-    status: "Closing soon",
-    location: "Remote, India",
-    mode: "Remote",
-    daysOpen: 21,
-    owner: "Rahul Verma",
-    applicants: 18,
-    stages: { applied: 18, shortlisted: 5, interview: 2, offer: 0 },
-    badge: "+2 new",
-    hint: true,
-    flagged: false,
-  },
-  {
-    id: "job-3",
-    title: "UX Researcher",
-    status: "Open",
-    location: "Bengaluru, Karnataka",
-    mode: "On-site",
-    daysOpen: 8,
-    owner: "Sana Desai",
-    applicants: 5,
-    stages: { applied: 5, shortlisted: 2, interview: 1, offer: 0 },
-    badge: null,
-    hint: true,
-    flagged: false,
-  },
-  {
-    id: "job-4",
-    title: "Engineering Manager",
-    status: "Pending approval",
-    location: "Pune, Maharashtra",
-    mode: "Hybrid",
-    daysOpen: 6,
-    owner: "Owner account",
-    applicants: 0,
-    stages: { applied: 0, shortlisted: 0, interview: 0, offer: 0 },
-    badge: null,
-    hint: false,
-    flagged: true,
-  },
-];
 
-export const todayInterviews = [
-  {
-    time: "11:00 AM IST",
-    candidate: "Aanya Sen",
-    role: "Product Designer",
-    interviewers: "Priya · Rahul",
-    format: "Video",
-    join: false,
-  },
-  {
-    time: "2:30 PM IST",
-    candidate: "Candidate #44",
-    role: "Software Engineer",
-    interviewers: "Sana",
-    format: "Video",
-    join: true,
-  },
-];
 
-export const pendingOffers = [
-  {
-    id: "off-1",
-    candidate: "Aanya Sen",
-    job: "Product Designer",
-    status: "Sent",
-    expiry: "in 48 hours",
-    expiryType: "warning",
-    countered: false,
-  },
-  {
-    id: "off-2",
-    candidate: "Rohan Kapoor",
-    job: "UX Researcher",
-    status: "Awaiting approval",
-    expiry: "in 6 days",
-    expiryType: null,
-    countered: true,
-  },
-];
 
-export const teamActivity = [
-  {
-    text: "Priya moved Arjun to Interview",
-    time: "10:14 AM",
-    link: "/employer/hiring",
-  },
-  {
-    text: "Rahul submitted feedback for Sana",
-    time: "9:42 AM",
-    link: "/employer/hiring",
-  },
-  {
-    text: "Offer v2 approved by Meera",
-    time: "Yesterday",
-    link: "/employer/offers",
-  },
-  {
-    text: "Sana shortlisted 2 candidates",
-    time: "Yesterday",
-    link: "/employer/talent",
-  },
-];
 
 export const notifications = [
   {
@@ -406,17 +189,6 @@ export const applications = [
 /*  Shared UI primitives (accessible sizes, WCAG AA)                  */
 /* ------------------------------------------------------------------ */
 
-export const analyticsKpis = [
-  { label: "Applicants", value: "312", delta: 14, spark: [4, 5, 3, 6, 5, 7, 6] },
-  { label: "Hires", value: "9", delta: 0, spark: [1, 1, 0, 2, 1, 1, 3] },
-  {
-    label: "Median time to first response",
-    value: "3 days",
-    delta: -2,
-    spark: [6, 5, 5, 4, 4, 3, 3],
-  },
-  { label: "Median time to hire", value: "28 days", delta: -5, spark: [40, 35, 32, 30, 28] },
-];
 
 export const insights = [
   {
@@ -442,13 +214,6 @@ export const insights = [
   },
 ];
 
-export const funnelStages = [
-  { stage: "Applied", count: 312, conversion: null },
-  { stage: "Shortlisted", count: 118, conversion: 38 },
-  { stage: "Interview", count: 64, conversion: 54 },
-  { stage: "Offer", count: 22, conversion: 34 },
-  { stage: "Hired", count: 9, conversion: 41 },
-];
 
 export const dropoffByStage = [
   { stage: "Shortlisted", reason: "Rejected", count: 45, pct: 14 },
@@ -458,29 +223,8 @@ export const dropoffByStage = [
   { stage: "Hired", reason: "Did not join", count: 2, pct: 1 },
 ];
 
-export const jobsFunnel = [
-  { job: "Product Designer", applicants: 64, shortlisted: 22, interviewed: 12, offers: 5, hires: 2, medianTime: "26 days", status: "Open" },
-  { job: "Software Engineer", applicants: 98, shortlisted: 38, interviewed: 21, offers: 8, hires: 4, medianTime: "31 days", status: "Open" },
-  { job: "UX Researcher", applicants: 41, shortlisted: 15, interviewed: 9, offers: 3, hires: 1, medianTime: "22 days", status: "Open" },
-  { job: "Engineering Manager", applicants: 29, shortlisted: 11, interviewed: 6, offers: 2, hires: 1, medianTime: "35 days", status: "Open" },
-  { job: "Content Writer", applicants: 80, shortlisted: 32, interviewed: 16, offers: 4, hires: 1, medianTime: "19 days", status: "Paused" },
-];
 
-export const speedByJob = [
-  { job: "Product Designer", within3: 68, within7: 85, within14: 94, median: "2 days" },
-  { job: "Software Engineer", within3: 42, within7: 71, within14: 89, median: "5 days" },
-  { job: "UX Researcher", within3: 55, within7: 78, within14: 92, median: "4 days" },
-  { job: "Engineering Manager", within3: 31, within7: 58, within14: 79, median: "7 days" },
-];
 
-export const sources = [
-  { source: "Job search", applicants: 114, toInterview: 22, toHire: 3 },
-  { source: "Startups hiring", applicants: 68, toInterview: 19, toHire: 2 },
-  { source: "Invitations accepted", applicants: 52, toInterview: 14, toHire: 1 },
-  { source: "Recommendations", applicants: 31, toInterview: 11, toHire: 2 },
-  { source: "Direct link", applicants: 27, toInterview: 6, toHire: 0 },
-  { source: "Referrals", applicants: 20, toInterview: 7, toHire: 1 },
-];
 
 export const invitesData = { sent: 140, viewed: 89, accepted: 31, declined: 23, limit: 200, used: 140 };
 
@@ -629,116 +373,6 @@ export const blockedCandidates = [
 ];
 
 // Audit log entries
-export const auditLog = [
-  {
-    id: "a-101",
-    time: "Nov 6, 2026 · 10:14 AM IST",
-    who: "Priya Mehta · Recruiter",
-    category: "Candidate data",
-    action: "Viewed candidate profile: Candidate #23 for Product Designer",
-    target: "Candidate #23 · Product Designer",
-    outcome: "Success",
-    context: "Chrome · Kolkata, IN · sess-7f2a",
-    details: {
-      before: "-",
-      after: "Profile viewed (3 min)",
-      ip: "203.112.45.12",
-      device: "Chrome on macOS",
-      session: "sess-7f2a9c",
-      region: "Kolkata, IN",
-    },
-  },
-  {
-    id: "a-102",
-    time: "Nov 6, 2026 · 09:58 AM IST",
-    who: "Rahul Verma · Hiring manager",
-    category: "Hiring",
-    action: "Moved stage: Shortlisted → Interview (Software Engineer)",
-    target: "Candidate #31 · Software Engineer",
-    outcome: "Success",
-    context: "Safari · Bengaluru, IN · sess-8b1c",
-    details: {
-      before: "Stage: Shortlisted",
-      after: "Stage: Interview",
-      ip: "143.22.19.8",
-      device: "Safari on iOS",
-      session: "sess-8b1c4d",
-      region: "Bengaluru, IN",
-    },
-  },
-  {
-    id: "a-103",
-    time: "Nov 5, 2026 · 04:22 PM IST",
-    who: "System",
-    category: "Security",
-    action: "New device sign-in",
-    target: "Priya Mehta",
-    outcome: "Success",
-    context: "Firefox · New Delhi, IN · sess-9d3e",
-    details: {
-      before: "-",
-      after: "New device: Firefox on Windows",
-      ip: "45.67.89.1",
-      device: "Firefox on Windows",
-      session: "sess-9d3e2f",
-      region: "New Delhi, IN",
-    },
-  },
-  {
-    id: "a-104",
-    time: "Nov 5, 2026 · 02:10 PM IST",
-    who: "Priya Mehta · Recruiter",
-    category: "Offers",
-    action: "Sent offer: Product Designer",
-    target: "Offer #7 · Product Designer",
-    outcome: "Success",
-    context: "Chrome · Kolkata, IN · sess-7f2a",
-    details: {
-      before: "Draft",
-      after: "Sent to candidate",
-      ip: "203.112.45.12",
-      device: "Chrome on macOS",
-      session: "sess-7f2a9c",
-      region: "Kolkata, IN",
-    },
-  },
-  {
-    id: "a-105",
-    time: "Nov 4, 2026 · 11:05 AM IST",
-    who: "Interviewer (name withheld)",
-    category: "Hiring",
-    action: "Submitted scorecard",
-    target: "Candidate #23 · Product Designer",
-    outcome: "Success",
-    context: "Chrome · Pune, IN · sess-5e6f",
-    details: {
-      before: "Pending",
-      after: "Scorecard submitted",
-      ip: "182.73.11.4",
-      device: "Chrome on Linux",
-      session: "sess-5e6f7a",
-      region: "Pune, IN",
-    },
-  },
-  {
-    id: "a-106",
-    time: "Nov 3, 2026 · 08:40 PM IST",
-    who: "Owner account · Owner",
-    category: "Team",
-    action: "Role changed: Sana Desai → Admin",
-    target: "Team settings",
-    outcome: "Success",
-    context: "Chrome · Kolkata, IN · sess-1a2b",
-    details: {
-      before: "Role: Hiring manager",
-      after: "Role: Admin",
-      ip: "203.112.45.12",
-      device: "Chrome on macOS",
-      session: "sess-1a2b3c",
-      region: "Kolkata, IN",
-    },
-  },
-];
 
 export const securityAlerts = [
   { id: "sa-1", text: "New device sign-in from New Delhi", time: "2 hours ago", severity: "info" },

@@ -1,7 +1,9 @@
+'use client';
+import { usePathname } from 'next/navigation';
 import RoleGuard from '@/components/role-guard';
 
-// Step 2 auth guard: every route under /employer/ requires the "employer" role.
-// Pages render their own shell/sidebar; this gates the whole section.
 export default function EmployerLayout({ children }) {
-  return <RoleGuard role="employer">{children}</RoleGuard>;
+  const path = usePathname();
+  const hiringInsights = ['/employer/dashboard', '/employer/analytics', '/employer/activity'].includes(path);
+  return <RoleGuard role="employer" roles={hiringInsights ? ['employer', 'startup'] : undefined}>{children}</RoleGuard>;
 }

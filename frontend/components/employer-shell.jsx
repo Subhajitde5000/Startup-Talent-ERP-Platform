@@ -24,6 +24,7 @@ export default function EmployerShell({
   backHref,
   backLabel,
   jobsWorkspace,
+  hiringInsights = false,
 }) {
   const [compact, setCompact] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -39,7 +40,7 @@ export default function EmployerShell({
   ];
 
   return (
-    <RoleGuard role="employer">
+    <RoleGuard role="employer" roles={hiringInsights ? ['employer', 'startup'] : undefined}>
     <div className="min-h-screen bg-[#FAF8F4] text-[#0F1B2D] overflow-x-hidden relative">
       {/* Skip to Main Content Link for Accessibility (WCAG 2.1) */}
       <a

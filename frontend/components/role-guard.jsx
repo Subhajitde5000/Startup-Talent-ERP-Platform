@@ -11,10 +11,11 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ROLE_HOME, useAuth } from '@/lib/auth-context';
 
-export default function RoleGuard({ role, children }) {
+export default function RoleGuard({ role, roles, children }) {
   const { user, loading, hasRole } = useAuth();
   const router = useRouter();
-  const allowed = hasRole(role) || Boolean(user?.organizations?.some(o => (o.type || o.membership_type) === role));
+  const allowedRoles = roles || [role];
+  const allowed = allowedRoles.some(r => hasRole(r) || Boolean(user?.organizations?.some(o => (o.type || o.membership_type) === r)));
 
   useEffect(() => {
     if (loading) return;
