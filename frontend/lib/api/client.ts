@@ -1072,6 +1072,29 @@ export type OutreachBulkResult = components["schemas"]["OutreachBulkResult"];
 export type OutreachListQuery = NonNullable<
   import("./schema").operations["list_outreach_api_v1_organizations__org_id__talent_outreach_get"]["parameters"]["query"]
 >;
+export type CandidateInvitationRead = {
+  id: string;
+  job_id: string;
+  job_title: string;
+  job_department?: string | null;
+  job_location?: string | null;
+  job_work_mode?: string | null;
+  org_id: string;
+  org_name: string;
+  org_logo_url?: string | null;
+  org_slug?: string | null;
+  sent_by_name?: string | null;
+  note?: string | null;
+  created_at: string;
+  applied: boolean;
+  application_id?: string | null;
+};
+export type CandidateInvitationPage = {
+  items: CandidateInvitationRead[];
+  total: number;
+  limit: number;
+  offset: number;
+};
 
 const scorecardPath = (orgId: string) => `/organizations/${orgId}/scorecards`;
 const interviewListPath = (orgId: string) => `/organizations/${orgId}/interviews`;
@@ -1259,6 +1282,9 @@ export const api = {
     /** Counts only — privacy/applied/duplicate/budget skips never fail it. */
     bulkOutreach: (org: string, body: OutreachBulkCreate) =>
       apiRequest<OutreachBulkResult>(`${talentOrgPath(org)}/outreach/bulk`, { method: "POST", body }),
+    /** Candidate side: list employer invitations to apply. */
+    myInvitations: (query: { limit?: number; offset?: number } = {}, signal?: AbortSignal) =>
+      apiRequest<CandidateInvitationPage>("/talent/invitations", { query, signal }),
   },
   careers: {
     jobs: (query: JobDiscoveryQuery = {}, authenticated = false, signal?: AbortSignal) => apiRequest<components["schemas"]["MarketplaceJobPage"]>(`${authenticated ? "" : "/public"}/jobs`, { query, auth: authenticated, signal }),

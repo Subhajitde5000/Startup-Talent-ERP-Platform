@@ -25,6 +25,7 @@ from app.models.user import User
 from app.routers.files import FileRoute
 from app.routers.jobs import _ErrorResponse
 from app.schemas.talent_sourcing import (
+    CandidateInvitationPage,
     OutreachBulkCreate,
     OutreachBulkResult,
     OutreachCreate,
@@ -80,6 +81,28 @@ shortlist_router = APIRouter(
     tags=["talent-sourcing"],
     responses=_RESPONSES,
 )
+candidate_router = APIRouter(
+    route_class=TalentSourcingRoute,
+    prefix="/talent/invitations",
+    tags=["talent-sourcing"],
+    responses=_RESPONSES,
+)
+
+
+@candidate_router.get(
+    "",
+    response_model=CandidateInvitationPage,
+    summary="List role invitations received by the current candidate",
+)
+async def list_my_invitations(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+) -> CandidateInvitationPage:
+    return await talent_sourcing_service.candidate_invitations(
+        db, user, limit=limit, offset=offset
+    )
 
 
 @org_router.get(

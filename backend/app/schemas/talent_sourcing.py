@@ -184,3 +184,35 @@ class OutreachPage(BaseModel):
 class OutreachBulkResult(BaseModel):
     invited: int
     skipped: int
+
+
+class CandidateInvitationRead(BaseModel):
+    """Jobseeker view of an employer's invitation to apply."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    job_id: UUID
+    job_title: str
+    job_department: str | None = None
+    job_work_mode: str | None = None
+    job_location: str | None = None
+    org_id: UUID
+    org_name: str
+    org_logo_file_id: UUID | None = None
+    inviter_name: str | None = None
+    note: str | None = None
+    created_at: datetime
+    applied: bool = False
+    application_id: UUID | None = None
+
+
+class CandidateInvitationPage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[CandidateInvitationRead]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+

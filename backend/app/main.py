@@ -194,9 +194,10 @@ def create_app() -> FastAPI:
     app.include_router(metrics.router, prefix=settings.API_V1_PREFIX)
     app.include_router(invites.router, prefix=settings.API_V1_PREFIX)
     app.include_router(talent.router, prefix=settings.API_V1_PREFIX)
-    # Step 7j: employer-side sourcing (search, shortlists, outreach).
+    # Step 7j: employer-side sourcing (search, shortlists, outreach) & candidate invitations.
     app.include_router(talent_sourcing.org_router, prefix=settings.API_V1_PREFIX)
     app.include_router(talent_sourcing.shortlist_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(talent_sourcing.candidate_router, prefix=settings.API_V1_PREFIX)
     app.include_router(mentor_workspace.router, prefix=settings.API_V1_PREFIX)
     app.include_router(mentor.router, prefix=settings.API_V1_PREFIX)
     # Step 8a: the read-only mentor directory (/mentors) and per-startup

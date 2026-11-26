@@ -645,3 +645,53 @@ async def test_search_and_shortlist_rate_limits(client, marketplace, monkeypatch
         lists_path(w["org"]["id"]), headers=w["headers"], json={"name": "Two"}
     )
     assert second.status_code == 429, second.text
+
+
+async def test_candidate_invitations_endpoint(client, marketplace):
+    w = marketplace
+    target = await seeker(client, "candidate-invited@example.com")
+    other = await seeker(client, "candidate-other@example.com")
+
+    # Target candidate has no invitations initially
+    empty = await client.get("/api/v1/talent/invitations", headers=target["headers"])
+    assert empty.status_code == 200
+    assert empty.json()["items"] == []
+    assert empty.json()["total"] == 0
+
+    # Employer sends outreach with note
+    invited = await invite(
+        client,
+        w,
+        target,
+        note="We loved your background and would like you to apply.",
+    )
+    assert invited["status"] == "pending"
+
+    # Target candidate now sees the invitation
+    res = await client.get("/api/v1/talent/invitations", headers=target["headers"])
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total"] == 1
+    item = data["items"][0]
+    assert item["job_id"] == w["job"]["id"]
+    assert item["job_title"] == w["job"]["title"]
+    assert item["org_name"] == w["org"]["name"]
+    assert item["note"] == "We loved your background and would like you to apply."
+    assert item["applied"] is False
+    assert item["application_id"] is None
+
+    # Other candidate sees nothing
+    other_res = await client.get("/api/v1/talent/invitations", headers=other["headers"])
+    assert other_res.status_code == 200
+    assert other_res.json()["items"] == []
+
+    # Target candidate applies to the job
+    app_record = await apply(client, {**w, "candidate": target})
+
+    # Invitation now shows applied=True with application_id
+    updated_res = await client.get("/api/v1/talent/invitations", headers=target["headers"])
+    assert updated_res.status_code == 200
+    updated_item = updated_res.json()["items"][0]
+    assert updated_item["applied"] is True
+    assert updated_item["application_id"] == app_record["id"]
+

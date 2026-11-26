@@ -60,6 +60,8 @@ from app.models.talent_sourcing import (
 )
 from app.models.user import AccountStatus, User, UserRole
 from app.schemas.talent_sourcing import (
+    CandidateInvitationPage,
+    CandidateInvitationRead,
     OutreachBulkCreate,
     OutreachBulkResult,
     OutreachCreate,
@@ -928,3 +930,126 @@ async def list_outreach(
         daily_limit=settings.TALENT_OUTREACH_DAILY_LIMIT,
         daily_used=await _daily_used(db, user.id),
     )
+
+
+async def candidate_invitations(
+    db: AsyncSession,
+    user: User,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+) -> CandidateInvitationPage:
+    """GET /talent/invitations — invitations to apply received by the current user."""
+    stmt = (
+        select(TalentOutreach)
+        .where(TalentOutreach.candidate_user_id == user.id)
+    )
+    total = (
+        await db.execute(select(func.count()).select_from(stmt.subquery()))
+    ).scalar_one()
+
+    rows = list(
+        (
+            await db.execute(
+                stmt.order_by(TalentOutreach.created_at.desc(), TalentOutreach.id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    if not rows:
+        return CandidateInvitationPage(
+            items=[],
+            total=total,
+            limit=limit,
+            offset=offset,
+            has_more=False,
+        )
+
+    job_ids = [r.job_id for r in rows]
+    org_ids = [r.org_id for r in rows]
+    sender_ids = [r.sent_by for r in rows if r.sent_by]
+
+    # Batch query jobs
+    jobs_map: dict[uuid.UUID, Job] = {
+        j.id: j
+        for j in (
+            await db.execute(
+                select(Job).where(Job.id.in_(job_ids))
+            )
+        )
+        .scalars()
+        .all()
+    }
+
+    # Batch query orgs
+    orgs_map: dict[uuid.UUID, Organization] = {
+        o.id: o
+        for o in (
+            await db.execute(
+                select(Organization).where(Organization.id.in_(org_ids))
+            )
+        )
+        .scalars()
+        .all()
+    }
+
+    # Batch query senders
+    senders_map: dict[uuid.UUID, str] = {
+        row[0]: row[1]
+        for row in (
+            await db.execute(
+                select(User.id, User.display_name).where(User.id.in_(sender_ids))
+            )
+        ).all()
+    }
+
+    # Batch query applications to see if candidate already applied
+    apps = (
+        await db.execute(
+            select(JobApplication.job_id, JobApplication.id).where(
+                JobApplication.job_id.in_(job_ids),
+                JobApplication.applicant_id == user.id,
+                JobApplication.deleted_at.is_(None),
+            )
+        )
+    ).all()
+    app_map: dict[uuid.UUID, uuid.UUID] = {row[0]: row[1] for row in apps}
+
+    items: list[CandidateInvitationRead] = []
+    for r in rows:
+        job = jobs_map.get(r.job_id)
+        org = orgs_map.get(r.org_id)
+        if not job or not org:
+            continue
+        app_id = app_map.get(r.job_id)
+        items.append(
+            CandidateInvitationRead(
+                id=r.id,
+                job_id=job.id,
+                job_title=job.title,
+                job_department=str(job.department) if job.department else None,
+                job_work_mode=str(job.work_mode) if job.work_mode else None,
+                job_location=job.location,
+                org_id=org.id,
+                org_name=org.name,
+                org_logo_file_id=org.logo_file_id,
+                inviter_name=senders_map.get(r.sent_by),
+                note=r.note,
+                created_at=r.created_at,
+                applied=app_id is not None,
+                application_id=app_id,
+            )
+        )
+
+    return CandidateInvitationPage(
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
+        has_more=offset + len(items) < total,
+    )
+
