@@ -1659,6 +1659,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/{org_id}/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List organization applicants across all jobs within my hiring scope
+         * @description List applications across jobs for the organization with blind projection and stage counts.
+         */
+        get: operations["org_applicants_api_v1_organizations__org_id__applications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{org_id}/scorecards": {
         parameters: {
             query?: never;
@@ -3742,6 +3762,140 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/{org_id}/hiring/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Employer hiring dashboard
+         * @description KPI strip, active jobs with applicant counts, attention cues, recent activity.
+         */
+        get: operations["hiring_dashboard_api_v1_organizations__org_id__hiring_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/hiring/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Hiring funnel and velocity
+         * @description Aggregate funnel, time-to-hire / time-to-first-interview, per-job breakdown.
+         */
+        get: operations["hiring_analytics_api_v1_organizations__org_id__hiring_analytics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/hiring/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Hiring activity feed
+         * @description Paginated ``activity_events`` for the organization, newest first.
+         */
+        get: operations["hiring_activity_api_v1_organizations__org_id__hiring_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/saved-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my saved jobs */
+        get: operations["list_saved_jobs_api_v1_saved_jobs_get"];
+        put?: never;
+        /** Save a job */
+        post: operations["save_job_api_v1_saved_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/saved-jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check whether a job is saved */
+        get: operations["get_saved_job_api_v1_saved_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        /** Unsave a job */
+        delete: operations["unsave_job_api_v1_saved_jobs__job_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update the private note */
+        patch: operations["update_saved_note_api_v1_saved_jobs__job_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/job-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my job alerts */
+        get: operations["list_alerts_api_v1_job_alerts_get"];
+        put?: never;
+        /** Create a job alert */
+        post: operations["create_alert_api_v1_job_alerts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/job-alerts/{alert_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read one alert */
+        get: operations["get_alert_api_v1_job_alerts__alert_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete an alert */
+        delete: operations["delete_alert_api_v1_job_alerts__alert_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update an alert */
+        patch: operations["update_alert_api_v1_job_alerts__alert_id__patch"];
+        trace?: never;
+    };
     "/api/v1/organizations/{org_id}/tasks": {
         parameters: {
             query?: never;
@@ -4247,6 +4401,23 @@ export interface paths {
         post?: never;
         /** Remove a candidate from a shortlist */
         delete: operations["remove_member_api_v1_talent_shortlists__shortlist_id__members__member_user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/talent/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List role invitations received by the current candidate */
+        get: operations["list_my_invitations_api_v1_talent_invitations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -5604,16 +5775,21 @@ export interface components {
              */
             created_at: string;
         };
-        /** ActivityPage */
-        ActivityPage: {
-            /** Items */
-            items: components["schemas"]["ActivityEventRead"][];
-            /** Total */
-            total: number;
-            /** Limit */
-            limit: number;
-            /** Offset */
-            offset: number;
+        /** ActivityItem */
+        ActivityItem: {
+            /** Event Type */
+            event_type: string;
+            /** Summary */
+            summary: string;
+            /** Link Url */
+            link_url?: string | null;
+            /** Actor Name */
+            actor_name?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * ActivityStats
@@ -5635,6 +5811,11 @@ export interface components {
         AddRoleRequest: {
             role: components["schemas"]["UserRole"];
         };
+        /**
+         * AlertFrequency
+         * @enum {string}
+         */
+        AlertFrequency: "instant" | "daily" | "weekly";
         /** AnswerSnapshot */
         AnswerSnapshot: {
             /**
@@ -5658,7 +5839,7 @@ export interface components {
         };
         /** ApplicantPage */
         ApplicantPage: {
-            context: components["schemas"]["JobReviewContext"];
+            context?: components["schemas"]["JobReviewContext"] | null;
             /** Items */
             items: components["schemas"]["ApplicantRead"][];
             /** Stage Counts */
@@ -5897,6 +6078,18 @@ export interface components {
          * @enum {string}
          */
         AttendeeRole: "mentor" | "startup" | "observer";
+        /** AttentionItem */
+        AttentionItem: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Title */
+            title: string;
+            /** Unreviewed Applicants */
+            unreviewed_applicants: number;
+        };
         /** AvailabilitySlotIn */
         AvailabilitySlotIn: {
             /**
@@ -6211,6 +6404,68 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** CandidateInvitationPage */
+        CandidateInvitationPage: {
+            /** Items */
+            items: components["schemas"]["CandidateInvitationRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /**
+         * CandidateInvitationRead
+         * @description Jobseeker view of an employer's invitation to apply.
+         */
+        CandidateInvitationRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Job Title */
+            job_title: string;
+            /** Job Department */
+            job_department?: string | null;
+            /** Job Work Mode */
+            job_work_mode?: string | null;
+            /** Job Location */
+            job_location?: string | null;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Org Name */
+            org_name: string;
+            /** Org Logo File Id */
+            org_logo_file_id?: string | null;
+            /** Inviter Name */
+            inviter_name?: string | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Applied
+             * @default false
+             */
+            applied?: boolean;
+            /** Application Id */
+            application_id?: string | null;
         };
         /**
          * CasePriority
@@ -6644,6 +6899,22 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** DashboardJobItem */
+        DashboardJobItem: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Applicants */
+            applicants: number;
+            /** Hires */
+            hires: number;
         };
         /**
          * DashboardMetric
@@ -7816,6 +8087,16 @@ export interface components {
             /** Min Ticket */
             min_ticket?: number | string | null;
         };
+        /** FunnelStage */
+        FunnelStage: {
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "applied" | "shortlisted" | "interview" | "offered" | "hired";
+            /** Count */
+            count: number;
+        };
         /**
          * FunnelStep
          * @description One bar of the sales funnel.
@@ -8040,6 +8321,21 @@ export interface components {
             start_date?: string | null;
             status?: components["schemas"]["HireStatus"] | null;
         };
+        /** HiringAnalytics */
+        HiringAnalytics: {
+            /** Funnel */
+            funnel: components["schemas"]["FunnelStage"][];
+            /** Total Applicants */
+            total_applicants: number;
+            /** Hires */
+            hires: number;
+            /** Avg Time To Hire Days */
+            avg_time_to_hire_days?: number | null;
+            /** Avg Time To First Interview Days */
+            avg_time_to_first_interview_days?: number | null;
+            /** By Job */
+            by_job: components["schemas"]["JobVelocity"][];
+        };
         /** HiringCompany */
         HiringCompany: {
             /**
@@ -8096,6 +8392,32 @@ export interface components {
             offset: number;
             /** Has More */
             has_more: boolean;
+        };
+        /** HiringDashboard */
+        HiringDashboard: {
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            kpis: components["schemas"]["HiringKpis"];
+            /** Jobs */
+            jobs: components["schemas"]["DashboardJobItem"][];
+            /** Attention */
+            attention: components["schemas"]["AttentionItem"][];
+            /** Recent Activity */
+            recent_activity: components["schemas"]["ActivityItem"][];
+        };
+        /** HiringKpis */
+        HiringKpis: {
+            /** Open Jobs */
+            open_jobs: number;
+            /** Total Applicants */
+            total_applicants: number;
+            /** Hires */
+            hires: number;
+            /** Avg Time To Hire Days */
+            avg_time_to_hire_days?: number | null;
         };
         /**
          * HiringRequestCreate
@@ -9617,6 +9939,102 @@ export interface components {
          * @description Empty action input deliberately rejects attempts to smuggle writable fields.
          */
         JobAction: Record<string, never>;
+        /** JobAlertCreate */
+        JobAlertCreate: {
+            /** Title */
+            title: string;
+            criteria?: components["schemas"]["JobAlertCriteria-Input"];
+            /** @default daily */
+            frequency?: components["schemas"]["AlertFrequency"];
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active?: boolean;
+        };
+        /** JobAlertCriteria */
+        "JobAlertCriteria-Input": {
+            /** Keywords */
+            keywords?: string | null;
+            /** Location */
+            location?: string | null;
+            work_mode?: components["schemas"]["WorkMode"] | null;
+            employment_type?: components["schemas"]["EmploymentType"] | null;
+            /** Salary Min */
+            salary_min?: number | string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Remote Only */
+            remote_only?: boolean | null;
+        };
+        /** JobAlertCriteria */
+        "JobAlertCriteria-Output": {
+            /** Keywords */
+            keywords?: string | null;
+            /** Location */
+            location?: string | null;
+            work_mode?: components["schemas"]["WorkMode"] | null;
+            employment_type?: components["schemas"]["EmploymentType"] | null;
+            /** Salary Min */
+            salary_min?: string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Remote Only */
+            remote_only?: boolean | null;
+        };
+        /** JobAlertPage */
+        JobAlertPage: {
+            /** Items */
+            items: components["schemas"]["JobAlertRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /** JobAlertRead */
+        JobAlertRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Title */
+            title: string;
+            criteria: components["schemas"]["JobAlertCriteria-Output"];
+            frequency: components["schemas"]["AlertFrequency"];
+            /** Is Active */
+            is_active: boolean;
+            /** Last Sent At */
+            last_sent_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** JobAlertUpdate */
+        JobAlertUpdate: {
+            /** Title */
+            title?: string | null;
+            criteria?: components["schemas"]["JobAlertCriteria-Input"] | null;
+            frequency?: components["schemas"]["AlertFrequency"] | null;
+            /** Is Active */
+            is_active?: boolean | null;
+        };
         /** JobBenefitRead */
         JobBenefitRead: {
             /**
@@ -9919,6 +10337,26 @@ export interface components {
             skills?: components["schemas"]["JobSkillInput"][] | null;
             /** Benefits */
             benefits?: string[] | null;
+        };
+        /** JobVelocity */
+        JobVelocity: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Applicants */
+            applicants: number;
+            /** Hires */
+            hires: number;
+            /** Avg Time To Hire Days */
+            avg_time_to_hire_days?: number | null;
+            /** Avg Time To First Interview Days */
+            avg_time_to_first_interview_days?: number | null;
         };
         /**
          * JobVisibility
@@ -12398,6 +12836,93 @@ export interface components {
          * @enum {string}
          */
         SalaryPeriod: "annual" | "monthly";
+        /** SavedJobCreate */
+        SavedJobCreate: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * SavedJobJob
+         * @description The job projection embedded in a saved-job row (read-only).
+         */
+        SavedJobJob: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Location */
+            location: string | null;
+            /** Application Deadline */
+            application_deadline: string | null;
+            /** Work Mode */
+            work_mode: string;
+            /** Employment Type */
+            employment_type: string;
+            /** Salary Min */
+            salary_min: string | null;
+            /** Salary Max */
+            salary_max: string | null;
+            /** Currency */
+            currency: string;
+            /** Salary Period */
+            salary_period: string;
+            /**
+             * Org Id
+             * Format: uuid
+             */
+            org_id: string;
+            /** Org Name */
+            org_name: string | null;
+        };
+        /** SavedJobPage */
+        SavedJobPage: {
+            /** Items */
+            items: components["schemas"]["SavedJobRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /** SavedJobRead */
+        SavedJobRead: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Note */
+            note: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            job: components["schemas"]["SavedJobJob"] | null;
+            /** Status */
+            status: string;
+        };
+        /**
+         * SavedJobUpdate
+         * @description The only client-writable field is the private note.
+         */
+        SavedJobUpdate: {
+            /** Note */
+            note: string | null;
+        };
         /** SavedSearchCreate */
         SavedSearchCreate: {
             /** Name */
@@ -14614,6 +15139,30 @@ export interface components {
             unavailable: components["schemas"]["UnavailableCard"][];
             /** Restricted */
             restricted: string[];
+        };
+        /** ActivityPage */
+        app__schemas__employer_hiring__ActivityPage: {
+            /** Items */
+            items: components["schemas"]["ActivityItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /** ActivityPage */
+        app__schemas__investor_workspace__ActivityPage: {
+            /** Items */
+            items: components["schemas"]["ActivityEventRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
         };
         /**
          * DashboardSummary
@@ -21140,6 +21689,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FileDownloadRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Stale stage, terminal application, read-only job or locked setting */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or assignee reference */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Applicant or file-download rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    org_applicants_api_v1_organizations__org_id__applications_get: {
+        parameters: {
+            query?: {
+                job_id?: string | null;
+                stage?: ("applied" | "review" | "shortlisted" | "interview" | "offered" | "hired" | "rejected" | "withdrawn") | null;
+                source?: ("platform" | "referral" | "marketplace" | "outreach" | "agency" | "other") | null;
+                assignee_id?: string | null;
+                q?: string | null;
+                sort?: "newest" | "oldest" | "stage_changed";
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicantPage"];
                 };
             };
             /** @description Missing or invalid authentication */
@@ -28715,7 +29360,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityPage"];
+                    "application/json": components["schemas"]["app__schemas__investor_workspace__ActivityPage"];
                 };
             };
             /** @description Validation Error */
@@ -28852,7 +29497,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityPage"];
+                    "application/json": components["schemas"]["app__schemas__investor_workspace__ActivityPage"];
                 };
             };
             /** @description Validation Error */
@@ -29183,6 +29828,961 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hiring_dashboard_api_v1_organizations__org_id__hiring_dashboard_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HiringDashboard"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not an active member of this organization */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Organization unavailable or outside your scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Analytics rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    hiring_analytics_api_v1_organizations__org_id__hiring_analytics_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HiringAnalytics"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not an active member of this organization */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Organization unavailable or outside your scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Analytics rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    hiring_activity_api_v1_organizations__org_id__hiring_activity_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__schemas__employer_hiring__ActivityPage"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Not an active member of this organization */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Organization unavailable or outside your scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Analytics rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_saved_jobs_api_v1_saved_jobs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedJobPage"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job not found or not saved */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Already saved */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Saved-jobs rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    save_job_api_v1_saved_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedJobCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedJobRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job not found or not saved */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Already saved */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Saved-jobs rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_saved_job_api_v1_saved_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedJobRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job not found or not saved */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Already saved */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Saved-jobs rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    unsave_job_api_v1_saved_jobs__job_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job not found or not saved */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Already saved */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Saved-jobs rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_saved_note_api_v1_saved_jobs__job_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedJobUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedJobRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job not found or not saved */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Already saved */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Saved-jobs rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_alerts_api_v1_job_alerts_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAlertPage"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Alert not found or not owned */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields, references or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-alerts rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_alert_api_v1_job_alerts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobAlertCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAlertRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Alert not found or not owned */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields, references or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-alerts rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_alert_api_v1_job_alerts__alert_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAlertRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Alert not found or not owned */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields, references or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-alerts rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_alert_api_v1_job_alerts__alert_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Alert not found or not owned */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields, references or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-alerts rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_alert_api_v1_job_alerts__alert_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobAlertUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAlertRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Alert not found or not owned */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields, references or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-alerts rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
                 };
             };
         };
@@ -30995,6 +32595,94 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable, private or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Duplicate invite/member or invalid state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or foreign references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Talent search/shortlist/outreach rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_my_invitations_api_v1_talent_invitations_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateInvitationPage"];
+                };
             };
             /** @description Missing or invalid authentication */
             401: {

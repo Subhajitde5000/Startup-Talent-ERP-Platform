@@ -28,6 +28,7 @@ from app.routers import (
     diligence,
     discovery,
     earning,
+    employer_hiring,
     files,
     funding_round,
     hires,
@@ -42,6 +43,7 @@ from app.routers import (
     investor_search,
     investor_workspace,
     invites,
+    job_alerts,
     job_applications,
     job_discovery,
     jobs,
@@ -55,6 +57,7 @@ from app.routers import (
     organizations,
     public,
     readiness,
+    saved_jobs,
     scorecards,
     session,
     session_review,
@@ -187,6 +190,11 @@ def create_app() -> FastAPI:
     app.include_router(investor_hub.router, prefix=settings.API_V1_PREFIX)
     app.include_router(investor_directory.router, prefix=settings.API_V1_PREFIX)
     app.include_router(investor_discovery.router, prefix=settings.API_V1_PREFIX)
+    # Step 7l: employer hiring dashboard, analytics and activity (read-only).
+    app.include_router(employer_hiring.router, prefix=settings.API_V1_PREFIX)
+    # Step 7m: job-seeker saved jobs and alerts (flat, seeker-owned routes).
+    app.include_router(saved_jobs.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(job_alerts.router, prefix=settings.API_V1_PREFIX)
     app.include_router(tasks.router, prefix=settings.API_V1_PREFIX)
     app.include_router(readiness.router, prefix=settings.API_V1_PREFIX)
     # Step 8f: mentor sign-off through the mentorship it comes from.

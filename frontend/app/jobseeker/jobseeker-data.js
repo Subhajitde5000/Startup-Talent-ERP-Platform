@@ -312,25 +312,6 @@ export const practiceSessions = [
   },
 ];
 
-export const alerts = [
-  {
-    id: 'al-1',
-    title: 'Senior Product Designer · Remote',
-    criteria: 'Remote · Full-time · ₹18L+ · Series A/B',
-    frequency: 'Daily email digest & In-app',
-    matches: 6,
-    active: true,
-  },
-  {
-    id: 'al-2',
-    title: 'Staff UX Lead · Bengaluru',
-    criteria: 'Bengaluru / Hybrid · ₹25L+ · Fintech / Health',
-    frequency: 'Instant alert',
-    matches: 2,
-    active: true,
-  },
-];
-
 export const threads = [
   {
     id: 'th-1',
