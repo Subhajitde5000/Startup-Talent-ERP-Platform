@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   EmployerBtn,
   StageChip,
@@ -40,6 +41,10 @@ function EmployerOffersContent() {
   const { org } = useJobsWorkspace();
   const isViewer = org.my_role === 'viewer';
   const canWrite = ['owner', 'admin'].includes(org.my_role);
+
+  const searchParams = useSearchParams();
+  const qJobId = searchParams?.get('jobId') || '';
+  const qAppId = searchParams?.get('applicationId') || '';
 
   const [activeTab, setActiveTab] = useState('All');
   const [toastMessage, setToastMessage] = useState(null);
@@ -110,6 +115,16 @@ function EmployerOffersContent() {
     setShowNewOfferModal(true);
   };
 
+  useEffect(() => {
+    if (qJobId && canWrite) {
+      setOfferJob(qJobId);
+      if (qAppId) {
+        setOfferApplication(qAppId);
+      }
+      setShowNewOfferModal(true);
+    }
+  }, [qJobId, qAppId, canWrite]);
+
   React.useEffect(() => {
     if (!showNewOfferModal || !offerJob) {
       setApplicants({ items: [], loading: false, error: '' });
@@ -127,7 +142,11 @@ function EmployerOffersContent() {
           );
           setApplicants({ items: eligible, loading: false, error: '' });
           setOfferApplication((prev) =>
-            eligible.some((a) => a.id === prev) ? prev : eligible[0]?.id || ''
+            prev && eligible.some((a) => a.id === prev)
+              ? prev
+              : qAppId && eligible.some((a) => a.id === qAppId)
+                ? qAppId
+                : eligible[0]?.id || ''
           );
         }
       })
@@ -509,8 +528,10 @@ function EmployerOffersContent() {
 
 export default function EmployerOffersPage() {
   return (
-    <JobsPage activeNav="/employer/offers">
-      <EmployerOffersContent />
-    </JobsPage>
+    <Suspense fallback={<div className="p-8 text-center text-sm text-[#4A5568]">Loading offers...</div>}>
+      <JobsPage activeNav="/employer/offers">
+        <EmployerOffersContent />
+      </JobsPage>
+    </Suspense>
   );
 }
