@@ -41,7 +41,7 @@ const startsInLabel = (iso) => {
   return `${ago} day${ago === 1 ? '' : 's'} ago`;
 };
 
-const TABS = ['All', 'Upcoming starts', 'Needs action', 'Started', 'Templates'];
+const TABS = ['All', 'Upcoming starts', 'Needs action', 'Started'];
 
 function EmployerHiresContent() {
   const { org } = useJobsWorkspace();
@@ -92,9 +92,7 @@ function EmployerHiresContent() {
         ? needsAction
         : activeTab === 'Started'
           ? started
-          : activeTab === 'Templates'
-            ? []
-            : hires;
+          : hires;
 
   // KPIs derived from the loaded list — never invented.
   const in30 = hires.filter((h) => {
@@ -183,13 +181,7 @@ function EmployerHiresContent() {
               <button
                 key={tab}
                 type="button"
-                onClick={() => {
-                  if (tab === 'Templates') {
-                    window.location.href = '/employer/templates';
-                    return;
-                  }
-                  setActiveTab(tab);
-                }}
+                onClick={() => setActiveTab(tab)}
                 className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs sm:text-sm font-medium transition ${
                   active
                     ? 'bg-[#0F1B2D] text-white shadow-sm'
