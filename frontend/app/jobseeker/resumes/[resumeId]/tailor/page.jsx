@@ -76,18 +76,165 @@ export default function JobTailoringPage() {
     );
   };
 
+  const normalizeText = (text) =>
+    String(text || '').replace(/[\u2010-\u2015]/g, '-');
+
+  const cleanBulletLines = (text) =>
+    normalizeText(text)
+      .split('\n')
+      .map((line) => line.replace(/^[\s•\-*]+/, '').trim())
+      .filter(Boolean);
+
   const handleFinishTailoring = async () => {
-    if (!resumeId) return;
+    if (!resumeId || !resume) return;
     setApplying(true);
     setError('');
     try {
-      const acceptedSummary = suggestions.find(
-        (s) => s.accepted && s.section === 'summary' && s.tailored,
-      );
-      if (acceptedSummary) {
-        await api.resumes.update(resumeId, { summary: acceptedSummary.tailored });
+      const accepted = suggestions.filter((s) => s.accepted && s.tailored);
+
+      // 1. Apply accepted Summary & General suggestions to resume summary
+      const acceptedSummary = accepted.find((s) => s.section === 'summary');
+      const acceptedGenerals = accepted.filter((s) => s.section === 'general');
+      if (acceptedSummary || acceptedGenerals.length > 0) {
+        let nextSummary = acceptedSummary
+          ? acceptedSummary.tailored.trim()
+          : (resume.summary || '').trim();
+        for (const gen of acceptedGenerals) {
+          const addition = gen.tailored.trim();
+          if (addition && !nextSummary.includes(addition)) {
+            nextSummary = nextSummary ? `${nextSummary}\n\n${addition}` : addition;
+          }
+        }
+        if (nextSummary) {
+          await api.resumes.update(resumeId, { summary: nextSummary });
+        }
       }
+
+      // 2. Apply accepted Experience suggestions (works even if resume has 0 experiences yet)
+      const acceptedExps = accepted.filter((s) => s.section === 'experience');
+      if (acceptedExps.length > 0) {
+        const updatedExps = (resume.experiences || []).map((exp) => ({
+          role_title: exp.role_title || '',
+          company: exp.company || '',
+          period_label: exp.period_label || null,
+          bullets: [...(exp.bullets || [])],
+        }));
+
+        if (updatedExps.length === 0) {
+          updatedExps.push({
+            role_title: resume.target_role || 'Relevant Experience',
+            company: 'Experience Highlights',
+            period_label: null,
+            bullets: [],
+          });
+        }
+
+        for (const sug of acceptedExps) {
+          const origNorm = normalizeText(sug.original || '').trim().toLowerCase();
+          const newBullets = cleanBulletLines(sug.tailored);
+          if (newBullets.length === 0) continue;
+
+          let matched = false;
+          if (origNorm) {
+            for (const exp of updatedExps) {
+              const bIdx = exp.bullets.findIndex((b) => {
+                const bNorm = normalizeText(b).trim().toLowerCase();
+                return bNorm === origNorm || bNorm.includes(origNorm) || origNorm.includes(bNorm);
+              });
+              if (bIdx !== -1) {
+                exp.bullets.splice(bIdx, 1, ...newBullets);
+                exp.bullets = exp.bullets.slice(0, 15);
+                matched = true;
+                break;
+              }
+            }
+          }
+
+          if (!matched) {
+            const roleExp =
+              updatedExps.find(
+                (exp) =>
+                  origNorm &&
+                  (origNorm.includes(exp.role_title.toLowerCase()) ||
+                    origNorm.includes(exp.company.toLowerCase())),
+              ) || updatedExps[0];
+            for (const nb of newBullets) {
+              if (roleExp.bullets.length < 15 && !roleExp.bullets.includes(nb)) {
+                roleExp.bullets.push(nb);
+              }
+            }
+          }
+        }
+
+        await api.resumes.replaceExperiences(resumeId, { items: updatedExps });
+      }
+
+      // 3. Apply accepted Skills suggestions (normalize hyphens/parentheticals + preserve order)
+      const acceptedSkills = accepted.filter((s) => s.section === 'skills');
+      if (acceptedSkills.length > 0) {
+        const existingSkills = resume.skills || [];
+        const existingIds = existingSkills.map((s) => s.id);
+        const existingByName = new Map(
+          existingSkills.map((s) => [normalizeText(s.name).toLowerCase(), s.id]),
+        );
+
+        const candidateNames = acceptedSkills
+          .flatMap((s) =>
+            normalizeText(s.tailored)
+              .split(/[,;\n•|]+/)
+              .map((n) =>
+                n
+                  .replace(/^[\s\-*]+/, '')
+                  .replace(/\s*\([^)]*\)\s*/g, ' ')
+                  .trim(),
+              )
+              .filter((n) => n.length > 0 && n.length <= 60),
+          )
+          .slice(0, 25);
+
+        const orderedIds = [];
+        const seen = new Set();
+        for (const name of candidateNames) {
+          const localId = existingByName.get(name.toLowerCase());
+          if (localId) {
+            if (!seen.has(localId)) {
+              seen.add(localId);
+              orderedIds.push(localId);
+            }
+            continue;
+          }
+          try {
+            const matches = await api.skills.search({ q: name, limit: 5 });
+            const exact = (matches || []).find(
+              (m) => normalizeText(m.name).toLowerCase() === name.toLowerCase(),
+            );
+            const pick = exact || (matches && matches.length === 1 ? matches[0] : null);
+            if (pick && !seen.has(pick.id)) {
+              seen.add(pick.id);
+              orderedIds.push(pick.id);
+            }
+          } catch {
+            // ignore individual skill lookup errors
+          }
+        }
+
+        for (const id of existingIds) {
+          if (!seen.has(id)) {
+            seen.add(id);
+            orderedIds.push(id);
+          }
+        }
+
+        const changed =
+          orderedIds.length !== existingIds.length ||
+          orderedIds.some((id, idx) => id !== existingIds[idx]);
+        if (changed && orderedIds.length > 0) {
+          await api.resumes.replaceSkills(resumeId, { skill_ids: orderedIds });
+        }
+      }
+
       router.push(`/jobseeker/resumes/${resumeId}`);
+      router.refresh();
     } catch (err) {
       setError(errorLabel(err, 'Could not apply tailoring changes.'));
       setApplying(false);
