@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
+  Calendar,
   Check,
   Download,
   ExternalLink,
@@ -11,6 +12,7 @@ import {
   EyeOff,
   FileText,
   Loader2,
+  Plus,
   UserCheck,
   UserX,
   X,
@@ -458,7 +460,7 @@ export function ApplicantDetailPage({ jobId, applicationId }) {
   );
 }
 /** Step 7f: this application's interviews, from the org interview list. */
-function ApplicantInterviews({ jobId, applicationId }) {
+function ApplicantInterviews({ jobId, applicationId, onSchedule }) {
   const { org } = useJobsWorkspace();
   const resource = useCareerResource(
     `applicant-interviews:${org.id}:${jobId}:${applicationId}`,
@@ -483,50 +485,378 @@ function ApplicantInterviews({ jobId, applicationId }) {
     );
   if (items.length === 0)
     return (
-      <div className="space-y-2">
-        <p className="text-sm">
+      <div className="space-y-3">
+        <p className="text-sm text-[#4A5568]">
           No interviews scheduled for this applicant yet.
         </p>
-        <Link
-          href="/employer/interviews"
-          className="text-xs font-semibold text-[#806236] hover:underline"
-        >
-          Open Interview Management →
-        </Link>
+        <div className="flex flex-wrap gap-3 items-center">
+          {onSchedule && (
+            <EmployerBtn small primary onClick={onSchedule}>
+              <Plus size={14} className="mr-1" />
+              Schedule interview
+            </EmployerBtn>
+          )}
+          <Link
+            href={`/employer/interviews?jobId=${jobId}&applicationId=${applicationId}`}
+            className="text-xs font-semibold text-[#806236] hover:underline"
+          >
+            Open Interview Management →
+          </Link>
+        </div>
       </div>
     );
   return (
-    <ul className="space-y-3">
-      {items.map((item) => {
-        const when = new Date(item.scheduled_at);
-        const panelists = item.participants
-          .filter((p) => p.side === "interviewer")
-          .map((p) => p.display_name);
-        return (
-          <li
-            key={item.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-3"
+    <div className="space-y-4">
+      <div className="flex flex-wrap justify-between items-center gap-2 border-b border-[#E5E1D8] pb-3">
+        <span className="text-xs text-[#6B7280]">
+          {items.length} {items.length === 1 ? "round scheduled" : "rounds scheduled"}
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {onSchedule && (
+            <EmployerBtn small secondary onClick={onSchedule}>
+              <Plus size={14} className="mr-1" />
+              Schedule another round
+            </EmployerBtn>
+          )}
+          <Link
+            href={`/employer/interviews?jobId=${jobId}&applicationId=${applicationId}`}
+            className="text-xs font-semibold text-[#806236] hover:underline"
           >
-            <div className="min-w-0">
-              <p className="text-sm font-semibold">
-                {item.round_name || "Interview"} ·{" "}
-                {when.toLocaleString("en-IN", {
-                  day: "2-digit",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </p>
-              <p className="text-xs text-[#6B7280]">
-                {panelists.length > 0 ? panelists.join(", ") : "No panelists"} ·{" "}
-                {item.duration_min} min
-              </p>
+            Manage in calendar →
+          </Link>
+        </div>
+      </div>
+      <ul className="space-y-3">
+        {items.map((item) => {
+          const when = new Date(item.scheduled_at);
+          const panelists = item.participants
+            .filter((p) => p.side === "interviewer")
+            .map((p) => p.display_name);
+          return (
+            <li
+              key={item.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E5E1D8] bg-[#FAF8F4] p-3"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[#0F1B2D]">
+                  {item.round_name || "Interview"} ·{" "}
+                  {when.toLocaleString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+                <p className="text-xs text-[#6B7280] mt-0.5">
+                  {panelists.length > 0 ? panelists.join(", ") : "No panelists"} ·{" "}
+                  {item.duration_min} min · {item.format}
+                  {item.meeting_url && (
+                    <>
+                      {" "}·{" "}
+                      <a
+                        href={item.meeting_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#806236] underline hover:text-[#0F1B2D]"
+                      >
+                        Join link
+                      </a>
+                    </>
+                  )}
+                </p>
+              </div>
+              <StageChip stage={item.status.charAt(0).toUpperCase() + item.status.slice(1)} />
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function ScheduleInterviewModal({
+  open,
+  onClose,
+  orgId,
+  jobId,
+  applicationId,
+  candidateLabel,
+  onSuccess,
+}) {
+  const directory = useMemberDirectory();
+  const members = (directory.data?.items || []).filter((m) => m.role !== "viewer");
+
+  const tomorrow = () => {
+    const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+
+  const [round, setRound] = useState("Technical Panel");
+  const [format, setFormat] = useState("video");
+  const [date, setDate] = useState(tomorrow);
+  const [time, setTime] = useState("14:30");
+  const [duration, setDuration] = useState(45);
+  const [meetingUrl, setMeetingUrl] = useState("");
+  const [location, setLocation] = useState("");
+  const [panelists, setPanelists] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  if (!open) return null;
+
+  const togglePanelist = (id) => {
+    setPanelists((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    );
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setFieldErrors({});
+
+    if (panelists.length === 0) {
+      setFieldErrors({ interviewer_ids: "Select at least one panelist." });
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const scheduledAt = new Date(`${date}T${time}`);
+      const body = {
+        round_name: round,
+        format,
+        scheduled_at: scheduledAt.toISOString(),
+        duration_min: Number(duration) || 45,
+        interviewer_ids: panelists,
+      };
+      if (meetingUrl.trim()) body.meeting_url = meetingUrl.trim();
+      if (location.trim()) body.location = location.trim();
+
+      await api.interviews.schedule(orgId, jobId, applicationId, body);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 422) {
+        setFieldErrors(fileFieldErrors(err));
+      }
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not schedule interview. Please check the details and try again."
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="schedule-heading"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto"
+    >
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 border border-[#E5E1D8] shadow-xl my-8">
+        <div className="flex justify-between items-center border-b border-[#E5E1D8] pb-3">
+          <div>
+            <h2 id="schedule-heading" className="font-serif font-bold text-lg text-[#0F1B2D]">
+              Schedule Interview
+            </h2>
+            <p className="text-xs text-[#6B7280]">
+              Candidate: <span className="font-semibold text-[#0F1B2D]">{candidateLabel}</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close scheduling dialog"
+            onClick={onClose}
+            disabled={busy}
+            className="text-[#6B7280] hover:text-[#0F1B2D]"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="modal-round" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                Interview Round
+              </label>
+              <select
+                id="modal-round"
+                value={round}
+                onChange={(e) => setRound(e.target.value)}
+                className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+              >
+                <option value="Initial Recruiter Screen">Recruiter Screen</option>
+                <option value="Technical Panel">Technical Panel</option>
+                <option value="Portfolio Walkthrough">Portfolio Walkthrough</option>
+                <option value="System Design">System Design</option>
+                <option value="Executive / Founder Fit">Executive / Founder Fit</option>
+              </select>
+              {fieldErrors.round_name && (
+                <p className="mt-1 text-xs text-rose-700">{fieldErrors.round_name}</p>
+              )}
             </div>
-            <StageChip stage={item.status.charAt(0).toUpperCase() + item.status.slice(1)} />
-          </li>
-        );
-      })}
-    </ul>
+
+            <div>
+              <label htmlFor="modal-format" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                Interview Format
+              </label>
+              <select
+                id="modal-format"
+                value={format}
+                onChange={(e) => setFormat(e.target.value)}
+                className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+              >
+                <option value="video">Video call</option>
+                <option value="phone">Phone / audio only</option>
+                <option value="onsite">On-site</option>
+                <option value="async">Async (take-home)</option>
+              </select>
+              {fieldErrors.format && (
+                <p className="mt-1 text-xs text-rose-700">{fieldErrors.format}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <label htmlFor="modal-date" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                Date
+              </label>
+              <input
+                id="modal-date"
+                type="date"
+                required
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+              />
+              {fieldErrors.scheduled_at && (
+                <p className="mt-1 text-xs text-rose-700">{fieldErrors.scheduled_at}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="modal-time" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                Time
+              </label>
+              <input
+                id="modal-time"
+                type="time"
+                required
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className="w-full rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="modal-duration" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                Duration
+              </label>
+              <select
+                id="modal-duration"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+              >
+                <option value="30">30 min</option>
+                <option value="45">45 min</option>
+                <option value="60">60 min</option>
+                <option value="90">90 min</option>
+              </select>
+            </div>
+          </div>
+
+          {format === "video" && (
+            <div>
+              <label htmlFor="modal-url" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                Meeting Link (optional)
+              </label>
+              <input
+                id="modal-url"
+                type="url"
+                placeholder="https://meet.google.com/... or Zoom link"
+                value={meetingUrl}
+                onChange={(e) => setMeetingUrl(e.target.value)}
+                className="w-full rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+              />
+              {fieldErrors.meeting_url && (
+                <p className="mt-1 text-xs text-rose-700">{fieldErrors.meeting_url}</p>
+              )}
+            </div>
+          )}
+
+          {format === "onsite" && (
+            <div>
+              <label htmlFor="modal-location" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                Location / Room (optional)
+              </label>
+              <input
+                id="modal-location"
+                type="text"
+                placeholder="Office Address, Room 2B"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-full rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+              />
+              {fieldErrors.location && (
+                <p className="mt-1 text-xs text-rose-700">{fieldErrors.location}</p>
+              )}
+            </div>
+          )}
+
+          <div>
+            <span className="block text-xs font-medium text-[#0F1B2D] mb-1">
+              Interview Panelists (required)
+            </span>
+            <div className="max-h-36 overflow-y-auto rounded-lg border border-[#E5E1D8] p-2 space-y-1.5 bg-[#FAF8F4]">
+              {members.length === 0 ? (
+                <p className="text-xs text-[#6B7280]">Loading team members…</p>
+              ) : (
+                members.map((m) => (
+                  <label key={m.user_id} className="flex items-center gap-2 text-xs text-[#0F1B2D] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={panelists.includes(m.user_id)}
+                      onChange={() => togglePanelist(m.user_id)}
+                      className="rounded border-[#E5E1D8] text-[#806236]"
+                    />
+                    <span>
+                      {m.display_name} <span className="text-[#6B7280]">({m.role})</span>
+                    </span>
+                  </label>
+                ))
+              )}
+            </div>
+            {fieldErrors.interviewer_ids && (
+              <p className="mt-1 text-xs text-rose-700">{fieldErrors.interviewer_ids}</p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-[#E5E1D8]">
+            <EmployerBtn secondary small type="button" onClick={onClose} disabled={busy}>
+              Cancel
+            </EmployerBtn>
+            <EmployerBtn primary small type="submit" disabled={busy}>
+              {busy ? "Scheduling…" : "Confirm & Schedule"}
+            </EmployerBtn>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -735,6 +1065,8 @@ function ApplicantDetail({ jobId, applicationId }) {
     fields: {},
     message: "",
   });
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [interviewKey, setInterviewKey] = useState(0);
   const resource = useCareerResource(
     `applicant:${org.id}:${jobId}:${applicationId}`,
     (signal) => api.applicants.get(org.id, jobId, applicationId, signal),
@@ -833,9 +1165,10 @@ function ApplicantDetail({ jobId, applicationId }) {
             <EmployerBtn
               secondary
               small
-              disabled
-              title="Interview scheduling is not connected"
+              disabled={!canMove || action.busy}
+              onClick={() => setShowScheduleModal(true)}
             >
+              <Calendar size={14} />
               Schedule interview
             </EmployerBtn>
             <EmployerBtn
@@ -893,7 +1226,20 @@ function ApplicantDetail({ jobId, applicationId }) {
         </JobNotice>
       )}
       {action.error && <JobNotice error>{action.error}</JobNotice>}
-      {action.message && <JobNotice>{action.message}</JobNotice>}
+      {action.message && (
+        <JobNotice>
+          <span>{action.message}</span>
+          {row.stage !== "interview" && !terminal.includes(row.stage) && canMove && (
+            <button
+              type="button"
+              onClick={() => move("interview")}
+              className="ml-2 underline font-semibold hover:text-[#0F1B2D]"
+            >
+              Move to Interview stage now →
+            </button>
+          )}
+        </JobNotice>
+      )}
       <div className="grid gap-6 lg:grid-cols-12 min-w-0">
         <div className="lg:col-span-8 space-y-6 min-w-0">
           {tab === "Overview" && (
@@ -984,7 +1330,12 @@ function ApplicantDetail({ jobId, applicationId }) {
           )}
           {tab === "Interviews and feedback" && (
             <EmployerCard title="Interviews and feedback">
-              <ApplicantInterviews jobId={jobId} applicationId={applicationId} />
+              <ApplicantInterviews
+                key={interviewKey}
+                jobId={jobId}
+                applicationId={applicationId}
+                onSchedule={canMove ? () => setShowScheduleModal(true) : undefined}
+              />
             </EmployerCard>
           )}
         </div>
@@ -1194,6 +1545,26 @@ function ApplicantDetail({ jobId, applicationId }) {
             </form>
           </div>
         </div>
+      )}
+      {showScheduleModal && (
+        <ScheduleInterviewModal
+          open={showScheduleModal}
+          onClose={() => setShowScheduleModal(false)}
+          orgId={org.id}
+          jobId={jobId}
+          applicationId={applicationId}
+          candidateLabel={row.label}
+          onSuccess={() => {
+            setInterviewKey((k) => k + 1);
+            setAction({
+              busy: false,
+              error: "",
+              fields: {},
+              message: "Interview scheduled successfully.",
+            });
+            resource.reload();
+          }}
+        />
       )}
     </>
   );
