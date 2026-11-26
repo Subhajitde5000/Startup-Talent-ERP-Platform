@@ -996,11 +996,95 @@ export type InterviewQuery = NonNullable<
   import("./schema").operations["list_interviews_api_v1_organizations__org_id__interviews_get"]["parameters"]["query"]
 >;
 
+// Step 7g: job offers (the existing `api.offers` group above is the
+// Step 9i investor offer flow — different resource, same transport).
+export type JobOfferRead = components["schemas"]["OfferRead"];
+export type JobOfferPage = components["schemas"]["OfferPage"];
+export type JobOfferCreate = components["schemas"]["OfferCreate"];
+export type JobOfferUpdate = components["schemas"]["OfferUpdate"];
+export type JobOfferDecline = components["schemas"]["OfferDecline"];
+export type JobOfferStatus = components["schemas"]["OfferStatus"];
+export type OfferDeclineReasonRead = components["schemas"]["OfferDeclineReasonRead"];
+export type JobOfferListQuery = NonNullable<
+  import("./schema").operations["list_offers_api_v1_organizations__org_id__offers_get"]["parameters"]["query"]
+>;
+export type MyOffersQuery = NonNullable<
+  import("./schema").operations["my_offers_api_v1_offers_mine_get"]["parameters"]["query"]
+>;
+
+// Step 7h: hires, onboarding checklist and org templates.
+export type HireRead = components["schemas"]["HireRead"];
+export type HirePage = components["schemas"]["HirePage"];
+export type HireCreate = components["schemas"]["HireCreate"];
+export type HireUpdate = components["schemas"]["HireUpdate"];
+export type HireStatus = components["schemas"]["HireStatus"];
+export type HireListQuery = NonNullable<
+  import("./schema").operations["list_hires_api_v1_organizations__org_id__hires_get"]["parameters"]["query"]
+>;
+export type OnboardingItemRead = components["schemas"]["OnboardingItemRead"];
+export type OnboardingItemPage = components["schemas"]["OnboardingItemPage"];
+export type OnboardingItemUpdate = components["schemas"]["OnboardingItemUpdate"];
+export type OnboardingItemStatus = components["schemas"]["OnboardingItemStatus"];
+export type HireDocumentCreate = components["schemas"]["HireDocumentCreate"];
+export type HireDocumentUpdate = components["schemas"]["HireDocumentUpdate"];
+export type HireDocumentRead = components["schemas"]["HireDocumentRead"];
+export type HireDocumentPage = components["schemas"]["HireDocumentPage"];
+export type OnboardingTemplateRead = components["schemas"]["TemplateRead"];
+export type OnboardingTemplatePage = components["schemas"]["TemplatePage"];
+export type OnboardingTemplateCreate = components["schemas"]["TemplateCreate"];
+export type OnboardingTemplateUpdate = components["schemas"]["TemplateUpdate"];
+export type TemplateItemRead = components["schemas"]["TemplateItemRead"];
+export type TemplateListQuery = NonNullable<
+  import("./schema").operations["list_templates_api_v1_organizations__org_id__onboarding_templates_get"]["parameters"]["query"]
+>;
+
+// Step 7i: hiring requests (internal headcount approvals).
+export type HiringRequestRead = components["schemas"]["HiringRequestRead"];
+export type HiringRequestPage = components["schemas"]["HiringRequestPage"];
+export type HiringRequestCreate = components["schemas"]["HiringRequestCreate"];
+export type HiringRequestUpdate = components["schemas"]["HiringRequestUpdate"];
+export type HiringRequestListQuery = NonNullable<
+  import("./schema").operations["list_hiring_requests_api_v1_organizations__org_id__hiring_requests_get"]["parameters"]["query"]
+>;
+
+// Step 7j: talent search, shortlists and outreach.
+export type TalentCard = components["schemas"]["TalentCard"];
+export type TalentSearchPage = components["schemas"]["TalentSearchPage"];
+export type TalentSearchQuery = NonNullable<
+  import("./schema").operations["talent_search_api_v1_organizations__org_id__talent_search_get"]["parameters"]["query"]
+>;
+export type ShortlistRead = components["schemas"]["ShortlistRead"];
+export type ShortlistPage = components["schemas"]["ShortlistPage"];
+export type ShortlistDetail = components["schemas"]["ShortlistDetail"];
+export type ShortlistCreate = components["schemas"]["ShortlistCreate"];
+export type ShortlistUpdate = components["schemas"]["ShortlistUpdate"];
+export type ShortlistListQuery = NonNullable<
+  import("./schema").operations["list_shortlists_api_v1_organizations__org_id__talent_shortlists_get"]["parameters"]["query"]
+>;
+export type OutreachRead = components["schemas"]["OutreachRead"];
+export type OutreachPage = components["schemas"]["OutreachPage"];
+export type OutreachCreate = components["schemas"]["OutreachCreate"];
+export type OutreachBulkCreate = components["schemas"]["OutreachBulkCreate"];
+export type OutreachBulkResult = components["schemas"]["OutreachBulkResult"];
+export type OutreachListQuery = NonNullable<
+  import("./schema").operations["list_outreach_api_v1_organizations__org_id__talent_outreach_get"]["parameters"]["query"]
+>;
+
 const scorecardPath = (orgId: string) => `/organizations/${orgId}/scorecards`;
 const interviewListPath = (orgId: string) => `/organizations/${orgId}/interviews`;
 const interviewPath = (orgId: string, id: string) => `${interviewListPath(orgId)}/${id}`;
 const scheduleInterviewPath = (orgId: string, jobId: string, applicationId: string) =>
   `${pipelinePath(orgId, jobId)}/applications/${applicationId}/interviews`;
+const jobOfferListPath = (orgId: string) => `/organizations/${orgId}/offers`;
+const offerPath = (id: string) => `/offers/${id}`;
+const hireListPath = (orgId: string) => `/organizations/${orgId}/hires`;
+const hirePath = (id: string) => `/hires/${id}`;
+const onboardingTemplatePath = (orgId: string) =>
+  `/organizations/${orgId}/onboarding-templates`;
+const hiringRequestListPath = (orgId: string) => `/organizations/${orgId}/hiring-requests`;
+const hiringRequestPath = (id: string) => `/hiring-requests/${id}`;
+const talentOrgPath = (orgId: string) => `/organizations/${orgId}/talent`;
+const shortlistPath = (id: string) => `/talent/shortlists/${id}`;
 
 export const api = {
   applicants: {
@@ -1046,6 +1130,123 @@ export const api = {
       apiRequest<CandidateInterviewPage>(`/applications/${application}/interviews`, { query, signal }),
     candidateGet: (application: string, id: string, signal?: AbortSignal) =>
       apiRequest<CandidateInterviewRead>(`/applications/${application}/interviews/${id}`, { signal }),
+  },
+  // --- Step 7g: job offers (employer pipeline + candidate responses) ----
+  jobOffers: {
+    list: (org: string, query: JobOfferListQuery = {}, signal?: AbortSignal) =>
+      apiRequest<JobOfferPage>(jobOfferListPath(org), { query, signal }),
+    create: (org: string, job: string, application: string, body: JobOfferCreate) =>
+      apiRequest<JobOfferRead>(
+        `/organizations/${org}/jobs/${job}/applications/${application}/offers`,
+        { method: "POST", body },
+      ),
+    get: (id: string, signal?: AbortSignal) =>
+      apiRequest<JobOfferRead>(offerPath(id), { signal }),
+    patch: (id: string, body: JobOfferUpdate) =>
+      apiRequest<JobOfferRead>(offerPath(id), { method: "PATCH", body }),
+    /** Draft → sent; moves the application to `offered`. */
+    send: (id: string) =>
+      apiRequest<JobOfferRead>(`${offerPath(id)}/send`, { method: "POST", body: {} }),
+    /** Sent/draft → withdrawn; reverts `offered` → `interview`. */
+    withdraw: (id: string) =>
+      apiRequest<JobOfferRead>(`${offerPath(id)}/withdraw`, { method: "POST", body: {} }),
+    /** Candidate accept (own application only). */
+    accept: (id: string) =>
+      apiRequest<JobOfferRead>(`${offerPath(id)}/accept`, { method: "POST", body: {} }),
+    /** Candidate decline with a seeded reason (no free text). */
+    decline: (id: string, body: JobOfferDecline) =>
+      apiRequest<JobOfferRead>(`${offerPath(id)}/decline`, { method: "POST", body }),
+    /** All my received offers across my applications (drafts hidden). */
+    mine: (query: MyOffersQuery = {}, signal?: AbortSignal) =>
+      apiRequest<JobOfferPage>(`/offers/mine`, { query, signal }),
+    declineReasons: (signal?: AbortSignal) =>
+      apiRequest<OfferDeclineReasonRead[]>(`/offer-decline-reasons`, { signal }),
+  },
+  // --- Step 7h: hires, onboarding checklist and documents ---------------
+  hires: {
+    list: (org: string, query: HireListQuery = {}, signal?: AbortSignal) =>
+      apiRequest<HirePage>(hireListPath(org), { query, signal }),
+    get: (id: string, signal?: AbortSignal) =>
+      apiRequest<HireRead>(hirePath(id), { signal }),
+    patch: (id: string, body: HireUpdate) =>
+      apiRequest<HireRead>(hirePath(id), { method: "PATCH", body }),
+    /** Turn an accepted offer into a hire (D12 defaults apply). */
+    createFromOffer: (offerId: string, body: HireCreate) =>
+      apiRequest<HireRead>(`/offers/${offerId}/hire`, { method: "POST", body }),
+    onboardingItems: (hireId: string, query: { limit?: number; offset?: number } = {}, signal?: AbortSignal) =>
+      apiRequest<OnboardingItemPage>(`${hirePath(hireId)}/onboarding-items`, { query, signal }),
+    patchOnboardingItem: (hireId: string, itemId: string, body: OnboardingItemUpdate) =>
+      apiRequest<OnboardingItemRead>(
+        `${hirePath(hireId)}/onboarding-items/${itemId}`,
+        { method: "PATCH", body },
+      ),
+    documents: (hireId: string, query: { limit?: number; offset?: number } = {}, signal?: AbortSignal) =>
+      apiRequest<HireDocumentPage>(`${hirePath(hireId)}/documents`, { query, signal }),
+    createDocument: (hireId: string, body: HireDocumentCreate) =>
+      apiRequest<HireDocumentRead>(`${hirePath(hireId)}/documents`, { method: "POST", body }),
+    patchDocument: (id: string, body: HireDocumentUpdate) =>
+      apiRequest<HireDocumentRead>(`/documents/${id}`, { method: "PATCH", body }),
+    downloadDocument: (id: string) =>
+      apiRequest<FileDownloadRead>(`/documents/${id}/download`, { method: "POST", body: {} }),
+  },
+  // --- Step 7h: org onboarding templates (checklist authoring) ----------
+  onboardingTemplates: {
+    list: (org: string, query: TemplateListQuery = {}, signal?: AbortSignal) =>
+      apiRequest<OnboardingTemplatePage>(onboardingTemplatePath(org), { query, signal }),
+    create: (org: string, body: OnboardingTemplateCreate) =>
+      apiRequest<OnboardingTemplateRead>(onboardingTemplatePath(org), { method: "POST", body }),
+    get: (org: string, id: string, signal?: AbortSignal) =>
+      apiRequest<OnboardingTemplateRead>(`${onboardingTemplatePath(org)}/${id}`, { signal }),
+    patch: (org: string, id: string, body: OnboardingTemplateUpdate) =>
+      apiRequest<OnboardingTemplateRead>(
+        `${onboardingTemplatePath(org)}/${id}`,
+        { method: "PATCH", body },
+      ),
+  },
+  // --- Step 7i: hiring requests (draft -> pending -> approved -> job) ----
+  hiringRequests: {
+    list: (org: string, query: HiringRequestListQuery = {}, signal?: AbortSignal) =>
+      apiRequest<HiringRequestPage>(hiringRequestListPath(org), { query, signal }),
+    create: (org: string, body: HiringRequestCreate) =>
+      apiRequest<HiringRequestRead>(hiringRequestListPath(org), { method: "POST", body }),
+    get: (id: string, signal?: AbortSignal) =>
+      apiRequest<HiringRequestRead>(hiringRequestPath(id), { signal }),
+    /** Content edits plus the submit (`status: "pending"`) / cancel intents. */
+    patch: (id: string, body: HiringRequestUpdate) =>
+      apiRequest<HiringRequestRead>(hiringRequestPath(id), { method: "PATCH", body }),
+    approve: (id: string) =>
+      apiRequest<HiringRequestRead>(`${hiringRequestPath(id)}/approve`, { method: "POST", body: {} }),
+    reject: (id: string) =>
+      apiRequest<HiringRequestRead>(`${hiringRequestPath(id)}/reject`, { method: "POST", body: {} }),
+    /** Owner/admin: approved request -> draft job (returns the job). */
+    convert: (id: string) =>
+      apiRequest<JobRead>(`${hiringRequestPath(id)}/convert`, { method: "POST", body: {} }),
+  },
+  // --- Step 7j: talent search, shortlists, outreach ----------------------
+  talent: {
+    search: (org: string, query: TalentSearchQuery = {}, signal?: AbortSignal) =>
+      apiRequest<TalentSearchPage>(`${talentOrgPath(org)}/search`, { query, signal }),
+    shortlists: (org: string, query: ShortlistListQuery = {}, signal?: AbortSignal) =>
+      apiRequest<ShortlistPage>(`${talentOrgPath(org)}/shortlists`, { query, signal }),
+    createShortlist: (org: string, body: ShortlistCreate) =>
+      apiRequest<ShortlistRead>(`${talentOrgPath(org)}/shortlists`, { method: "POST", body }),
+    shortlist: (id: string, signal?: AbortSignal) =>
+      apiRequest<ShortlistDetail>(shortlistPath(id), { signal }),
+    renameShortlist: (id: string, body: ShortlistUpdate) =>
+      apiRequest<ShortlistRead>(shortlistPath(id), { method: "PATCH", body }),
+    deleteShortlist: (id: string) =>
+      apiRequest<void>(shortlistPath(id), { method: "DELETE" }),
+    addMember: (id: string, userId: string) =>
+      apiRequest<TalentCard>(`${shortlistPath(id)}/members`, { method: "POST", body: { user_id: userId } }),
+    removeMember: (id: string, userId: string) =>
+      apiRequest<void>(`${shortlistPath(id)}/members/${userId}`, { method: "DELETE" }),
+    outreach: (org: string, query: OutreachListQuery = {}, signal?: AbortSignal) =>
+      apiRequest<OutreachPage>(`${talentOrgPath(org)}/outreach`, { query, signal }),
+    sendOutreach: (org: string, body: OutreachCreate) =>
+      apiRequest<OutreachRead>(`${talentOrgPath(org)}/outreach`, { method: "POST", body }),
+    /** Counts only — privacy/applied/duplicate/budget skips never fail it. */
+    bulkOutreach: (org: string, body: OutreachBulkCreate) =>
+      apiRequest<OutreachBulkResult>(`${talentOrgPath(org)}/outreach/bulk`, { method: "POST", body }),
   },
   careers: {
     jobs: (query: JobDiscoveryQuery = {}, authenticated = false, signal?: AbortSignal) => apiRequest<components["schemas"]["MarketplaceJobPage"]>(`${authenticated ? "" : "/public"}/jobs`, { query, auth: authenticated, signal }),

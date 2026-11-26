@@ -282,44 +282,7 @@ export const notifications = [
 
 /* ------------------------------------------------------------------ */
 
-export const hiringRequests = [
-  {
-    id: "req-1",
-    role: "Senior Product Designer",
-    department: "Product",
-    headcount: 1,
-    urgency: "High",
-    requestedBy: "Priya Mehta",
-    targetStart: "Dec 1",
-    budget: "₹18L–₹24L",
-    status: "Approved",
-    approver: "Owner",
-  },
-  {
-    id: "req-2",
-    role: "Software Engineer",
-    department: "Engineering",
-    headcount: 2,
-    urgency: "Medium",
-    requestedBy: "Rahul Verma",
-    targetStart: "Jan 15",
-    budget: "₹14L–₹20L",
-    status: "Pending approval",
-    approver: "Admin",
-  },
-  {
-    id: "req-3",
-    role: "UX Researcher",
-    department: "Design",
-    headcount: 1,
-    urgency: "Low",
-    requestedBy: "Sana Desai",
-    targetStart: "Feb 1",
-    budget: "₹16L–₹22L",
-    status: "Draft",
-    approver: "—",
-  },
-];
+// Step 7i: hiringRequests moved to backend/scripts/seed_dev.py (STEP7I_REQUESTS).
 
 export const hiringJobs = [
   {
@@ -431,69 +394,8 @@ export const applications = [
   },
 ];
 
-export const offers = [
-  {
-    id: "off-1",
-    candidate: "Aanya Sen",
-    job: "Product Designer",
-    title: "Product Designer",
-    compensation: "₹22L",
-    startDate: "Jan 2",
-    status: "Sent",
-    expiry: "in 48 hours",
-    owner: "Priya Mehta",
-  },
-  {
-    id: "off-2",
-    candidate: "Rohan Kapoor",
-    job: "UX Researcher",
-    title: "UX Researcher",
-    compensation: "₹18L",
-    startDate: "Jan 15",
-    status: "Awaiting approval",
-    expiry: "in 6 days",
-    owner: "Sana Desai",
-  },
-];
-
-export const talentResults = [
-  {
-    id: "tal-1",
-    name: "Candidate #11",
-    blind: true,
-    headline: "Product Designer",
-    skills: ["Figma", "React", "User research"],
-    experience: "Mid",
-    location: "Kolkata",
-    availability: "Immediately",
-    salary: "₹14L–₹18L",
-    mode: "Hybrid",
-    match: "Skills match: 5 of 7 must-haves",
-  },
-  {
-    id: "tal-2",
-    name: "Candidate #12",
-    blind: true,
-    headline: "Software Engineer",
-    skills: ["React", "Node.js", "TypeScript"],
-    experience: "Senior",
-    location: "Remote",
-    availability: "1 month",
-    salary: "₹20L–₹26L",
-    mode: "Remote",
-    match: "Skills match: 6 of 7 must-haves",
-  },
-];
-
-export const shortlists = [
-  {
-    id: "sl-1",
-    name: "Backend 2026",
-    count: 4,
-    updated: "Oct 28",
-    status: "Not contacted",
-  },
-];
+// Step 7j: talentResults and shortlists moved to backend/scripts/seed_dev.py
+// (STEP7J_TALENT + the "Backend 2026" shortlist); /employer/talent reads the API.
 
 /* ------------------------------------------------------------------ */
 /*  Employer shell                                                    */
@@ -503,13 +405,6 @@ export const templateKpis = [
   { label: "In use", value: "17" },
   { label: "Needs review", value: "2", delta: "warning" },
   { label: "Last updated", value: "3 days ago" },
-];
-
-export const hireKpis = [
-  { label: "Upcoming starts (30 days)", value: "4" },
-  { label: "Documents pending", value: "3", delta: "warning" },
-  { label: "Checks in progress", value: "2" },
-  { label: "Offer-to-start drop-off", value: "1 of 14 did not join" },
 ];
 
 export const templates = [
@@ -599,57 +494,6 @@ export const templates = [
   },
 ];
 
-export const hires = [
-  {
-    id: "hire-1",
-    name: "Aanya Sen",
-    blind: false,
-    role: "Product Designer",
-    job: "Product Designer",
-    department: "Product",
-    manager: "Priya Mehta",
-    owner: "Priya Mehta",
-    startDate: "Dec 2, 2025",
-    status: "Documents pending",
-    checklist: { done: 6, total: 10 },
-    documents: { received: 2, total: 4 },
-    lastActivity: "Oct 30",
-    actions: ["Open", "Message"],
-  },
-  {
-    id: "hire-2",
-    name: "Candidate #44",
-    blind: true,
-    role: "Software Engineer",
-    job: "Software Engineer",
-    department: "Engineering",
-    manager: "Rahul Verma",
-    owner: "Rahul Verma",
-    startDate: "Jan 15, 2026",
-    status: "Checks in progress",
-    checklist: { done: 4, total: 10 },
-    documents: { received: 1, total: 3 },
-    lastActivity: "Oct 28",
-    actions: ["Open", "Message"],
-  },
-  {
-    id: "hire-3",
-    name: "Rohan Kapoor",
-    blind: false,
-    role: "UX Researcher",
-    job: "UX Researcher",
-    department: "Design",
-    manager: "Sana Desai",
-    owner: "Sana Desai",
-    startDate: "Feb 1, 2026",
-    status: "Ready to start",
-    checklist: { done: 10, total: 10 },
-    documents: { received: 4, total: 4 },
-    lastActivity: "Oct 25",
-    actions: ["Open", "Message"],
-  },
-];
-
 /* ------------------------------------------------------------------ */
 /*  Shared UI primitives (accessible sizes, WCAG AA)                  */
 /* ------------------------------------------------------------------ */
@@ -731,22 +575,6 @@ export const sources = [
 ];
 
 export const invitesData = { sent: 140, viewed: 89, accepted: 31, declined: 23, limit: 200, used: 140 };
-
-export const offersFunnel = [
-  { stage: "Created", count: 18 },
-  { stage: "Approved", count: 16 },
-  { stage: "Sent", count: 14 },
-  { stage: "Viewed", count: 12 },
-  { stage: "Accepted", count: 9 },
-  { stage: "Declined", count: 3 },
-  { stage: "Expired", count: 1 },
-  { stage: "Withdrawn", count: 1 },
-];
-
-export const declineReasons = [
-  { reason: "Accepted another offer", count: 2, pct: 67 },
-  { reason: "Compensation", count: 1, pct: 33 },
-];
 
 export const processChecks = [
   {

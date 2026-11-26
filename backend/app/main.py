@@ -30,6 +30,8 @@ from app.routers import (
     earning,
     files,
     funding_round,
+    hires,
+    hiring_requests,
     interviews,
     investor_deal,
     investor_directory,
@@ -49,6 +51,7 @@ from app.routers import (
     mentorship,
     metrics,
     milestones,
+    offers,
     organizations,
     public,
     readiness,
@@ -59,6 +62,7 @@ from app.routers import (
     stage,
     startup_profile,
     talent,
+    talent_sourcing,
     task_comments,
     task_labels,
     tasks,
@@ -152,6 +156,23 @@ def create_app() -> FastAPI:
     app.include_router(interviews.org_router, prefix=settings.API_V1_PREFIX)
     app.include_router(interviews.flat_router, prefix=settings.API_V1_PREFIX)
     app.include_router(interviews.candidate_router, prefix=settings.API_V1_PREFIX)
+    # Step 7g: job offers (nested create, org list, flat offer lifecycle,
+    # candidate view, decline reasons).
+    app.include_router(offers.application_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(offers.org_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(offers.offer_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(offers.candidate_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(offers.reasons_router, prefix=settings.API_V1_PREFIX)
+    # Step 7h: hires, onboarding checklist, hire documents and org
+    # onboarding templates.
+    app.include_router(hires.offer_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(hires.org_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(hires.hire_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(hires.document_router, prefix=settings.API_V1_PREFIX)
+    # Step 7i: hiring requests (draft -> approve/reject -> convert into
+    # a draft job through the server-only jobs.request_id link).
+    app.include_router(hiring_requests.org_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(hiring_requests.row_router, prefix=settings.API_V1_PREFIX)
     app.include_router(startup_profile.router, prefix=settings.API_V1_PREFIX)
     app.include_router(milestones.router, prefix=settings.API_V1_PREFIX)
     app.include_router(funding_round.router, prefix=settings.API_V1_PREFIX)
@@ -172,6 +193,9 @@ def create_app() -> FastAPI:
     app.include_router(metrics.router, prefix=settings.API_V1_PREFIX)
     app.include_router(invites.router, prefix=settings.API_V1_PREFIX)
     app.include_router(talent.router, prefix=settings.API_V1_PREFIX)
+    # Step 7j: employer-side sourcing (search, shortlists, outreach).
+    app.include_router(talent_sourcing.org_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(talent_sourcing.shortlist_router, prefix=settings.API_V1_PREFIX)
     app.include_router(mentor_workspace.router, prefix=settings.API_V1_PREFIX)
     app.include_router(mentor.router, prefix=settings.API_V1_PREFIX)
     # Step 8a: the read-only mentor directory (/mentors) and per-startup

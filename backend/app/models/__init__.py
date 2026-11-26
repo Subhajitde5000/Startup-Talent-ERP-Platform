@@ -4,8 +4,20 @@ from app.models.auth import AuthSession, EmailVerificationToken, LoginAttempt, P
 from app.models.data_room import DataRoom, DataRoomDocument, DataRoomDocumentVersion, DataRoomFolder
 from app.models.data_room_access import DataRoomAccessRequest, DocumentView
 from app.models.file import File
+from app.models.hire import (
+    Hire,
+    HireDocument,
+    HireDocumentStatus,
+    HireOnboardingItem,
+    HireStatus,
+    OnboardingItemStatus,
+    OnboardingTemplate,
+    OnboardingTemplateItem,
+)
+from app.models.hiring_request import HiringRequest, HiringRequestStatus, HiringRequestUrgency
 from app.models.job import Job, JobBenefit, JobSkill
 from app.models.job_application import ApplicationStageEvent, JobApplication
+from app.models.offer import JobOffer, JobOfferStatus, OfferDeclineReason
 from app.models.user import AccountStatus, ReviewState, User, UserRole, UserRoleRow
 
 __all__ = [
@@ -15,6 +27,20 @@ __all__ = [
     "Job",
     "JobBenefit",
     "JobSkill",
+    "Hire",
+    "HireStatus",
+    "HiringRequest",
+    "HiringRequestStatus",
+    "HiringRequestUrgency",
+    "HireDocument",
+    "HireDocumentStatus",
+    "HireOnboardingItem",
+    "OnboardingItemStatus",
+    "OnboardingTemplate",
+    "OnboardingTemplateItem",
+    "JobOffer",
+    "JobOfferStatus",
+    "OfferDeclineReason",
     "AccountStatus",
     "ActivityEvent",
     "ActivityEventType",
