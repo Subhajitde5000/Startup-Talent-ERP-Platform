@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   FileText,
@@ -10,11 +10,14 @@ import {
   Plus,
   Trash2,
   Copy,
+  Eye,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
 import { JobBtn } from '@/components/jobseeker-ui';
 import { api } from '@/lib/api/client';
 import { useCareerResource, ResourceState, Pagination, errorLabel } from '@/components/career-data';
+import { exportResumeAsPdf, exportResumeAsDocx } from '@/lib/resume-export';
+import { ResumePreviewModal } from '@/components/resume-preview-modal';
 
 export default function MyResumesPage() {
   const [search, setSearch] = useState('');
@@ -22,6 +25,28 @@ export default function MyResumesPage() {
   const [offset, setOffset] = useState(0);
   const [actionError, setActionError] = useState('');
   const [busyId, setBusyId] = useState(null);
+  const [previewResume, setPreviewResume] = useState(null);
+  const [exporting, setExporting] = useState(false);
+  const [userContact, setUserContact] = useState(null);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    Promise.all([
+      api.users.me(ctrl.signal).catch(() => null),
+      api.talentProfile.me(ctrl.signal).catch(() => null),
+    ]).then(([u, tp]) => {
+      if (ctrl.signal.aborted || !u) return;
+      setUserContact({
+        display_name: u.display_name || '',
+        email: u.email || '',
+        phone: u.phone || '',
+        location: tp?.current_location || u.region || '',
+        linkedin_url: u.linkedin_url || '',
+        github_url: u.github_url || '',
+      });
+    });
+    return () => ctrl.abort();
+  }, []);
 
   const listRes = useCareerResource(
     `resumes:${search}:${sort}:${offset}`,
@@ -74,6 +99,43 @@ export default function MyResumesPage() {
       setActionError(errorLabel(err, 'Could not delete resume.'));
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const handleView = async (id) => {
+    setBusyId(id);
+    setActionError('');
+    try {
+      const full = await api.resumes.get(id);
+      setPreviewResume(full);
+    } catch (err) {
+      setActionError(errorLabel(err, 'Could not load resume preview.'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!previewResume) return;
+    setExporting(true);
+    try {
+      exportResumeAsPdf(previewResume, userContact);
+    } catch (err) {
+      setActionError(errorLabel(err, 'Could not export PDF.'));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportDocx = async () => {
+    if (!previewResume) return;
+    setExporting(true);
+    try {
+      await exportResumeAsDocx(previewResume, userContact);
+    } catch (err) {
+      setActionError(errorLabel(err, 'Could not export Word document.'));
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -240,7 +302,16 @@ export default function MyResumesPage() {
                   </div>
 
                   <div className="pt-3 border-t border-[#F0EBE0] space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      <JobBtn
+                        secondary
+                        small
+                        disabled={isBusy}
+                        onClick={() => handleView(res.id)}
+                        className="w-full flex items-center justify-center gap-1"
+                      >
+                        <Eye size={12} /> View
+                      </JobBtn>
                       <Link href={`/jobseeker/resumes/${res.id}`} className="w-full">
                         <JobBtn secondary small className="w-full">
                           Edit
@@ -305,6 +376,16 @@ export default function MyResumesPage() {
           />
         </ResourceState>
       </div>
+
+      <ResumePreviewModal
+        open={Boolean(previewResume)}
+        onClose={() => setPreviewResume(null)}
+        resumeData={previewResume}
+        contact={userContact}
+        onExportPdf={handleExportPdf}
+        onExportDocx={handleExportDocx}
+        exporting={exporting}
+      />
     </JobSeekerShell>
   );
 }
