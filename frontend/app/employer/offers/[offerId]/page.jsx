@@ -74,22 +74,18 @@ function EmployerOfferDetailContent() {
   const [hireBusy, setHireBusy] = useState(false);
 
   const templatesRes = useCareerResource(
-    `hire-templates:${org.id}`,
+    org?.id ? `hire-templates:${org.id}` : '',
     (signal) =>
-      showHireModal
-        ? api.onboardingTemplates
-            .list(org.id, { limit: 100 }, signal)
-            .catch(() => ({ items: [] }))
-        : Promise.resolve(null)
+      api.onboardingTemplates
+        .list(org.id, { limit: 100 }, signal)
+        .catch(() => ({ items: [] }))
   );
   const membersRes = useCareerResource(
-    `hire-members:${org.id}`,
+    org?.id ? `hire-members:${org.id}` : '',
     (signal) =>
-      showHireModal
-        ? api.organizations
-            .members(org.id, { limit: 100, status: 'active' }, signal)
-            .catch(() => ({ items: [] }))
-        : Promise.resolve(null)
+      api.organizations
+        .members(org.id, { limit: 100, status: 'active' }, signal)
+        .catch(() => ({ items: [] }))
   );
 
   const showToast = (msg) => {
@@ -189,6 +185,8 @@ function EmployerOfferDetailContent() {
     setHireManager('');
     setHireOwner('');
     setShowHireModal(true);
+    templatesRes.reload();
+    membersRes.reload();
   };
 
   const handleCreateHire = async (e) => {
@@ -491,21 +489,39 @@ function EmployerOfferDetailContent() {
                 department from the job, owner = you).
               </p>
               <div>
-                <label htmlFor="hire-template" className="block text-xs font-medium text-[#0F1B2D] mb-1">
-                  Onboarding Template
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="hire-template" className="block text-xs font-medium text-[#0F1B2D]">
+                    Onboarding Template
+                  </label>
+                  <Link
+                    href="/employer/templates"
+                    target="_blank"
+                    className="text-[11px] text-[#B8955A] hover:underline"
+                  >
+                    Manage templates ↗
+                  </Link>
+                </div>
                 <select
                   id="hire-template"
                   value={hireTemplate}
                   onChange={(e) => setHireTemplate(e.target.value)}
-                  className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+                  disabled={templatesRes.loading}
+                  className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none disabled:bg-gray-100"
                 >
-                  <option value="">No template (start empty)</option>
-                  {(templatesRes.data?.items || []).map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} · {t.items.length} items
-                    </option>
-                  ))}
+                  {templatesRes.loading ? (
+                    <option value="">Loading templates…</option>
+                  ) : (templatesRes.data?.items || []).length === 0 ? (
+                    <option value="">No templates created yet (start empty)</option>
+                  ) : (
+                    <>
+                      <option value="">No template (start empty)</option>
+                      {(templatesRes.data?.items || []).map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} · {t.items?.length || 0} items
+                        </option>
+                      ))}
+                    </>
+                  )}
                 </select>
                 <FieldError>{hireErrors.template_id}</FieldError>
               </div>

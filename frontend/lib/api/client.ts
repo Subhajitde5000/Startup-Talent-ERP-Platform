@@ -972,6 +972,8 @@ const applicantPath = (orgId: string, jobId: string, id: string) => `${pipelineP
 
 // Step 7e: scorecard templates, per-applicant scores and blind-safe compare.
 export type ScorecardRead = components["schemas"]["ScorecardRead"];
+export type ScorecardCreate = components["schemas"]["ScorecardCreate"];
+export type ScorecardUpdate = components["schemas"]["ScorecardUpdate"];
 export type ScorecardPage = components["schemas"]["ScorecardPage"];
 export type ApplicationScoresRead = components["schemas"]["ApplicationScoresRead"];
 export type ScoresPut = components["schemas"]["ScoresPut"];
@@ -1104,6 +1106,14 @@ export const api = {
   scorecards: {
     list: (org: string, query: ScorecardQuery = {}, signal?: AbortSignal) =>
       apiRequest<ScorecardPage>(scorecardPath(org), { query, signal }),
+    get: (org: string, id: string, signal?: AbortSignal) =>
+      apiRequest<ScorecardRead>(`${scorecardPath(org)}/${id}`, { signal }),
+    create: (org: string, body: ScorecardCreate) =>
+      apiRequest<ScorecardRead>(scorecardPath(org), { method: "POST", body }),
+    patch: (org: string, id: string, body: ScorecardUpdate) =>
+      apiRequest<ScorecardRead>(`${scorecardPath(org)}/${id}`, { method: "PATCH", body }),
+    delete: (org: string, id: string) =>
+      apiRequest<void>(`${scorecardPath(org)}/${id}`, { method: "DELETE" }),
     scores: (org: string, job: string, application: string, signal?: AbortSignal) =>
       apiRequest<ApplicationScoresRead>(`${applicantPath(org, job, application)}/scores`, { signal }),
     putScores: (org: string, job: string, application: string, body: ScoresPut) =>
