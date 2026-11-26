@@ -160,7 +160,7 @@ function EmployerOffersContent() {
         }
       });
     return () => controller.abort();
-  }, [showNewOfferModal, offerJob, org.id]);
+  }, [showNewOfferModal, offerJob, org.id, qAppId]);
 
   const selectedJob = (jobsRes.data?.items || []).find((j) => j.id === offerJob);
 

@@ -575,7 +575,7 @@ function ApplicantInterviews({ jobId, applicationId, onSchedule }) {
   );
 }
 
-function ScheduleInterviewModal({
+export function ScheduleInterviewModal({
   open,
   onClose,
   orgId,
@@ -861,7 +861,7 @@ function ScheduleInterviewModal({
   );
 }
 
-function CreateOfferModal({
+export function CreateOfferModal({
   open,
   onClose,
   orgId,

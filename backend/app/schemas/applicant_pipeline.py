@@ -106,7 +106,7 @@ class ApplicantRead(BaseModel):
 
 class ApplicantPage(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    context: JobReviewContext
+    context: JobReviewContext | None = None
     items: list[ApplicantRead]
     stage_counts: dict[ApplicationStage, int]
     total: int

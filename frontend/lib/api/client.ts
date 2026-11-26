@@ -965,6 +965,7 @@ export type OwnApplicationQuery = NonNullable<import("./schema").operations["lis
 // Step 7d: generated contracts, same bearer/refresh/error transport as all other features.
 export type ApplicantRead = components["schemas"]["ApplicantRead"];
 export type ApplicantQuery = NonNullable<import("./schema").operations["applicants_api_v1_organizations__org_id__jobs__job_id__applications_get"]["parameters"]["query"]>;
+export type OrgApplicantQuery = ApplicantQuery & { job_id?: string };
 export type PipelinePatch = components["schemas"]["PipelinePatch"];
 const pipelinePath = (orgId: string, jobId: string) => `/organizations/${orgId}/jobs/${jobId}`;
 const applicantPath = (orgId: string, jobId: string, id: string) => `${pipelinePath(orgId, jobId)}/applications/${id}`;
@@ -1088,6 +1089,7 @@ const shortlistPath = (id: string) => `/talent/shortlists/${id}`;
 
 export const api = {
   applicants: {
+    listOrg: (org: string, query: OrgApplicantQuery = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["ApplicantPage"]>(`/organizations/${org}/applications`, { query, signal }),
     list: (org: string, job: string, query: ApplicantQuery = {}, signal?: AbortSignal) => apiRequest<components["schemas"]["ApplicantPage"]>(`${pipelinePath(org, job)}/applications`, { query, signal }),
     get: (org: string, job: string, id: string, signal?: AbortSignal) => apiRequest<ApplicantRead>(applicantPath(org, job, id), { signal }),
     update: (org: string, job: string, id: string, body: PipelinePatch) => apiRequest<ApplicantRead>(applicantPath(org, job, id), { method: "PATCH", body }),

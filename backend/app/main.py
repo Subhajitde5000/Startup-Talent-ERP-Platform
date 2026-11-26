@@ -146,6 +146,7 @@ def create_app() -> FastAPI:
     app.include_router(job_discovery.router, prefix=settings.API_V1_PREFIX)
     app.include_router(job_applications.router, prefix=settings.API_V1_PREFIX)
     app.include_router(applicant_pipeline.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(applicant_pipeline.org_router, prefix=settings.API_V1_PREFIX)
     # Step 7e: scorecard templates, applicant scores and compare.
     app.include_router(scorecards.router, prefix=settings.API_V1_PREFIX)
     app.include_router(scorecards.scores_router, prefix=settings.API_V1_PREFIX)

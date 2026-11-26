@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, UserCheck } from 'lucide-react';
 import { EmployerBtn, StageChip } from '@/components';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api/client';
@@ -129,7 +129,16 @@ function HiringOverview() {
   return <>
     <div className="flex flex-wrap items-center justify-between gap-4">
       <div><h1 className="text-xl md:text-2xl font-serif font-bold text-[#0F1B2D]">Hiring Overview & Job Postings</h1><p className="text-xs md:text-sm text-[#6B7280] mt-1">Manage your organization’s job postings.</p></div>
-      <div className="flex flex-wrap items-center gap-2">{org.my_role !== 'viewer' && <Link href={href('/employer/requests/new')}><EmployerBtn secondary small>New Hiring Request</EmployerBtn></Link>}{canWrite && <Link href={href('/employer/jobs/new')}><EmployerBtn primary small><Plus size={14} />Create Job Post</EmployerBtn></Link>}</div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href={href('/employer/candidates')}>
+          <EmployerBtn secondary small>
+            <UserCheck size={14} />
+            Candidates Workbench
+          </EmployerBtn>
+        </Link>
+        {org.my_role !== 'viewer' && <Link href={href('/employer/requests/new')}><EmployerBtn secondary small>New Hiring Request</EmployerBtn></Link>}
+        {canWrite && <Link href={href('/employer/jobs/new')}><EmployerBtn primary small><Plus size={14} />Create Job Post</EmployerBtn></Link>}
+      </div>
     </div>
     {!canWrite && <p className="text-xs text-[#6B7280]">Read-only access. Only an owner or admin can create or change jobs.</p>}
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 min-w-0">

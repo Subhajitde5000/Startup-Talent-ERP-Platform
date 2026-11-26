@@ -885,3 +885,25 @@ async def test_history_uses_mutation_time_not_waiting_transaction_start(
             "review",
             "withdrawn",
         ]
+
+
+async def test_org_level_applications_endpoint(client, pipeline):
+    w = pipeline
+    url = f"/api/v1/organizations/{w['org']['id']}/applications"
+    res = await client.get(url, headers=w["headers"])
+    assert res.status_code == 200
+    data = res.json()
+    assert "items" in data
+    assert len(data["items"]) >= 1
+    assert data["items"][0]["id"] == w["app"]["id"]
+    assert data["items"][0]["context"]["title"] == w["job"]["title"]
+
+    # Filter by stage
+    res_stage = await client.get(f"{url}?stage=applied", headers=w["headers"])
+    assert res_stage.status_code == 200
+    assert len(res_stage.json()["items"]) >= 1
+
+    # Filter by job_id
+    res_job = await client.get(f"{url}?job_id={w['job']['id']}", headers=w["headers"])
+    assert res_job.status_code == 200
+    assert len(res_job.json()["items"]) >= 1
