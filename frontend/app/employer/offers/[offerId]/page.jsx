@@ -4,12 +4,11 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
-  EmployerShell,
   EmployerBtn,
   StageChip,
   EmployerSafetyStrip as SafetyStrip,
 } from '@/components';
-import { useJobsWorkspace } from '@/components/employer-jobs-workspace';
+import { JobsPage, useJobsWorkspace } from '@/components/employer-jobs-workspace';
 import { LoadingBlock, EmptyBlock, ErrorBlock, FieldError, fieldErrorsFrom } from '@/components/async-state';
 import { useCareerResource } from '@/components/career-data';
 import { api, ApiError } from '@/lib/api/client';
@@ -37,7 +36,7 @@ const OFFER_LABEL = {
 
 const statusLabel = (status) => OFFER_LABEL[status] || status;
 
-export default function EmployerOfferDetailPage() {
+function EmployerOfferDetailContent() {
   const params = useParams();
   const offerId = params?.offerId;
 
@@ -221,17 +220,17 @@ export default function EmployerOfferDetailPage() {
 
   if (offerRes.loading) {
     return (
-      <EmployerShell active="/employer/offers">
+      <>
         <div className="mx-auto max-w-[1280px]">
           <LoadingBlock label="Loading offer…" />
         </div>
-      </EmployerShell>
+      </>
     );
   }
 
   if (offerRes.error || !offer) {
     return (
-      <EmployerShell active="/employer/offers">
+      <>
         <div className="mx-auto max-w-[1280px] space-y-4">
           <ErrorBlock
             message={
@@ -248,14 +247,14 @@ export default function EmployerOfferDetailPage() {
             <ArrowLeft size={14} /> Back to all offers
           </Link>
         </div>
-      </EmployerShell>
+      </>
     );
   }
 
   const tabs = ['Terms', 'Negotiation', 'Documents', 'History'];
 
   return (
-    <EmployerShell active="/employer/offers">
+    <>
       {toastMessage && (
         <div
           role="status"
@@ -779,6 +778,14 @@ export default function EmployerOfferDetailPage() {
           </div>
         </div>
       </div>
-    </EmployerShell>
+    </>
+  );
+}
+
+export default function EmployerOfferDetailPage() {
+  return (
+    <JobsPage activeNav="/employer/offers">
+      <EmployerOfferDetailContent />
+    </JobsPage>
   );
 }

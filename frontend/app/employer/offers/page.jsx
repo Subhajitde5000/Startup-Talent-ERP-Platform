@@ -3,12 +3,11 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  EmployerShell,
   EmployerBtn,
   StageChip,
   EmployerSafetyStrip as SafetyStrip,
 } from '@/components';
-import { useJobsWorkspace } from '@/components/employer-jobs-workspace';
+import { JobsPage, useJobsWorkspace } from '@/components/employer-jobs-workspace';
 import { LoadingBlock, EmptyBlock, ErrorBlock, FieldError, fieldErrorsFrom } from '@/components/async-state';
 import { useCareerResource } from '@/components/career-data';
 import { api, ApiError } from '@/lib/api/client';
@@ -37,7 +36,7 @@ const TABS = ['All', 'Draft', 'Sent', 'Accepted', 'Declined', 'Expired', 'Withdr
 
 const statusLabel = (status) => OFFER_LABEL[status] || status;
 
-export default function EmployerOffersPage() {
+function EmployerOffersContent() {
   const { org } = useJobsWorkspace();
   const isViewer = org.my_role === 'viewer';
   const canWrite = ['owner', 'admin'].includes(org.my_role);
@@ -184,18 +183,18 @@ export default function EmployerOffersPage() {
 
   if (isViewer) {
     return (
-      <EmployerShell active="/employer/offers">
+      <>
         <div className="mx-auto max-w-[1280px]">
           <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-center text-sm text-[#4A5568]">
             Viewers cannot access offers.
           </div>
         </div>
-      </EmployerShell>
+      </>
     );
   }
 
   return (
-    <EmployerShell active="/employer/offers">
+    <>
       {toastMessage && (
         <div
           role="status"
@@ -504,6 +503,14 @@ export default function EmployerOffersPage() {
           </div>
         )}
       </div>
-    </EmployerShell>
+    </>
+  );
+}
+
+export default function EmployerOffersPage() {
+  return (
+    <JobsPage activeNav="/employer/offers">
+      <EmployerOffersContent />
+    </JobsPage>
   );
 }
