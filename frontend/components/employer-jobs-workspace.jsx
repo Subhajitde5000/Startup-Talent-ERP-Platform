@@ -25,13 +25,13 @@ export function jobError(error) {
   return 'Could not connect. Please try again.';
 }
 
-function JobsWorkspace({ children, activeNav = 'Hiring' }) {
+function JobsWorkspace({ children, activeNav = 'Hiring', hiringInsights = false }) {
   const { user, loading: authLoading, hasRole } = useAuth();
   const params = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
   const selected = params.get('org_id');
-  const allowed = hasRole('employer') || user?.organizations?.some(o => (o.type || o.membership_type) === 'employer');
+  const allowed = hasRole('employer') || (hiringInsights && hasRole('startup')) || user?.organizations?.some(o => ['employer', ...(hiringInsights ? ['startup'] : [])].includes(o.type || o.membership_type));
   const [state, setState] = useState({ loading: true, orgs: [], error: '' });
   const [retry, setRetry] = useState(0);
   useEffect(() => {
@@ -39,17 +39,17 @@ function JobsWorkspace({ children, activeNav = 'Hiring' }) {
     const controller = new AbortController();
     setState({ loading: true, orgs: [], error: '' });
     api.organizations.mine(controller.signal).then(orgs => {
-      if (!controller.signal.aborted) setState({ loading: false, orgs: orgs.filter(o => o.type === 'employer' && o.status === 'active'), error: '' });
+      if (!controller.signal.aborted) setState({ loading: false, orgs: orgs.filter(o => (o.type === 'employer' || (hiringInsights && o.type === 'startup')) && o.status === 'active'), error: '' });
     }).catch(error => {
       if (!controller.signal.aborted) setState({ loading: false, orgs: [], error: jobError(error) });
     });
     return () => controller.abort();
-  }, [authLoading, user, allowed, retry]);
+  }, [authLoading, user, allowed, retry, hiringInsights]);
   const org = selected ? state.orgs.find(o => o.id === selected) : (state.orgs.length === 1 ? state.orgs[0] : null);
   const href = useCallback(path => org ? `${path}${path.includes('?') ? '&' : '?'}org_id=${encodeURIComponent(org.id)}` : path, [org]);
   const canWrite = Boolean(org && ['owner', 'admin'].includes(org.my_role));
   const workspace = { user, org, canWrite, href };
-  return <EmployerShell activeNav={activeNav} jobsWorkspace={workspace}>
+  return <EmployerShell activeNav={activeNav} jobsWorkspace={workspace} hiringInsights={hiringInsights}>
     <div className="mx-auto max-w-[1280px] space-y-6 min-w-0 pb-10">
       {!state.loading && state.orgs.length > 1 && <div className="rounded-2xl border border-[#E5E1D8] bg-white p-4 text-xs">
         <label htmlFor="jobs-organization" className="mr-3 font-semibold">Organization</label>
@@ -68,8 +68,8 @@ function JobsWorkspace({ children, activeNav = 'Hiring' }) {
 }
 
 // `activeNav` (optional) keeps a non-Hiring page's sidebar item highlighted.
-export function JobsPage({ children, activeNav }) {
-  return <Suspense fallback={<div className="p-8" role="status">Loading jobs…</div>}><JobsWorkspace activeNav={activeNav}>{children}</JobsWorkspace></Suspense>;
+export function JobsPage({ children, activeNav, hiringInsights = false }) {
+  return <Suspense fallback={<div className="p-8" role="status">Loading jobs…</div>}><JobsWorkspace activeNav={activeNav} hiringInsights={hiringInsights}>{children}</JobsWorkspace></Suspense>;
 }
 
 export function useJobsWorkspace() {

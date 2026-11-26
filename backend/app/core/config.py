@@ -259,6 +259,22 @@ class Settings(BaseSettings):
     TALENT_OUTREACH_DAILY_LIMIT: int = Field(default=50, ge=1)
     TALENT_OUTREACH_DAILY_WINDOW_SECONDS: int = Field(default=86400, ge=1)
 
+    # Step 7l: employer hiring dashboard / analytics / activity reads are
+    # shared by all active org members, but still budgeted per actor.
+    EMPLOYER_ANALYTICS_READ_LIMIT: int = Field(default=120, ge=1)
+    EMPLOYER_ANALYTICS_READ_WINDOW_SECONDS: int = Field(default=60, ge=1)
+
+    # Step 7m: job-seeker saved jobs and alerts. Writes are calm (bookmarks
+    # and alert edits); reads share the same per-actor per-minute budget.
+    SAVED_JOBS_WRITE_LIMIT: int = Field(default=60, ge=1)
+    SAVED_JOBS_WRITE_WINDOW_SECONDS: int = Field(default=60, ge=1)
+    SAVED_JOBS_READ_LIMIT: int = Field(default=120, ge=1)
+    SAVED_JOBS_READ_WINDOW_SECONDS: int = Field(default=60, ge=1)
+    JOB_ALERTS_WRITE_LIMIT: int = Field(default=60, ge=1)
+    JOB_ALERTS_WRITE_WINDOW_SECONDS: int = Field(default=60, ge=1)
+    JOB_ALERTS_READ_LIMIT: int = Field(default=120, ge=1)
+    JOB_ALERTS_READ_WINDOW_SECONDS: int = Field(default=60, ge=1)
+
     # CORS: explicit allow-list only, never "*" with credentials.
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])
 

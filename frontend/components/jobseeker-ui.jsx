@@ -122,15 +122,18 @@ export function SafetyStrip({ reportLabel = 'Report this job', liveData = false 
   );
 }
 
-export function SaveToggle({ saved, onChange, label = 'Save', size = 'md' }) {
+export function SaveToggle({ saved, onChange, label = 'Save', size = 'md', disabled = false }) {
   const isSaved = !!saved;
   return (
     <button
       type="button"
       onClick={onChange}
+      disabled={disabled}
       aria-pressed={isSaved}
       aria-label={isSaved ? 'Remove from saved' : 'Save job'}
       className={`inline-flex items-center justify-center gap-1.5 min-h-10 rounded-lg border px-3 text-xs font-medium transition-colors ${
+        disabled ? 'opacity-60 cursor-not-allowed' : ''
+      } ${
         isSaved
           ? 'bg-[#F3EBDD] text-[#806236] border-[#D4C3A3]'
           : 'border-[#E5E1D8] bg-white text-[#0F1B2D] hover:bg-[#F4F1EA]'

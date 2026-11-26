@@ -16,8 +16,10 @@ from app.models.hire import (
 )
 from app.models.hiring_request import HiringRequest, HiringRequestStatus, HiringRequestUrgency
 from app.models.job import Job, JobBenefit, JobSkill
+from app.models.job_alert import AlertFrequency, JobAlert
 from app.models.job_application import ApplicationStageEvent, JobApplication
 from app.models.offer import JobOffer, JobOfferStatus, OfferDeclineReason
+from app.models.saved_job import SavedJob
 from app.models.user import AccountStatus, ReviewState, User, UserRole, UserRoleRow
 
 __all__ = [
@@ -27,6 +29,9 @@ __all__ = [
     "Job",
     "JobBenefit",
     "JobSkill",
+    "JobAlert",
+    "AlertFrequency",
+    "SavedJob",
     "Hire",
     "HireStatus",
     "HiringRequest",

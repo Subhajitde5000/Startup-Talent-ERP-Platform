@@ -3030,6 +3030,33 @@ async def seed_step7i7j(db: AsyncSession) -> None:
             await db.commit()
 
 
+
+async def seed_step7lm(db: AsyncSession, candidate: User) -> None:
+    """Fill-only bookmarks and alerts corresponding to the old 7m mock records."""
+    if get_settings().ENVIRONMENT != "development":
+        raise RuntimeError("Step 7l/7m samples require ENVIRONMENT=development")
+    from app.models.job import Job
+    from app.models.job_alert import JobAlert
+    from app.models.saved_job import SavedJob
+
+    namespace = uuid.uuid5(uuid.NAMESPACE_URL, "forma:development:careers:7bc")
+    for key, note in (
+        ("senior-product-designer", "Spoke with founder at demo day. Fast-track intro."),
+        ("ux-researcher", "Series A fintech, 100% remote team."),
+    ):
+        job_id = uuid.uuid5(namespace, "job:" + key)
+        job = await db.get(Job, job_id)
+        if job and job.deleted_at is None and await db.get(SavedJob, (candidate.id, job_id)) is None:
+            db.add(SavedJob(user_id=candidate.id, job_id=job_id, note=note))
+    for key, title, criteria, frequency in (
+        ("remote-design", "Senior Product Designer · Remote", {"keywords": "Senior Product Designer", "work_mode": "remote", "employment_type": "full_time", "salary_min": "1800000", "currency": "INR"}, "daily"),
+        ("bengaluru-lead", "Staff UX Lead · Bengaluru", {"keywords": "Staff UX Lead", "location": "Bengaluru", "work_mode": "hybrid", "salary_min": "2500000", "currency": "INR"}, "instant"),
+    ):
+        alert_id = uuid.uuid5(candidate.id, "step7m:alert:" + key)
+        if await db.get(JobAlert, alert_id) is None:
+            db.add(JobAlert(id=alert_id, user_id=candidate.id, title=title, criteria=criteria, frequency=frequency))
+    await db.commit()
+
 async def seed() -> None:
     settings = get_settings()
     if settings.ENVIRONMENT != "development":
@@ -4878,6 +4905,7 @@ async def seed() -> None:
         careers_candidate = (await db.execute(select(User).where(User.primary_email == "jobseeker@forma.dev"))).scalar_one_or_none()
         if careers_owner and careers_candidate:
             await seed_step7bc_careers(db, careers_owner, careers_candidate)
+            await seed_step7lm(db, careers_candidate)
 
         # Step 7e/7f samples; after7bc so the jobseeker's applications exist.
         await seed_step7e7f(db)
