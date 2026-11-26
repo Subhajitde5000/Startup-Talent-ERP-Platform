@@ -318,6 +318,22 @@ async def test_lazy_expiry_writes_one_audit_row(client, pipeline, db_session):
     late = await client.post(offer_url(offer["id"], "/accept"), headers=hdr(w))
     assert late.status_code == 409, late.text
 
+    # Employer extends the expired offer with a future date -> reactivates offer
+    future_date = (date.today() + timedelta(days=7)).isoformat()
+    extend_res = await client.patch(
+        offer_url(offer["id"]),
+        headers=w["headers"],
+        json={"expires_on": future_date},
+    )
+    assert extend_res.status_code == 200, extend_res.text
+    assert extend_res.json()["status"] == "sent"
+    assert extend_res.json()["expires_on"] == future_date
+
+    # Candidate can now accept the reactivated offer
+    accept_res = await client.post(offer_url(offer["id"], "/accept"), headers=hdr(w))
+    assert accept_res.status_code == 200, accept_res.text
+    assert accept_res.json()["status"] == "accepted"
+
 
 async def test_auth_roles_and_org_isolation(client, pipeline):
     w = pipeline

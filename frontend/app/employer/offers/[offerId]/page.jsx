@@ -51,7 +51,9 @@ function EmployerOfferDetailContent() {
 
   // Modals
   const [showExtendModal, setShowExtendModal] = useState(false);
-  const [extendDays, setExtendDays] = useState('5');
+  const [extendDays, setExtendDays] = useState('7');
+  const [extendMode, setExtendMode] = useState('preset'); // 'preset' | 'custom'
+  const [extendCustomDate, setExtendCustomDate] = useState('');
   const [extendError, setExtendError] = useState('');
   const [extendBusy, setExtendBusy] = useState(false);
   const [showReviseModal, setShowReviseModal] = useState(false);
@@ -99,20 +101,35 @@ function EmployerOfferDetailContent() {
   const status = offer?.status;
   const isDraft = status === 'draft';
   const isLive = ['draft', 'sent', 'countered'].includes(status);
-  const canExtend = ['sent', 'countered'].includes(status);
+  const canExtend = ['sent', 'countered', 'expired'].includes(status);
 
   const handleExtendExpiry = async (e) => {
     e.preventDefault();
     setExtendError('');
     setExtendBusy(true);
     try {
-      const next = new Date();
-      next.setDate(next.getDate() + Number(extendDays));
+      let targetDateStr = '';
+      if (extendMode === 'custom') {
+        if (!extendCustomDate) {
+          setExtendError('Please choose a valid expiration date.');
+          setExtendBusy(false);
+          return;
+        }
+        targetDateStr = extendCustomDate;
+      } else {
+        const next = new Date();
+        next.setDate(next.getDate() + Number(extendDays || 7));
+        targetDateStr = next.toISOString().slice(0, 10);
+      }
       await api.jobOffers.patch(String(offerId), {
-        expires_on: next.toISOString().slice(0, 10),
+        expires_on: targetDateStr,
       });
       setShowExtendModal(false);
-      showToast('Offer validity extended.');
+      showToast(
+        status === 'expired'
+          ? 'Offer validity extended and offer reactivated.'
+          : 'Offer validity extended.'
+      );
       offerRes.reload();
     } catch (error) {
       setExtendError(
@@ -277,7 +294,7 @@ function EmployerOfferDetailContent() {
           <div className="w-full max-w-md rounded-2xl border border-[#E5E1D8] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-[#E5E1D8]">
               <h3 id="extend-modal-title" className="text-base font-semibold text-[#0F1B2D]">
-                Extend Offer Validity
+                {status === 'expired' ? 'Reactivate & Extend Offer' : 'Extend Offer Validity'}
               </h3>
               <button
                 type="button"
@@ -295,34 +312,84 @@ function EmployerOfferDetailContent() {
                 </div>
               )}
               <p className="text-xs text-[#4A5568]">
-                Grant{' '}
-                <span className="font-semibold text-[#0F1B2D]">
-                  {offer.candidate_name || 'the candidate'}
-                </span>{' '}
-                additional time to review the offer package.
+                {status === 'expired' ? (
+                  <>
+                    Extending validity will <span className="font-semibold text-emerald-700">reactivate this offer</span> for{' '}
+                    <span className="font-semibold text-[#0F1B2D]">{offer.candidate_name || 'the candidate'}</span> so they can review and accept it.
+                  </>
+                ) : (
+                  <>
+                    Grant <span className="font-semibold text-[#0F1B2D]">{offer.candidate_name || 'the candidate'}</span> additional time to review the offer package before it expires.
+                  </>
+                )}
               </p>
-              <div>
-                <label htmlFor="extend-days" className="block text-xs font-medium text-[#0F1B2D] mb-1">
-                  Extension Duration
-                </label>
-                <select
-                  id="extend-days"
-                  value={extendDays}
-                  onChange={(e) => setExtendDays(e.target.value)}
-                  className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+
+              <div className="flex gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setExtendMode('preset')}
+                  className={`flex-1 py-1.5 px-3 rounded-lg border font-medium transition ${
+                    extendMode === 'preset'
+                      ? 'border-[#0F1B2D] bg-[#0F1B2D] text-white'
+                      : 'border-[#E5E1D8] text-[#4A5568] hover:bg-[#FAF8F4]'
+                  }`}
                 >
-                  <option value="3">3 Days</option>
-                  <option value="5">5 Days</option>
-                  <option value="7">7 Days</option>
-                  <option value="14">14 Days</option>
-                </select>
+                  Quick Duration
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExtendMode('custom')}
+                  className={`flex-1 py-1.5 px-3 rounded-lg border font-medium transition ${
+                    extendMode === 'custom'
+                      ? 'border-[#0F1B2D] bg-[#0F1B2D] text-white'
+                      : 'border-[#E5E1D8] text-[#4A5568] hover:bg-[#FAF8F4]'
+                  }`}
+                >
+                  Pick Specific Date
+                </button>
               </div>
+
+              {extendMode === 'preset' ? (
+                <div>
+                  <label htmlFor="extend-days" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                    Extension Duration
+                  </label>
+                  <select
+                    id="extend-days"
+                    value={extendDays}
+                    onChange={(e) => setExtendDays(e.target.value)}
+                    className="w-full rounded-lg border border-[#E5E1D8] bg-white px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+                  >
+                    <option value="3">+3 Days</option>
+                    <option value="5">+5 Days</option>
+                    <option value="7">+7 Days (Recommended)</option>
+                    <option value="14">+14 Days</option>
+                    <option value="30">+30 Days</option>
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label htmlFor="extend-custom-date" className="block text-xs font-medium text-[#0F1B2D] mb-1">
+                    New Expiration Date
+                  </label>
+                  <input
+                    id="extend-custom-date"
+                    type="date"
+                    required={extendMode === 'custom'}
+                    min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                    value={extendCustomDate}
+                    onChange={(e) => setExtendCustomDate(e.target.value)}
+                    className="w-full rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+                  />
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-2">
                 <EmployerBtn secondary small onClick={() => setShowExtendModal(false)}>
                   Cancel
                 </EmployerBtn>
                 <EmployerBtn type="submit" primary small disabled={extendBusy}>
-                  {extendBusy ? 'Applying…' : 'Apply Extension'}
+                  {extendBusy ? 'Applying…' : status === 'expired' ? 'Reactivate & Extend' : 'Apply Extension'}
                 </EmployerBtn>
               </div>
             </form>
@@ -544,6 +611,31 @@ function EmployerOfferDetailContent() {
           </span>
         </div>
 
+        {/* Expired Offer Notice */}
+        {status === 'expired' && (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+            <div>
+              <p className="font-semibold text-sm text-[#0F1B2D]">Offer Validity Has Expired</p>
+              <p className="mt-0.5 text-[#6B7280]">
+                The candidate has not accepted this offer and the expiration deadline passed. You can extend the validity window to reactivate the offer for them.
+              </p>
+            </div>
+            {canWrite && (
+              <EmployerBtn
+                primary
+                small
+                onClick={() => {
+                  setExtendError('');
+                  setShowExtendModal(true);
+                }}
+              >
+                <RefreshCw size={13} className="mr-1.5" />
+                Extend & Reactivate Offer
+              </EmployerBtn>
+            )}
+          </div>
+        )}
+
         {/* Offer Header Card */}
         <div className="rounded-2xl border border-[#E5E1D8] bg-white p-5 sm:p-6 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -574,8 +666,17 @@ function EmployerOfferDetailContent() {
                   </EmployerBtn>
                 )}
                 {canExtend && (
-                  <EmployerBtn secondary small onClick={() => { setExtendError(''); setShowExtendModal(true); }}>
-                    <RefreshCw size={14} className="mr-1.5" /> Extend Expiry
+                  <EmployerBtn
+                    primary={status === 'expired'}
+                    secondary={status !== 'expired'}
+                    small
+                    onClick={() => {
+                      setExtendError('');
+                      setShowExtendModal(true);
+                    }}
+                  >
+                    <RefreshCw size={14} className="mr-1.5" />
+                    {status === 'expired' ? 'Extend & Reactivate' : 'Extend Expiry'}
                   </EmployerBtn>
                 )}
                 {status === 'accepted' && (

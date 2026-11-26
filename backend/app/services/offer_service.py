@@ -603,22 +603,35 @@ async def patch(
     fields = payload.model_fields_set
     if not fields:
         return await _read(db, offer, app, job)
-    if offer.status == JobOfferStatus.sent or offer.status == JobOfferStatus.countered:
-        # Plan D3: after send the body is frozen; extend-expiry is the
-        # single exception.
+    if (
+        offer.status == JobOfferStatus.sent
+        or offer.status == JobOfferStatus.countered
+        or offer.status == JobOfferStatus.expired
+    ):
+        # After send the body is frozen; extend-expiry is the single exception.
         extra = fields - {"expires_on"}
         if extra:
             raise conflict(
-                "Only the expiry can be changed on a sent offer.", "OFFER_FROZEN"
+                "Only the expiry can be changed on a sent or expired offer.", "OFFER_FROZEN"
             )
+        if payload.expires_on and payload.expires_on < date.today():
+            raise validation_error(
+                "Extension expiry date must be today or in the future.",
+                details=[{"loc": ["body", "expires_on"], "msg": "Extension expiry date must be today or in the future.", "type": "value_error"}],
+            )
+        was_expired = offer.status == JobOfferStatus.expired
         offer.expires_on = payload.expires_on
+        if was_expired and payload.expires_on and payload.expires_on >= date.today():
+            offer.status = JobOfferStatus.sent
+            if app.stage != "offered":
+                _move_stage(db, app, "offered", user.id)
         _audit(
             db,
             user,
             job.org_id,
             ActivityEventType.offer_updated,
             offer,
-            "Offer expiry updated.",
+            "Offer expiry updated." if not was_expired else "Offer expiry extended and offer reactivated.",
         )
         await db.commit()
         await db.refresh(offer)

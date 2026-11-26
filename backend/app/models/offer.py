@@ -91,7 +91,9 @@ JOB_OFFER_TRANSITIONS: dict[JobOfferStatus, frozenset[JobOfferStatus]] = {
     ),
     JobOfferStatus.accepted: frozenset(),
     JobOfferStatus.declined: frozenset(),
-    JobOfferStatus.expired: frozenset(),
+    JobOfferStatus.expired: frozenset(
+        {JobOfferStatus.sent, JobOfferStatus.withdrawn}
+    ),
     JobOfferStatus.withdrawn: frozenset(),
 }
 
