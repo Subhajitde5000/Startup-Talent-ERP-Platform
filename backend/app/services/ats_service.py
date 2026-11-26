@@ -1,0 +1,362 @@
+"""Rule-based ATS check service and run history (Step 7o)."""
+
+from __future__ import annotations
+
+import re
+import uuid
+from datetime import UTC, datetime
+
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.core.exceptions import not_found, rate_limited
+from app.models.job import Job, JobSkill
+from app.models.organization import Organization
+from app.models.profile import Skill
+from app.models.resume import Resume, ResumeAtsRun
+from app.models.user import User
+from app.schemas.ats_run import AtsRunCreate
+from app.services import resume_service
+from app.services.rate_limiter import rate_limiter
+
+_STOPWORDS = frozenset(
+    {
+        "about",
+        "above",
+        "across",
+        "after",
+        "against",
+        "along",
+        "among",
+        "around",
+        "because",
+        "before",
+        "behind",
+        "below",
+        "between",
+        "could",
+        "during",
+        "every",
+        "first",
+        "found",
+        "great",
+        "having",
+        "other",
+        "should",
+        "since",
+        "still",
+        "their",
+        "there",
+        "these",
+        "thing",
+        "think",
+        "those",
+        "through",
+        "under",
+        "using",
+        "where",
+        "which",
+        "while",
+        "would",
+        "years",
+        "experience",
+        "looking",
+        "seeking",
+        "working",
+        "team",
+        "role",
+        "work",
+        "with",
+        "that",
+        "this",
+        "from",
+        "have",
+        "will",
+        "your",
+        "into",
+        "more",
+        "such",
+        "both",
+        "also",
+    }
+)
+
+
+async def _rate_limit(user: User, limit: int, window: int, kind: str) -> None:
+    if not await rate_limiter.check(f"resume_ats:{kind}:{user.id}", limit, window):
+        raise rate_limited("Too many requests. Please slow down.")
+
+
+async def visible_job_and_skills_or_404(
+    db: AsyncSession, job_id: uuid.UUID
+) -> tuple[Job, list[str]]:
+    row = (
+        await db.execute(
+            select(Job, Organization)
+            .join(Organization, Organization.id == Job.org_id)
+            .where(
+                Job.id == job_id,
+                Job.deleted_at.is_(None),
+                Organization.deleted_at.is_(None),
+                Organization.status == "active",
+                Organization.type.in_(["startup", "employer"]),
+                Job.status.in_(["open", "paused", "closed"]),
+                Job.visibility.in_(["public", "platform_members", "link_only"]),
+            )
+        )
+    ).first()
+    if row is None:
+        raise not_found("Job not found.")
+    job: Job = row[0]
+
+    skill_rows = (
+        await db.execute(
+            select(Skill.name)
+            .join(JobSkill, JobSkill.skill_id == Skill.id)
+            .where(JobSkill.job_id == job.id)
+        )
+    ).scalars().all()
+    return job, list(skill_rows)
+
+
+def assemble_resume_text(resume: Resume, skill_names: list[str]) -> str:
+    parts: list[str] = [resume.title]
+    if resume.target_role:
+        parts.append(resume.target_role)
+    if resume.summary:
+        parts.append(resume.summary)
+    for exp in resume.experiences:
+        parts.append(exp.role_title)
+        parts.append(exp.company)
+        parts.extend(exp.bullets or [])
+    for edu in resume.education:
+        parts.append(edu.degree)
+        parts.append(edu.school)
+    parts.extend(skill_names)
+    return "\n".join(parts)
+
+
+def _extract_keywords(
+    job: Job | None, job_skills: list[str], job_description: str | None, target_role: str | None
+) -> list[str]:
+    seen: dict[str, str] = {}
+    for sk in job_skills:
+        cleaned = sk.strip()
+        if cleaned and cleaned.lower() not in seen:
+            seen[cleaned.lower()] = cleaned
+
+    text_parts: list[str] = []
+    if job is not None:
+        text_parts.append(job.title)
+        if job.description:
+            text_parts.append(job.description)
+    if job_description:
+        text_parts.append(job_description)
+    if not text_parts and target_role:
+        text_parts.append(target_role)
+
+    combined = " ".join(text_parts)
+    for token in re.findall(r"[A-Za-z][A-Za-z0-9+#.-]{2,}", combined):
+        low = token.lower().strip(".")
+        if len(low) < 4 or low in _STOPWORDS:
+            continue
+        if low not in seen:
+            seen[low] = token.strip(".")
+        if len(seen) >= 25:
+            break
+    return list(seen.values())
+
+
+def serialize_run(run: ResumeAtsRun, *, ai_notice: str | None = None) -> dict:
+    return {
+        "id": run.id,
+        "resume_id": run.resume_id,
+        "job_id": run.job_id,
+        "run_type": run.run_type,
+        "score": run.score,
+        "missing_keywords": list(run.missing_keywords or []),
+        "matched_keywords": list(run.matched_keywords or []),
+        "suggestions": list(run.suggestions or []),
+        "ai_notice": ai_notice
+        or (
+            "Suggestions generated by AI based on your stored resume and target job. Review carefully before applying."
+            if run.run_type == "tailor"
+            else None
+        ),
+        "created_at": run.created_at,
+    }
+
+
+async def create_ats_run(
+    db: AsyncSession,
+    user: User,
+    resume_id: uuid.UUID,
+    payload: AtsRunCreate,
+) -> dict:
+    await resume_service.require_seeker(db, user)
+    settings = get_settings()
+    await _rate_limit(
+        user,
+        settings.RESUME_ATS_WRITE_LIMIT,
+        settings.RESUME_ATS_WRITE_WINDOW_SECONDS,
+        "write",
+    )
+    resume = await resume_service.owned_resume_or_404(db, user, resume_id)
+
+    job: Job | None = None
+    job_skills: list[str] = []
+    if payload.job_id is not None:
+        job, job_skills = await visible_job_and_skills_or_404(db, payload.job_id)
+
+    skill_map = await resume_service._skills_by_id(db, [s.skill_id for s in resume.skills])
+    resume_skill_names = [s.name for s in skill_map.values()]
+    resume_text_lower = assemble_resume_text(resume, resume_skill_names).lower()
+
+    keywords = _extract_keywords(job, job_skills, payload.job_description, resume.target_role)
+    matched: list[str] = []
+    missing: list[str] = []
+    for kw in keywords:
+        if kw.lower() in resume_text_lower:
+            matched.append(kw)
+        else:
+            missing.append(kw)
+
+    if keywords:
+        keyword_score = round(70 * (len(matched) / len(keywords)))
+    else:
+        keyword_score = 70
+
+    completeness = 0
+    suggestions: list[dict] = []
+    if resume.summary and resume.summary.strip():
+        completeness += 10
+    else:
+        suggestions.append(
+            {
+                "section": "summary",
+                "original": None,
+                "tailored": None,
+                "rationale": "Add a concise 3-4 sentence professional summary highlighting your target role and key outcomes.",
+            }
+        )
+
+    if resume.experiences:
+        completeness += 10
+    else:
+        suggestions.append(
+            {
+                "section": "experience",
+                "original": None,
+                "tailored": None,
+                "rationale": "Add at least one work experience entry with measurable bullet points.",
+            }
+        )
+
+    if resume.education or len(resume.skills) >= 3:
+        completeness += 10
+    else:
+        suggestions.append(
+            {
+                "section": "skills",
+                "original": None,
+                "tailored": None,
+                "rationale": "Add education details and at least 3 core skills to improve ATS completeness.",
+            }
+        )
+
+    for kw in missing[:5]:
+        suggestions.append(
+            {
+                "section": "skills",
+                "original": None,
+                "tailored": kw,
+                "rationale": f"Consider adding '{kw}' to your skills or experience bullets if you have relevant experience.",
+            }
+        )
+
+    score = max(0, min(100, keyword_score + completeness))
+
+    run = ResumeAtsRun(
+        resume_id=resume.id,
+        job_id=job.id if job is not None else None,
+        run_type="ats",
+        score=score,
+        missing_keywords=missing,
+        matched_keywords=matched,
+        suggestions=suggestions,
+    )
+    db.add(run)
+    resume.ats_score = score
+    resume.updated_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(run)
+    return serialize_run(run)
+
+
+async def list_runs(
+    db: AsyncSession,
+    user: User,
+    resume_id: uuid.UUID,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+) -> dict:
+    await resume_service.require_seeker(db, user)
+    settings = get_settings()
+    await _rate_limit(
+        user, settings.RESUME_READ_LIMIT, settings.RESUME_READ_WINDOW_SECONDS, "read"
+    )
+    await resume_service.owned_resume_or_404(db, user, resume_id, with_sections=False)
+
+    total = (
+        await db.execute(
+            select(func.count())
+            .select_from(ResumeAtsRun)
+            .where(ResumeAtsRun.resume_id == resume_id)
+        )
+    ).scalar_one()
+
+    rows = (
+        await db.execute(
+            select(ResumeAtsRun)
+            .where(ResumeAtsRun.resume_id == resume_id)
+            .order_by(ResumeAtsRun.created_at.desc(), ResumeAtsRun.id)
+            .offset(offset)
+            .limit(limit)
+        )
+    ).scalars().all()
+
+    return {
+        "items": [serialize_run(r) for r in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + limit < total,
+    }
+
+
+async def get_run(
+    db: AsyncSession,
+    user: User,
+    resume_id: uuid.UUID,
+    run_id: uuid.UUID,
+) -> dict:
+    await resume_service.require_seeker(db, user)
+    settings = get_settings()
+    await _rate_limit(
+        user, settings.RESUME_READ_LIMIT, settings.RESUME_READ_WINDOW_SECONDS, "read"
+    )
+    await resume_service.owned_resume_or_404(db, user, resume_id, with_sections=False)
+
+    run = (
+        await db.execute(
+            select(ResumeAtsRun).where(
+                ResumeAtsRun.id == run_id,
+                ResumeAtsRun.resume_id == resume_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if run is None:
+        raise not_found("ATS run not found.")
+    return serialize_run(run)

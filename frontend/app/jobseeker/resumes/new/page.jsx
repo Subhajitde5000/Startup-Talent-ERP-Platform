@@ -3,34 +3,39 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  ChevronLeft,
-  Upload,
-  UserCheck,
-  Sparkles,
-  ArrowRight,
-  CheckCircle2,
-  FileText,
-} from 'lucide-react';
+import { ChevronLeft, Upload, UserCheck, Sparkles } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
-import {
-  JobBtn,
-  defaultUser,
-} from '@/components/jobseeker-ui';
+import { JobBtn } from '@/components/jobseeker-ui';
+import { api } from '@/lib/api/client';
+import { errorLabel } from '@/components/career-data';
+import { FieldError, fieldErrorsFrom } from '@/components/async-state';
 
 export default function ResumeBuilderPage() {
   const router = useRouter();
   const [method, setMethod] = useState(null); // 'profile' | 'import' | 'scratch'
+  const [title, setTitle] = useState('My Tailored Resume');
   const [targetRole, setTargetRole] = useState('Senior Product Designer');
-  const [template, setTemplate] = useState('Modern');
+  const [template, setTemplate] = useState('Modern Clean');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     setIsGenerating(true);
-    setTimeout(() => {
+    setError('');
+    setFieldErrors({});
+    try {
+      const created = await api.resumes.create({
+        title: title.trim() || targetRole.trim() || 'Untitled Resume',
+        target_role: targetRole.trim() || null,
+        template,
+      });
+      router.push(`/jobseeker/resumes/${created.id}`);
+    } catch (err) {
+      setFieldErrors(fieldErrorsFrom(err));
+      setError(errorLabel(err, 'Could not create resume.'));
       setIsGenerating(false);
-      router.push('/jobseeker/resumes/r1');
-    }, 1000);
+    }
   };
 
   return (
@@ -38,10 +43,7 @@ export default function ResumeBuilderPage() {
       <div className="space-y-6 max-w-4xl pb-10">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-xs text-[#6B7280]">
-          <Link
-            href="/jobseeker/resumes"
-            className="flex items-center gap-1 hover:text-[#0F1B2D]"
-          >
+          <Link href="/jobseeker/resumes" className="flex items-center gap-1 hover:text-[#0F1B2D]">
             <ChevronLeft size={14} /> Back to Resumes
           </Link>
           <span>/</span>
@@ -73,22 +75,22 @@ export default function ResumeBuilderPage() {
                 <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#E7F3EC] text-[#286749]">
                   <UserCheck size={20} />
                 </span>
-                <h3 className="text-sm font-semibold text-[#0F1B2D]">From Profile</h3>
+                <h3 className="text-sm font-semibold text-[#0F1B2D]">Start with Details</h3>
                 <p className="text-xs text-[#6B7280] leading-relaxed">
-                  Auto-fill from verified experience, skills, and portfolio projects already in your account.
+                  Create a structured resume workspace and fill in your summary, experience, education, and skills.
                 </p>
               </div>
 
               <div
                 onClick={() => setMethod('import')}
-                className="cursor-pointer rounded-xl border border-[#E5E1D8] bg-[#FAF8F4]/50 p-5 hover:bg-[#FAF8F4] hover:border-[#B8955A] transition-all space-y-3"
+                className="cursor-pointer rounded-xl border border-[#E5E1D8] bg-[#FAF8F4]/50 p-5 hover:bg-[#FAF8F4] hover:border-[#B8955A] transition-all space-y-3 opacity-75"
               >
                 <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#F3EBDD] text-[#806236]">
                   <Upload size={20} />
                 </span>
                 <h3 className="text-sm font-semibold text-[#0F1B2D]">Import Existing</h3>
                 <p className="text-xs text-[#6B7280] leading-relaxed">
-                  Upload an existing PDF or Word resume. Our parser extracts and organizes your accomplishments.
+                  File import requires document upload integration (coming soon).
                 </p>
               </div>
 
@@ -99,9 +101,9 @@ export default function ResumeBuilderPage() {
                 <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#FFF8E8] text-[#9A7A45]">
                   <Sparkles size={20} />
                 </span>
-                <h3 className="text-sm font-semibold text-[#0F1B2D]">AI Assisted</h3>
+                <h3 className="text-sm font-semibold text-[#0F1B2D]">ATS & Tailor Ready</h3>
                 <p className="text-xs text-[#6B7280] leading-relaxed">
-                  Step-by-step guided prompt builder designed to extract quantitative impacts and action verbs.
+                  Start from scratch, then run ATS compatibility scoring and AI tailoring against live job postings.
                 </p>
               </div>
             </div>
@@ -115,76 +117,106 @@ export default function ResumeBuilderPage() {
                 </h2>
                 <button
                   type="button"
-                  onClick={() => setMethod(null)}
+                  onClick={() => {
+                    setMethod(null);
+                    setError('');
+                    setFieldErrors({});
+                  }}
                   className="text-xs text-[#9A7A45] hover:underline"
                 >
                   Change creation method
                 </button>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="targetRole" className="block text-xs font-semibold text-[#4A5568] mb-1">
-                    Target Role Title
-                  </label>
-                  <input
-                    id="targetRole"
-                    type="text"
-                    value={targetRole}
-                    onChange={(e) => setTargetRole(e.target.value)}
-                    placeholder="E.g. Senior Frontend Engineer, Product Designer..."
-                    className="w-full h-10 px-3 rounded-lg border border-[#E5E1D8] text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
-                  />
-                  <span className="text-[11px] text-[#6B7280] mt-1 block">
-                    Targeting a specific role boosts your ATS keyword relevance match by up to 35%.
+              {error && (
+                <div className="rounded-xl border border-[#F2C6C2] bg-[#FEF3F2] px-4 py-3 text-xs text-[#B42318]">
+                  {error}
+                </div>
+              )}
+
+              {method === 'import' ? (
+                <div className="rounded-xl border border-dashed border-[#E5E1D8] p-6 text-center space-y-2 bg-[#FAF8F4]/50">
+                  <Upload size={24} className="mx-auto text-[#A0A7B4]" />
+                  <span className="text-xs font-semibold text-[#0F1B2D] block">
+                    Resume file import is not available yet
+                  </span>
+                  <span className="text-[11px] text-[#6B7280] block">
+                    Please choose &ldquo;Start with Details&rdquo; or &ldquo;ATS &amp; Tailor Ready&rdquo; to create your resume in the editor.
                   </span>
                 </div>
+              ) : (
+                <>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="resumeTitle" className="block text-xs font-semibold text-[#4A5568] mb-1">
+                        Resume Title
+                      </label>
+                      <input
+                        id="resumeTitle"
+                        type="text"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="E.g. Senior Product Designer (Primary)"
+                        className="w-full h-10 px-3 rounded-lg border border-[#E5E1D8] text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+                      />
+                      <FieldError message={fieldErrors.title} />
+                    </div>
 
-                <div>
-                  <span className="block text-xs font-semibold text-[#4A5568] mb-2">
-                    Select Layout Template
-                  </span>
-                  <div className="grid grid-cols-3 gap-3">
-                    {['Modern Clean', 'Minimalist Tech', 'Executive Classic'].map((t) => {
-                      const isSelected = template === t;
-                      return (
-                        <div
-                          key={t}
-                          onClick={() => setTemplate(t)}
-                          className={`cursor-pointer rounded-xl border p-3 text-center transition-all ${
-                            isSelected
-                              ? 'border-[#0F1B2D] bg-[#FAF8F4] font-semibold text-[#0F1B2D]'
-                              : 'border-[#E5E1D8] bg-white text-[#6B7280] hover:bg-[#FAF8F4]'
-                          }`}
-                        >
-                          <span className="text-xs">{t}</span>
-                        </div>
-                      );
-                    })}
+                    <div>
+                      <label htmlFor="targetRole" className="block text-xs font-semibold text-[#4A5568] mb-1">
+                        Target Role Title
+                      </label>
+                      <input
+                        id="targetRole"
+                        type="text"
+                        value={targetRole}
+                        onChange={(e) => setTargetRole(e.target.value)}
+                        placeholder="E.g. Senior Frontend Engineer, Product Designer..."
+                        className="w-full h-10 px-3 rounded-lg border border-[#E5E1D8] text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
+                      />
+                      <FieldError message={fieldErrors.target_role} />
+                      <span className="text-[11px] text-[#6B7280] mt-1 block">
+                        Targeting a specific role helps compute accurate ATS keyword relevance.
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="block text-xs font-semibold text-[#4A5568] mb-2">
+                        Select Layout Template
+                      </span>
+                      <div className="grid grid-cols-3 gap-3">
+                        {['Modern Clean', 'Minimalist Tech', 'Executive Classic'].map((t) => {
+                          const isSelected = template === t;
+                          return (
+                            <div
+                              key={t}
+                              onClick={() => setTemplate(t)}
+                              className={`cursor-pointer rounded-xl border p-3 text-center transition-all ${
+                                isSelected
+                                  ? 'border-[#0F1B2D] bg-[#FAF8F4] font-semibold text-[#0F1B2D]'
+                                  : 'border-[#E5E1D8] bg-white text-[#6B7280] hover:bg-[#FAF8F4]'
+                              }`}
+                            >
+                              <span className="text-xs">{t}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                {method === 'import' && (
-                  <div className="rounded-xl border border-dashed border-[#E5E1D8] p-6 text-center space-y-2 bg-[#FAF8F4]/50">
-                    <Upload size={24} className="mx-auto text-[#A0A7B4]" />
-                    <span className="text-xs font-semibold text-[#0F1B2D] block">
-                      Drop your resume PDF or DOCX here
-                    </span>
-                    <span className="text-[11px] text-[#6B7280] block">Max file size 10MB</span>
+                  <div className="pt-3 flex justify-end">
+                    <JobBtn
+                      primary
+                      onClick={handleCreate}
+                      disabled={isGenerating}
+                      className="px-6 min-h-[42px]"
+                    >
+                      {isGenerating ? 'Creating Resume...' : 'Create Resume & Open Editor'}
+                    </JobBtn>
                   </div>
-                )}
-              </div>
-
-              <div className="pt-3 flex justify-end">
-                <JobBtn
-                  primary
-                  onClick={handleCreate}
-                  disabled={isGenerating}
-                  className="px-6 min-h-[42px]"
-                >
-                  {isGenerating ? 'Building Resume...' : 'Generate Resume & Open Editor'}
-                </JobBtn>
-              </div>
+                </>
+              )}
             </section>
           </div>
         )}

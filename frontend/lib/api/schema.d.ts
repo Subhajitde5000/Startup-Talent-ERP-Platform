@@ -3896,6 +3896,214 @@ export interface paths {
         patch: operations["update_alert_api_v1_job_alerts__alert_id__patch"];
         trace?: never;
     };
+    "/api/v1/resumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my resumes */
+        get: operations["list_resumes_api_v1_resumes_get"];
+        put?: never;
+        /** Create a resume */
+        post: operations["create_resume_api_v1_resumes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resumes/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get resume studio KPI summary */
+        get: operations["get_resume_summary_api_v1_resumes_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resumes/{resume_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a resume with sections */
+        get: operations["get_resume_api_v1_resumes__resume_id__get"];
+        put?: never;
+        post?: never;
+        /** Soft-delete a resume */
+        delete: operations["delete_resume_api_v1_resumes__resume_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update resume metadata or summary */
+        patch: operations["update_resume_api_v1_resumes__resume_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/resumes/{resume_id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Duplicate a resume and all its sections */
+        post: operations["duplicate_resume_api_v1_resumes__resume_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resumes/{resume_id}/experiences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace ordered work experiences */
+        put: operations["replace_resume_experiences_api_v1_resumes__resume_id__experiences_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resumes/{resume_id}/education": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace ordered education entries */
+        put: operations["replace_resume_education_api_v1_resumes__resume_id__education_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resumes/{resume_id}/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace resume skills */
+        put: operations["replace_resume_skills_api_v1_resumes__resume_id__skills_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resumes/{resume_id}/set-default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set resume as primary */
+        post: operations["set_default_resume_api_v1_resumes__resume_id__set_default_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resumes/{resume_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export structured resume JSON */
+        get: operations["export_resume_api_v1_resumes__resume_id__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resumes/{resume_id}/ats-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List ATS and tailoring runs for a resume */
+        get: operations["list_ats_runs_api_v1_resumes__resume_id__ats_runs_get"];
+        put?: never;
+        /** Run rule-based ATS compatibility check */
+        post: operations["create_ats_run_api_v1_resumes__resume_id__ats_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resumes/{resume_id}/ats-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single ATS or tailoring run */
+        get: operations["get_ats_run_api_v1_resumes__resume_id__ats_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resumes/{resume_id}/tailor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate AI tailoring suggestions (LangGraph + Groq) */
+        post: operations["tailor_resume_api_v1_resumes__resume_id__tailor_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{org_id}/tasks": {
         parameters: {
             query?: never;
@@ -6072,6 +6280,75 @@ export interface components {
             /** My Weighted Total */
             my_weighted_total: number | null;
         };
+        /** AtsRunCreate */
+        AtsRunCreate: {
+            /** Job Id */
+            job_id?: string | null;
+            /** Job Description */
+            job_description?: string | null;
+        };
+        /** AtsRunPage */
+        AtsRunPage: {
+            /** Items */
+            items: components["schemas"]["AtsRunRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /** AtsRunRead */
+        AtsRunRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Resume Id
+             * Format: uuid
+             */
+            resume_id: string;
+            /** Job Id */
+            job_id: string | null;
+            /**
+             * Run Type
+             * @enum {string}
+             */
+            run_type: "ats" | "tailor";
+            /** Score */
+            score: number | null;
+            /** Missing Keywords */
+            missing_keywords: string[];
+            /** Matched Keywords */
+            matched_keywords: string[];
+            /** Suggestions */
+            suggestions: components["schemas"]["AtsSuggestionRead"][];
+            /** Ai Notice */
+            ai_notice?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AtsSuggestionRead */
+        AtsSuggestionRead: {
+            /**
+             * Section
+             * @enum {string}
+             */
+            section: "summary" | "experience" | "education" | "skills" | "general";
+            /** Original */
+            original?: string | null;
+            /** Tailored */
+            tailored?: string | null;
+            /** Rationale */
+            rationale: string;
+        };
         /**
          * AttendeeRole
          * @description schema.sql CHECK on ``session_attendees.role``.
@@ -7283,9 +7560,7 @@ export interface components {
             /** Notes */
             notes: string | null;
             /** Scorecard */
-            scorecard: {
-                [key: string]: unknown;
-            } | null;
+            scorecard: Record<string, never> | null;
             /** Owner Id */
             owner_id: string | null;
             /** Created By */
@@ -7308,9 +7583,7 @@ export interface components {
             /** Notes */
             notes?: string | null;
             /** Scorecard */
-            scorecard?: {
-                [key: string]: unknown;
-            } | null;
+            scorecard?: Record<string, never> | null;
         };
         /** DiligenceItemCreate */
         DiligenceItemCreate: {
@@ -10159,7 +10432,7 @@ export interface components {
             location: string | null;
             work_mode: components["schemas"]["WorkMode"];
             employment_type: components["schemas"]["EmploymentType"];
-            status: components["schemas"]["JobStatus"];
+            status: components["schemas"]["JobStatus-Output"];
             visibility: components["schemas"]["JobVisibility"];
             /** Salary Min */
             salary_min: string | null;
@@ -10278,7 +10551,9 @@ export interface components {
          * JobStatus
          * @enum {string}
          */
-        JobStatus: "draft" | "open" | "paused" | "closed";
+        "JobStatus-Input": "draft" | "open" | "paused" | "closed";
+        /** @enum {unknown} */
+        "JobStatus-Output": "draft" | "open" | "paused" | "closed";
         /** JobSummary */
         JobSummary: {
             /** Total */
@@ -10523,7 +10798,7 @@ export interface components {
             location: string | null;
             work_mode: components["schemas"]["WorkMode"];
             employment_type: components["schemas"]["EmploymentType"];
-            status: components["schemas"]["JobStatus"];
+            status: components["schemas"]["JobStatus-Output"];
             /** Salary Min */
             salary_min: string | null;
             /** Salary Max */
@@ -12645,6 +12920,248 @@ export interface components {
              */
             response: "accepted" | "declined" | "tentative";
         };
+        /** ResumeCreate */
+        ResumeCreate: {
+            /** Title */
+            title: string;
+            /** Target Role */
+            target_role?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Template */
+            template?: string | null;
+        };
+        /** ResumeEducationIn */
+        ResumeEducationIn: {
+            /** Degree */
+            degree: string;
+            /** School */
+            school: string;
+            /** Year Label */
+            year_label?: string | null;
+        };
+        /** ResumeEducationRead */
+        ResumeEducationRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Degree */
+            degree: string;
+            /** School */
+            school: string;
+            /** Year Label */
+            year_label: string | null;
+            /** Display Order */
+            display_order: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ResumeEducationReplace */
+        ResumeEducationReplace: {
+            /** Items */
+            items: components["schemas"]["ResumeEducationIn"][];
+        };
+        /** ResumeExperienceIn */
+        ResumeExperienceIn: {
+            /** Role Title */
+            role_title: string;
+            /** Company */
+            company: string;
+            /** Period Label */
+            period_label?: string | null;
+            /** Started On */
+            started_on?: string | null;
+            /** Ended On */
+            ended_on?: string | null;
+            /** Bullets */
+            bullets?: string[];
+        };
+        /** ResumeExperienceRead */
+        ResumeExperienceRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Role Title */
+            role_title: string;
+            /** Company */
+            company: string;
+            /** Period Label */
+            period_label: string | null;
+            /** Started On */
+            started_on: string | null;
+            /** Ended On */
+            ended_on: string | null;
+            /** Bullets */
+            bullets: string[];
+            /** Display Order */
+            display_order: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ResumeExperiencesReplace */
+        ResumeExperiencesReplace: {
+            /** Items */
+            items: components["schemas"]["ResumeExperienceIn"][];
+        };
+        /** ResumeExportRead */
+        ResumeExportRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Target Role */
+            target_role: string | null;
+            /** Template */
+            template: string | null;
+            /** Summary */
+            summary: string | null;
+            /** Ats Score */
+            ats_score: number | null;
+            /** Is Default */
+            is_default: boolean;
+            /** Experiences */
+            experiences: components["schemas"]["ResumeExperienceRead"][];
+            /** Education */
+            education: components["schemas"]["ResumeEducationRead"][];
+            /** Skills */
+            skills: components["schemas"]["ResumeSkillRead"][];
+            /**
+             * Exported At
+             * Format: date-time
+             */
+            exported_at: string;
+        };
+        /** ResumeListItem */
+        ResumeListItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Target Role */
+            target_role: string | null;
+            /** Template */
+            template: string | null;
+            /** Source */
+            source: string;
+            /** Ats Score */
+            ats_score: number | null;
+            /** Is Default */
+            is_default: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ResumePage */
+        ResumePage: {
+            /** Items */
+            items: components["schemas"]["ResumeListItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /** ResumeRead */
+        ResumeRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Target Role */
+            target_role: string | null;
+            /** Template */
+            template: string | null;
+            /** Source */
+            source: string;
+            /** Ats Score */
+            ats_score: number | null;
+            /** Is Default */
+            is_default: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Summary */
+            summary: string | null;
+            /** Experiences */
+            experiences: components["schemas"]["ResumeExperienceRead"][];
+            /** Education */
+            education: components["schemas"]["ResumeEducationRead"][];
+            /** Skills */
+            skills: components["schemas"]["ResumeSkillRead"][];
+        };
+        /** ResumeSkillRead */
+        ResumeSkillRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Category */
+            category?: string | null;
+        };
+        /** ResumeSkillsReplace */
+        ResumeSkillsReplace: {
+            /** Skill Ids */
+            skill_ids: string[];
+        };
+        /** ResumeSummaryRead */
+        ResumeSummaryRead: {
+            /** Total */
+            total: number;
+            /** Primary Count */
+            primary_count: number;
+            /** Avg Ats Score */
+            avg_ats_score: number | null;
+        };
+        /** ResumeUpdate */
+        ResumeUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Target Role */
+            target_role?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Template */
+            template?: string | null;
+        };
         /**
          * RetentionBlock
          * @description Customers & retention card.
@@ -12928,9 +13445,7 @@ export interface components {
             /** Name */
             name: string;
             /** Criteria */
-            criteria?: {
-                [key: string]: unknown;
-            };
+            criteria?: Record<string, never>;
         };
         /** SavedSearchRead */
         SavedSearchRead: {
@@ -12947,9 +13462,7 @@ export interface components {
             /** Name */
             name: string;
             /** Criteria */
-            criteria: {
-                [key: string]: unknown;
-            };
+            criteria: Record<string, never>;
             /** Is Active */
             is_active: boolean;
             /**
@@ -12971,9 +13484,7 @@ export interface components {
             /** Name */
             name?: string | null;
             /** Criteria */
-            criteria?: {
-                [key: string]: unknown;
-            } | null;
+            criteria?: Record<string, never> | null;
             /** Is Active */
             is_active?: boolean | null;
         };
@@ -14154,6 +14665,13 @@ export interface components {
         StatusTransition: {
             status: components["schemas"]["RoundStatus"];
         };
+        /** TailorRequest */
+        TailorRequest: {
+            /** Job Id */
+            job_id?: string | null;
+            /** Job Description */
+            job_description?: string | null;
+        };
         /**
          * TalentCard
          * @description One search result / shortlist member card — the approved field
@@ -14948,10 +15466,6 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
         };
         /** VerifyEmailRequest */
         VerifyEmailRequest: {
@@ -18604,9 +19118,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -19176,7 +19688,7 @@ export interface operations {
     list_jobs_api_v1_organizations__org_id__jobs_get: {
         parameters: {
             query?: {
-                status?: components["schemas"]["JobStatus"] | null;
+                status?: components["schemas"]["JobStatus-Input"] | null;
                 department?: components["schemas"]["Department"] | null;
                 owner_id?: string | null;
                 location?: string | null;
@@ -30778,6 +31290,1158 @@ export interface operations {
             };
             /** @description Job-alerts rate limit exceeded */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_resumes_api_v1_resumes_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                sort?: "updated_at" | "created_at";
+                order?: "asc" | "desc";
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumePage"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_resume_api_v1_resumes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_resume_summary_api_v1_resumes_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeSummaryRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_resume_api_v1_resumes__resume_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_resume_api_v1_resumes__resume_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_resume_api_v1_resumes__resume_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    duplicate_resume_api_v1_resumes__resume_id__duplicate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    replace_resume_experiences_api_v1_resumes__resume_id__experiences_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumeExperiencesReplace"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    replace_resume_education_api_v1_resumes__resume_id__education_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumeEducationReplace"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    replace_resume_skills_api_v1_resumes__resume_id__skills_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumeSkillsReplace"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_default_resume_api_v1_resumes__resume_id__set_default_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    export_resume_api_v1_resumes__resume_id__export_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeExportRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_ats_runs_api_v1_resumes__resume_id__ats_runs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AtsRunPage"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_ats_run_api_v1_resumes__resume_id__ats_runs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AtsRunCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AtsRunRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_ats_run_api_v1_resumes__resume_id__ats_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                resume_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AtsRunRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    tailor_resume_api_v1_resumes__resume_id__tailor_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                resume_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TailorRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AtsRunRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resume, run, or job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description AI provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description AI tailoring not configured */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

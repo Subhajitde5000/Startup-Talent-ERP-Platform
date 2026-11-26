@@ -100,10 +100,18 @@ export function ResourceState({
   resource,
   empty = false,
   emptyLabel = 'Nothing to show yet.',
+  emptyTitle,
+  emptyBody,
+  onRetry,
+  children,
 }: {
   resource: { loading: boolean; error?: unknown; reload: () => void };
   empty?: boolean;
   emptyLabel?: string;
+  emptyTitle?: string;
+  emptyBody?: string;
+  onRetry?: () => void;
+  children?: ReactNode;
 }) {
   if (resource.loading)
     return (
@@ -121,16 +129,27 @@ export function ResourceState({
         className="rounded-xl border border-rose-200 bg-white p-6 text-sm"
       >
         <p>{errorLabel(resource.error)}</p>
-        <JobBtn secondary small onClick={resource.reload}>
+        <JobBtn secondary small onClick={onRetry ?? resource.reload}>
           Try again
         </JobBtn>
       </div>
     );
-  return empty ? (
-    <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-sm">
-      {emptyLabel}
-    </div>
-  ) : null;
+  if (empty)
+    return (
+      <div className="rounded-xl border border-[#E5E1D8] bg-white p-8 text-sm">
+        {emptyTitle ? (
+          <>
+            <p className="font-semibold text-[#0F1B2D]">{emptyTitle}</p>
+            {emptyBody && (
+              <p className="mt-1 text-[#4A5568]">{emptyBody}</p>
+            )}
+          </>
+        ) : (
+          emptyLabel
+        )}
+      </div>
+    );
+  return <>{children}</>;
 }
 
 export function Pagination({

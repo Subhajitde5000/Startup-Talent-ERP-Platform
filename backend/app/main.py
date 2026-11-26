@@ -57,6 +57,7 @@ from app.routers import (
     organizations,
     public,
     readiness,
+    resumes,
     saved_jobs,
     scorecards,
     session,
@@ -195,6 +196,8 @@ def create_app() -> FastAPI:
     # Step 7m: job-seeker saved jobs and alerts (flat, seeker-owned routes).
     app.include_router(saved_jobs.router, prefix=settings.API_V1_PREFIX)
     app.include_router(job_alerts.router, prefix=settings.API_V1_PREFIX)
+    # Step 7n/7o: job-seeker resume builder, ATS check, and AI tailoring.
+    app.include_router(resumes.router, prefix=settings.API_V1_PREFIX)
     app.include_router(tasks.router, prefix=settings.API_V1_PREFIX)
     app.include_router(readiness.router, prefix=settings.API_V1_PREFIX)
     # Step 8f: mentor sign-off through the mentorship it comes from.
