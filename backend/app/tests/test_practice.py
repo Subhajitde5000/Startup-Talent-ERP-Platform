@@ -276,3 +276,130 @@ async def test_practice_auth_idor_and_validation(client, db_session, settings, m
     )
     assert ai_resp.status_code == 503
     assert ai_resp.json()["error"]["code"] == "AI_UNCONFIGURED"
+
+
+async def test_practice_video_mode_scoring(client, db_session, settings, monkeypatch):
+    seeker = await _signup_verified(client, "seeker_vid@forma.dev", role="jobseeker")
+    h = seeker["headers"]
+
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "test-groq-key")
+
+    async def _fake_turn_graph(*, context_text, model_name, api_key):
+        return (
+            PracticeTurnOutput(reply="Thanks, tell me more about your role.", is_follow_up=False),
+            120,
+            30,
+        )
+
+    async def _fake_score_graph(*, transcript_text, model_name, api_key):
+        return (
+            PracticeScoreOutput(
+                clarity=80,
+                structure=80,
+                empathy=80,
+                technical_rigor=80,
+                feedback="Clear and confident delivery.",
+                clarity_note="Well paced.",
+                structure_note="Good STAR framing.",
+                empathy_note="Strong ownership.",
+                technical_rigor_note="Solid depth.",
+            ),
+            300,
+            90,
+        )
+
+    monkeypatch.setattr(
+        "app.services.ai_practice_service.run_practice_turn_graph", _fake_turn_graph
+    )
+    monkeypatch.setattr(
+        "app.services.ai_practice_service.run_practice_score_graph", _fake_score_graph
+    )
+
+    # 1. Create text-mode session and verify video scores are rejected
+    text_sess = await client.post(
+        "/api/v1/practice/sessions",
+        headers=h,
+        json={"target_role": "Backend Engineer", "question_count": 2},
+    )
+    assert text_sess.status_code == 201
+    assert text_sess.json()["is_video_mode"] is False
+    text_sid = text_sess.json()["id"]
+    await client.post(
+        f"/api/v1/practice/sessions/{text_sid}/turns",
+        headers=h,
+        json={"content": "I built an async API gateway."},
+    )
+    bad_video_on_text = await client.post(
+        f"/api/v1/practice/sessions/{text_sid}/score",
+        headers=h,
+        json={"confidence_score": 85},
+    )
+    assert bad_video_on_text.status_code == 422
+
+    # 2. Create video-mode session
+    vid_sess = await client.post(
+        "/api/v1/practice/sessions",
+        headers=h,
+        json={"target_role": "Backend Engineer", "question_count": 2, "is_video_mode": True},
+    )
+    assert vid_sess.status_code == 201
+    assert vid_sess.json()["is_video_mode"] is True
+    vid_sid = vid_sess.json()["id"]
+
+    await client.post(f"/api/v1/practice/sessions/{vid_sid}/start", headers=h)
+    await client.post(
+        f"/api/v1/practice/sessions/{vid_sid}/turns",
+        headers=h,
+        json={"content": "I led the migration to async PostgreSQL pools."},
+    )
+
+    # Out-of-range video score -> 422
+    out_of_range = await client.post(
+        f"/api/v1/practice/sessions/{vid_sid}/score",
+        headers=h,
+        json={"confidence_score": 105},
+    )
+    assert out_of_range.status_code == 422
+
+    # Mass-assignment on answer quality field -> 422
+    mass_assign = await client.post(
+        f"/api/v1/practice/sessions/{vid_sid}/score",
+        headers=h,
+        json={"confidence_score": 90, "clarity": 100},
+    )
+    assert mass_assign.status_code == 422
+
+    # Valid 7-dimension scoring:
+    # 80*0.15 + 80*0.15 + 80*0.20 + 80*0.10 + 90*0.15 + 80*0.15 + 100*0.10
+    # = 12 + 12 + 16 + 8 + 13.5 + 12 + 10 = 83.5 -> 84
+    score_resp = await client.post(
+        f"/api/v1/practice/sessions/{vid_sid}/score",
+        headers=h,
+        json={
+            "duration_sec": 180,
+            "confidence_score": 90,
+            "body_language_score": 80,
+            "communication_score": 100,
+        },
+    )
+    assert score_resp.status_code == 200, score_resp.text
+    rep = score_resp.json()
+    assert rep["session"]["is_video_mode"] is True
+    assert rep["session"]["confidence_score"] == 90
+    assert rep["session"]["body_language_score"] == 80
+    assert rep["session"]["communication_score"] == 100
+    assert rep["session"]["score"] == 84
+    assert len(rep["dimensions"]) == 7
+    assert {d["key"] for d in rep["dimensions"]} == {
+        "structure",
+        "technical_rigor",
+        "empathy",
+        "clarity",
+        "confidence",
+        "body_language",
+        "communication",
+    }
+
+    got_rep = await client.get(f"/api/v1/practice/sessions/{vid_sid}/report", headers=h)
+    assert got_rep.status_code == 200
+    assert len(got_rep.json()["dimensions"]) == 7

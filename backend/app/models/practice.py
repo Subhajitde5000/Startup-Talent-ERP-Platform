@@ -102,6 +102,12 @@ class PracticeSession(Base):
     structure: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     empathy: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     technical_rigor: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    is_video_mode: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    confidence_score: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    body_language_score: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    communication_score: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -152,6 +158,18 @@ class PracticeSession(Base):
         CheckConstraint(
             "technical_rigor IS NULL OR technical_rigor BETWEEN 0 AND 100",
             name="practice_session_technical_rigor_valid",
+        ),
+        CheckConstraint(
+            "confidence_score IS NULL OR confidence_score BETWEEN 0 AND 100",
+            name="practice_session_confidence_valid",
+        ),
+        CheckConstraint(
+            "body_language_score IS NULL OR body_language_score BETWEEN 0 AND 100",
+            name="practice_session_body_language_valid",
+        ),
+        CheckConstraint(
+            "communication_score IS NULL OR communication_score BETWEEN 0 AND 100",
+            name="practice_session_communication_valid",
         ),
         Index(
             "practice_sessions_user_idx",

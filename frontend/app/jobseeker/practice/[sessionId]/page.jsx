@@ -138,14 +138,26 @@ export default function LivePracticeSessionPage() {
                     <span className="font-mono text-sm font-semibold">{formatTimer(seconds)}</span>
                   </div>
 
-                  <Link href="/jobseeker/practice">
-                    <button
-                      type="button"
-                      className="rounded-xl border border-white/20 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10"
-                    >
-                      Exit Studio
-                    </button>
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    {session.is_video_mode && session.status !== 'completed' && (
+                      <Link href={`/jobseeker/practice/${session.id}/video`}>
+                        <button
+                          type="button"
+                          className="rounded-xl bg-[#B8955A] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#9A7A45]"
+                        >
+                          Open Video Studio
+                        </button>
+                      </Link>
+                    )}
+                    <Link href="/jobseeker/practice">
+                      <button
+                        type="button"
+                        className="rounded-xl border border-white/20 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10"
+                      >
+                        Exit Studio
+                      </button>
+                    </Link>
+                  </div>
                 </div>
               </header>
 

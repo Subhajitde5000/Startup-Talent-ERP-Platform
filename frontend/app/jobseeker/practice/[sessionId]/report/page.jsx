@@ -8,6 +8,7 @@ import {
   RotateCcw,
   BookOpen,
   Sparkles,
+  Video,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
 import { JobBtn } from '@/components/jobseeker-ui';
@@ -64,9 +65,16 @@ export default function FeedbackReportPage() {
               <header className="rounded-2xl border border-[#E5E1D8] bg-white p-6 shadow-sm space-y-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <span className="text-xs font-semibold text-[#806236] uppercase tracking-wider block mb-1">
-                      AI Evaluation Report
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <span className="text-xs font-semibold text-[#806236] uppercase tracking-wider">
+                        AI Evaluation Report
+                      </span>
+                      {session.is_video_mode && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#FAF8F4] border border-[#D4C3A3] px-2.5 py-0.5 text-[10px] font-semibold text-[#806236]">
+                          <Video size={11} /> Video Mode (7 Dimensions)
+                        </span>
+                      )}
+                    </div>
                     <h1 className="text-xl md:text-2xl font-serif font-bold text-[#0F1B2D]">
                       {session.title || session.target_role || 'Practice Session'}
                     </h1>
@@ -136,6 +144,26 @@ export default function FeedbackReportPage() {
                 <div className="rounded-xl border border-[#D4C3A3] bg-[#FFF8E8] px-4 py-2.5 text-xs text-[#806236] flex items-center gap-2">
                   <Sparkles size={13} /> {report.ai_notice}
                 </div>
+              )}
+
+              {session.is_video_mode && session.confidence_score != null && (
+                <section className="grid gap-3 sm:grid-cols-3">
+                  {[
+                    { label: 'Confidence & Presence', value: session.confidence_score },
+                    { label: 'Body Language & Posture', value: session.body_language_score },
+                    { label: 'Delivery & Pacing', value: session.communication_score },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="rounded-2xl border border-[#D4C3A3] bg-[#FAF8F4] p-4 flex items-center justify-between"
+                    >
+                      <span className="text-xs font-semibold text-[#0F1B2D]">{item.label}</span>
+                      <span className="rounded-full bg-white border border-[#D4C3A3] px-2.5 py-0.5 text-xs font-bold text-[#806236]">
+                        {item.value ?? '—'}%
+                      </span>
+                    </div>
+                  ))}
+                </section>
               )}
 
               {/* Tabs */}

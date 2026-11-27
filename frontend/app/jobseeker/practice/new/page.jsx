@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ChevronLeft,
+  MessageSquare,
   Mic,
   Shield,
+  Video,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
 import { JobBtn } from '@/components/jobseeker-ui';
@@ -29,6 +31,7 @@ export default function NewPracticeSetupPage() {
   const [sessionType, setSessionType] = useState('Technical & Architecture');
   const [questionCount, setQuestionCount] = useState(3);
   const [difficulty, setDifficulty] = useState('medium');
+  const [mode, setMode] = useState('text');
   const [selectedDrill, setSelectedDrill] = useState(null);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState('');
@@ -63,9 +66,14 @@ export default function NewPracticeSetupPage() {
         focus_area: sessionType,
         difficulty,
         question_count: questionCount,
+        is_video_mode: mode === 'video',
       });
-      await api.practice.startSession(created.id);
-      router.push(`/jobseeker/practice/${created.id}`);
+      if (created.is_video_mode) {
+        router.push(`/jobseeker/practice/${created.id}/video`);
+      } else {
+        await api.practice.startSession(created.id);
+        router.push(`/jobseeker/practice/${created.id}`);
+      }
     } catch (err) {
       setFieldErrors(fieldErrorsFrom(err));
       setError(errorLabel(err, 'Could not start practice session.'));
@@ -201,11 +209,57 @@ export default function NewPracticeSetupPage() {
             </div>
           </div>
 
+          {/* Interview Mode */}
+          <div>
+            <span className="block text-xs font-semibold text-[#4A5568] mb-2">
+              Interview Mode
+            </span>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                {
+                  id: 'text',
+                  title: 'Text Mode',
+                  desc: 'Type structured answers and receive 4-dimension rubric scoring.',
+                  Icon: MessageSquare,
+                },
+                {
+                  id: 'video',
+                  title: 'Video Mode (AI Body Language + Voice)',
+                  desc: 'Live webcam + speech-to-text with confidence, posture, eye contact & delivery scoring.',
+                  Icon: Video,
+                },
+              ].map((m) => {
+                const isSelected = mode === m.id;
+                const Icon = m.Icon;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setMode(m.id)}
+                    className={`text-left cursor-pointer rounded-xl border p-4 space-y-1 transition-all ${
+                      isSelected
+                        ? 'border-[#0F1B2D] bg-[#FAF8F4] shadow-sm'
+                        : 'border-[#E5E1D8] bg-white hover:bg-[#FAF8F4]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon size={15} className="text-[#9A7A45]" />
+                      <h3 className="text-xs font-bold text-[#0F1B2D]">{m.title}</h3>
+                    </div>
+                    <p className="text-[11px] text-[#6B7280] leading-relaxed">{m.desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Privacy Note */}
           <div className="rounded-xl border border-[#D4C3A3] bg-[#F3EBDD]/40 p-4 text-xs text-[#806236] flex items-start gap-2.5">
             <Shield size={16} className="shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              Your practice transcripts are private to your account. Nothing is shared with platform employers.
+              {mode === 'video'
+                ? 'Video and audio are processed locally in your browser. No video is ever uploaded or stored on our servers—only your text transcript and summary scores are saved.'
+                : 'Your practice transcripts are private to your account. Nothing is shared with platform employers.'}
             </p>
           </div>
 

@@ -13005,6 +13005,12 @@ export interface components {
         PracticeScoreRequest: {
             /** Duration Sec */
             duration_sec?: number | null;
+            /** Confidence Score */
+            confidence_score?: number | null;
+            /** Body Language Score */
+            body_language_score?: number | null;
+            /** Communication Score */
+            communication_score?: number | null;
         };
         /** PracticeSessionCreate */
         PracticeSessionCreate: {
@@ -13027,6 +13033,11 @@ export interface components {
              * @default 3
              */
             question_count?: number;
+            /**
+             * Is Video Mode
+             * @default false
+             */
+            is_video_mode?: boolean;
         };
         /** PracticeSessionListItem */
         PracticeSessionListItem: {
@@ -13059,6 +13070,8 @@ export interface components {
             score: number | null;
             /** Duration Sec */
             duration_sec: number | null;
+            /** Is Video Mode */
+            is_video_mode: boolean;
             /** Started At */
             started_at: string | null;
             /** Completed At */
@@ -13118,6 +13131,8 @@ export interface components {
             score: number | null;
             /** Duration Sec */
             duration_sec: number | null;
+            /** Is Video Mode */
+            is_video_mode: boolean;
             /** Started At */
             started_at: string | null;
             /** Completed At */
@@ -13142,6 +13157,12 @@ export interface components {
             empathy: number | null;
             /** Technical Rigor */
             technical_rigor: number | null;
+            /** Confidence Score */
+            confidence_score: number | null;
+            /** Body Language Score */
+            body_language_score: number | null;
+            /** Communication Score */
+            communication_score: number | null;
             /** Feedback */
             feedback: string | null;
             /** Turns */

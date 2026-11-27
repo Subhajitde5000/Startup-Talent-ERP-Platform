@@ -179,7 +179,13 @@ async def score_session(
     payload: PracticeScoreRequest | None = None,
 ) -> dict:
     return await practice_service.score_session(
-        db, user, session_id, duration_sec=payload.duration_sec if payload else None
+        db,
+        user,
+        session_id,
+        duration_sec=payload.duration_sec if payload else None,
+        confidence_score=payload.confidence_score if payload else None,
+        body_language_score=payload.body_language_score if payload else None,
+        communication_score=payload.communication_score if payload else None,
     )
 
 

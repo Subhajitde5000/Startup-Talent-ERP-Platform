@@ -53,6 +53,7 @@ class PracticeSessionCreate(BaseModel):
     focus_area: Annotated[str | None, Field(max_length=120)] = None
     difficulty: PracticeDifficulty = "medium"
     question_count: Annotated[int, Field(ge=1, le=15)] = 3
+    is_video_mode: bool = False
 
     @field_validator("title", mode="before")
     @classmethod
@@ -103,6 +104,9 @@ class PracticeScoreRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     duration_sec: Annotated[int | None, Field(ge=0, le=14400)] = None
+    confidence_score: Annotated[int | None, Field(ge=0, le=100)] = None
+    body_language_score: Annotated[int | None, Field(ge=0, le=100)] = None
+    communication_score: Annotated[int | None, Field(ge=0, le=100)] = None
 
 
 class PracticeSessionListItem(BaseModel):
@@ -116,6 +120,7 @@ class PracticeSessionListItem(BaseModel):
     status: PracticeSessionStatus
     score: int | None
     duration_sec: int | None
+    is_video_mode: bool
     started_at: datetime | None
     completed_at: datetime | None
     created_at: datetime
@@ -136,6 +141,9 @@ class PracticeSessionRead(PracticeSessionListItem):
     structure: int | None
     empathy: int | None
     technical_rigor: int | None
+    confidence_score: int | None
+    body_language_score: int | None
+    communication_score: int | None
     feedback: str | None
     turns: list[PracticeTurnRead]
 

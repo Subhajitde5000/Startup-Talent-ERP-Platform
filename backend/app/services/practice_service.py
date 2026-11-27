@@ -211,6 +211,7 @@ def _serialize_session_item(session: PracticeSession) -> dict:
         "status": session.status,
         "score": session.score,
         "duration_sec": session.duration_sec,
+        "is_video_mode": session.is_video_mode,
         "started_at": session.started_at,
         "completed_at": session.completed_at,
         "created_at": session.created_at,
@@ -227,6 +228,9 @@ def _serialize_session(session: PracticeSession) -> dict:
             "structure": session.structure,
             "empathy": session.empathy,
             "technical_rigor": session.technical_rigor,
+            "confidence_score": session.confidence_score,
+            "body_language_score": session.body_language_score,
+            "communication_score": session.communication_score,
             "feedback": session.feedback,
             "turns": [_serialize_turn(t) for t in (session.turns or [])],
         }
@@ -372,6 +376,7 @@ async def create_session(
         difficulty=difficulty,
         question_count=payload.question_count,
         questions=questions,
+        is_video_mode=payload.is_video_mode,
         status="scheduled",
     )
     db.add(session)
@@ -632,37 +637,67 @@ async def get_rubric(db: AsyncSession, user: User) -> dict:
     return {"criteria": PLATFORM_RUBRIC}
 
 
-def _compute_weighted_score(*, clarity: int, structure: int, empathy: int, technical_rigor: int) -> int:
-    weighted = (
-        structure * 0.30
-        + technical_rigor * 0.35
-        + empathy * 0.20
-        + clarity * 0.15
-    )
+def _compute_weighted_score(
+    *,
+    clarity: int,
+    structure: int,
+    empathy: int,
+    technical_rigor: int,
+    confidence_score: int | None = None,
+    body_language_score: int | None = None,
+    communication_score: int | None = None,
+) -> int:
+    if (
+        confidence_score is not None
+        and body_language_score is not None
+        and communication_score is not None
+    ):
+        weighted = (
+            clarity * 0.15
+            + structure * 0.15
+            + technical_rigor * 0.20
+            + empathy * 0.10
+            + confidence_score * 0.15
+            + body_language_score * 0.15
+            + communication_score * 0.10
+        )
+    else:
+        weighted = (
+            structure * 0.30
+            + technical_rigor * 0.35
+            + empathy * 0.20
+            + clarity * 0.15
+        )
     return max(0, min(100, round(weighted)))
 
 
 def _build_dimensions(session: PracticeSession, notes: dict[str, str] | None = None) -> list[dict]:
     notes = notes or {}
-    return [
+    has_video_scores = (
+        session.is_video_mode
+        and session.confidence_score is not None
+        and session.body_language_score is not None
+        and session.communication_score is not None
+    )
+    dims: list[dict] = [
         {
             "key": "structure",
             "label": "Structural Clarity & STAR Framework",
-            "weight_pct": 30,
+            "weight_pct": 15 if has_video_scores else 30,
             "score": int(session.structure or 0),
             "note": notes.get("structure") or "Evaluated on Situation, Task, Action, and Result framing.",
         },
         {
             "key": "technical_rigor",
             "label": "Domain & Technical Depth",
-            "weight_pct": 35,
+            "weight_pct": 20 if has_video_scores else 35,
             "score": int(session.technical_rigor or 0),
             "note": notes.get("technical_rigor") or "Evaluated on domain specificity and trade-off rigor.",
         },
         {
             "key": "empathy",
             "label": "Startup Pace & Ownership Mindset",
-            "weight_pct": 20,
+            "weight_pct": 10 if has_video_scores else 20,
             "score": int(session.empathy or 0),
             "note": notes.get("empathy") or "Evaluated on ownership, collaboration, and user empathy.",
         },
@@ -674,6 +709,33 @@ def _build_dimensions(session: PracticeSession, notes: dict[str, str] | None = N
             "note": notes.get("clarity") or "Evaluated on conciseness and clarity of delivery.",
         },
     ]
+    if has_video_scores:
+        dims.extend(
+            [
+                {
+                    "key": "confidence",
+                    "label": "Confidence & Presence",
+                    "weight_pct": 15,
+                    "score": int(session.confidence_score or 0),
+                    "note": "Measured from eye contact consistency, head stability, and vocal energy.",
+                },
+                {
+                    "key": "body_language",
+                    "label": "Body Language & Posture",
+                    "weight_pct": 15,
+                    "score": int(session.body_language_score or 0),
+                    "note": "Measured from posture alignment, camera gaze, and composure.",
+                },
+                {
+                    "key": "communication",
+                    "label": "Delivery & Pacing",
+                    "weight_pct": 10,
+                    "score": int(session.communication_score or 0),
+                    "note": "Measured from speech pacing, filler-word ratio, and response length.",
+                },
+            ]
+        )
+    return dims
 
 
 async def _sync_user_readiness_practice(db: AsyncSession, user_id: uuid.UUID) -> None:
@@ -704,12 +766,19 @@ async def score_session(
     session_id: uuid.UUID,
     *,
     duration_sec: int | None = None,
+    confidence_score: int | None = None,
+    body_language_score: int | None = None,
+    communication_score: int | None = None,
 ) -> dict:
     await require_seeker(db, user)
     settings = get_settings()
     await _rate_limit(user, settings.PRACTICE_AI_LIMIT, settings.PRACTICE_AI_WINDOW_SECONDS, "ai")
 
     session = await owned_session_or_404(db, user, session_id)
+    if not session.is_video_mode and any(
+        v is not None for v in (confidence_score, body_language_score, communication_score)
+    ):
+        raise validation_error("Video scores can only be submitted for video-mode sessions.")
     candidate_turns = [t for t in session.turns if t.speaker == "candidate"]
     if not candidate_turns:
         raise validation_error("Submit at least one answer before scoring this session.")
@@ -730,11 +799,18 @@ async def score_session(
     session.structure = ai_out.structure
     session.empathy = ai_out.empathy
     session.technical_rigor = ai_out.technical_rigor
+    if session.is_video_mode:
+        session.confidence_score = confidence_score
+        session.body_language_score = body_language_score
+        session.communication_score = communication_score
     session.score = _compute_weighted_score(
         clarity=ai_out.clarity,
         structure=ai_out.structure,
         empathy=ai_out.empathy,
         technical_rigor=ai_out.technical_rigor,
+        confidence_score=session.confidence_score,
+        body_language_score=session.body_language_score,
+        communication_score=session.communication_score,
     )
     session.feedback = ai_out.feedback
     session.status = "completed"
