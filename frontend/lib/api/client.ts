@@ -3509,4 +3509,113 @@ export const api = {
         body,
       }),
   },
+
+  // --- Steps 7p & 7q: practice interviews and rubric scoring ---------------
+  practice: {
+    listDrills: (
+      query: {
+        category?: string;
+        difficulty?: "easy" | "medium" | "hard";
+        q?: string;
+        limit?: number;
+        offset?: number;
+      } = {},
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<components["schemas"]["PracticeDrillPage"]>("/practice/drills", {
+        method: "GET",
+        query,
+        signal,
+      }),
+
+    getDrill: (drillId: string, signal?: AbortSignal) =>
+      apiRequest<components["schemas"]["PracticeDrillRead"]>(`/practice/drills/${drillId}`, {
+        method: "GET",
+        signal,
+      }),
+
+    rubric: (signal?: AbortSignal) =>
+      apiRequest<components["schemas"]["PracticeRubricRead"]>("/practice/rubric", {
+        method: "GET",
+        signal,
+      }),
+
+    createSession: (body: components["schemas"]["PracticeSessionCreate"]) =>
+      apiRequest<components["schemas"]["PracticeSessionRead"]>("/practice/sessions", {
+        method: "POST",
+        body,
+      }),
+
+    listSessions: (
+      query: {
+        status?: "scheduled" | "in_progress" | "completed" | "abandoned";
+        sort?: "created_at" | "score";
+        order?: "asc" | "desc";
+        limit?: number;
+        offset?: number;
+      } = {},
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<components["schemas"]["PracticeSessionPage"]>("/practice/sessions", {
+        method: "GET",
+        query,
+        signal,
+      }),
+
+    summary: (signal?: AbortSignal) =>
+      apiRequest<components["schemas"]["PracticeSummaryRead"]>("/practice/sessions/summary", {
+        method: "GET",
+        signal,
+      }),
+
+    getSession: (sessionId: string, signal?: AbortSignal) =>
+      apiRequest<components["schemas"]["PracticeSessionRead"]>(`/practice/sessions/${sessionId}`, {
+        method: "GET",
+        signal,
+      }),
+
+    startSession: (sessionId: string) =>
+      apiRequest<components["schemas"]["PracticeSessionRead"]>(
+        `/practice/sessions/${sessionId}/start`,
+        {
+          method: "POST",
+          body: {},
+        },
+      ),
+
+    submitTurn: (sessionId: string, body: components["schemas"]["PracticeTurnCreate"]) =>
+      apiRequest<components["schemas"]["PracticeTurnResponse"]>(
+        `/practice/sessions/${sessionId}/turns`,
+        {
+          method: "POST",
+          body,
+        },
+      ),
+
+    deleteSession: (sessionId: string) =>
+      apiRequest<void>(`/practice/sessions/${sessionId}`, {
+        method: "DELETE",
+      }),
+
+    scoreSession: (
+      sessionId: string,
+      body: components["schemas"]["PracticeScoreRequest"] = {},
+    ) =>
+      apiRequest<components["schemas"]["PracticeReportRead"]>(
+        `/practice/sessions/${sessionId}/score`,
+        {
+          method: "POST",
+          body,
+        },
+      ),
+
+    getReport: (sessionId: string, signal?: AbortSignal) =>
+      apiRequest<components["schemas"]["PracticeReportRead"]>(
+        `/practice/sessions/${sessionId}/report`,
+        {
+          method: "GET",
+          signal,
+        },
+      ),
+  },
 };

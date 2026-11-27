@@ -284,6 +284,12 @@ class Settings(BaseSettings):
     RESUME_ATS_WRITE_WINDOW_SECONDS: int = Field(default=60, ge=1)
     AI_TAILOR_LIMIT: int = Field(default=10, ge=1)
     AI_TAILOR_WINDOW_SECONDS: int = Field(default=3600, ge=1)
+    PRACTICE_READ_LIMIT: int = Field(default=120, ge=1)
+    PRACTICE_READ_WINDOW_SECONDS: int = Field(default=60, ge=1)
+    PRACTICE_WRITE_LIMIT: int = Field(default=30, ge=1)
+    PRACTICE_WRITE_WINDOW_SECONDS: int = Field(default=60, ge=1)
+    PRACTICE_AI_LIMIT: int = Field(default=15, ge=1)
+    PRACTICE_AI_WINDOW_SECONDS: int = Field(default=3600, ge=1)
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
 

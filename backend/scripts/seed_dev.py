@@ -3147,6 +3147,165 @@ async def seed_step7no_resumes(db: AsyncSession, candidate: User) -> None:
     await db.commit()
 
 
+async def seed_step7pq_practice(db: AsyncSession, candidate: User) -> None:
+    """Fill-only sample practice drills and sessions migrated from the old 7p/7q mock data."""
+    if get_settings().ENVIRONMENT != "development":
+        raise RuntimeError("Step 7p/7q samples require ENVIRONMENT=development")
+    from datetime import UTC, datetime, timedelta
+
+    from app.models.practice import (
+        PracticeDrill,
+        PracticeSession,
+        PracticeTranscriptTurn,
+    )
+
+    existing_drills = (
+        await db.execute(select(PracticeDrill.id).limit(1))
+    ).scalar_one_or_none()
+    drills_created: list[PracticeDrill] = []
+    if existing_drills is None:
+        drills_created = [
+            PracticeDrill(
+                category="Product Thinking",
+                title="Design an ATM for children",
+                difficulty="medium",
+                duration_min=15,
+                description=(
+                    "Demonstrate first-principles user empathy, safety constraints, "
+                    "cognitive load mitigation, and physical-digital interface synthesis."
+                ),
+                prompts=[
+                    "Who are the primary target users and what are their cognitive capabilities?",
+                    "What are the core safety, parental control, and physical security parameters?",
+                    "How does the interface handle financial literacy and gamified feedback?",
+                ],
+                rubric={"focus": ["clarity", "empathy", "structure"]},
+                is_active=True,
+            ),
+            PracticeDrill(
+                category="Behavioral & Leadership",
+                title="Resolving Engineering vs Design Tradeoffs",
+                difficulty="hard",
+                duration_min=10,
+                description=(
+                    "Structure your response using the STAR framework to explain how you "
+                    "negotiated a critical deadline compromise with engineering leadership."
+                ),
+                prompts=[
+                    "Describe the context and the technical constraint that forced the tradeoff.",
+                    "How did you evaluate user impact versus technical debt?",
+                    "What was the final outcome and how did you measure success?",
+                ],
+                rubric={"focus": ["structure", "empathy", "clarity"]},
+                is_active=True,
+            ),
+            PracticeDrill(
+                category="Visual & System Design",
+                title="Color Contrast & Accessible Token Architecture",
+                difficulty="medium",
+                duration_min=12,
+                description=(
+                    "Explain how you design a multi-theme design system token structure "
+                    "complying strictly with WCAG 2.1 AA contrast standards."
+                ),
+                prompts=[
+                    "How do you decouple semantic token naming from raw primitive hex values?",
+                    "What process ensures dark mode contrast ratios meet minimum 4.5:1 requirements?",
+                ],
+                rubric={"focus": ["technical_rigor", "clarity"]},
+                is_active=True,
+            ),
+        ]
+        db.add_all(drills_created)
+        await db.flush()
+
+    existing_sess = (
+        await db.execute(
+            select(PracticeSession.id)
+            .where(PracticeSession.user_id == candidate.id)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if existing_sess is None:
+        now = datetime.now(UTC)
+        first_drill_id = drills_created[0].id if drills_created else None
+        s1 = PracticeSession(
+            user_id=candidate.id,
+            drill_id=first_drill_id,
+            title="Product Design Deep Dive · Series A Scenario",
+            target_role="Senior Product Designer",
+            focus_area="Technical & Architecture",
+            difficulty="medium",
+            question_count=3,
+            questions=[
+                "Tell me about a complex design system you architected and how you managed tokens across engineering teams.",
+                "Describe a situation where engineering pushed back on a design specification. How did you resolve the trade-off?",
+                "How do you prioritize research and user testing in an early-stage startup where product roadmaps change weekly?",
+            ],
+            status="completed",
+            score=86,
+            duration_sec=1320,
+            clarity=90,
+            structure=85,
+            empathy=88,
+            technical_rigor=80,
+            feedback=(
+                "Strong articulation of design tradeoffs. Excellent communication of user research "
+                "synthesis. Minor hesitation observed in handling technical constraint questions."
+            ),
+            started_at=now - timedelta(days=2, minutes=22),
+            completed_at=now - timedelta(days=2),
+        )
+        s2 = PracticeSession(
+            user_id=candidate.id,
+            title="Behavioral Executive Leadership Practice",
+            target_role="Staff Product Designer",
+            focus_area="Behavioral & Leadership",
+            difficulty="hard",
+            question_count=3,
+            questions=[
+                "Describe a time you took ownership of an ambiguous problem with tight constraints.",
+                "How do you align engineering and product leadership on quality bars?",
+                "Walk me through a launch that didn't go as planned and what you changed.",
+            ],
+            status="completed",
+            score=79,
+            duration_sec=1080,
+            clarity=82,
+            structure=80,
+            empathy=78,
+            technical_rigor=76,
+            feedback=(
+                "Good STAR framing. Recommend focusing on measurable metric outcomes rather than "
+                "general process narratives."
+            ),
+            started_at=now - timedelta(days=5, minutes=18),
+            completed_at=now - timedelta(days=5),
+        )
+        db.add_all([s1, s2])
+        await db.flush()
+        db.add_all(
+            [
+                PracticeTranscriptTurn(
+                    session_id=s1.id,
+                    speaker="interviewer",
+                    content=s1.questions[0],
+                    question_index=0,
+                ),
+                PracticeTranscriptTurn(
+                    session_id=s1.id,
+                    speaker="candidate",
+                    content=(
+                        "I led a multi-brand semantic token architecture in Figma synchronized to "
+                        "CSS variables via automated CI checks, cutting handoff bugs by 35%."
+                    ),
+                    question_index=0,
+                ),
+            ]
+        )
+    await db.commit()
+
+
 async def seed_step7lm(db: AsyncSession, candidate: User) -> None:
     """Fill-only bookmarks and alerts corresponding to the old 7m mock records."""
     if get_settings().ENVIRONMENT != "development":
@@ -5023,6 +5182,7 @@ async def seed() -> None:
             await seed_step7bc_careers(db, careers_owner, careers_candidate)
             await seed_step7lm(db, careers_candidate)
             await seed_step7no_resumes(db, careers_candidate)
+            await seed_step7pq_practice(db, careers_candidate)
 
         # Step 7e/7f samples; after7bc so the jobseeker's applications exist.
         await seed_step7e7f(db)
