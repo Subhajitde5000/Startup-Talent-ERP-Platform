@@ -1,38 +1,55 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   ChevronLeft,
-  RotateCcw,
-  Sparkles,
   Search,
-  Calendar,
-  Clock,
   ArrowRight,
   Trash2,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
-import {
-  JobBtn,
-  defaultUser,
-} from '@/components/jobseeker-ui';
-import { practiceSessions } from '../../jobseeker-data';
+import { JobBtn } from '@/components/jobseeker-ui';
+import { api } from '@/lib/api/client';
+import { useCareerResource, ResourceState, Pagination, dateLabel, errorLabel } from '@/components/career-data';
 
 export default function PracticeHistoryPage() {
-  const [sessions, setSessions] = useState(practiceSessions);
   const [search, setSearch] = useState('');
+  const [offset, setOffset] = useState(0);
+  const [busyId, setBusyId] = useState(null);
+  const [actionError, setActionError] = useState('');
 
-  const filtered = sessions.filter((s) => {
-    if (search.trim()) {
-      const hay = `${s.role} ${s.type}`.toLowerCase();
-      if (!hay.includes(search.toLowerCase())) return false;
+  const sessionsRes = useCareerResource(
+    `practice:history:${offset}`,
+    (signal) =>
+      api.practice.listSessions(
+        { limit: 20, offset, sort: 'created_at', order: 'desc' },
+        signal,
+      ),
+  );
+
+  const sessions = useMemo(() => sessionsRes.data?.items || [], [sessionsRes.data]);
+  const total = sessionsRes.data?.total ?? 0;
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return sessions;
+    const q = search.toLowerCase();
+    return sessions.filter((s) =>
+      `${s.title || ''} ${s.target_role || ''} ${s.focus_area || ''}`.toLowerCase().includes(q),
+    );
+  }, [sessions, search]);
+
+  const handleDelete = async (id) => {
+    setBusyId(id);
+    setActionError('');
+    try {
+      await api.practice.deleteSession(id);
+      sessionsRes.reload();
+    } catch (err) {
+      setActionError(errorLabel(err, 'Could not delete practice session.'));
+    } finally {
+      setBusyId(null);
     }
-    return true;
-  });
-
-  const handleDelete = (id) => {
-    setSessions(sessions.filter((s) => s.id !== id));
   };
 
   return (
@@ -54,7 +71,7 @@ export default function PracticeHistoryPage() {
         <header className="rounded-2xl border border-[#E5E1D8] bg-white p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-xl md:text-2xl font-serif font-bold text-[#0F1B2D]">
-              Past Practice Recordings
+              Past Practice Sessions
             </h1>
             <p className="text-xs md:text-sm text-[#6B7280] mt-1">
               Review your historical transcripts, AI rubrics, and track delivery improvements over time.
@@ -75,7 +92,7 @@ export default function PracticeHistoryPage() {
             <input
               type="text"
               aria-label="Search past sessions"
-              placeholder="Search by role or question topic..."
+              placeholder="Search by role or focus area..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full h-8 pl-8 pr-3 rounded-lg border border-[#E5E1D8] bg-[#FAF8F4]/50 text-xs text-[#0F1B2D] focus:border-[#B8955A] focus:outline-none"
@@ -83,46 +100,86 @@ export default function PracticeHistoryPage() {
           </div>
         </div>
 
-        {/* Sessions List */}
-        <div className="space-y-3">
-          {filtered.map((s) => (
-            <div
-              key={s.id}
-              className="rounded-xl border border-[#E5E1D8] bg-white p-5 shadow-sm flex flex-wrap items-center justify-between gap-4"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-[#0F1B2D]">{s.role}</h3>
-                  <span className="rounded-full bg-[#E7F3EC] px-2 py-0.5 text-xs text-[#286749] font-medium">
-                    Score: {s.score}%
-                  </span>
-                  <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-xs text-[#6B7280]">
-                    {s.type}
-                  </span>
-                </div>
-                <p className="text-xs text-[#6B7280]">
-                  {s.date} · Duration: {s.duration} · {s.questionsAnswered || 3} questions answered
-                </p>
-              </div>
+        {actionError && (
+          <div className="rounded-xl border border-[#F2C6C2] bg-[#FEF3F2] px-4 py-3 text-xs text-[#B42318]">
+            {actionError}
+          </div>
+        )}
 
-              <div className="flex items-center gap-2">
-                <Link href={`/jobseeker/practice/${s.id}/report`}>
-                  <JobBtn primary small className="flex items-center gap-1.5">
-                    View Report <ArrowRight size={13} />
-                  </JobBtn>
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(s.id)}
-                  className="p-2 text-[#A0A7B4] hover:text-[#B42318] hover:bg-[#FCE8E6] rounded-lg transition-colors"
-                  aria-label="Delete recording"
+        {/* Sessions List */}
+        <ResourceState
+          resource={sessionsRes}
+          empty={!sessionsRes.loading && !sessionsRes.error && filtered.length === 0}
+          emptyTitle="No practice sessions found"
+          emptyBody="Start a new AI practice session to build your history."
+          onRetry={sessionsRes.reload}
+        >
+          <div className="space-y-3">
+            {filtered.map((s) => {
+              const isCompleted = s.status === 'completed';
+              const mins = s.duration_sec != null ? `${Math.max(1, Math.round(s.duration_sec / 60))} min` : '—';
+              return (
+                <div
+                  key={s.id}
+                  className="rounded-xl border border-[#E5E1D8] bg-white p-5 shadow-sm flex flex-wrap items-center justify-between gap-4"
                 >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm font-semibold text-[#0F1B2D]">
+                        {s.title || s.target_role || 'Practice Session'}
+                      </h3>
+                      {s.score != null ? (
+                        <span className="rounded-full bg-[#E7F3EC] px-2 py-0.5 text-xs text-[#286749] font-medium">
+                          Score: {s.score}%
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-xs text-[#6B7280] capitalize">
+                          {s.status.replace('_', ' ')}
+                        </span>
+                      )}
+                      {s.focus_area && (
+                        <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-xs text-[#6B7280]">
+                          {s.focus_area}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-[#6B7280]">
+                      {dateLabel(s.created_at)} · Duration: {mins} · {s.question_count} questions
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={
+                        isCompleted
+                          ? `/jobseeker/practice/${s.id}/report`
+                          : `/jobseeker/practice/${s.id}`
+                      }
+                    >
+                      <JobBtn primary small className="flex items-center gap-1.5">
+                        {isCompleted ? 'View Report' : 'Continue'} <ArrowRight size={13} />
+                      </JobBtn>
+                    </Link>
+                    <button
+                      type="button"
+                      disabled={busyId === s.id}
+                      onClick={() => handleDelete(s.id)}
+                      className="p-2 text-[#A0A7B4] hover:text-[#B42318] hover:bg-[#FCE8E6] rounded-lg transition-colors disabled:opacity-50"
+                      aria-label="Delete session"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <Pagination
+            page={{ offset, limit: 20, total }}
+            onChange={setOffset}
+          />
+        </ResourceState>
       </div>
     </JobSeekerShell>
   );

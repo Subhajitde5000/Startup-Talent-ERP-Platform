@@ -1,32 +1,35 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   ChevronLeft,
-  Sparkles,
   Play,
   Clock,
-  Layers,
   CheckCircle2,
-  Filter,
 } from 'lucide-react';
 import { JobSeekerShell } from '@/components';
-import {
-  JobBtn,
-  defaultUser,
-} from '@/components/jobseeker-ui';
-import { drills } from '../../jobseeker-data';
+import { JobBtn } from '@/components/jobseeker-ui';
+import { api } from '@/lib/api/client';
+import { useCareerResource, ResourceState } from '@/components/career-data';
 
 export default function DrillsPage() {
   const [categoryFilter, setCategoryFilter] = useState('All');
 
-  const categories = ['All', 'Behavioral', 'Design Systems', 'Leadership', 'Negotiation'];
+  const drillsRes = useCareerResource('practice:drills', (signal) =>
+    api.practice.listDrills({ limit: 50 }, signal),
+  );
 
-  const filtered = drills.filter((d) => {
-    if (categoryFilter !== 'All' && d.category !== categoryFilter) return false;
-    return true;
-  });
+  const drills = useMemo(() => drillsRes.data?.items || [], [drillsRes.data]);
+  const categories = useMemo(() => {
+    const uniq = Array.from(new Set(drills.map((d) => d.category).filter(Boolean)));
+    return ['All', ...uniq];
+  }, [drills]);
+
+  const filtered = useMemo(() => {
+    if (categoryFilter === 'All') return drills;
+    return drills.filter((d) => d.category === categoryFilter);
+  }, [drills, categoryFilter]);
 
   return (
     <JobSeekerShell active="Interview practice">
@@ -50,7 +53,7 @@ export default function DrillsPage() {
               Targeted Skill Drills
             </h1>
             <p className="text-xs md:text-sm text-[#6B7280] mt-1">
-              Short, high-intensity 3-to-5 minute exercises designed to master specific interview questions.
+              Focused exercises designed to master specific interview questions.
             </p>
           </div>
 
@@ -70,7 +73,7 @@ export default function DrillsPage() {
                 key={cat}
                 type="button"
                 onClick={() => setCategoryFilter(cat)}
-                className={`px-3.5 py-1.5 rounded-lg font-medium transition-colors ${
+                className={`px-3.5 py-1.5 rounded-lg font-medium transition-colors shrink-0 ${
                   active
                     ? 'bg-[#0F1B2D] text-white'
                     : 'text-[#4A5568] hover:bg-[#FAF8F4]'
@@ -83,40 +86,50 @@ export default function DrillsPage() {
         </div>
 
         {/* Drills Grid */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((drill) => (
-            <div
-              key={drill.id}
-              className="rounded-xl border border-[#E5E1D8] bg-white p-5 shadow-sm space-y-3 flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="rounded-full bg-[#FAF8F4] border border-[#E5E1D8] px-2.5 py-0.5 text-xs text-[#6B7280]">
-                    {drill.category}
-                  </span>
-                  <span className="text-xs text-[#6B7280] flex items-center gap-1">
-                    <Clock size={12} /> {drill.duration}
-                  </span>
+        <ResourceState
+          resource={drillsRes}
+          empty={!drillsRes.loading && !drillsRes.error && filtered.length === 0}
+          emptyTitle="No drills found"
+          emptyBody="Try selecting a different category or start a custom practice session."
+          onRetry={drillsRes.reload}
+        >
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((drill) => (
+              <div
+                key={drill.id}
+                className="rounded-xl border border-[#E5E1D8] bg-white p-5 shadow-sm space-y-3 flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="rounded-full bg-[#FAF8F4] border border-[#E5E1D8] px-2.5 py-0.5 text-xs text-[#6B7280]">
+                      {drill.category}
+                    </span>
+                    <span className="text-xs text-[#6B7280] flex items-center gap-1">
+                      <Clock size={12} /> {drill.duration_min ? `${drill.duration_min} min` : drill.difficulty}
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-semibold text-[#0F1B2D]">{drill.title}</h3>
+                  <p className="text-xs text-[#6B7280] mt-1 leading-relaxed">
+                    {drill.description ||
+                      drill.prompts?.[0] ||
+                      'Practice concise structure using Situation, Task, Action, and Result.'}
+                  </p>
                 </div>
-                <h3 className="text-sm font-semibold text-[#0F1B2D]">{drill.title}</h3>
-                <p className="text-xs text-[#6B7280] mt-1 leading-relaxed">
-                  {drill.prompt || 'Practice concise structure using Situation, Task, Action, and Result.'}
-                </p>
-              </div>
 
-              <div className="pt-3 border-t border-[#F0EBE0] flex items-center justify-between">
-                <span className="text-[11px] text-[#286749] font-medium flex items-center gap-1">
-                  <CheckCircle2 size={11} /> AI Feedback Enabled
-                </span>
-                <Link href={`/jobseeker/practice/new?drill=${drill.id}`}>
-                  <JobBtn primary small className="px-3">
-                    Start Drill
-                  </JobBtn>
-                </Link>
+                <div className="pt-3 border-t border-[#F0EBE0] flex items-center justify-between">
+                  <span className="text-[11px] text-[#286749] font-medium flex items-center gap-1">
+                    <CheckCircle2 size={11} /> AI Feedback Enabled
+                  </span>
+                  <Link href={`/jobseeker/practice/new?drill=${drill.id}`}>
+                    <JobBtn primary small className="px-3">
+                      Start Drill
+                    </JobBtn>
+                  </Link>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </ResourceState>
       </div>
     </JobSeekerShell>
   );

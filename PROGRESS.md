@@ -207,12 +207,12 @@ Already done in Step 3: team directory, members and invites, startup organizatio
 - [x] B: /jobseeker/resumes/[resumeId]/ats, /jobseeker/resumes/[resumeId]/tailor wired; demo data removed. **Wired.** Both pages wired to `api.resumes` + `api.careers.jobs` with loading/empty/error states, live ATS scan against job/JD, keyword & suggestion breakdown, AI tailoring suggestions with `ai_notice`, and apply-summary flow. Same build/lint/typecheck gates pass; browser hand-test against live server remains open.
 
 ### 7p Practice interviews (core)
-- [ ] A: Drill catalogue, sessions, transcript turns, history
-- [ ] B: /jobseeker/practice, /new, /drills, /history, /[sessionId] wired; demo data removed
+- [x] A: Drill catalogue, sessions, transcript turns, history. **Implemented & verified.** Migration `0050_step7pq_practice_interviews` (`practice_drills`, `practice_sessions`, `practice_transcript_turns`); 9 jobseeker-scoped endpoints (drills list/detail, session create/list/summary/detail/start/turns/delete) with LangGraph + Groq interviewer turn generation (`ai_practice_service.py`) and `ai_usage_events` metering. SQLite pytest (2 passed), ruff clean, and PostgreSQL Alembic `upgrade head → downgrade -1 → upgrade head` verified. No frontend wiring yet.
+- [x] B: /jobseeker/practice, /new, /drills, /history, /[sessionId] wired; demo data removed. **Wired.** `schema.d.ts` regenerated; `api.practice` added to `lib/api/client.ts`; all 5 pages wired with loading/empty/error/422-field states, real KPIs from `/practice/sessions/summary`, dynamic drill categories, session creation & start, live text transcript turns, and soft delete. `drills` and `practiceSessions` removed from `jobseeker-data.js` and moved to `seed_dev.py` (`seed_step7pq_practice`, `ENVIRONMENT=development` only). `npm run typecheck`, targeted ESLint (0 errors/0 warnings), and `npm run build` pass. Browser hand-test against live server remains open.
 
 ### 7q Practice scoring and report
-- [ ] A: Scoring against the rubric and the session report
-- [ ] B: /jobseeker/practice/[sessionId]/report, /jobseeker/practice/rubric wired; demo data removed
+- [x] A: Scoring against the rubric and the session report. **Implemented & verified.** 3 endpoints (`GET /practice/rubric`, `POST /practice/sessions/{id}/score`, `GET /practice/sessions/{id}/report`) using LangGraph + Groq rubric evaluation (`clarity`, `structure`, `empathy`, `technical_rigor`, weighted `score`, `feedback`), `ai_usage_events` metering, and `user_readiness.practice_score` sync. Verified in `test_practice.py` + PostgreSQL Alembic. No frontend wiring yet.
+- [x] B: /jobseeker/practice/[sessionId]/report, /jobseeker/practice/rubric wired; demo data removed. **Wired.** Both pages wired to `api.practice.getReport` and `api.practice.rubric` with loading/empty/error states, 4-dimension rubric breakdown, transcript view, and `ai_notice`. "Request Human Mentor Review" shows a clear Step 8 notice instead of faking a submission. Same build/lint/typecheck gates pass; browser hand-test against live server remains open.
 
 ### 7r Startup hiring: jobs and applicants
 - [ ] A: Wire the startup hiring pages to the APIs from 7a and 7d: hiring overview, job editor, job detail with applicants, applicant detail. Mostly frontend; fix small API gaps only

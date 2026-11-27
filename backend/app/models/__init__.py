@@ -20,6 +20,7 @@ from app.models.job import Job, JobBenefit, JobSkill
 from app.models.job_alert import AlertFrequency, JobAlert
 from app.models.job_application import ApplicationStageEvent, JobApplication
 from app.models.offer import JobOffer, JobOfferStatus, OfferDeclineReason
+from app.models.practice import PracticeDrill, PracticeSession, PracticeTranscriptTurn
 from app.models.resume import (
     Resume,
     ResumeAtsRun,
@@ -78,4 +79,7 @@ __all__ = [
     "ResumeEducation",
     "ResumeSkill",
     "ResumeAtsRun",
+    "PracticeDrill",
+    "PracticeSession",
+    "PracticeTranscriptTurn",
 ]
