@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   Award,
   Camera,
+  CameraOff,
   CheckCircle2,
   Clock,
   Eye,
@@ -220,21 +221,51 @@ export default function VideoPracticeStudioPage() {
     speakText(latestInterviewerTurn.content);
   }, [latestInterviewerTurn, ttsEnabled, speakText]);
 
+  const stopRecording = useCallback(() => {
+    setRecording(false);
+    setInterimText('');
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.stop();
+      }
+    } catch {}
+    recognitionRef.current = null;
+  }, []);
+
+  const stopMedia = useCallback(() => {
+    stopRecording();
+    stopAudioPlayback();
+    try {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    } catch {}
+    streamRef.current = null;
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    try {
+      analyzerRef.current?.destroy();
+    } catch {}
+    analyzerRef.current = null;
+    setCameraReady(false);
+    setVisionStatus('idle');
+    setLiveMicLevel(0);
+  }, [stopRecording, stopAudioPlayback]);
+
+  // Automatically stop camera/mic when session is completed or abandoned
+  useEffect(() => {
+    if (session?.status === 'completed' || session?.status === 'abandoned') {
+      stopMedia();
+    }
+  }, [session?.status, stopMedia]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      try {
-        recognitionRef.current?.stop();
-      } catch {}
-      try {
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-      } catch {}
-      try {
-        analyzerRef.current?.destroy();
-      } catch {}
-      stopAudioPlayback();
+      stopMedia();
     };
-  }, [stopAudioPlayback]);
+  }, [stopMedia]);
 
   const enableCamera = async () => {
     setCameraError('');
@@ -308,14 +339,7 @@ export default function VideoPracticeStudioPage() {
     }
   };
 
-  const stopRecording = () => {
-    setRecording(false);
-    setInterimText('');
-    try {
-      recognitionRef.current?.stop();
-    } catch {}
-    recognitionRef.current = null;
-  };
+      // SpeechRecognition stopped via stopRecording callback
 
   const handleStartSession = async () => {
     if (!sessionId) return;
@@ -385,6 +409,7 @@ export default function VideoPracticeStudioPage() {
         body_language_score: summary.body_language_score,
         communication_score: summary.communication_score,
       });
+      stopMedia();
       router.push(`/jobseeker/practice/${sessionId}/report`);
     } catch (err) {
       setError(errorLabel(err, 'Could not generate AI video score report.'));
@@ -510,19 +535,28 @@ export default function VideoPracticeStudioPage() {
                     )}
 
                     {cameraReady && (
-                      <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                        <span className="rounded-full bg-black/60 backdrop-blur px-2.5 py-1 text-[10px] font-semibold text-white flex items-center gap-1.5">
-                          <span className={`h-2 w-2 rounded-full ${recording ? 'bg-red-500 animate-pulse' : 'bg-emerald-400'}`} />
-                          {recording ? `Recording · ${formatClock(answerCountdown)}` : 'Camera Ready'}
-                        </span>
-                        <span className="rounded-full bg-black/60 backdrop-blur px-2.5 py-1 text-[10px] text-white/80">
-                          {visionStatus === 'ready'
-                            ? 'MediaPipe Active'
-                            : visionStatus === 'loading'
-                              ? 'Loading Vision...'
-                              : 'Audio + Browser Mode'}
-                        </span>
-                      </div>
+                      <>
+                        <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                          <span className="rounded-full bg-black/60 backdrop-blur px-2.5 py-1 text-[10px] font-semibold text-white flex items-center gap-1.5">
+                            <span className={`h-2 w-2 rounded-full ${recording ? 'bg-red-500 animate-pulse' : 'bg-emerald-400'}`} />
+                            {recording ? `Recording · ${formatClock(answerCountdown)}` : 'Camera Ready'}
+                          </span>
+                          <span className="rounded-full bg-black/60 backdrop-blur px-2.5 py-1 text-[10px] text-white/80">
+                            {visionStatus === 'ready'
+                              ? 'MediaPipe Active'
+                              : visionStatus === 'loading'
+                                ? 'Loading Vision...'
+                                : 'Audio + Browser Mode'}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={stopMedia}
+                          className="absolute bottom-3 right-3 rounded-full bg-black/70 hover:bg-[#B42318] backdrop-blur px-3 py-1.5 text-[11px] font-semibold text-white flex items-center gap-1.5 transition-colors"
+                        >
+                          <CameraOff size={12} /> Stop Camera &amp; Mic
+                        </button>
+                      </>
                     )}
                   </div>
 
