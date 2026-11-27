@@ -25,6 +25,7 @@ from app.schemas.practice import (
     PracticeSessionRead,
     PracticeSessionStatus,
     PracticeSummaryRead,
+    PracticeTtsRequest,
     PracticeTurnCreate,
     PracticeTurnResponse,
 )
@@ -196,3 +197,18 @@ async def score_session(
 )
 async def get_report(session_id: uuid.UUID, db: DB, user: Actor) -> dict:
     return await practice_service.get_report(db, user, session_id)
+
+
+@router.post(
+    "/practice/tts",
+    response_class=Response,
+    summary="Synthesize natural interviewer speech via Gemini TTS",
+    responses={
+        200: {"content": {"audio/wav": {}}, "description": "Synthesized WAV audio"},
+    },
+)
+async def synthesize_tts(payload: PracticeTtsRequest, db: DB, user: Actor) -> Response:
+    audio_bytes = await practice_service.synthesize_speech(
+        db, user, text=payload.text, voice=payload.voice
+    )
+    return Response(content=audio_bytes, media_type="audio/wav")

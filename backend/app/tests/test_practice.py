@@ -403,3 +403,55 @@ async def test_practice_video_mode_scoring(client, db_session, settings, monkeyp
     got_rep = await client.get(f"/api/v1/practice/sessions/{vid_sid}/report", headers=h)
     assert got_rep.status_code == 200
     assert len(got_rep.json()["dimensions"]) == 7
+
+
+async def test_practice_gemini_tts(client, settings, monkeypatch):
+    # 401 unauthenticated
+    assert (
+        await client.post("/api/v1/practice/tts", json={"text": "Hello"})
+    ).status_code == 401
+
+    # 403 wrong role
+    emp = await _signup_verified(client, "emp_tts@forma.dev", role="employer")
+    assert (
+        await client.post("/api/v1/practice/tts", headers=emp["headers"], json={"text": "Hello"})
+    ).status_code == 403
+
+    seeker = await _signup_verified(client, "seeker_tts@forma.dev", role="jobseeker")
+    h = seeker["headers"]
+
+    # 503 when GEMINI_API_KEY missing
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
+    unconf = await client.post("/api/v1/practice/tts", headers=h, json={"text": "Hello"})
+    assert unconf.status_code == 503
+    assert unconf.json()["error"]["code"] == "AI_UNCONFIGURED"
+
+    # 422 blank text or extra fields
+    assert (
+        await client.post("/api/v1/practice/tts", headers=h, json={"text": "   "})
+    ).status_code == 422
+    assert (
+        await client.post(
+            "/api/v1/practice/tts", headers=h, json={"text": "Hi", "extra": "nope"}
+        )
+    ).status_code == 422
+
+    # 200 happy path with mocked Gemini PCM response -> WAV output
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-gemini-key")
+
+    async def _fake_gemini_tts(*, text, voice, model_name, api_key):
+        assert "Tell me about yourself" in text
+        assert voice == "Kore"
+        return b"\x00\x00\x01\x00" * 10, "audio/L16;codec=pcm;rate=24000"
+
+    monkeypatch.setattr("app.services.ai_practice_service._call_gemini_tts", _fake_gemini_tts)
+
+    ok_resp = await client.post(
+        "/api/v1/practice/tts",
+        headers=h,
+        json={"text": "Tell me about yourself.", "voice": "Kore"},
+    )
+    assert ok_resp.status_code == 200
+    assert ok_resp.headers["content-type"].startswith("audio/wav")
+    assert ok_resp.content[:4] == b"RIFF"
+    assert ok_resp.content[8:12] == b"WAVE"

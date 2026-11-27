@@ -185,3 +185,20 @@ class PracticeReportRead(BaseModel):
     session: PracticeSessionRead
     dimensions: list[PracticeDimensionScore]
     ai_notice: str | None = None
+
+
+PracticeTtsVoice = Literal["Kore", "Aoede", "Charon", "Fenrir", "Puck"]
+
+
+class PracticeTtsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: Annotated[str, Field(min_length=1, max_length=1500)]
+    voice: PracticeTtsVoice = "Kore"
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def _clean_text(cls, v: object) -> object:
+        if isinstance(v, str):
+            return _require_non_blank(v, 1500)
+        return v

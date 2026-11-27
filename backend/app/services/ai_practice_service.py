@@ -9,9 +9,13 @@ Security & privacy rules:
 
 from __future__ import annotations
 
+import base64
+import io
 import logging
+import wave
 from typing import TypedDict
 
+import httpx
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
 from langgraph.graph import END, START, StateGraph
@@ -289,3 +293,85 @@ async def score_transcript(transcript_text: str) -> tuple[PracticeScoreOutput, s
             "Unable to score practice session right now. Please try again.",
             502,
         ) from exc
+
+
+def _pcm_to_wav(pcm_bytes: bytes, *, sample_rate: int = 24000) -> bytes:
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(pcm_bytes)
+    return buf.getvalue()
+
+
+async def _call_gemini_tts(
+    *, text: str, voice: str, model_name: str, api_key: str
+) -> tuple[bytes, str]:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": (
+                            "Speak warmly, clearly, and naturally like a human startup interviewer: "
+                            f"{text}"
+                        )
+                    }
+                ]
+            }
+        ],
+        "generationConfig": {
+            "responseModalities": ["AUDIO"],
+            "speechConfig": {
+                "voiceConfig": {
+                    "prebuiltVoiceConfig": {
+                        "voiceName": voice,
+                    }
+                }
+            },
+        },
+    }
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        resp = await client.post(
+            url,
+            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+            json=payload,
+        )
+    resp.raise_for_status()
+    data = resp.json()
+    part = data["candidates"][0]["content"]["parts"][0]["inlineData"]
+    raw_bytes = base64.b64decode(part["data"])
+    mime_type = str(part.get("mimeType") or "audio/L16;codec=pcm;rate=24000")
+    return raw_bytes, mime_type
+
+
+async def synthesize_interviewer_speech(text: str, *, voice: str | None = None) -> bytes:
+    settings = get_settings()
+    api_key = (settings.GEMINI_API_KEY or "").strip()
+    if not api_key:
+        raise AppException(
+            "AI_UNCONFIGURED",
+            "Gemini TTS is not configured on this server.",
+            503,
+        )
+    chosen_voice = voice or settings.GEMINI_TTS_VOICE or "Kore"
+    model_name = settings.GEMINI_TTS_MODEL or "gemini-2.5-flash-preview-tts"
+    try:
+        raw_bytes, mime_type = await _call_gemini_tts(
+            text=text, voice=chosen_voice, model_name=model_name, api_key=api_key
+        )
+    except AppException:
+        raise
+    except Exception as exc:
+        logger.warning("Gemini TTS failed: %s", type(exc).__name__)
+        raise AppException(
+            "AI_PROVIDER_ERROR",
+            "Unable to synthesize voice audio right now.",
+            502,
+        ) from exc
+
+    if mime_type.startswith("audio/L16"):
+        return _pcm_to_wav(raw_bytes, sample_rate=24000)
+    return raw_bytes

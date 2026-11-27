@@ -4276,6 +4276,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/practice/tts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Synthesize natural interviewer speech via Gemini TTS */
+        post: operations["synthesize_tts_api_v1_practice_tts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{org_id}/tasks": {
         parameters: {
             query?: never;
@@ -13180,6 +13197,17 @@ export interface components {
             best_score: number | null;
             /** Total Practice Min */
             total_practice_min: number;
+        };
+        /** PracticeTtsRequest */
+        PracticeTtsRequest: {
+            /** Text */
+            text: string;
+            /**
+             * Voice
+             * @default Kore
+             * @enum {string}
+             */
+            voice?: "Kore" | "Aoede" | "Charon" | "Fenrir" | "Puck";
         };
         /** PracticeTurnCreate */
         PracticeTurnCreate: {
@@ -33730,6 +33758,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PracticeReportRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Job-seeker role and verified active account required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Drill or practice session not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or extra fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    synthesize_tts_api_v1_practice_tts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PracticeTtsRequest"];
+            };
+        };
+        responses: {
+            /** @description Synthesized WAV audio */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/wav": unknown;
                 };
             };
             /** @description Missing or invalid authentication */

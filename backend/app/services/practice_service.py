@@ -863,3 +863,18 @@ async def get_report(db: AsyncSession, user: User, session_id: uuid.UUID) -> dic
         "dimensions": _build_dimensions(session),
         "ai_notice": ai_practice_service.AI_SCORE_NOTICE,
     }
+
+
+async def synthesize_speech(
+    db: AsyncSession,
+    user: User,
+    *,
+    text: str,
+    voice: str | None = None,
+) -> bytes:
+    await require_seeker(db, user)
+    settings = get_settings()
+    await _rate_limit(
+        user, settings.PRACTICE_WRITE_LIMIT, settings.PRACTICE_WRITE_WINDOW_SECONDS, "tts"
+    )
+    return await ai_practice_service.synthesize_interviewer_speech(text, voice=voice)

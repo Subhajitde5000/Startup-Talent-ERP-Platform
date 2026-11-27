@@ -292,6 +292,9 @@ class Settings(BaseSettings):
     PRACTICE_AI_WINDOW_SECONDS: int = Field(default=3600, ge=1)
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GEMINI_API_KEY: str = ""
+    GEMINI_TTS_MODEL: str = "gemini-2.5-flash-preview-tts"
+    GEMINI_TTS_VOICE: str = "Kore"
 
     # CORS: explicit allow-list only, never "*" with credentials.
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])

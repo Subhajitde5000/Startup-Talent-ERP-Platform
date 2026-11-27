@@ -49,12 +49,15 @@ export default function VideoPracticeStudioPage() {
   const streamRef = useRef(null);
   const analyzerRef = useRef(null);
   const recognitionRef = useRef(null);
+  const audioPlayerRef = useRef(null);
+  const audioUrlRef = useRef(null);
   const lastSpokenTurnIdRef = useRef(null);
 
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [visionStatus, setVisionStatus] = useState('idle'); // idle | loading | ready | fallback
   const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [voiceMode, setVoiceMode] = useState('gemini'); // gemini | browser
   const [speechSupported, setSpeechSupported] = useState(true);
 
   const [recording, setRecording] = useState(false);
@@ -152,18 +155,63 @@ export default function VideoPracticeStudioPage() {
   const turns = session?.turns || [];
   const latestInterviewerTurn = [...turns].reverse().find((t) => t.speaker === 'interviewer');
 
-  const speakText = useCallback((text) => {
+  const stopAudioPlayback = useCallback(() => {
+    try {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+    } catch {}
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
+
+  const speakWithBrowserFallback = useCallback((text) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) return;
     try {
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 1.0;
+      const voices = window.speechSynthesis.getVoices?.() || [];
+      const preferred =
+        voices.find((v) => /natural|neural|google us english|samantha|aria/i.test(v.name)) ||
+        voices.find((v) => v.lang?.startsWith('en'));
+      if (preferred) utter.voice = preferred;
+      utter.rate = 0.96;
       utter.pitch = 1.0;
       window.speechSynthesis.speak(utter);
     } catch {
       // Ignore TTS errors
     }
   }, []);
+
+  const speakText = useCallback(
+    async (text) => {
+      if (!text) return;
+      stopAudioPlayback();
+      try {
+        const blob = await api.practice.tts({ text, voice: 'Kore' });
+        const url = URL.createObjectURL(blob);
+        audioUrlRef.current = url;
+        const audio = new Audio(url);
+        audioPlayerRef.current = audio;
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          if (audioUrlRef.current === url) audioUrlRef.current = null;
+        };
+        setVoiceMode('gemini');
+        await audio.play();
+      } catch {
+        setVoiceMode('browser');
+        speakWithBrowserFallback(text);
+      }
+    },
+    [stopAudioPlayback, speakWithBrowserFallback],
+  );
 
   useEffect(() => {
     if (!ttsEnabled || !latestInterviewerTurn) return;
@@ -184,11 +232,9 @@ export default function VideoPracticeStudioPage() {
       try {
         analyzerRef.current?.destroy();
       } catch {}
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      stopAudioPlayback();
     };
-  }, []);
+  }, [stopAudioPlayback]);
 
   const enableCamera = async () => {
     setCameraError('');
@@ -382,14 +428,16 @@ export default function VideoPracticeStudioPage() {
                     onClick={() => {
                       const next = !ttsEnabled;
                       setTtsEnabled(next);
-                      if (!next && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-                        window.speechSynthesis.cancel();
-                      }
+                      if (!next) stopAudioPlayback();
                     }}
                     className="rounded-xl border border-white/20 bg-white/10 px-3 py-1.5 flex items-center gap-1.5 text-xs text-white/90 hover:bg-white/20"
                   >
                     {ttsEnabled ? <Volume2 size={14} className="text-[#B8955A]" /> : <VolumeX size={14} />}
-                    {ttsEnabled ? 'Voice On' : 'Muted'}
+                    {ttsEnabled
+                      ? voiceMode === 'gemini'
+                        ? 'Gemini Voice On'
+                        : 'Browser Voice On'
+                      : 'Muted'}
                   </button>
 
                   <div className="rounded-xl border border-white/20 bg-white/10 px-3.5 py-1.5 flex items-center gap-2 text-xs">

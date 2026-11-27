@@ -3617,5 +3617,13 @@ export const api = {
           signal,
         },
       ),
+
+    tts: (body: components["schemas"]["PracticeTtsRequest"], signal?: AbortSignal) =>
+      apiRequest<Blob>("/practice/tts", {
+        method: "POST",
+        body,
+        responseType: "blob",
+        signal,
+      }),
   },
 };
