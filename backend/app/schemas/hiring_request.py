@@ -113,6 +113,8 @@ class HiringRequestCreate(_RequestValidation):
     skills: Skills = []
     why_now: HiringRequestWhyNow | None = None
     justification: Justification | None = None
+    # 0052 GAP: startup orgs only (service-enforced 422 elsewhere).
+    stage_criterion_id: UUID | None = None
     submit: bool = False
 
 
@@ -135,6 +137,7 @@ class HiringRequestUpdate(_RequestValidation):
     skills: Skills | None = None
     why_now: HiringRequestWhyNow | None = None
     justification: Justification | None = None
+    stage_criterion_id: UUID | None = None
     # Lifecycle intents only — never "approved"/"fulfilled"/... here.
     status: Literal["pending", "cancelled"] | None = None
 
@@ -166,6 +169,9 @@ class HiringRequestRead(BaseModel):
     skills: list[str] = []
     why_now: str | None = None
     justification: str | None = None
+    stage_criterion_id: UUID | None = None
+    stage_criterion_title: str | None = None
+    stage_criterion_stage: str | None = None
     status: str
     job_id: UUID | None = None
     created_at: datetime

@@ -78,6 +78,9 @@ class HiringCompany(BaseModel):
     country: str | None = None
     founded_year: int | None = None
     summary: str | None = None
+    # Step 7t: startup employer-page lines (None for employer orgs).
+    tagline: str | None = None
+    mission: str | None = None
     stage: StartupStage | None = None
     sector: str | None = None
     verified: bool = False

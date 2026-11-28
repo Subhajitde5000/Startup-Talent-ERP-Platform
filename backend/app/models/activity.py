@@ -98,6 +98,12 @@ class ActivityEventType(enum.StrEnum):
     deliverable_created = "deliverable_created"
     deliverable_submitted = "deliverable_submitted"
     deliverable_reviewed = "deliverable_reviewed"
+    # Step 8g: agreement terms bind both sides, so sending, each signature
+    # and termination are audited in the startup's log. Drafts are private
+    # and discarded drafts were never shared, so neither is logged.
+    agreement_sent = "agreement_sent"
+    agreement_signed = "agreement_signed"
+    agreement_terminated = "agreement_terminated"
     deliverable_deleted = "deliverable_deleted"
     # Step 8f: mentor sign-off on a readiness item grants a startup real
     # credibility, so both the grant and the revoke are audited.

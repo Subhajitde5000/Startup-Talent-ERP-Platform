@@ -226,6 +226,27 @@ async def put_feedback(
     return await interview_service.put_feedback(db, user, org_id, interview_id, payload)
 
 
+@flat_router.get(
+    "/mine",
+    response_model=CandidateInterviewPage,
+    summary="List interviews across my own applications",
+)
+async def my_interviews(
+    db: DB,
+    user: Actor,
+    window: Literal["upcoming", "past"] | None = None,
+    limit: Limit = 20,
+    offset: Offset = 0,
+) -> CandidateInterviewPage:
+    """Candidate side (job seeker dashboard): interviews on the caller's own
+    applications only — other people's interviews never appear, so there
+    is nothing to 403/404. Never exposes feedback, scores or internal
+    cancellation reasons."""
+    return await interview_service.candidate_mine(
+        db, user, window=window, limit=limit, offset=offset
+    )
+
+
 @flat_router.put(
     "/{interview_id}/respond",
     response_model=ParticipantRead,

@@ -21,6 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user
 from app.db.session import get_db
+from app.models.talent import AvailabilityMode
+from app.models.talent import WorkMode as TalentWorkMode
 from app.models.user import User
 from app.routers.files import FileRoute
 from app.routers.jobs import _ErrorResponse
@@ -117,10 +119,16 @@ async def talent_search(
     q: Annotated[str | None, Query(max_length=200)] = None,
     experience: Literal["mid", "senior", "lead"] | None = None,
     skill: Annotated[str | None, Query(min_length=1, max_length=100)] = None,
+    location: Annotated[str | None, Query(min_length=1, max_length=120)] = None,
+    availability: AvailabilityMode | None = None,
+    preferred_mode: TalentWorkMode | None = None,
     sort: Literal["recent", "experience"] = "recent",
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> TalentSearchPage:
+    """Privacy-gated cards. ``location`` is a substring match on the
+    candidate's stated location; ``availability`` / ``preferred_mode``
+    are exact matches on the talent profile (7t filters)."""
     return await talent_sourcing_service.search(
         db,
         user,
@@ -128,6 +136,9 @@ async def talent_search(
         q=q,
         experience=experience,
         skill=skill,
+        location=location,
+        availability=availability,
+        preferred_mode=preferred_mode,
         sort=sort,
         limit=limit,
         offset=offset,

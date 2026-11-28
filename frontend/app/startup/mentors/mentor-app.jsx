@@ -5,6 +5,7 @@ import { StartupSidebar, Btn, Card, SubNavTabs } from '../../../components';
 import { api, ApiError } from '@/lib/api/client';
 import SessionReview from '@/components/session-review';
 import PublicMentorReviews from '@/components/public-mentor-reviews';
+import { StartupAgreementPanel } from '@/components/agreement-ui';
 import { Toast } from '@/components';
 import {
   EmptyBlock,
@@ -147,10 +148,11 @@ function SessionStatusChip({ status }) {
   );
 }
 
-const head = (title, sub, action) => (
+// `org` is passed by the API-wired 8j pages; other pages keep their existing label.
+const head = (title, sub, action, org = 'Acme Studio') => (
   <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
     <div>
-      <p className="text-sm text-[#4A5568]">Acme Studio <span className="mx-2 text-[#B8955A]">·</span> Mentorship</p>
+      <p className="text-sm text-[#4A5568]">{org} <span className="mx-2 text-[#B8955A]">·</span> Mentorship</p>
       <h1 className="serif mt-1 text-[30px] font-semibold">{title}</h1>
       {sub && <p className="mt-1 text-sm text-[#4A5568]">{sub}</p>}
     </div>
@@ -1026,6 +1028,9 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
   const [workspaceError, setWorkspaceError] = useState('');
   const [workspaceReload, setWorkspaceReload] = useState(0);
   const [workspaceActionBusy, setWorkspaceActionBusy] = useState(false);
+  // Step 8g: agreement summary (null for viewers) and my role in the startup.
+  const [workspaceAgreement, setWorkspaceAgreement] = useState(null);
+  const [workspaceRole, setWorkspaceRole] = useState(null);
 
   // The detail page reads one mentor by handle (the route param), never the
   // demo `mentor` object.
@@ -1421,7 +1426,16 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
 
     (async () => {
       try {
-        const m = page === 'workspace' ? (await api.mentorWorkspace.get(id)).mentorship : await api.mentorships.get(id);
+        let m;
+        if (page === 'workspace') {
+          const [ws, orgs] = await Promise.all([api.mentorWorkspace.get(id), api.organizations.mine()]);
+          m = ws.mentorship;
+          if (!alive) return;
+          setWorkspaceAgreement(ws.agreement || null);
+          setWorkspaceRole(orgs.find(o => o.id === m.startup_org_id)?.my_role || null);
+        } else {
+          m = await api.mentorships.get(id);
+        }
         if (!alive) return;
         setWorkspaceMentorship(m);
 
@@ -1720,7 +1734,8 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                   'Find the right guidance and make meaningful progress toward readiness.',
                   <Link href="/startup/mentors/find" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white">
                     <Search size={15} /> Find a mentor
-                  </Link>
+                  </Link>,
+                  readinessOrg?.name || 'Your startup',
                 )}
                 <div className="py-16 text-center text-sm text-[#4A5568]">
                   Loading mentor overview...
@@ -1737,7 +1752,8 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                   'Find the right guidance and make meaningful progress toward readiness.',
                   <Link href="/startup/mentors/find" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white">
                     <Search size={15} /> Find a mentor
-                  </Link>
+                  </Link>,
+                  readinessOrg?.name || 'Your startup',
                 )}
                 <div className="rounded-xl border border-[#F0C9C9] bg-[#FDECEC] p-4 text-xs text-[#A33A3A]" role="alert">
                   <p className="font-semibold">Could not load overview</p>
@@ -1779,8 +1795,9 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                 'Find the right guidance and make meaningful progress toward readiness.',
                 <Link href="/startup/mentors/find" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white">
                   <Search size={15} /> Find a mentor
-                </Link>
-              )}
+                </Link>,
+                  readinessOrg?.name || 'Your startup',
+                )}
 
               <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {[
@@ -2659,7 +2676,8 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                   >
                     <MessageCircle size={15} /> Message
                   </Link>
-                </div>
+                </div>,
+                m.startup?.display_name || 'Your startup',
               )}
 
               <div className="mb-5 flex gap-2 overflow-x-auto">
@@ -2881,7 +2899,11 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                       <Link href={`/startup/mentors/${m.id}/billing`} className="rounded-lg border border-[#E5E1D8] py-2 text-center text-xs font-semibold hover:bg-[#FAF8F4]">
                         Agreement & billing
                       </Link>
-                      {m.status === 'active' ? (
+                      {workspaceRole === 'viewer' ? (
+                        <span className="grid place-items-center rounded-lg bg-gray-50 text-[11px] text-[#718096]">
+                          {statusText}
+                        </span>
+                      ) : m.status === 'active' ? (
                         <button
                           type="button"
                           disabled={workspaceActionBusy}
@@ -2905,6 +2927,15 @@ export default function MentorApp({ page = 'overview', id = 'rhea' }) {
                         </span>
                       )}
                     </div>
+                  </Card>
+
+                  <Card title="Agreement">
+                    <StartupAgreementPanel
+                      summary={workspaceAgreement}
+                      mentorship={m}
+                      role={workspaceRole}
+                      onChanged={msg => { notify(msg); setWorkspaceReload(n => n + 1); }}
+                    />
                   </Card>
 
                   <Card title="Recent activity">

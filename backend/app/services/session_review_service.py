@@ -105,20 +105,29 @@ async def _lock_profile(db: AsyncSession, mentor_id: uuid.UUID) -> MentorProfile
 
 
 async def _recompute(db: AsyncSession, profile: MentorProfile) -> None:
+    """Store the same number the directory shows (approved Q8).
+
+    Only consented reviews count, and only once there are at least
+    ``PUBLIC_RATING_MIN_REVIEWS`` of them; below that the rating is NULL.
+    Before 8i's close-out this stored a plain average of every review, so
+    the mentor's own profile disagreed with their public card.
+    """
     await db.flush()
-    avg = (
+    count, avg = (
         await db.execute(
-            select(func.avg(SessionReview.rating))
+            select(func.count(SessionReview.id), func.avg(SessionReview.rating))
             .join(MentoringSession, MentoringSession.id == SessionReview.session_id)
             .join(Mentorship, Mentorship.id == MentoringSession.mentorship_id)
             .where(
                 Mentorship.mentor_id == profile.user_id,
                 SessionReview.deleted_at.is_(None),
+                SessionReview.public_consent.is_(True),
                 Mentorship.deleted_at.is_(None),
             )
         )
-    ).scalar_one()
-    profile.rating = round(float(avg), 2) if avg is not None else None
+    ).one()
+    visible = count >= mentor_directory_service.PUBLIC_RATING_MIN_REVIEWS and avg is not None
+    profile.rating = round(float(avg), 2) if visible else None
 
 
 async def create(
@@ -158,6 +167,13 @@ async def mine(db: AsyncSession, user: User, session_id: uuid.UUID) -> ReviewRea
 
 
 async def remove(db: AsyncSession, user: User, review_id: uuid.UUID) -> None:
+    """The author may always withdraw their own review (approved Q9).
+
+    Earlier this re-ran the reviewer eligibility check, so someone who had
+    left the startup (or become a viewer) could no longer take back what
+    they wrote. Ownership of the row is the only rule now; anyone else
+    gets 404.
+    """
     await _limit(user)
     row = (
         await db.execute(
@@ -170,9 +186,15 @@ async def remove(db: AsyncSession, user: User, review_id: uuid.UUID) -> None:
     ).scalar_one_or_none()
     if row is None:
         raise not_found("Review not found.")
-    _, mentorship = await _eligible(db, user, row.session_id)
-    profile = await _lock_profile(db, mentorship.mentor_id)
-    # Lock and re-read after the profile lock to avoid double withdrawal races.
+    mentor_id = (
+        await db.execute(
+            select(Mentorship.mentor_id)
+            .join(MentoringSession, MentoringSession.mentorship_id == Mentorship.id)
+            .where(MentoringSession.id == row.session_id)
+        )
+    ).scalar_one()
+    profile = await _lock_profile(db, mentor_id)
+    # Re-read under the profile lock so two withdrawals cannot both apply.
     await db.refresh(row, with_for_update=True)
     if row.deleted_at is not None:
         raise not_found("Review not found.")

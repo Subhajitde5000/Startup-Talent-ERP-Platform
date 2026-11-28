@@ -99,8 +99,11 @@ async def company_reads(
     for org in orgs:
         profile = profiles.get(org.id)
         summary = org.summary if org.type == "employer" else None
+        mission = None
         if profile:
-            summary = startup_profile_service.section_values(org, profile, visible=True)["summary"]
+            sections = startup_profile_service.section_values(org, profile, visible=True)
+            summary = sections["summary"]
+            mission = sections["mission"]
         result[org.id] = HiringCompany(
             **{
                 k: getattr(org, k)
@@ -118,6 +121,8 @@ async def company_reads(
                 )
             },
             summary=summary,
+            tagline=profile.tagline if profile else None,
+            mission=mission,
             stage=profile.stage if profile else None,
             sector=profile.sector if profile else None,
             verified=org.verified_at is not None,

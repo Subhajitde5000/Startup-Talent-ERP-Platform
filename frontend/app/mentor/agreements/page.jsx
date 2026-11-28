@@ -1,25 +1,80 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import {
-  Plus,
-  Info,
-  X,
-} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Plus, Info } from 'lucide-react';
 import MentorPageShell from '../mentor-page-shell';
-import { initialAgreements, Btn, Card } from '../mentor-data';
+import { Btn, Card } from '../mentor-data';
+import { api, ApiError } from '@/lib/api/client';
+import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/async-state';
+import { formatDate } from '@/lib/mentorship-labels';
+import {
+  AGREEMENT_TYPE_LABEL,
+  AgreementTermsDialog,
+  SignAgreementDialog,
+  agreementEquityText,
+  agreementStatusChip,
+  agreementStatusLabel,
+  agreementTermsText,
+} from '@/components/agreement-ui';
+
+const PAGE_SIZE = 20;
+
+// Each tab is one server-side filter of GET /mentor/agreements.
+const TABS = {
+  Active: { status: 'signed' },
+  'Awaiting you': { awaiting_me: true },
+  'Proposed by you': { proposed_by_me: true },
+  Ended: { status: 'terminated' },
+  All: {},
+};
 
 export default function MentorAgreementsPage() {
+  const router = useRouter();
   const [toast, setToast] = useState('');
   const [agreementTab, setAgreementTab] = useState('Active');
+  const [offset, setOffset] = useState(0);
+  const [page, setPage] = useState(null);
+  const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
   const [modal, setModal] = useState('');
   const [selected, setSelected] = useState(null);
-  const [agStatus, setAgStatus] = useState(initialAgreements.map((a) => a.status));
+  const [engagements, setEngagements] = useState(null);
+  const [engagementError, setEngagementError] = useState('');
 
   const notify = (x) => {
     setToast(x);
     setTimeout(() => setToast(''), 2700);
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setPage(null);
+    setError('');
+    api.agreements
+      .mine({ ...TABS[agreementTab], limit: PAGE_SIZE, offset }, controller.signal)
+      .then((r) => { if (!controller.signal.aborted) setPage(r); })
+      .catch((e) => {
+        if (!controller.signal.aborted) setError(e instanceof ApiError ? e.message : 'Could not load agreements.');
+      });
+    return () => controller.abort();
+  }, [agreementTab, offset, revision]);
+
+  // Agreements can be drafted only for an active or paused engagement.
+  const openNew = async () => {
+    setModal('new');
+    setEngagements(null);
+    setEngagementError('');
+    try {
+      const [active, paused] = await Promise.all([
+        api.mentorships.list({ side: 'mentor', status: 'active', limit: 50 }),
+        api.mentorships.list({ side: 'mentor', status: 'paused', limit: 50 }),
+      ]);
+      setEngagements([...active.items, ...paused.items]);
+    } catch (e) {
+      setEngagementError(e instanceof ApiError ? e.message : 'Could not load your mentorships.');
+    }
   };
 
   const disclaimer = (
@@ -29,6 +84,8 @@ export default function MentorAgreementsPage() {
       accounting advice. Confirm obligations with a qualified professional.
     </p>
   );
+
+  const items = page?.items || [];
 
   return (
     <MentorPageShell active="Agreements" toast={toast} notify={notify}>
@@ -44,17 +101,17 @@ export default function MentorAgreementsPage() {
             Review the written terms for each mentorship.
           </p>
         </div>
-        <Btn secondary onClick={() => setModal('template')}>
-          <Plus size={14} /> Agreement template
+        <Btn secondary onClick={openNew}>
+          <Plus size={14} /> New agreement
         </Btn>
       </div>
 
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        {['Active', 'Awaiting you', 'Proposed by you', 'Ended', 'All'].map((x) => (
+        {Object.keys(TABS).map((x) => (
           <button
             type="button"
             key={x}
-            onClick={() => setAgreementTab(x)}
+            onClick={() => { setAgreementTab(x); setOffset(0); }}
             className={`min-h-10 shrink-0 rounded-lg px-3 text-xs font-medium transition-colors ${
               agreementTab === x
                 ? 'bg-[#0F1B2D] text-white'
@@ -67,166 +124,124 @@ export default function MentorAgreementsPage() {
       </div>
 
       <Card title={`${agreementTab} agreements`}>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[780px] text-left text-xs">
-            <thead className="border-b border-[#E5E1D8] text-[#4A5568]">
-              <tr>
-                {[
-                  'Startup',
-                  'Agreement type',
-                  'Key terms',
-                  'Equity / advisory',
-                  'Start date',
-                  'Status',
-                  'Last updated',
-                  '',
-                ].map((x) => (
-                  <th key={x} className="py-3 font-medium">
-                    {x}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {initialAgreements
-                .filter(
-                  (a) =>
-                    agreementTab === 'All' ||
-                    (agreementTab === 'Active' && a.status === 'Active') ||
-                    (agreementTab === 'Awaiting you' && a.status === 'Proposed') ||
-                    (agreementTab === 'Proposed by you' && a.status === 'Proposed') ||
-                    (agreementTab === 'Ended' && a.status === 'Ended')
-                )
-                .map((a, i) => (
-                  <tr key={a.id} className="border-b border-[#E5E1D8]">
-                    <td className="py-4 font-semibold text-[#0F1B2D]">{a.startup}</td>
-                    <td className="text-[#4A5568]">{a.type}</td>
-                    <td className="text-[#0F1B2D]">{a.terms}</td>
-                    <td className="text-[#4A5568]">{a.equity}</td>
-                    <td className="text-[#4A5568]">{a.start}</td>
-                    <td>
-                      <span
-                        className={`rounded-full px-2 py-1 text-xs font-medium ${
-                          a.status === 'Active'
-                            ? 'bg-[#E7F3EC] text-[#286749]'
-                            : 'bg-[#FFF3D6] text-[#8A5700]'
-                        }`}
-                      >
-                        {agStatus[i] || a.status}
-                      </span>
-                    </td>
-                    <td className="text-[#4A5568]">Nov 04</td>
-                    <td className="flex items-center gap-2 py-4">
-                      <Link
-                        href={`/mentor/agreements/${a.id}`}
-                        className="font-semibold text-[#9A7A45]"
-                      >
-                        Open
-                      </Link>
-                      {a.status === 'Proposed' && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelected(a);
-                            setModal('accept-agreement');
-                          }}
-                          className="font-semibold text-[#0F1B2D] hover:underline"
-                        >
-                          Accept
-                        </button>
-                      )}
-                    </td>
+        {error ? (
+          <ErrorBlock message={error} onRetry={() => setRevision((n) => n + 1)} />
+        ) : !page ? (
+          <LoadingBlock label="Loading agreements…" rows={3} />
+        ) : items.length === 0 ? (
+          <EmptyBlock
+            title="No agreements here"
+            hint={agreementTab === 'Awaiting you'
+              ? 'Nothing is waiting for your signature.'
+              : 'Agreements you draft, send or sign with your startups appear here.'}
+          />
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[780px] text-left text-xs">
+                <thead className="border-b border-[#E5E1D8] text-[#4A5568]">
+                  <tr>
+                    {[
+                      'Startup',
+                      'Agreement type',
+                      'Key terms',
+                      'Equity / advisory',
+                      'Start date',
+                      'Status',
+                      'Last updated',
+                      '',
+                    ].map((x) => (
+                      <th key={x} className="py-3 font-medium">
+                        {x}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {items.map((a) => (
+                    <tr key={a.id} className="border-b border-[#E5E1D8]">
+                      <td className="py-4 font-semibold text-[#0F1B2D]">{a.party?.startup_name || 'Startup'}</td>
+                      <td className="text-[#4A5568]">{AGREEMENT_TYPE_LABEL[a.agreement_type] || a.agreement_type}</td>
+                      <td className="text-[#0F1B2D]">{agreementTermsText(a)}</td>
+                      <td className="text-[#4A5568]">{agreementEquityText(a)}</td>
+                      <td className="text-[#4A5568]">{a.starts_on ? formatDate(a.starts_on) : '—'}</td>
+                      <td>
+                        <span className={`rounded-full px-2 py-1 text-xs font-medium ${agreementStatusChip(a)}`}>
+                          {agreementStatusLabel(a)}
+                        </span>
+                      </td>
+                      <td className="text-[#4A5568]">{formatDate(a.updated_at)}</td>
+                      <td className="flex items-center gap-2 py-4">
+                        <Link
+                          href={`/mentor/agreements/${a.id}`}
+                          className="font-semibold text-[#9A7A45]"
+                        >
+                          Open
+                        </Link>
+                        {a.can_sign && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelected(a);
+                              setModal('sign');
+                            }}
+                            className="font-semibold text-[#0F1B2D] hover:underline"
+                          >
+                            Review & sign
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {page.total > PAGE_SIZE && (
+              <div className="mt-3 flex items-center gap-3 text-xs text-[#4A5568]">
+                <button type="button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))} className="font-semibold disabled:opacity-40">Previous</button>
+                <span>{offset + 1}–{offset + items.length} of {page.total}</span>
+                <button type="button" disabled={offset + items.length >= page.total} onClick={() => setOffset(offset + PAGE_SIZE)} className="font-semibold disabled:opacity-40">Next</button>
+              </div>
+            )}
+          </>
+        )}
       </Card>
 
       {disclaimer}
 
-      {/* Modals */}
-      {modal && (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-[#0F1B2D]/45 p-4">
-          <section
-            role="dialog"
-            aria-modal="true"
-            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
-          >
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="serif text-2xl font-semibold text-[#0F1B2D]">
-                {modal === 'template'
-                  ? 'Agreement template preview'
-                  : modal === 'accept-agreement'
-                  ? 'Accept agreement'
-                  : 'Action'}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setModal('')}
-                aria-label="Close"
-                className="text-[#4A5568] hover:text-[#0F1B2D]"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {modal === 'template' ? (
-              <div className="space-y-3 text-xs leading-5 text-[#4A5568]">
-                <p>Standard Forma Mentorship Agreement template v3.0:</p>
-                <ul className="list-disc pl-4 space-y-1 text-[#0F1B2D]">
-                  <li>Scope: Bi-weekly advisory and readiness milestone tracking.</li>
-                  <li>Session fee released after verified attendance.</li>
-                  <li>Optional equity clauses require separate legal review.</li>
-                  <li>No exclusivity or restrictive non-compete.</li>
-                </ul>
+      {modal === 'new' && (
+        engagements && engagements.length > 0 ? (
+          <AgreementTermsDialog
+            title="New agreement"
+            mentorships={engagements}
+            onClose={() => setModal('')}
+            onDone={(a, msg) => { setModal(''); notify(msg); router.push(`/mentor/agreements/${a.id}`); }}
+          />
+        ) : (
+          <div className="fixed inset-0 z-40 grid place-items-center bg-[#0F1B2D]/45 p-4">
+            <section role="dialog" aria-modal="true" className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+              <h2 className="serif mb-4 text-2xl font-semibold text-[#0F1B2D]">New agreement</h2>
+              {engagementError ? (
+                <ErrorBlock message={engagementError} onRetry={openNew} />
+              ) : !engagements ? (
+                <LoadingBlock label="Loading your mentorships…" />
+              ) : (
+                <EmptyBlock title="No active mentorships" hint="Agreements can be drafted once a mentorship is active or paused." />
+              )}
+              <div className="mt-6 flex justify-end">
+                <button type="button" onClick={() => setModal('')} className="min-h-10 px-4 text-sm font-medium text-[#4A5568] hover:text-[#0F1B2D]">Close</button>
               </div>
-            ) : modal === 'accept-agreement' ? (
-              <div className="space-y-4 text-sm">
-                <p className="text-[#0F1B2D]">
-                  Startup: <b>{selected?.startup}</b>
-                </p>
-                <p className="text-[#4A5568]">Fee: ₹3,500 per session · Monthly cadence · 3 months.</p>
-                <label className="flex items-center gap-2 text-xs text-[#4A5568]">
-                  <input aria-label="Toggle option" type="checkbox" className="accent-[#0F1B2D]" />
-                  I have read and understand the agreement terms.
-                </label>
-                <label className="flex items-center gap-2 text-xs text-[#4A5568]">
-                  <input aria-label="Toggle option" type="checkbox" className="accent-[#0F1B2D]" />
-                  I understand equity terms should be reviewed with a lawyer.
-                </label>
-                <p className="text-xs text-[#4A5568]">
-                  Sensitive acceptance requires re-authentication in the production system.
-                </p>
-              </div>
-            ) : null}
+            </section>
+          </div>
+        )
+      )}
 
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setModal('')}
-                className="min-h-10 px-4 text-sm font-medium text-[#4A5568] hover:text-[#0F1B2D]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (modal === 'accept-agreement') {
-                    setAgStatus(agStatus.map((s, i) => (i === 2 ? 'Active' : s)));
-                    notify('Agreement accepted and recorded.');
-                  } else {
-                    notify('Template downloaded.');
-                  }
-                  setModal('');
-                }}
-                className="min-h-10 rounded-lg bg-[#0F1B2D] px-4 text-sm font-semibold text-white hover:bg-[#1C2B42]"
-              >
-                {modal === 'accept-agreement' ? 'Accept agreement' : 'Close'}
-              </button>
-            </div>
-          </section>
-        </div>
+      {modal === 'sign' && selected && (
+        <SignAgreementDialog
+          agreement={selected}
+          onClose={() => setModal('')}
+          onDone={(_, msg) => { setModal(''); notify(msg); setRevision((n) => n + 1); }}
+        />
       )}
     </MentorPageShell>
   );

@@ -20,6 +20,7 @@ from app.models.startup import ProfileVisibility, StartupStage
 from app.schemas.common import clean_text
 
 _MAX_TAGLINE = 200
+_MAX_MISSION = 300
 _MAX_SECTOR = 200
 _MAX_BUSINESS_MODEL = 500
 _MAX_LONG_TEXT = 5000
@@ -30,6 +31,7 @@ _MAX_GOAL_LEN = 100
 
 _TEXT_LIMITS: dict[str, int] = {
     "tagline": _MAX_TAGLINE,
+    "mission": _MAX_MISSION,
     "sector": _MAX_SECTOR,
     "business_model": _MAX_BUSINESS_MODEL,
     "problem": _MAX_LONG_TEXT,
@@ -53,6 +55,8 @@ class StartupProfileUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     tagline: str | None = Field(default=None, max_length=_MAX_TAGLINE)
+    # Step 7t GAP (0052): employer page "Mission" line.
+    mission: str | None = Field(default=None, max_length=_MAX_MISSION)
     # NOT NULL columns below: default is never written (exclude_unset);
     # typing them non-optional makes an explicit null a 422.
     stage: StartupStage = StartupStage.idea
@@ -109,6 +113,7 @@ class StartupProfileRead(BaseModel):
 
     org_id: uuid.UUID
     tagline: str | None
+    mission: str | None
     stage: StartupStage
     sector: str | None
     business_model: str | None

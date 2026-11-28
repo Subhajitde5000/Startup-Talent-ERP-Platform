@@ -16,6 +16,7 @@ from app.core.exceptions import AppException, error_body
 from app.core.logging import RequestIDMiddleware, configure_logging
 from app.db.session import engine
 from app.routers import (
+    agreement,
     analytics,
     applicant_pipeline,
     auth,
@@ -233,6 +234,8 @@ def create_app() -> FastAPI:
     # Step 8e: mentor deliverables.
     app.include_router(deliverable.router, prefix=settings.API_V1_PREFIX)
     app.include_router(deliverable.mentorship_router, prefix=settings.API_V1_PREFIX)
+    # Step 8g: versioned mentor agreements.
+    app.include_router(agreement.router, prefix=settings.API_V1_PREFIX)
     # Step 8h: the mentor's own earnings (read-only).
     app.include_router(earning.router, prefix=settings.API_V1_PREFIX)
     app.include_router(public.router, prefix=settings.API_V1_PREFIX)

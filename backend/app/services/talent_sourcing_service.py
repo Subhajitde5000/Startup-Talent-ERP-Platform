@@ -52,7 +52,8 @@ from app.models.organization import (
     OrgType,
 )
 from app.models.profile import Skill
-from app.models.talent import TalentProfile, TalentProfileSkill
+from app.models.talent import AvailabilityMode, TalentProfile, TalentProfileSkill
+from app.models.talent import WorkMode as TalentWorkMode
 from app.models.talent_sourcing import (
     TalentOutreach,
     TalentShortlist,
@@ -240,6 +241,9 @@ async def search(
     q: str | None = None,
     experience: Literal["mid", "senior", "lead"] | None = None,
     skill: str | None = None,
+    location: str | None = None,
+    availability: AvailabilityMode | None = None,
+    preferred_mode: TalentWorkMode | None = None,
     sort: Literal["recent", "experience"] = "recent",
     limit: int = 50,
     offset: int = 0,
@@ -264,6 +268,14 @@ async def search(
                 TalentProfile.current_location.ilike(pattern, escape="\\"),
             )
         )
+    if location:
+        # 7t: substring match on the candidate's own stated location only.
+        loc_pattern = f"%{job_service._escape_like(location)}%"
+        where.append(TalentProfile.current_location.ilike(loc_pattern, escape="\\"))
+    if availability is not None:
+        where.append(TalentProfile.availability == availability)
+    if preferred_mode is not None:
+        where.append(TalentProfile.preferred_mode == preferred_mode)
     if experience is not None:
         low, high = _EXPERIENCE_BANDS[experience]
         where.append(TalentProfile.total_experience_yrs >= low)
