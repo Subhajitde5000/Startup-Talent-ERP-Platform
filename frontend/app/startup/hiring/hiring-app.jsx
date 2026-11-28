@@ -2,7 +2,25 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { StartupSidebar, Btn, Card, SubNavTabs } from '../../../components';
+import { StartupSidebar, Btn, Card, SubNavTabs, NoStartupOrg } from '../../../components';
+import { useAuth } from '@/lib/auth-context';
+import { api } from '@/lib/api/client';
+import {
+  ErrorState,
+  LoadingState,
+  errorMessage,
+} from './startup-hiring-shared';
+import {
+  StartupApplicantDetailView,
+  StartupJobDetailView,
+  StartupJobEditorView,
+  StartupOverviewView,
+} from './startup-jobs-views';
+import {
+  ScheduleInterviewModal,
+  StartupInterviewsView,
+  StartupOffersView,
+} from './startup-interviews-offers-views';
 import {
   Search,
   Bell,
@@ -60,6 +78,33 @@ const pipeline = ['Applied', 'Shortlisted', 'Interview', 'Offer', 'Hired'];
 
 export default function Hiring({ page = 'overview', jobId = 'job-01', applicantId = 'c-1' }) {
   const router = useRouter();
+  const { user } = useAuth();
+  const [startupOrg, setStartupOrg] = useState(null);
+  const [orgState, setOrgState] = useState('loading');
+  const [orgError, setOrgError] = useState('');
+  const [orgReloadKey, setOrgReloadKey] = useState(0);
+  const [scheduleTarget, setScheduleTarget] = useState(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setOrgState('loading');
+    setOrgError('');
+    api.organizations
+      .mine(controller.signal)
+      .then((orgs) => {
+        if (controller.signal.aborted) return;
+        const found = (orgs || []).find((o) => o.type === 'startup') || null;
+        setStartupOrg(found);
+        setOrgState(found ? 'ready' : 'empty');
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        setOrgError(errorMessage(e, 'Could not load your startup organization.'));
+        setOrgState('error');
+      });
+    return () => controller.abort();
+  }, [orgReloadKey]);
+
   const [jobs, setJobs] = useState(jobSeed);
   const [tab, setTab] = useState('Jobs');
   const [filter, setFilter] = useState('All statuses');
@@ -107,13 +152,30 @@ export default function Hiring({ page = 'overview', jobId = 'job-01', applicantI
   const pageHead = (title, sub, actions) => (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p className="text-sm text-[#4A5568]">Acme Studio <span className="mx-2 text-[#B8955A]">·</span> Hiring</p>
+        <p className="text-sm text-[#4A5568]">
+          {startupOrg?.name || 'Startup'} <span className="mx-2 text-[#B8955A]">·</span> Hiring
+        </p>
         <h1 className="serif mt-1 text-[30px] font-semibold">{title}</h1>
         <p className="mt-1 text-sm text-[#4A5568]">{sub}</p>
       </div>
       <div className="flex flex-wrap gap-2">{actions}</div>
     </div>
   );
+
+  const userName = user?.full_name || 'Startup member';
+  const userInitials = userName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() || '')
+    .join('') || 'SM';
+  const isWired7rs =
+    is('overview') ||
+    is('editor') ||
+    is('job') ||
+    is('candidate') ||
+    is('interviews') ||
+    is('offers');
 
   const jobCards = jobs
     .filter(j => (filter === 'All statuses' || j.status === filter) && (!search || j.title.toLowerCase().includes(search.toLowerCase())))
@@ -208,8 +270,8 @@ export default function Hiring({ page = 'overview', jobId = 'job-01', applicantI
             <i className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#B8955A]" />
           </button>
           <span className="flex items-center gap-2 text-xs">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-ink font-semibold text-white">AK</span>
-            <span className="hidden sm:block">Aarav Kapoor</span>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-ink font-semibold text-white">{userInitials}</span>
+            <span className="hidden sm:block">{userName}</span>
             <ChevronDown size={14} />
           </span>
         </div>
@@ -226,210 +288,55 @@ export default function Hiring({ page = 'overview', jobId = 'job-01', applicantI
             ['Employer page', '/startup/hiring/employer-page', page === 'employer'],
           ]}
         />
-        {is('overview') && (
-          <>
-            {pageHead(
-              'Hiring',
-              'Find the people who will build what’s next.',
-              <>
-                <Link
-                  href="/startup/hiring/requests/new"
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] border border-[#E5E1D8] bg-white px-3.5 text-sm font-semibold text-ink transition hover:bg-[#F4F1EA]"
-                >
-                  <Plus size={16} /> Hiring request
-                </Link>
-                <Link
-                  href="/startup/hiring/jobs/new"
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] bg-ink px-3.5 text-sm font-semibold text-white transition hover:bg-[#1C2B42]"
-                >
-                  <Plus size={16} /> Job post
-                </Link>
-              </>
-            )}
-
-            {!verified && (
-              <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-[#E7D4B0] bg-[#FFF8E8] p-4 text-sm">
-                <ShieldCheck size={19} className="text-[#9A7A45]" />
-                <span className="flex-1">
-                  <b>Verify your startup to publish jobs and show the verified badge.</b>
-                  <small className="block text-xs text-[#4A5568]">Verification usually takes 1–2 business days.</small>
-                </span>
-                <Link href="/startup/hiring/employer-page" className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
-                  Verify now
-                </Link>
-              </div>
-            )}
-
-            <div className="mb-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[#E5E1D8] bg-[#E5E1D8] sm:grid-cols-5">
-              {[
-                ['Open jobs', 3],
-                ['Total applicants', 86],
-                ['Interviews this week', 5],
-                ['Offers out', 2],
-                ['Avg time to hire', '28d'],
-              ].map(([n, v]) => (
-                <div key={n} className="bg-white p-4 sm:px-5">
-                  <p className="text-xs text-[#4A5568]">{n}</p>
-                  <b className="serif mt-1 block text-2xl">{v}</b>
-                </div>
-              ))}
-            </div>
-
-            <div className="mb-5 flex gap-1 rounded-xl border border-[#E5E1D8] bg-white p-1">
-              {['Jobs', 'Requests', 'Needs attention'].map(t => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTab(t)}
-                  className={`min-h-10 rounded-lg px-4 text-sm ${tab === t ? 'bg-ink font-semibold text-white' : 'text-[#4A5568]'}`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid items-start gap-5 xl:grid-cols-3">
-              <div className="space-y-3 xl:col-span-2">
-                {tab === 'Jobs' ? (
-                  <>
-                    <div className="mb-2 flex flex-wrap gap-2">
-                      <div className="relative min-w-[180px] flex-1">
-                        <Search className="absolute left-3 top-2.5 text-[#A0A7B4]" size={16} />
-                        <input
-                          value={search}
-                          onChange={e => setSearch(e.target.value)}
-                          placeholder="Search job title"
-                          className="h-10 w-full rounded-lg border border-[#E5E1D8] pl-9 text-sm"
-                        />
-                      </div>
-                      <select value={filter} onChange={e => setFilter(e.target.value)} className="h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs">
-                        <option>All statuses</option>
-                        <option>Open</option>
-                        <option>Draft</option>
-                        <option>Paused</option>
-                        <option>Closed</option>
-                      </select>
-                    </div>
-                    {jobCards}
-                  </>
-                ) : tab === 'Requests' ? (
-                  <Card title="Hiring requests" action={<Link href="/startup/hiring/requests/new" className="text-xs font-semibold text-[#9A7A45]">+ New request</Link>}>
-                    <div className="overflow-x-auto">
-                      <table className="w-full min-w-[650px] text-left text-xs">
-                        <thead className="border-b text-[#4A5568]">
-                          <tr>
-                            {['Role', 'Department', 'Urgency', 'Headcount', 'Target start', 'Status', ''].map(x => (
-                              <th key={x} className="py-3">{x}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {[
-                            ['Backend Engineer', 'Engineering', 'High', '1', 'Dec 01', 'Approved'],
-                            ['Product Designer', 'Product', 'Medium', '1', 'Dec 15', 'Pending approval'],
-                            ['Growth Associate', 'Sales', 'Low', '1', 'Jan 05', 'Draft'],
-                          ].map(r => (
-                            <tr key={r[0]} className="border-b border-[#E5E1D8]">
-                              <td className="py-4 font-semibold">{r[0]}</td>
-                              {r.slice(1).map((x, j) => (
-                                <td className="py-4 text-[#4A5568]" key={j}>{x}</td>
-                              ))}
-                              <td>
-                                <Link href="/startup/hiring/jobs/new" className="text-[#9A7A45]">
-                                  Create job post
-                                </Link>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </Card>
-                ) : (
-                  <Card title="Needs attention">
-                    <div className="space-y-3">
+        {isWired7rs && orgState === 'loading' ? (
+          <LoadingState label="Loading startup workspace…" />
+        ) : isWired7rs && orgState === 'error' ? (
+          <ErrorState message={orgError} onRetry={() => setOrgReloadKey((k) => k + 1)} />
+        ) : isWired7rs && orgState === 'empty' ? (
+          <NoStartupOrg />
+        ) : (
+        <>
+        {is('overview') && startupOrg && (
+          <StartupOverviewView
+            org={startupOrg}
+            myRole={startupOrg.my_role}
+            pageHead={pageHead}
+            notify={notify}
+            requestsFallback={
+              <Card title="Hiring requests" action={<Link href="/startup/hiring/requests/new" className="text-xs font-semibold text-[#9A7A45]">+ New request</Link>}>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[650px] text-left text-xs">
+                    <thead className="border-b text-[#4A5568]">
+                      <tr>
+                        {['Role', 'Department', 'Urgency', 'Headcount', 'Target start', 'Status', ''].map(x => (
+                          <th key={x} className="py-3">{x}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
                       {[
-                        ['6 new applicants to review', 'Backend Engineer · applied over 3 days ago'],
-                        ['2 interviews need feedback', 'Ishita Roy · Technical round'],
-                        ['1 offer expires in 48 hours', 'Senior Product Designer · expires Nov 07'],
-                        ['Candidate waiting for an update', 'Kunal Das · applied 16 days ago'],
-                        ['Job has no applicants after 14 days', 'Growth Associate · improve the job post'],
-                      ].map(([h, d]) => (
-                        <div key={h} className="flex items-center gap-3 rounded-lg border border-[#E5E1D8] p-3">
-                          <AlertCircle className="text-[#B7791F]" size={18} />
-                          <span className="flex-1">
-                            <b className="block text-xs">{h}</b>
-                            <small className="text-[11px] text-[#4A5568]">{d}</small>
-                          </span>
-                          <button type="button" onClick={() => notify('Opening the relevant hiring item.')} className="text-xs font-semibold text-[#9A7A45]">
-                            Review <ArrowRight className="inline" size={13} />
-                          </button>
-                        </div>
+                        ['Backend Engineer', 'Engineering', 'High', '1', 'Dec 01', 'Approved'],
+                        ['Product Designer', 'Product', 'Medium', '1', 'Dec 15', 'Pending approval'],
+                        ['Growth Associate', 'Sales', 'Low', '1', 'Jan 05', 'Draft'],
+                      ].map(r => (
+                        <tr key={r[0]} className="border-b border-[#E5E1D8]">
+                          <td className="py-4 font-semibold">{r[0]}</td>
+                          {r.slice(1).map((x, j) => (
+                            <td className="py-4 text-[#4A5568]" key={j}>{x}</td>
+                          ))}
+                          <td>
+                            <Link href="/startup/hiring/jobs/new" className="text-[#9A7A45]">
+                              Create job post
+                            </Link>
+                          </td>
+                        </tr>
                       ))}
-                    </div>
-                  </Card>
-                )}
-              </div>
-
-              <aside className="space-y-5">
-                <Card title="From your stage plan">
-                  <p className="mb-3 text-xs text-[#4A5568]">Prototype teams often hire engineers and a designer. Suggestions only.</p>
-                  {[
-                    ['Backend engineer', 'High priority'],
-                    ['Product designer', 'Medium priority'],
-                    ['User researcher', 'Optional'],
-                  ].map(([a, b]) => (
-                    <div key={a} className="flex items-center justify-between border-t border-[#E5E1D8] py-3">
-                      <span>
-                        <b className="block text-xs">{a}</b>
-                        <small className="text-[10px] text-[#4A5568]">{b}</small>
-                      </span>
-                      <Link href="/startup/hiring/requests/new" className="text-xs font-semibold text-[#9A7A45]">
-                        Add request +
-                      </Link>
-                    </div>
-                  ))}
-                </Card>
-
-                <Card title="Upcoming interviews" action={<Link href="/startup/hiring/interviews" className="text-xs text-[#9A7A45]">View all</Link>}>
-                  {[
-                    ['Nov 06 · 10:30', 'Ananya Sen', 'Backend Engineer'],
-                    ['Nov 06 · 14:00', 'Ishita Roy', 'Backend Engineer'],
-                    ['Nov 07 · 11:00', 'Kabir Shah', 'Product Designer'],
-                  ].map(([d, n, j]) => (
-                    <div key={n} className="flex items-center gap-3 border-t border-[#E5E1D8] py-3">
-                      <CalendarDays size={15} className="text-[#9A7A45]" />
-                      <span>
-                        <b className="block text-xs">{n}</b>
-                        <small className="text-[10px] text-[#4A5568]">{d} · {j}</small>
-                      </span>
-                    </div>
-                  ))}
-                </Card>
-
-                <Card title="Hiring budget">
-                  <div className="flex justify-between text-xs">
-                    <span>₹4.2L used</span>
-                    <span>₹8L planned</span>
-                  </div>
-                  <div className="mt-2 h-2 rounded-full bg-[#E5E1D8]">
-                    <div className="h-full w-[52%] rounded-full bg-[#B8955A]" />
-                  </div>
-                  <p className="mt-2 text-[10px] text-[#4A5568]">Estimate · includes approved roles only</p>
-                  <Link href="/startup/analytics" className="mt-3 inline-block text-xs font-semibold text-[#9A7A45]">
-                    View runway impact <ArrowRight className="inline" size={13} />
-                  </Link>
-                </Card>
-
-                <Card title="Posting plan">
-                  <p className="text-xs text-[#4A5568]">2 of 3 free posts used this month.</p>
-                  <button type="button" onClick={() => notify('Billing options opened.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
-                    Plan and fees <ArrowRight className="inline" size={13} />
-                  </button>
-                </Card>
-              </aside>
-            </div>
-          </>
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            }
+          />
         )}
 
         {is('request') && (
@@ -560,453 +467,35 @@ export default function Hiring({ page = 'overview', jobId = 'job-01', applicantI
           </>
         )}
 
-        {is('editor') && (
-          <>
-            {pageHead(
-              'Create a job post',
-              'Tell candidates what the role involves and what success looks like.',
-              <button type="button" onClick={() => setSaved(true)} className="min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm font-semibold">
-                Save draft
-              </button>
-            )}
-
-            {saved && <p className="mb-4 rounded-lg bg-[#E7F3EC] p-3 text-xs text-[#286749]">Draft saved · just now</p>}
-
-            <div className="grid items-start gap-5 xl:grid-cols-5">
-              <form
-                onSubmit={e => {
-                  e.preventDefault();
-                  notify('Job saved as a draft. Employer verification is required before publishing.');
-                }}
-                className="space-y-5 xl:col-span-3"
-              >
-                <Card title="Basics">
-                  <div className="space-y-4">
-                    <label className="block text-sm font-medium">
-                      Job title
-                      <input
-                        required
-                        minLength={3}
-                        maxLength={80}
-                        value={jobTitle}
-                        onChange={e => setJobTitle(e.target.value)}
-                        placeholder="e.g. Backend Engineer"
-                        className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] px-3"
-                      />
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {[
-                        ['Department', ['Engineering', 'Product', 'Sales', 'Operations']],
-                        ['Employment type', ['Full-time', 'Part-time', 'Contract']],
-                        ['Work mode', ['Remote', 'Hybrid', 'On-site']],
-                        ['Location', ['Remote · India', 'Kolkata', 'Bengaluru']],
-                      ].map(([label, opts]) => (
-                        <label key={label} className="text-sm font-medium">
-                          {label}
-                          <select className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm">
-                            {opts.map(o => (
-                              <option key={o}>{o}</option>
-                            ))}
-                          </select>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </Card>
-
-                <Card title="Description">
-                  <div className="space-y-3">
-                    {[
-                      ['About the role', 'Describe the role and its impact.'],
-                      ["What you'll do", 'List responsibilities.'],
-                      ["What we're looking for", 'Share essential skills and experience.'],
-                      ['What we offer', 'Compensation, benefits and flexibility.'],
-                    ].map(([label, ph]) => (
-                      <label key={label} className="block text-sm font-medium">
-                        {label}
-                        <textarea rows={3} placeholder={ph} className="mt-2 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm" />
-                      </label>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => notify('AI suggestions are not connected yet. Review any suggested wording yourself.')}
-                    className="mt-3 rounded-full bg-[#F3EBDD] px-3 py-2 text-xs font-semibold text-[#806236]"
-                  >
-                    AI suggestion · Improve wording
-                  </button>
-                  <p className="mt-2 text-[10px] text-[#4A5568]">AI helps with wording only. You make all hiring decisions.</p>
-                </Card>
-
-                <Card title="Requirements & compensation">
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="text-sm">
-                      Must-have skills
-                      <input placeholder="Up to 5 essentials" className="mt-2 h-11 w-full rounded-lg border px-3 text-xs" />
-                    </label>
-                    <label className="text-sm">
-                      Salary range
-                      <input placeholder="₹10–15 LPA" className="mt-2 h-11 w-full rounded-lg border px-3 text-xs" />
-                    </label>
-                  </div>
-                  <label className="mt-4 flex items-center gap-2 text-xs">
-                    <input type="checkbox" defaultChecked className="accent-ink" />Show salary publicly
-                  </label>
-                </Card>
-
-                <Card title="Hiring process">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" className="accent-ink" />Enable blind review for first screening
-                  </label>
-                  <label className="mt-4 flex items-center gap-2 text-sm">
-                    <input type="checkbox" className="accent-ink" />Allow candidates to share interview practice scores
-                  </label>
-                </Card>
-
-                <Card title="Publish settings">
-                  <label className="block text-sm">
-                    Visibility
-                    <select className="mt-2 h-11 w-full rounded-lg border border-[#E5E1D8] bg-white px-3">
-                      <option>Public on Jobs marketplace</option>
-                      <option>Platform members only</option>
-                      <option>Link only</option>
-                    </select>
-                  </label>
-                  <p className="mt-3 rounded-lg bg-[#FFF8E8] p-3 text-xs text-[#806236]">Verify your employer profile before publishing. A draft can be saved now.</p>
-                </Card>
-
-                <div className="flex justify-end gap-2">
-                  <Btn secondary onClick={() => setSaved(true)}>Save draft</Btn>
-                  <Btn type="submit" onClick={() => { setSaved(true); notify('Draft saved. Verify employer to publish.'); }}>Save job draft</Btn>
-                </div>
-              </form>
-
-              <div className="xl:sticky xl:top-24 xl:col-span-2">
-                <Card title="Candidate preview" action={<Eye size={16} />}>
-                  <div className="rounded-xl border border-[#E5E1D8] p-5">
-                    <div className="flex items-center gap-3">
-                      <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#F3EBDD] font-bold">A</span>
-                      <div>
-                        <p className="text-sm font-semibold">Acme Studio</p>
-                        <p className="text-xs text-[#4A5568]">Verified employer pending</p>
-                      </div>
-                    </div>
-                    <h2 className="serif mt-5 text-2xl font-semibold">{jobTitle || 'Your job title'}</h2>
-                    <p className="mt-2 text-xs text-[#4A5568]">Engineering · Full-time · Remote · India</p>
-                    <div className="mt-4 flex gap-2">
-                      <span className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px]">Full-time</span>
-                      <span className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[10px]">Remote</span>
-                    </div>
-                    <p className="mt-5 text-sm font-semibold">About the role</p>
-                    <p className="mt-2 text-xs leading-5 text-[#4A5568]">Your job description preview will appear here as you write.</p>
-                    <p className="mt-5 text-sm font-semibold">What we’re looking for</p>
-                    <p className="mt-2 text-xs leading-5 text-[#4A5568]">Add clear and inclusive must-have criteria.</p>
-                    <button type="button" disabled className="mt-5 min-h-10 w-full rounded-lg bg-ink text-xs font-semibold text-white opacity-50">
-                      Apply for this job
-                    </button>
-                  </div>
-                </Card>
-              </div>
-            </div>
-          </>
+        {is('editor') && startupOrg && (
+          <StartupJobEditorView
+            org={startupOrg}
+            myRole={startupOrg.my_role}
+            pageHead={pageHead}
+            notify={notify}
+          />
         )}
 
-        {is('job') && (
-          <>
-            {pageHead(
-              currentJob.title,
-              `${currentJob.department} · ${currentJob.location} · ${currentJob.type}`,
-              <>
-                <Btn secondary onClick={() => notify('Job link copied.')}><Share2 size={15} /> Share</Btn>
-                <Link href="/startup/hiring/jobs/new" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm font-semibold">
-                  <Edit3 size={15} /> Edit job
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setJobs(jobs.map(j => j.id === normalizedJobId || j.id === jobId ? { ...j, status: j.status === 'Paused' ? 'Open' : 'Paused' } : j))}
-                  className="min-h-10 rounded-lg border border-[#E5E1D8] bg-white px-3 text-sm font-semibold"
-                >
-                  {currentJob.status === 'Paused' ? 'Resume' : 'Pause'}
-                </button>
-              </>
-            )}
-
-            <div className="mb-5 flex flex-wrap gap-2">
-              {['Pipeline', 'Applicants', 'Job post', 'Team & scorecards', 'Insights'].map(t => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTab(t)}
-                  className={`min-h-10 rounded-lg px-4 text-sm ${tab === t ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white text-[#4A5568]'}`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-
-            {tab === 'Pipeline' ? (
-              <div className="grid gap-4 overflow-x-auto md:grid-cols-2 2xl:grid-cols-5">
-                {pipeline.map(st => (
-                  <section key={st} className="min-w-[220px] rounded-xl bg-[#F4F1EA] p-3">
-                    <h2 className="mb-3 flex justify-between text-sm font-semibold">
-                      {st}<span className="text-xs text-[#4A5568]">{people.filter(p => p.stage === st).length}</span>
-                    </h2>
-                    {people.filter(p => p.stage === st).map(p => (
-                      <Link href={`/startup/hiring/${jobId}/applicants/${p.id}`} key={p.id} className="mb-2 block rounded-xl border border-[#E5E1D8] bg-white p-3">
-                        <div className="flex items-start justify-between">
-                          <b className="text-xs">{p.name}</b>
-                          <button
-                            type="button"
-                            onClick={e => {
-                              e.preventDefault();
-                              setActiveApplicant(p);
-                              setModal('quick');
-                            }}
-                          >
-                            <MoreHorizontal size={15} />
-                          </button>
-                        </div>
-                        <p className="mt-1 text-[11px] text-[#4A5568]">{p.title}</p>
-                        <span className="mt-2 inline-block rounded-full bg-[#F3EBDD] px-2 py-1 text-[10px] text-[#806236]">{p.match}</span>
-                        <p className="mt-2 text-[10px] text-[#4A5568]">{p.applied} · {p.source}</p>
-                        <div className="mt-2 flex gap-2 text-[10px] text-[#4A5568]">
-                          <span><FileText className="mr-1 inline" size={11} />Resume</span>
-                          <span><Star className="mr-1 inline" size={11} />{p.rating}</span>
-                        </div>
-                        <select
-                          value={p.stage}
-                          onClick={e => e.preventDefault()}
-                          onChange={e => {
-                            p.stage = e.target.value;
-                            notify(`Moved ${p.name} to ${e.target.value}.`);
-                          }}
-                          className="mt-2 w-full rounded-md border border-[#E5E1D8] bg-white px-2 py-1 text-[10px]"
-                        >
-                          <option>Applied</option>
-                          <option>Shortlisted</option>
-                          <option>Interview</option>
-                          <option>Offer</option>
-                          <option>Hired</option>
-                        </select>
-                      </Link>
-                    ))}
-                    {people.filter(p => p.stage === st).length === 0 && (
-                      <p className="rounded-lg border border-dashed border-[#D6D0C5] p-4 text-center text-xs text-[#4A5568]">
-                        No candidates here yet.
-                      </p>
-                    )}
-                  </section>
-                ))}
-              </div>
-            ) : tab === 'Applicants' ? (
-              <Card
-                title="Applicants"
-                action={
-                  <label className="flex items-center gap-2 text-xs">
-                    <input type="checkbox" checked={blind} onChange={() => setBlind(!blind)} className="accent-ink" />Blind review
-                  </label>
-                }
-              >
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[700px] text-left text-xs">
-                    <thead className="border-b text-[#4A5568]">
-                      <tr>
-                        {['Candidate', 'Current role', 'Location', 'Match', 'Rating', 'Stage', 'Applied'].map(x => (
-                          <th key={x} className="py-3">{x}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {people.map(p => (
-                        <tr key={p.id} className="border-b border-[#E5E1D8] hover:bg-[#F4F1EA]">
-                          <td className="py-3 font-semibold">
-                            <Link href={`/startup/hiring/${jobId}/applicants/${p.id}`}>
-                              {blind ? `Candidate #${p.id.slice(-1)}` : p.name}
-                            </Link>
-                          </td>
-                          <td>{p.title}</td>
-                          <td>{p.location}</td>
-                          <td>{p.match}</td>
-                          <td>★ {p.rating}</td>
-                          <td>{p.stage}</td>
-                          <td>{p.applied}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            ) : tab === 'Job post' ? (
-              <Card
-                title="Public job post"
-                action={
-                  <Link href="/startup/hiring/jobs/new" className="inline-flex items-center gap-1 text-xs font-semibold text-[#9A7A45]">
-                    Edit <Edit3 size={13} />
-                  </Link>
-                }
-              >
-                <h2 className="serif text-2xl">{currentJob.title}</h2>
-                <p className="mt-2 text-sm text-[#4A5568]">Acme Studio · {currentJob.location} · {currentJob.type}</p>
-                <p className="mt-5 text-sm font-semibold">About this role</p>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4A5568]">
-                  Join our growing team to help build tools that make financial operations easier for ambitious businesses.
-                </p>
-              </Card>
-            ) : tab === 'Team & scorecards' ? (
-              <Card title="Interview team & scorecard">
-                <p className="text-sm">Interviewers submit feedback independently. Other scores stay hidden until submission.</p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {[
-                    ['Problem solving', 'Assess structured thinking and practical judgment.'],
-                    ['Role skills', 'Assess skills relevant to the published job criteria.'],
-                    ['Communication', 'Assess clarity and listening.'],
-                    ['Ownership', 'Assess initiative and follow-through.'],
-                  ].map(([a, b]) => (
-                    <div key={a} className="rounded-lg border border-[#E5E1D8] p-4">
-                      <b className="text-sm">{a}</b>
-                      <p className="mt-1 text-xs text-[#4A5568]">{b}</p>
-                      <select className="mt-3 rounded-lg border border-[#E5E1D8] bg-white px-2 py-2 text-xs">
-                        <option>Not scored</option>
-                        <option>1 · Needs development</option>
-                        <option>2 · Developing</option>
-                        <option>3 · Strong</option>
-                        <option>4 · Excellent</option>
-                      </select>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-3">
-                {[
-                  ['Applied → Shortlisted', '38%'],
-                  ['Average time to hire', '28 days'],
-                  ['Offer acceptance', '75%'],
-                ].map(([n, v]) => (
-                  <Card key={n} title={n}>
-                    <b className="serif text-3xl">{v}</b>
-                    <p className="mt-2 text-xs text-[#4A5568]">Sample insight · based on demo pipeline</p>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </>
+        {is('job') && startupOrg && (
+          <StartupJobDetailView
+            org={startupOrg}
+            myRole={startupOrg.my_role}
+            jobId={jobId}
+            pageHead={pageHead}
+            notify={notify}
+          />
         )}
 
-        {is('candidate') && (
-          <>
-            {pageHead(
-              activeApplicant.name,
-              `${activeApplicant.title} · ${activeApplicant.location} · Applied ${activeApplicant.applied}`,
-              <>
-                <Btn secondary onClick={() => notify('Message sent.')}><Mail size={15} /> Message</Btn>
-                <Btn secondary onClick={() => setModal('interview')}><CalendarDays size={15} /> Schedule interview</Btn>
-                <Btn onClick={() => { setStage('Shortlisted'); notify('Candidate shortlisted.'); }}><Check size={15} /> Shortlist</Btn>
-              </>
-            )}
-
-            <div className="mb-4 flex items-center gap-2 rounded-lg bg-[#F3EBDD] p-3 text-xs">
-              <span className="rounded-full bg-white px-2 py-1 font-semibold text-[#806236]">AI suggestion</span>
-              Suggestions help organize review. Hiring decisions are always made by people.
-            </div>
-
-            <div className="mb-5 flex gap-2 overflow-x-auto">
-              {['Overview', 'Resume', 'Interview practice', 'Interviews & feedback', 'Notes', 'Messages', 'Activity'].map(x => (
-                <button
-                  key={x}
-                  type="button"
-                  onClick={() => setCandTab(x)}
-                  className={`min-h-10 shrink-0 rounded-lg px-3 text-xs ${candTab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
-                >
-                  {x}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid items-start gap-5 lg:grid-cols-3">
-              <div className="space-y-5 lg:col-span-2">
-                <Card title={candTab}>
-                  {candTab === 'Overview' ? (
-                    <>
-                      <h3 className="text-sm font-semibold">Experience & skills</h3>
-                      <p className="mt-2 text-sm text-[#4A5568]">{activeApplicant.experience} of relevant experience in product engineering.</p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {activeApplicant.skills.map(s => (
-                          <span key={s} className="rounded-full bg-[#F3EBDD] px-3 py-1 text-xs text-[#806236]">{s}</span>
-                        ))}
-                      </div>
-                      <h3 className="mt-6 text-sm font-semibold">Match explanation</h3>
-                      <p className="mt-2 text-xs leading-5 text-[#4A5568]">
-                        Skills match based on the job’s published requirements: Node.js, cloud infrastructure and database experience. This is a suggestion, not a decision.
-                      </p>
-                      <p className="mt-5 text-xs text-[#4A5568]">
-                        Contact information and resume shown with candidate permission <LockKeyhole className="ml-1 inline" size={12} />
-                      </p>
-                    </>
-                  ) : candTab === 'Interview practice' ? (
-                    activeApplicant.consent ? (
-                      <p className="text-sm">The candidate has not shared interview practice scores for this role.</p>
-                    ) : (
-                      <p className="text-sm">The candidate has not shared practice results. These are never required for evaluation.</p>
-                    )
-                  ) : candTab === 'Resume' ? (
-                    <div className="rounded-lg bg-[#FAF8F4] p-8 text-center">
-                      <FileText className="mx-auto mb-3 text-[#9A7A45]" />
-                      <p className="text-sm font-semibold">Resume available with candidate consent</p>
-                      <button type="button" onClick={() => notify('Resume preview opened.')} className="mt-3 text-xs font-semibold text-[#9A7A45]">
-                        Open resume
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-sm text-[#4A5568]">{candTab} will appear here for this candidate.</p>
-                      <textarea placeholder={`Add ${candTab.toLowerCase()}…`} rows={4} className="mt-4 w-full rounded-lg border border-[#E5E1D8] p-3 text-sm" />
-                    </>
-                  )}
-                </Card>
-              </div>
-
-              <aside className="space-y-5">
-                <Card title="Decision">
-                  <p className="text-xs text-[#4A5568]">Current stage</p>
-                  <select value={stage} onChange={e => setStage(e.target.value)} className="mt-2 h-10 w-full rounded-lg border border-[#E5E1D8] bg-white px-3 text-xs">
-                    {['Applied', 'Shortlisted', 'Interview', 'Offer', 'Hired', 'Rejected'].map(s => (
-                      <option key={s}>{s}</option>
-                    ))}
-                  </select>
-                  <p className="mt-4 text-xs text-[#4A5568]">Average scorecard</p>
-                  <p className="serif text-2xl">★ {activeApplicant.rating} / 5</p>
-                  <p className="mt-3 text-xs text-[#4A5568]">Next step: review role-specific scorecard and share feedback.</p>
-                </Card>
-
-                <Card title="Candidate details">
-                  <p className="text-xs"><b>Source:</b> {activeApplicant.source}</p>
-                  <p className="mt-2 text-xs"><b>Experience:</b> {activeApplicant.experience}</p>
-                  <p className="mt-2 text-xs"><b>Location:</b> {activeApplicant.location}</p>
-                  <p className="mt-3 rounded bg-[#FAF8F4] p-2 text-[10px] text-[#4A5568]">Personal details displayed with candidate consent.</p>
-                </Card>
-
-                <Card title="Quick scorecard">
-                  <p className="text-xs text-[#4A5568]">Score the same criteria for each candidate.</p>
-                  {['Role skills', 'Problem solving', 'Communication'].map(x => (
-                    <label key={x} className="mt-3 block text-xs">
-                      {x}
-                      <select className="mt-1 h-9 w-full rounded border border-[#E5E1D8] bg-white px-2">
-                        <option>Choose score</option>
-                        <option>1 · Needs development</option>
-                        <option>2 · Developing</option>
-                        <option>3 · Strong</option>
-                        <option>4 · Excellent</option>
-                      </select>
-                    </label>
-                  ))}
-                  <Btn onClick={() => notify('Scorecard submitted. Other interviewer feedback is now visible.')}>
-                    Submit feedback
-                  </Btn>
-                </Card>
-              </aside>
-            </div>
-          </>
+        {is('candidate') && startupOrg && (
+          <StartupApplicantDetailView
+            org={startupOrg}
+            myRole={startupOrg.my_role}
+            jobId={jobId}
+            applicantId={applicantId}
+            pageHead={pageHead}
+            notify={notify}
+            onOpenScheduleModal={(target) => setScheduleTarget(target)}
+          />
         )}
 
         {is('talent') && (
@@ -1125,163 +614,22 @@ export default function Hiring({ page = 'overview', jobId = 'job-01', applicantI
           </>
         )}
 
-        {is('interviews') && (
-          <>
-            {pageHead(
-              'Interviews',
-              'Plan conversations, keep the team aligned and close the feedback loop.',
-              <Btn onClick={() => setModal('interview')}><Plus size={16} /> Schedule interview</Btn>
-            )}
-
-            <div className="mb-5 flex gap-2">
-              {['Upcoming', 'Needs feedback', 'Past', 'Calendar'].map(x => (
-                <button
-                  key={x}
-                  type="button"
-                  onClick={() => setEventTab(x)}
-                  className={`min-h-10 rounded-lg px-4 text-xs ${eventTab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
-                >
-                  {x}
-                </button>
-              ))}
-            </div>
-
-            {eventTab === 'Calendar' ? (
-              <Card title="November 2026">
-                <div className="grid grid-cols-7 gap-px bg-[#E5E1D8]">
-                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', ...Array.from({ length: 35 }, (_, i) => String(i + 1))].map((x, i) => (
-                    <div key={i} className={`min-h-16 bg-white p-2 text-xs ${i < 7 ? 'font-semibold text-[#4A5568]' : ''}`}>
-                      {x}
-                      {[6, 7].includes(i) && <small className="mt-1 block rounded bg-[#F3EBDD] p-1 text-[9px]">Interview</small>}
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            ) : eventTab === 'Needs feedback' ? (
-              <Card title="Feedback needed">
-                <div className="space-y-3">
-                  {[
-                    ['Ishita Roy', 'Backend Engineer · Technical round', 'Yesterday'],
-                    ['Kabir Shah', 'Product Designer · Founder chat', '2 days ago'],
-                  ].map(([n, d, t]) => (
-                    <div key={n} className="flex items-center gap-3 rounded-lg border border-[#E5E1D8] p-4">
-                      <AlertCircle className="text-[#B7791F]" size={18} />
-                      <span className="flex-1">
-                        <b className="block text-sm">{n}</b>
-                        <small className="text-xs text-[#4A5568]">{d} · completed {t}</small>
-                      </span>
-                      <button type="button" onClick={() => notify('Feedback reminder sent.')} className="text-xs font-semibold text-[#9A7A45]">
-                        Remind interviewer
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {[
-                  ['Nov 06 · 10:30 AM', 'Ananya Sen', 'Backend Engineer', 'Technical round', 'Aarav Kapoor, Sanjay Rao'],
-                  ['Nov 06 · 2:00 PM', 'Ishita Roy', 'Backend Engineer', 'Founder chat', 'Aarav Kapoor'],
-                  ['Nov 07 · 11:00 AM', 'Kabir Shah', 'Product Designer', 'Screening call', 'Priya Menon'],
-                  ['Nov 08 · 3:00 PM', 'Rohan Mehta', 'Backend Engineer', 'Technical round', 'Sanjay Rao'],
-                ].map(([date, name, job, round, team], i) => (
-                  <article key={name} className="flex flex-wrap items-center gap-4 rounded-xl border border-[#E5E1D8] bg-white p-4">
-                    <div className="min-w-[145px] rounded-lg bg-[#F3EBDD] p-3 text-center">
-                      <CalendarDays className="mx-auto mb-1 text-[#806236]" size={18} />
-                      <b className="text-xs">{date}</b>
-                      <small className="mt-1 block text-[10px] text-[#4A5568]">Asia/Kolkata</small>
-                    </div>
-                    <div className="min-w-[180px] flex-1">
-                      <Link href={`/startup/hiring/job-01/applicants/${people[i % people.length].id}`} className="text-sm font-semibold hover:underline">
-                        {name}
-                      </Link>
-                      <p className="mt-1 text-xs text-[#4A5568]">{round} · {job}</p>
-                      <p className="mt-1 text-[10px] text-[#4A5568]">Interviewers: {team}</p>
-                    </div>
-                    <span className="rounded-full bg-[#E7F3EC] px-2 py-1 text-[10px] text-[#286749]">Scheduled</span>
-                    <button type="button" onClick={() => notify('Reschedule request started.')} className="rounded-lg border border-[#E5E1D8] px-3 py-2 text-xs">
-                      Reschedule
-                    </button>
-                    {i === 0 && (
-                      <button type="button" onClick={() => notify('Join link will appear 10 minutes before the interview.')} className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
-                        Join
-                      </button>
-                    )}
-                  </article>
-                ))}
-              </div>
-            )}
-          </>
+        {is('interviews') && startupOrg && (
+          <StartupInterviewsView
+            org={startupOrg}
+            myRole={startupOrg.my_role}
+            pageHead={pageHead}
+            notify={notify}
+          />
         )}
 
-        {is('offers') && (
-          <>
-            {pageHead(
-              'Offers',
-              'Prepare thoughtful offers and keep every candidate informed.',
-              <Btn onClick={() => setModal('offer')}><Plus size={16} /> Create offer</Btn>
-            )}
-
-            <div className="mb-5 flex flex-wrap gap-2">
-              {['Draft', 'Awaiting approval', 'Sent', 'Accepted', 'Declined / Expired'].map(x => (
-                <button
-                  key={x}
-                  type="button"
-                  onClick={() => setOfferTab(x)}
-                  className={`min-h-10 rounded-lg px-3 text-xs ${offerTab === x ? 'bg-ink text-white' : 'border border-[#E5E1D8] bg-white'}`}
-                >
-                  {x}
-                </button>
-              ))}
-            </div>
-
-            <Card title={`${offerTab} offers`}>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[750px] text-left text-xs">
-                  <thead className="border-b text-[#4A5568]">
-                    <tr>
-                      {['Candidate', 'Job', 'Compensation', 'Start date', 'Status', 'Expires', 'Owner', ''].map(x => (
-                        <th key={x} className="py-3">{x}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(offerTab === 'Sent'
-                      ? [
-                          ['Ananya Sen', 'Backend Engineer', '₹18 LPA + equity', 'Dec 01', 'Sent', 'Nov 07', 'Aarav Kapoor'],
-                          ['Kabir Shah', 'Product Designer', '₹14 LPA', 'Dec 15', 'Sent', 'Nov 12', 'Priya Menon'],
-                        ]
-                      : offerTab === 'Accepted'
-                      ? [['Rohan Mehta', 'Backend Engineer', '₹20 LPA', 'Nov 15', 'Accepted', '—', 'Aarav Kapoor']]
-                      : []
-                    ).map(r => (
-                      <tr key={r[0]} className="border-b border-[#E5E1D8]">
-                        <td className="py-4 font-semibold">{r[0]}</td>
-                        {r.slice(1).map((x, i) => (
-                          <td key={i} className="py-4">{x}</td>
-                        ))}
-                        <td>
-                          <button type="button" onClick={() => notify(`Offer for ${r[0]} opened.`)} className="text-[#9A7A45]">
-                            View
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {offerTab !== 'Sent' && offerTab !== 'Accepted' && (
-                  <div className="py-10 text-center">
-                    <FileText className="mx-auto mb-3 text-[#A0A7B4]" />
-                    <p className="text-sm font-semibold">No {offerTab.toLowerCase()} offers</p>
-                    <p className="mt-1 text-xs text-[#4A5568]">Offers you create from a candidate pipeline will appear here.</p>
-                  </div>
-                )}
-              </div>
-              <p className="mt-4 rounded-lg bg-[#FFF8E8] p-3 text-xs text-[#806236]">
-                Review offer letters and contract terms with legal counsel. Templates are samples, not legal advice.
-              </p>
-            </Card>
-          </>
+        {is('offers') && startupOrg && (
+          <StartupOffersView
+            org={startupOrg}
+            myRole={startupOrg.my_role}
+            pageHead={pageHead}
+            notify={notify}
+          />
         )}
 
         {is('employer') && (
@@ -1396,7 +744,19 @@ export default function Hiring({ page = 'overview', jobId = 'job-01', applicantI
             </div>
           </>
         )}
+        </>
+        )}
       </main>
+
+      {scheduleTarget && startupOrg && (
+        <ScheduleInterviewModal
+          orgId={startupOrg.id}
+          initialJobId={scheduleTarget.jobId}
+          initialApplicationId={scheduleTarget.applicationId}
+          onClose={() => setScheduleTarget(null)}
+          notify={notify}
+        />
+      )}
 
       {/* Modals */}
       {(modal === 'interview' || modal === 'offer' || modal === 'quick') && (
