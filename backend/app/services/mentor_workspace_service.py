@@ -22,6 +22,7 @@ from app.schemas.mentor_workspace import (
 from app.schemas.mentorship import MentorshipPage
 from app.schemas.readiness import ReadinessSummary
 from app.services import (
+    agreement_service,
     earning_service,
     mentorship_service,
     organization_service,
@@ -31,6 +32,7 @@ from app.services import (
 
 async def workspace(db: AsyncSession, user: User, mentorship_id: uuid.UUID) -> WorkspaceRead:
     m = await mentorship_service.get_one(db, user, mentorship_id)
+    row = await mentorship_service.get_row(db, mentorship_id)
     sessions = (
         await db.execute(
             select(func.count())
@@ -52,7 +54,12 @@ async def workspace(db: AsyncSession, user: User, mentorship_id: uuid.UUID) -> W
             )
         )
     ).scalar_one()
-    return WorkspaceRead(mentorship=m, completed_sessions=sessions, open_deliverables=deliverables)
+    return WorkspaceRead(
+        mentorship=m,
+        completed_sessions=sessions,
+        open_deliverables=deliverables,
+        agreement=await agreement_service.summary_for_workspace(db, user, row),
+    )
 
 
 async def readiness(db: AsyncSession, user: User, mentorship_id: uuid.UUID) -> ScopedReadinessBoard:

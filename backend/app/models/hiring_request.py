@@ -29,8 +29,15 @@ the page collects them and schema.sql has no home for them; approved
 - ``skills``: JSON list of skill names (talent-profile precedent: names,
   resolved case-insensitively against the catalogue on convert).
 - ``why_now``: business driver, String + CHECK (growth, replacement,
-  new_project, skill_gap). ``justification``: internal free text, never
-  copied onto the public job.
+  new_project, skill_gap, and ``stage_plan`` added by 0052 for the startup
+  form). ``justification``: internal free text, never copied onto the
+  public job.
+
+GAP column (migration 0052, phase-B wiring of /startup/hiring/requests/new):
+
+- ``stage_criterion_id``: optional link to a Step 5i stage exit criterion
+  (``readiness_criteria`` with ``is_exit_criterion``) that the hire moves
+  forward. Startup organizations only; FK ON DELETE SET NULL + index.
 """
 
 from __future__ import annotations
@@ -85,6 +92,7 @@ class HiringRequestWhyNow(enum.StrEnum):
     replacement = "replacement"
     new_project = "new_project"
     skill_gap = "skill_gap"
+    stage_plan = "stage_plan"
 
 
 class HiringRequest(Base):
@@ -125,11 +133,12 @@ class HiringRequest(Base):
         ),
         CheckConstraint(
             "why_now IS NULL OR why_now IN ('growth', 'replacement',"
-            " 'new_project', 'skill_gap')",
+            " 'new_project', 'skill_gap', 'stage_plan')",
             name="hiring_requests_why_now_check",
         ),
         Index("hiring_requests_org_idx", "org_id", "status"),
         Index("hiring_requests_hiring_manager_idx", "hiring_manager_id"),
+        Index("hiring_requests_stage_criterion_idx", "stage_criterion_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -164,6 +173,10 @@ class HiringRequest(Base):
     skills: Mapped[list[str]] = mapped_column(JSON, default=list)
     why_now: Mapped[str | None] = mapped_column(String(12), default=None)
     justification: Mapped[str | None] = mapped_column(Text, default=None)
+    # GAP column (0052) — see module docstring.
+    stage_criterion_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("readiness_criteria.id", ondelete="SET NULL"), default=None
+    )
     status: Mapped[str] = mapped_column(
         String(12), default=HiringRequestStatus.pending.value
     )

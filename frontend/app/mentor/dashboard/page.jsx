@@ -135,7 +135,7 @@ export default function MentorDashboardPage() {
             Discover Startups
           </Link>
           <Link
-            href="/mentor/availability"
+            href="/mentor/profile/edit"
             className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[9px] border border-[#E5E1D8] bg-white px-3.5 text-xs font-semibold text-[#0F1B2D] transition hover:bg-[#FAF8F4]"
           >
             <Sliders size={14} className="text-[#4A5568]" />
@@ -280,7 +280,7 @@ export default function MentorDashboardPage() {
                         </div>
                         {req.goal && (
                           <p className="mt-2.5 text-xs text-[#4A5568] line-clamp-2 leading-relaxed">
-                            "{req.goal}"
+                            &ldquo;{req.goal}&rdquo;
                           </p>
                         )}
                       </div>
@@ -305,7 +305,7 @@ export default function MentorDashboardPage() {
                   </span>
                   <div>
                     <p className="text-xs font-semibold text-[#0F1B2D]">
-                      Priority Queue: You're all caught up!
+                      Priority Queue: You&apos;re all caught up!
                     </p>
                     <p className="text-[11px] text-[#6B7280]">
                       No pending mentorship requests waiting for your response.
@@ -354,7 +354,7 @@ export default function MentorDashboardPage() {
                     </p>
                     <div className="mt-4 flex justify-center gap-3">
                       <Link
-                        href="/mentor/availability"
+                        href="/mentor/profile/edit"
                         className="rounded-lg border border-[#E5E1D8] bg-white px-3 py-1.5 text-xs font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4]"
                       >
                         Set Available Slots
@@ -660,7 +660,7 @@ export default function MentorDashboardPage() {
 
                 <div className="mt-4 space-y-2">
                   <Link
-                    href="/mentor/availability"
+                    href="/mentor/profile/edit"
                     className="flex items-center justify-between rounded-lg border border-[#E5E1D8] p-3 text-xs font-semibold text-[#0F1B2D] hover:bg-[#FAF8F4]"
                   >
                     <span className="flex items-center gap-2">

@@ -51,7 +51,7 @@ from app.schemas.mentorship import (
     MentorshipRead,
     MentorshipUpdate,
 )
-from app.services import activity_service, rate_limiter
+from app.services import activity_service, agreement_service, rate_limiter
 
 # Roles that may WRITE from the startup side. Viewers are read-only
 # everywhere in the product (5d/5g/8a precedent).
@@ -593,6 +593,8 @@ async def cancel(
     row.ended_on = date.today()
     if note:
         row.terms = note
+    # Step 8g (approved Q6): agreements end with the engagement, atomically.
+    await agreement_service.close_for_mentorship(db, row, user)
     await db.commit()
     await db.refresh(row)
     return await _as_read(db, row, user)
@@ -617,6 +619,8 @@ async def end(
     row.ended_on = date.today()
     if note:
         row.terms = note
+    # Step 8g (approved Q6): agreements end with the engagement, atomically.
+    await agreement_service.close_for_mentorship(db, row, user)
     await db.commit()
     await db.refresh(row)
     return await _as_read(db, row, user)

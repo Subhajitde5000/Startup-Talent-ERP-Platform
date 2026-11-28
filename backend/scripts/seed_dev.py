@@ -40,6 +40,13 @@ from app.core.config import get_settings  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.db.session import async_session_factory, engine  # noqa: E402
 from app.models.activity import ActivityEvent  # noqa: E402
+from app.models.agreement import (  # noqa: E402
+    AgreementCadence,
+    AgreementSide,
+    AgreementStatus,
+    AgreementType,
+    MentorAgreement,
+)
 from app.models.analytics import StartupCompetitor, StartupMarketSize  # noqa: E402
 from app.models.availability import AvailabilitySlot  # noqa: E402
 from app.models.commitment import (  # noqa: E402
@@ -1390,6 +1397,15 @@ SEED_USERS = [
     # talentResults) so /employer/talent search has real cards in development.
     ("talent-designer@forma.dev", "Ananya Ghosh", UserRole.jobseeker, True),
     ("talent-engineer@forma.dev", "Karthik Iyer", UserRole.jobseeker, True),
+    # Step 7t: a startup-role teammate so the member path of the startup
+    # hiring pages can be exercised (mentor@ is a member too, but holds no
+    # hiring role), plus the four candidates formerly hard-coded as
+    # `people` in frontend/app/startup/hiring/hiring-app.jsx.
+    ("startup-member@forma.dev", "Ishaan Bose", UserRole.startup, True),
+    ("talent-ananya@forma.dev", "Ananya Sen", UserRole.jobseeker, True),
+    ("talent-rohan@forma.dev", "Rohan Mehta", UserRole.jobseeker, True),
+    ("talent-ishita@forma.dev", "Ishita Roy", UserRole.jobseeker, True),
+    ("talent-kabir@forma.dev", "Kabir Shah", UserRole.jobseeker, True),
 ]
 
 
@@ -3031,6 +3047,180 @@ async def seed_step7i7j(db: AsyncSession) -> None:
 
 
 
+# Step 7t: records formerly inline in frontend/app/startup/hiring/hiring-app.jsx
+# (`jobSeed`, the overview's hiring-request rows, `people`, and the employer
+# page's Acme copy), re-homed on the founder's startup org. Applicant counts,
+# stage bars and "+N new" badges were demo numbers and are NOT recreated.
+STEP7T_JOBS = [
+    ("job-01", "Backend Engineer", "engineering", "Remote · India", "remote", JobStatus.open, 31),
+    ("job-02", "Product Designer", "product", "Kolkata · Hybrid", "hybrid", JobStatus.open, 38),
+    ("job-03", "Growth Associate", "sales", "Remote · India", "remote", JobStatus.draft, 0),
+]
+# (key, role_title, department, urgency, target_start, status, why_now)
+STEP7T_REQUESTS = [
+    ("backend-engineer", "Backend Engineer", "engineering", "high", date(2026, 12, 1), "approved", "stage_plan"),
+    ("product-designer", "Product Designer", "product", "normal", date(2026, 12, 15), "pending", "growth"),
+    ("growth-associate", "Growth Associate", "sales", "low", date(2027, 1, 5), "draft", "skill_gap"),
+]
+STEP7T_TALENT = [
+    # The demo's Ishita Roy had consent=false: kept non-searchable so the
+    # privacy gate is visible in development (she never appears in search).
+    ("talent-ananya@forma.dev", "Senior Backend Engineer", "6.0", "Bengaluru, India", "remote", "two_weeks", ["Node.js", "PostgreSQL", "AWS"], True),
+    ("talent-rohan@forma.dev", "Full-stack Engineer", "4.0", "Pune, India", "hybrid", "one_month", ["TypeScript", "Node.js", "Redis"], True),
+    ("talent-ishita@forma.dev", "Platform Engineer", "5.0", "Kolkata, India", "onsite", "flexible", ["Go", "AWS", "Kubernetes"], False),
+    ("talent-kabir@forma.dev", "Backend Developer", "3.0", "Remote · India", "remote", "immediate", ["Python", "PostgreSQL", "Docker"], True),
+]
+STEP7T_MISSION = "Help every ambitious business make better financial decisions."
+
+
+async def seed_step7t(db: AsyncSession) -> None:
+    """Fill-only startup-hiring samples (jobs, hiring requests, searchable
+    candidates, a shortlist, the employer-page mission) for the founder's
+    startup org; never rewrites an existing row. Dev only."""
+    if get_settings().ENVIRONMENT != "development":
+        raise RuntimeError("Step 7t samples require ENVIRONMENT=development")
+    from app.models.hiring_request import HiringRequest
+    from app.models.talent import AvailabilityMode
+    from app.models.talent_sourcing import TalentShortlist, TalentShortlistMember
+    from app.services.talent_service import resolve_skills
+
+    users = {
+        u.primary_email: u
+        for u in (
+            await db.execute(
+                select(User).where(User.deleted_at.is_(None), User.primary_email.like("%@forma.dev"))
+            )
+        ).scalars()
+    }
+    owner = users.get("founder@forma.dev")
+    if owner is None or owner.status != AccountStatus.active:
+        return
+    org = (
+        await db.execute(
+            select(Organization)
+            .join(OrganizationMember, OrganizationMember.org_id == Organization.id)
+            .where(
+                OrganizationMember.user_id == owner.id,
+                OrganizationMember.role == OrgRole.owner,
+                Organization.type == "startup",
+                Organization.deleted_at.is_(None),
+            )
+            .order_by(Organization.created_at)
+        )
+    ).scalars().first()
+    if org is None or org.status != "active":
+        return
+    now = datetime.now(UTC)
+    namespace = uuid.uuid5(org.id, "step7t")
+
+    # Startup member (hiring role) for the member-path checks.
+    teammate = users.get("startup-member@forma.dev")
+    if teammate is not None:
+        exists = (
+            await db.execute(
+                select(OrganizationMember.id).where(
+                    OrganizationMember.org_id == org.id, OrganizationMember.user_id == teammate.id
+                )
+            )
+        ).first()
+        if exists is None:
+            db.add(
+                OrganizationMember(
+                    org_id=org.id, user_id=teammate.id, role=OrgRole.member,
+                    status=MemberStatus.active, title="Engineering lead",
+                    joined_at=now, last_active_at=now,
+                )
+            )
+
+    # Employer-page copy (fill-only).
+    profile = await db.get(StartupProfile, org.id)
+    if profile is not None and not profile.mission:
+        profile.mission = STEP7T_MISSION
+
+    # Jobs (stable ids; never overwrite edits).
+    for key, title, department, location, mode, status, days in STEP7T_JOBS:
+        job_id = uuid.uuid5(namespace, f"job:{key}")
+        if await db.get(Job, job_id) is not None:
+            continue
+        db.add(
+            Job(
+                id=job_id, org_id=org.id, title=title, department=department,
+                location=location, work_mode=mode, status=status,
+                owner_id=owner.id, created_by=owner.id,
+                description=f"{org.name} is hiring a {title} to help ship the next stage of the product.",
+                requirements="Relevant experience and a track record of shipping with small teams.",
+                fair_hiring_confirmed=True,
+                posted_at=now - timedelta(days=days) if status == JobStatus.open else None,
+            )
+        )
+    await db.commit()
+
+    # Hiring requests; the approved one links to an exit criterion of the
+    # startup's current stage when the 5i criteria are bootstrapped.
+    criterion = None
+    if profile is not None:
+        criterion = (
+            await db.execute(
+                select(ReadinessCriterion)
+                .where(
+                    ReadinessCriterion.is_exit_criterion.is_(True),
+                    ReadinessCriterion.is_active.is_(True),
+                    ReadinessCriterion.stage == profile.stage,
+                )
+                .order_by(ReadinessCriterion.display_order)
+            )
+        ).scalars().first()
+    member_id = teammate.id if teammate is not None else owner.id
+    for key, title, department, urgency, start, req_status, why_now in STEP7T_REQUESTS:
+        request_id = uuid.uuid5(namespace, f"request:{key}")
+        if await db.get(HiringRequest, request_id) is not None:
+            continue
+        db.add(
+            HiringRequest(
+                id=request_id, org_id=org.id, role_title=title, department=department,
+                headcount=1, urgency=urgency, target_start=start,
+                requested_by=owner.id if req_status == "approved" else member_id,
+                approver_id=owner.id if req_status != "draft" else None,
+                budget_amount=Decimal("120000.00"), currency="INR", status=req_status,
+                employment_type="full_time", work_mode="remote", skills=[],
+                why_now=why_now,
+                stage_criterion_id=criterion.id if criterion is not None and req_status == "approved" else None,
+            )
+        )
+    await db.commit()
+
+    # Searchable candidates (fill-only profiles).
+    for email, headline, years, location, mode, availability, skills, searchable in STEP7T_TALENT:
+        seeker = users.get(email)
+        if seeker is None or seeker.status != AccountStatus.active:
+            continue
+        if not seeker.profile_public:
+            seeker.profile_public = True
+        if await db.get(TalentProfile, seeker.id) is not None:
+            continue
+        db.add(
+            TalentProfile(
+                user_id=seeker.id, headline=headline, total_experience_yrs=Decimal(years),
+                current_location=location, preferred_mode=WorkMode(mode),
+                availability=AvailabilityMode(availability), is_searchable=searchable,
+            )
+        )
+        await db.flush()
+        for skill in await resolve_skills(db, skills):
+            db.add(TalentProfileSkill(user_id=seeker.id, skill_id=skill.id))
+    await db.commit()
+
+    # The founder's "Saved candidates" shortlist (the demo's savedTalent).
+    shortlist_id = uuid.uuid5(namespace, "shortlist:saved")
+    ananya = users.get("talent-ananya@forma.dev")
+    if await db.get(TalentShortlist, shortlist_id) is None:
+        db.add(TalentShortlist(id=shortlist_id, org_id=org.id, name="Saved candidates", created_by=owner.id))
+        await db.flush()
+        if ananya is not None:
+            db.add(TalentShortlistMember(shortlist_id=shortlist_id, user_id=ananya.id, added_by=owner.id))
+        await db.commit()
+
+
 async def seed_step7no_resumes(db: AsyncSession, candidate: User) -> None:
     """Fill-only sample resumes and ATS run migrated from the old 7n/7o mock data."""
     if get_settings().ENVIRONMENT != "development":
@@ -4259,6 +4449,7 @@ async def seed() -> None:
         sessions_added = 0
         deliverables_added = 0
         earnings_added = 0
+        agreements_added = 0
         if founder_org is not None:
             for spec in STEP8BCD_MENTORSHIPS:
                 mentor_user = (
@@ -4501,6 +4692,68 @@ async def seed() -> None:
                                     )
                                 )
                                 await session_review_service._recompute(db, profile)
+
+                    # Step 8g: the agreement records that used to live in the
+                    # frontend's `initialAgreements` demo store. v1 is signed and
+                    # in force; v2 is a startup counter-proposal awaiting both
+                    # signatures, so the sign flow can be tried on both sides.
+                    has_agreement = (
+                        await db.execute(
+                            select(MentorAgreement.id)
+                            .where(MentorAgreement.mentorship_id == row.id)
+                            .limit(1)
+                        )
+                    ).first()
+                    if has_agreement is None and founder_user:
+                        start = row.started_on or date.today()
+                        signed_at = datetime.combine(start, datetime.min.time(), tzinfo=UTC)
+                        v1 = MentorAgreement(
+                            mentorship_id=row.id,
+                            version=1,
+                            proposed_by_side=AgreementSide.mentor,
+                            created_by=mentor_user.id,
+                            agreement_type=AgreementType.per_session,
+                            fee_amount=Decimal("3000.00"),
+                            currency="INR",
+                            cadence=AgreementCadence.fortnightly,
+                            status=AgreementStatus.signed,
+                            starts_on=start,
+                            ends_on=start + timedelta(days=182),
+                            terms=(
+                                "Focus areas: go-to-market, pricing, customer discovery. "
+                                "Two sessions per month, 45 minutes each. Expected outputs: "
+                                "written guidance and readiness review."
+                            ),
+                            sent_at=signed_at,
+                            mentor_signed_at=signed_at,
+                            startup_signed_at=signed_at,
+                            startup_signed_by=founder_user.id,
+                        )
+                        db.add(v1)
+                        await db.flush()
+                        db.add(
+                            MentorAgreement(
+                                mentorship_id=row.id,
+                                version=2,
+                                previous_version_id=v1.id,
+                                proposed_by_side=AgreementSide.startup,
+                                created_by=founder_user.id,
+                                agreement_type=AgreementType.per_session,
+                                fee_amount=Decimal("3500.00"),
+                                currency="INR",
+                                equity_pct=Decimal("0.25"),
+                                cadence=AgreementCadence.monthly,
+                                status=AgreementStatus.sent,
+                                starts_on=date.today() + timedelta(days=7),
+                                ends_on=start + timedelta(days=182),
+                                terms=v1.terms,
+                                change_reason=(
+                                    "Move to monthly sessions and add 0.25% advisory options."
+                                ),
+                                sent_at=datetime.now(UTC),
+                            )
+                        )
+                        agreements_added += 2
             await db.commit()
 
         # -----------------------------------------------------------------
@@ -5193,6 +5446,10 @@ async def seed() -> None:
         # Step 7i/7j samples; after 7a so Northstar's team and jobs exist.
         await seed_step7i7j(db)
 
+        # Step 7t samples for the founder's startup org (after the 5a profile
+        # and 5i criteria bootstrap so the stage-criterion link resolves).
+        await seed_step7t(db)
+
     await engine.dispose()
 
     print("Seeded (dev only):")
@@ -5220,6 +5477,7 @@ async def seed() -> None:
     print(f"  + sessions (8d): {sessions_added}")
     print(f"  + deliverables (8e): {deliverables_added}")
     print(f"  + earnings (8h): {earnings_added}")
+    print(f"  + agreements (8g): {agreements_added}")
     print(f"  + stage tool progress (5i/5j): {tools_added}")
     print(f"  + market size (5l): {market_added}")
     print(f"  + competitors (5l): {competitors_added}")

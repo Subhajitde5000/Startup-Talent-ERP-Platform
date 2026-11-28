@@ -70,6 +70,8 @@ class StartupProfile(Base):
         primary_key=True,
     )
     tagline: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Step 7t GAP (migration 0052): the employer page's "Mission" line.
+    mission: Mapped[str | None] = mapped_column(Text, nullable=True)
     stage: Mapped[StartupStage] = mapped_column(
         SAEnum(StartupStage, name="startup_stage", native_enum=False, length=16),
         nullable=False,

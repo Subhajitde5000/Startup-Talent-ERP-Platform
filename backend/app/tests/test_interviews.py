@@ -591,7 +591,9 @@ async def test_interview_rates_openapi_and_auth(client, pipeline):
         for method, operation in item.items()
         if isinstance(operation, dict) and "interviews" in operation.get("tags", [])
     ]
-    assert len(ops) == 10, ops
+    # 7f's ten operations plus 7u's candidate-wide GET /interviews/mine.
+    assert len(ops) == 11, ops
+    assert ("GET", "/api/v1/interviews/mine") in ops
     for method, path in ops:
         assert method in {"GET", "POST", "PUT", "PATCH"}, (method, path)
         statuses = schema["paths"][path][method.lower()]["responses"]

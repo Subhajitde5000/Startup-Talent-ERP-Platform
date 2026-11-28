@@ -66,6 +66,11 @@ _MAX_LANGUAGES = 5
 
 # Explicit "at least one" so a bogus sort value can never reach SQL even if a
 # future caller bypasses the router's Literal.
+# A rating is shown only once this many consented reviews exist, so a
+# single review cannot be read back from the average (8i). The stored
+# ``mentor_profiles.rating`` follows the same rule (session_review_service).
+PUBLIC_RATING_MIN_REVIEWS = 3
+
 _SORTS = frozenset({"relevance", "rating", "price", "experience"})
 _ORDERS = frozenset({"asc", "desc"})
 
@@ -165,7 +170,7 @@ def _visible_rating():  # type: ignore[no-untyped-def]
     # Only explicit public consent permits inclusion in public aggregates.
     return (
         select(
-            case((func.count(SessionReview.id) >= 3, func.avg(SessionReview.rating)), else_=None)
+            case((func.count(SessionReview.id) >= PUBLIC_RATING_MIN_REVIEWS, func.avg(SessionReview.rating)), else_=None)
         )
         .join(MentoringSession, MentoringSession.id == SessionReview.session_id)
         .join(Mentorship, Mentorship.id == MentoringSession.mentorship_id)
@@ -199,7 +204,7 @@ async def _review_stats(
             .group_by(Mentorship.mentor_id)
         )
     ).all()
-    return {uid: (count, round(float(avg), 2) if count >= 3 else None) for uid, count, avg in rows}
+    return {uid: (count, round(float(avg), 2) if count >= PUBLIC_RATING_MIN_REVIEWS else None) for uid, count, avg in rows}
 
 
 def _ordering(sort: str, order: str) -> list[Any]:

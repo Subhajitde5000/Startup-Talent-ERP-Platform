@@ -38,6 +38,7 @@ class _Sections(TypedDict):
     """Per-section values after the visibility + toggle gate (see below)."""
 
     summary: str | None
+    mission: str | None
     business_model: str | None
     problem: str | None
     solution: str | None
@@ -97,6 +98,7 @@ def section_values(
     gated = visible
     return _Sections(
         summary=org.summary if gated and profile.summary_public else None,
+        mission=profile.mission if gated and profile.summary_public else None,
         business_model=profile.business_model if gated and profile.summary_public else None,
         problem=profile.problem if gated and profile.summary_public else None,
         solution=profile.solution if gated and profile.summary_public else None,

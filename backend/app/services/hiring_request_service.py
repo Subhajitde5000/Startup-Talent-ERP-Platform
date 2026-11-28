@@ -60,6 +60,7 @@ from app.models.organization import (
     OrgRole,
     OrgType,
 )
+from app.models.readiness import ReadinessCriterion
 from app.models.user import User, UserRole
 from app.schemas.hiring_request import (
     HiringRequestCreate,
@@ -224,6 +225,31 @@ async def _still_owner_ref(db: AsyncSession, org_id: uuid.UUID, user_id: uuid.UU
     return role is not None and role != OrgRole.viewer
 
 
+async def _validate_stage_criterion(
+    db: AsyncSession, org_id: uuid.UUID, criterion_id: uuid.UUID
+) -> None:
+    """GAP (0052): the request may point at a Step 5i stage exit criterion.
+    Only startups have stages, and only active exit criteria qualify —
+    422 at ``loc: [body, stage_criterion_id]`` otherwise."""
+    org_type = (
+        await db.execute(select(Organization.type).where(Organization.id == org_id))
+    ).scalar_one_or_none()
+    message: str | None = None
+    if org_type != OrgType.startup:
+        message = "Stage criteria apply to startup organizations only."
+    else:
+        criterion = await db.get(ReadinessCriterion, criterion_id)
+        if criterion is None or not criterion.is_active or not criterion.is_exit_criterion:
+            message = "Choose an active stage exit criterion."
+    if message is not None:
+        raise validation_error(
+            message,
+            details=[
+                {"loc": ["body", "stage_criterion_id"], "msg": message, "type": "value_error"}
+            ],
+        )
+
+
 def _require_manager(member: OrganizationMember, action: str) -> None:
     if member.role not in MANAGERS:
         raise forbidden(f"Only owners and admins can {action}.")
@@ -268,6 +294,17 @@ async def _read_many(db: AsyncSession, rows: list[HiringRequest]) -> list[Hiring
                 )
             ).all()
         )
+    criterion_ids = {row.stage_criterion_id for row in rows if row.stage_criterion_id}
+    criteria: dict[uuid.UUID, tuple[str, str | None]] = {}
+    if criterion_ids:
+        for cid, title, stage in (
+            await db.execute(
+                select(
+                    ReadinessCriterion.id, ReadinessCriterion.title, ReadinessCriterion.stage
+                ).where(ReadinessCriterion.id.in_(criterion_ids))
+            )
+        ).all():
+            criteria[cid] = (title, stage.value if stage is not None else None)
     job_by_request: dict[uuid.UUID, uuid.UUID] = {}
     job_rows = (
         await db.execute(
@@ -304,6 +341,17 @@ async def _read_many(db: AsyncSession, rows: list[HiringRequest]) -> list[Hiring
             skills=list(row.skills or []),
             why_now=row.why_now,
             justification=row.justification,
+            stage_criterion_id=row.stage_criterion_id,
+            stage_criterion_title=(
+                criteria[row.stage_criterion_id][0]
+                if row.stage_criterion_id in criteria
+                else None
+            ),
+            stage_criterion_stage=(
+                criteria[row.stage_criterion_id][1]
+                if row.stage_criterion_id in criteria
+                else None
+            ),
             status=row.status,
             job_id=job_by_request.get(row.id),
             created_at=row.created_at,
@@ -332,6 +380,8 @@ async def create(
         await _validate_approver(db, member.org_id, payload.approver_id)
     if payload.hiring_manager_id is not None:
         await _validate_hiring_manager(db, member.org_id, payload.hiring_manager_id)
+    if payload.stage_criterion_id is not None:
+        await _validate_stage_criterion(db, member.org_id, payload.stage_criterion_id)
     row = HiringRequest(
         org_id=member.org_id,
         role_title=" ".join(payload.role_title.split()),
@@ -349,6 +399,7 @@ async def create(
         skills=list(payload.skills),
         why_now=payload.why_now.value if payload.why_now else None,
         justification=payload.justification,
+        stage_criterion_id=payload.stage_criterion_id,
         status="pending" if payload.submit else "draft",
     )
     db.add(row)
@@ -483,6 +534,11 @@ async def patch(
         changed = True
     if "justification" in fields:
         row.justification = payload.justification
+        changed = True
+    if "stage_criterion_id" in fields:
+        if payload.stage_criterion_id is not None:
+            await _validate_stage_criterion(db, row.org_id, payload.stage_criterion_id)
+        row.stage_criterion_id = payload.stage_criterion_id
         changed = True
 
     if "approver_id" in fields:

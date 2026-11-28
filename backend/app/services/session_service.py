@@ -62,7 +62,7 @@ from app.schemas.session import (
     SessionRead,
     SessionReschedule,
 )
-from app.services import earning_service, mentorship_service, rate_limiter
+from app.services import agreement_service, earning_service, mentorship_service, rate_limiter
 
 # Statuses in which a session may still be changed.
 EDITABLE: frozenset[SessionStatus] = frozenset(
@@ -391,6 +391,25 @@ async def schedule(
     if await _mentor_conflict(db, mentorship.mentor_id, start, end):
         raise conflict("The mentor already has a session at that time.", code="SLOT_TAKEN")
 
+    # Step 8g (approved Q5): while a signed agreement is in force on the
+    # session's day, the fee is the agreement's — never the client's — so a
+    # session cannot be booked at a different price than both sides signed.
+    fee_amount, currency = payload.fee_amount, payload.currency
+    in_force = await agreement_service.fee_for_session(db, mentorship.id, start.date())
+    if in_force is not None:
+        if payload.fee_amount is not None or "currency" in payload.model_fields_set:
+            raise validation_error(
+                "The session fee comes from the signed agreement.",
+                details=[
+                    {
+                        "loc": ["body", "fee_amount"],
+                        "msg": "Leave the fee empty; the signed agreement sets it.",
+                        "type": "value_error",
+                    }
+                ],
+            )
+        fee_amount, currency = in_force.fee_amount, in_force.currency
+
     # Nobody outside the pair may be added as an attendee. The mentor is
     # attached automatically with the right role, so a client cannot
     # mislabel them as an observer.
@@ -429,8 +448,8 @@ async def schedule(
         scheduled_at=start,
         duration_min=payload.duration_min,
         meeting_url=payload.meeting_url,
-        fee_amount=payload.fee_amount,
-        currency=payload.currency,
+        fee_amount=fee_amount,
+        currency=currency,
     )
     db.add(row)
     try:

@@ -1898,6 +1898,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/interviews/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List interviews across my own applications
+         * @description Candidate side (job seeker dashboard): interviews on the caller's own
+         *     applications only — other people's interviews never appear, so there
+         *     is nothing to 403/404. Never exposes feedback, scores or internal
+         *     cancellation reasons.
+         */
+        get: operations["my_interviews_api_v1_interviews_mine_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/interviews/{interview_id}/respond": {
         parameters: {
             query?: never;
@@ -4687,7 +4710,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Search privacy-visible talent */
+        /**
+         * Search privacy-visible talent
+         * @description Privacy-gated cards. ``location`` is a substring match on the
+         *     candidate's stated location; ``availability`` / ``preferred_mode``
+         *     are exact matches on the talent profile (7t filters).
+         */
         get: operations["talent_search_api_v1_organizations__org_id__talent_search_get"];
         put?: never;
         post?: never;
@@ -5505,6 +5533,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mentorships/{mentorship_id}/agreements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Version history of a mentorship's agreement */
+        get: operations["list_mentorship_agreements_api_v1_mentorships__mentorship_id__agreements_get"];
+        put?: never;
+        /** Draft an agreement or a new version */
+        post: operations["create_agreement_api_v1_mentorships__mentorship_id__agreements_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mentor/agreements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The mentor's agreements across all mentorships */
+        get: operations["list_mentor_agreements_api_v1_mentor_agreements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agreements/{agreement_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One agreement version with derived linked records */
+        get: operations["get_agreement_api_v1_agreements__agreement_id__get"];
+        put?: never;
+        post?: never;
+        /** Discard your side's draft */
+        delete: operations["discard_agreement_api_v1_agreements__agreement_id__delete"];
+        options?: never;
+        head?: never;
+        /** Edit your side's draft */
+        patch: operations["update_agreement_api_v1_agreements__agreement_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/agreements/{agreement_id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send your draft for signature */
+        post: operations["send_agreement_api_v1_agreements__agreement_id__send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agreements/{agreement_id}/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign your side (re-enter your password) */
+        post: operations["sign_agreement_api_v1_agreements__agreement_id__sign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agreements/{agreement_id}/terminate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Terminate a signed agreement */
+        post: operations["terminate_agreement_api_v1_agreements__agreement_id__terminate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/mentor/earnings": {
         parameters: {
             query?: never;
@@ -6209,6 +6342,296 @@ export interface components {
             role: components["schemas"]["UserRole"];
         };
         /**
+         * AgreementCadence
+         * @enum {string}
+         */
+        AgreementCadence: "weekly" | "fortnightly" | "monthly";
+        /**
+         * AgreementCreate
+         * @description A draft. From version 2 on, ``change_reason`` is required.
+         */
+        AgreementCreate: {
+            agreement_type: components["schemas"]["AgreementType"];
+            /** Fee Amount */
+            fee_amount?: number | string | null;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency?: string;
+            /** Equity Pct */
+            equity_pct?: number | string | null;
+            cadence?: components["schemas"]["AgreementCadence"] | null;
+            /** Starts On */
+            starts_on?: string | null;
+            /** Ends On */
+            ends_on?: string | null;
+            /** Terms */
+            terms?: string | null;
+            /**
+             * Change Reason
+             * @description Required when the mentorship already has a sent or signed version.
+             */
+            change_reason?: string | null;
+        };
+        /** AgreementDetail */
+        AgreementDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Mentorship Id
+             * Format: uuid
+             */
+            mentorship_id: string;
+            party: components["schemas"]["AgreementParty"];
+            /** Version */
+            version: number | null;
+            /** Previous Version Id */
+            previous_version_id: string | null;
+            proposed_by_side: components["schemas"]["AgreementSide"];
+            agreement_type: components["schemas"]["AgreementType"];
+            /** Terms */
+            terms: string | null;
+            /** Equity Pct */
+            equity_pct: string | null;
+            /** Fee Amount */
+            fee_amount: string | null;
+            /** Currency */
+            currency: string;
+            cadence: components["schemas"]["AgreementCadence"] | null;
+            status: components["schemas"]["AgreementStatus"];
+            /**
+             * Phase
+             * @description Derived for signed versions from starts_on/ends_on; null otherwise.
+             */
+            phase: ("scheduled" | "active" | "expired") | null;
+            /** Starts On */
+            starts_on: string | null;
+            /** Ends On */
+            ends_on: string | null;
+            /** Change Reason */
+            change_reason: string | null;
+            /** Sent At */
+            sent_at: string | null;
+            /** Mentor Signed At */
+            mentor_signed_at: string | null;
+            /** Startup Signed At */
+            startup_signed_at: string | null;
+            /** Startup Signed By Name */
+            startup_signed_by_name: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /** End Reason */
+            end_reason: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            viewer_side: components["schemas"]["AgreementSide"];
+            /** Can Edit */
+            can_edit: boolean;
+            /** Can Sign */
+            can_sign: boolean;
+            /** Can Terminate */
+            can_terminate: boolean;
+            linked_records: components["schemas"]["AgreementLinkedRecords"];
+            /** @description Mentor only; null for the startup side and pro bono. */
+            fee_breakdown?: components["schemas"]["AgreementFeeBreakdown"] | null;
+        };
+        /**
+         * AgreementFeeBreakdown
+         * @description Per-session split using the 8h rates. Mentor-only.
+         */
+        AgreementFeeBreakdown: {
+            /** Gross Amount */
+            gross_amount: string;
+            /** Commission Amount */
+            commission_amount: string;
+            /** Tds Amount */
+            tds_amount: string;
+            /** Net Amount */
+            net_amount: string;
+            /** Currency */
+            currency: string;
+        };
+        /**
+         * AgreementLinkedRecords
+         * @description Derived from completed session records while this version was in force.
+         */
+        AgreementLinkedRecords: {
+            /** Completed Sessions */
+            completed_sessions: number;
+            /** Billed Amount */
+            billed_amount: string;
+            /** Currency */
+            currency: string;
+        };
+        /** AgreementPage */
+        AgreementPage: {
+            /** Items */
+            items: components["schemas"]["AgreementRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** AgreementParty */
+        AgreementParty: {
+            /**
+             * Mentor Id
+             * Format: uuid
+             */
+            mentor_id: string;
+            /** Mentor Name */
+            mentor_name: string | null;
+            /**
+             * Startup Org Id
+             * Format: uuid
+             */
+            startup_org_id: string;
+            /** Startup Name */
+            startup_name: string | null;
+        };
+        /** AgreementRead */
+        AgreementRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Mentorship Id
+             * Format: uuid
+             */
+            mentorship_id: string;
+            party: components["schemas"]["AgreementParty"];
+            /** Version */
+            version: number | null;
+            /** Previous Version Id */
+            previous_version_id: string | null;
+            proposed_by_side: components["schemas"]["AgreementSide"];
+            agreement_type: components["schemas"]["AgreementType"];
+            /** Terms */
+            terms: string | null;
+            /** Equity Pct */
+            equity_pct: string | null;
+            /** Fee Amount */
+            fee_amount: string | null;
+            /** Currency */
+            currency: string;
+            cadence: components["schemas"]["AgreementCadence"] | null;
+            status: components["schemas"]["AgreementStatus"];
+            /**
+             * Phase
+             * @description Derived for signed versions from starts_on/ends_on; null otherwise.
+             */
+            phase: ("scheduled" | "active" | "expired") | null;
+            /** Starts On */
+            starts_on: string | null;
+            /** Ends On */
+            ends_on: string | null;
+            /** Change Reason */
+            change_reason: string | null;
+            /** Sent At */
+            sent_at: string | null;
+            /** Mentor Signed At */
+            mentor_signed_at: string | null;
+            /** Startup Signed At */
+            startup_signed_at: string | null;
+            /** Startup Signed By Name */
+            startup_signed_by_name: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /** End Reason */
+            end_reason: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            viewer_side: components["schemas"]["AgreementSide"];
+            /** Can Edit */
+            can_edit: boolean;
+            /** Can Sign */
+            can_sign: boolean;
+            /** Can Terminate */
+            can_terminate: boolean;
+        };
+        /**
+         * AgreementSide
+         * @enum {string}
+         */
+        AgreementSide: "mentor" | "startup";
+        /**
+         * AgreementSign
+         * @description Signing re-checks the caller's password (approved Q4).
+         */
+        AgreementSign: {
+            /** Current Password */
+            current_password: string;
+        };
+        /**
+         * AgreementStatus
+         * @enum {string}
+         */
+        AgreementStatus: "draft" | "sent" | "signed" | "superseded" | "terminated";
+        /**
+         * AgreementSummary
+         * @description The 8j workspace card: what is in force and what is on the table.
+         */
+        AgreementSummary: {
+            current: components["schemas"]["AgreementRead"] | null;
+            pending: components["schemas"]["AgreementRead"] | null;
+        };
+        /** AgreementTerminate */
+        AgreementTerminate: {
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * AgreementType
+         * @enum {string}
+         */
+        AgreementType: "per_session" | "pro_bono";
+        /**
+         * AgreementUpdate
+         * @description Partial patch of a DRAFT. Omitted keys are left unchanged.
+         */
+        AgreementUpdate: {
+            agreement_type?: components["schemas"]["AgreementType"] | null;
+            /** Fee Amount */
+            fee_amount?: number | string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Equity Pct */
+            equity_pct?: number | string | null;
+            cadence?: components["schemas"]["AgreementCadence"] | null;
+            /** Starts On */
+            starts_on?: string | null;
+            /** Ends On */
+            ends_on?: string | null;
+            /** Terms */
+            terms?: string | null;
+            /** Change Reason */
+            change_reason?: string | null;
+        };
+        /**
          * AlertFrequency
          * @enum {string}
          */
@@ -6556,6 +6979,11 @@ export interface components {
             /** Unreviewed Applicants */
             unreviewed_applicants: number;
         };
+        /**
+         * AvailabilityMode
+         * @enum {string}
+         */
+        AvailabilityMode: "immediate" | "two_weeks" | "one_month" | "flexible" | "not_looking";
         /** AvailabilitySlotIn */
         AvailabilitySlotIn: {
             /**
@@ -7749,7 +8177,9 @@ export interface components {
             /** Notes */
             notes: string | null;
             /** Scorecard */
-            scorecard: Record<string, never> | null;
+            scorecard: {
+                [key: string]: unknown;
+            } | null;
             /** Owner Id */
             owner_id: string | null;
             /** Created By */
@@ -7772,7 +8202,9 @@ export interface components {
             /** Notes */
             notes?: string | null;
             /** Scorecard */
-            scorecard?: Record<string, never> | null;
+            scorecard?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** DiligenceItemCreate */
         DiligenceItemCreate: {
@@ -8828,6 +9260,10 @@ export interface components {
             founded_year?: number | null;
             /** Summary */
             summary?: string | null;
+            /** Tagline */
+            tagline?: string | null;
+            /** Mission */
+            mission?: string | null;
             stage?: components["schemas"]["StartupStage"] | null;
             /** Sector */
             sector?: string | null;
@@ -8926,6 +9362,8 @@ export interface components {
             why_now?: components["schemas"]["HiringRequestWhyNow"] | null;
             /** Justification */
             justification?: string | null;
+            /** Stage Criterion Id */
+            stage_criterion_id?: string | null;
             /**
              * Submit
              * @default false
@@ -9004,6 +9442,12 @@ export interface components {
             why_now?: string | null;
             /** Justification */
             justification?: string | null;
+            /** Stage Criterion Id */
+            stage_criterion_id?: string | null;
+            /** Stage Criterion Title */
+            stage_criterion_title?: string | null;
+            /** Stage Criterion Stage */
+            stage_criterion_stage?: string | null;
             /** Status */
             status: string;
             /** Job Id */
@@ -9055,6 +9499,8 @@ export interface components {
             why_now?: components["schemas"]["HiringRequestWhyNow"] | null;
             /** Justification */
             justification?: string | null;
+            /** Stage Criterion Id */
+            stage_criterion_id?: string | null;
             /** Status */
             status?: ("pending" | "cancelled") | null;
         };
@@ -9069,7 +9515,7 @@ export interface components {
          * @description GAP (0046): the business driver behind a request.
          * @enum {string}
          */
-        HiringRequestWhyNow: "growth" | "replacement" | "new_project" | "skill_gap";
+        HiringRequestWhyNow: "growth" | "replacement" | "new_project" | "skill_gap" | "stage_plan";
         /**
          * HoldingCreate
          * @description Create a portfolio holding (status starts ``active``).
@@ -9268,10 +9714,6 @@ export interface components {
             sessions_delivered: number;
             /** Current Signoffs */
             current_signoffs: number;
-            /** Readiness Change */
-            readiness_change?: null;
-            /** Badges Attributed */
-            badges_attributed?: null;
         };
         /**
          * InsightsResponse
@@ -10621,7 +11063,7 @@ export interface components {
             location: string | null;
             work_mode: components["schemas"]["WorkMode"];
             employment_type: components["schemas"]["EmploymentType"];
-            status: components["schemas"]["JobStatus-Output"];
+            status: components["schemas"]["JobStatus"];
             visibility: components["schemas"]["JobVisibility"];
             /** Salary Min */
             salary_min: string | null;
@@ -10740,9 +11182,7 @@ export interface components {
          * JobStatus
          * @enum {string}
          */
-        "JobStatus-Input": "draft" | "open" | "paused" | "closed";
-        /** @enum {unknown} */
-        "JobStatus-Output": "draft" | "open" | "paused" | "closed";
+        JobStatus: "draft" | "open" | "paused" | "closed";
         /** JobSummary */
         JobSummary: {
             /** Total */
@@ -10987,7 +11427,7 @@ export interface components {
             location: string | null;
             work_mode: components["schemas"]["WorkMode"];
             employment_type: components["schemas"]["EmploymentType"];
-            status: components["schemas"]["JobStatus-Output"];
+            status: components["schemas"]["JobStatus"];
             /** Salary Min */
             salary_min: string | null;
             /** Salary Max */
@@ -12971,7 +13411,9 @@ export interface components {
             /** Prompts */
             prompts: string[];
             /** Rubric */
-            rubric: Record<string, never>;
+            rubric: {
+                [key: string]: unknown;
+            };
             /** Is Active */
             is_active: boolean;
             /**
@@ -13961,7 +14403,9 @@ export interface components {
             /** Name */
             name: string;
             /** Criteria */
-            criteria?: Record<string, never>;
+            criteria?: {
+                [key: string]: unknown;
+            };
         };
         /** SavedSearchRead */
         SavedSearchRead: {
@@ -13978,7 +14422,9 @@ export interface components {
             /** Name */
             name: string;
             /** Criteria */
-            criteria: Record<string, never>;
+            criteria: {
+                [key: string]: unknown;
+            };
             /** Is Active */
             is_active: boolean;
             /**
@@ -14000,7 +14446,9 @@ export interface components {
             /** Name */
             name?: string | null;
             /** Criteria */
-            criteria?: Record<string, never> | null;
+            criteria?: {
+                [key: string]: unknown;
+            } | null;
             /** Is Active */
             is_active?: boolean | null;
         };
@@ -15025,6 +15473,8 @@ export interface components {
             org_id: string;
             /** Tagline */
             tagline: string | null;
+            /** Mission */
+            mission: string | null;
             stage: components["schemas"]["StartupStage"];
             /** Sector */
             sector: string | null;
@@ -15095,6 +15545,8 @@ export interface components {
         StartupProfileUpdate: {
             /** Tagline */
             tagline?: string | null;
+            /** Mission */
+            mission?: string | null;
             /** @default idea */
             stage?: components["schemas"]["StartupStage"];
             /** Sector */
@@ -15982,6 +16434,10 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
         /** VerifyEmailRequest */
         VerifyEmailRequest: {
@@ -16102,13 +16558,7 @@ export interface components {
             completed_sessions: number;
             /** Open Deliverables */
             open_deliverables: number;
-            /** Health */
-            health?: null;
-            /**
-             * Agreements Available
-             * @default false
-             */
-            agreements_available?: boolean;
+            agreement: components["schemas"]["AgreementSummary"] | null;
         };
         /**
          * YourFunnelStats
@@ -19634,7 +20084,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -20204,7 +20656,7 @@ export interface operations {
     list_jobs_api_v1_organizations__org_id__jobs_get: {
         parameters: {
             query?: {
-                status?: components["schemas"]["JobStatus-Input"] | null;
+                status?: components["schemas"]["JobStatus"] | null;
                 department?: components["schemas"]["Department"] | null;
                 owner_id?: string | null;
                 location?: string | null;
@@ -24122,6 +24574,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeedbackRead"];
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Hiring role, membership or action permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Resource unavailable or outside the authorized scope */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid interview state, read-only job or panelist conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Metadata exceeds 32 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Invalid fields or panelist references */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+            /** @description Interview rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["_ErrorResponse"];
+                };
+            };
+        };
+    };
+    my_interviews_api_v1_interviews_mine_get: {
+        parameters: {
+            query?: {
+                window?: ("upcoming" | "past") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateInterviewPage"];
                 };
             };
             /** @description Missing or invalid authentication */
@@ -34771,6 +35312,9 @@ export interface operations {
                 q?: string | null;
                 experience?: ("mid" | "senior" | "lead") | null;
                 skill?: string | null;
+                location?: string | null;
+                availability?: components["schemas"]["AvailabilityMode"] | null;
+                preferred_mode?: components["schemas"]["WorkMode"] | null;
                 sort?: "recent" | "experience";
                 limit?: number;
                 offset?: number;
@@ -37629,6 +38173,486 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    list_mentorship_agreements_api_v1_mentorships__mentorship_id__agreements_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["AgreementStatus"] | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                mentorship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgreementPage"];
+                };
+            };
+            /** @description A startup viewer, or a member trying to write or sign. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found, not a participant, or another side's draft. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_agreement_api_v1_mentorships__mentorship_id__agreements_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                mentorship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgreementCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgreementRead"];
+                };
+            };
+            /** @description A startup viewer, or a member trying to write or sign. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found, not a participant, or another side's draft. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong agreement or mentorship state (INVALID_STATE). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid terms. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_mentor_agreements_api_v1_mentor_agreements_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["AgreementStatus"] | null;
+                /** @description Sent and still waiting for the mentor's signature. */
+                awaiting_me?: boolean;
+                /** @description Drafts and sent versions the mentor proposed. */
+                proposed_by_me?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgreementPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_agreement_api_v1_agreements__agreement_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                agreement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgreementDetail"];
+                };
+            };
+            /** @description A startup viewer, or a member trying to write or sign. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found, not a participant, or another side's draft. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_agreement_api_v1_agreements__agreement_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                agreement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A startup viewer, or a member trying to write or sign. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found, not a participant, or another side's draft. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong agreement or mentorship state (INVALID_STATE). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_agreement_api_v1_agreements__agreement_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                agreement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgreementUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgreementRead"];
+                };
+            };
+            /** @description A startup viewer, or a member trying to write or sign. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found, not a participant, or another side's draft. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong agreement or mentorship state (INVALID_STATE). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_agreement_api_v1_agreements__agreement_id__send_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                agreement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgreementRead"];
+                };
+            };
+            /** @description A startup viewer, or a member trying to write or sign. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found, not a participant, or another side's draft. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong agreement or mentorship state (INVALID_STATE). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sign_agreement_api_v1_agreements__agreement_id__sign_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                agreement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgreementSign"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgreementRead"];
+                };
+            };
+            /** @description Viewer/member, or REAUTH_FAILED for a wrong password. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found, not a participant, or another side's draft. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong agreement or mentorship state (INVALID_STATE). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too many signing attempts. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    terminate_agreement_api_v1_agreements__agreement_id__terminate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                agreement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgreementTerminate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgreementRead"];
+                };
+            };
+            /** @description A startup viewer, or a member trying to write or sign. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found, not a participant, or another side's draft. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong agreement or mentorship state (INVALID_STATE). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

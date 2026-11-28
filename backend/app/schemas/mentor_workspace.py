@@ -1,9 +1,15 @@
-"""Read-only aggregates for mentorship workspaces."""
+"""Read-only aggregates for mentorship workspaces (Step 8j).
+
+Only numbers that can be derived from stored rows are exposed. Readiness
+trends and badge attribution have no data behind them, so they are absent
+rather than always-null placeholders (8j Q12).
+"""
 
 import uuid
 
 from pydantic import BaseModel
 
+from app.schemas.agreement import AgreementSummary
 from app.schemas.earning import EarningSummary
 from app.schemas.mentorship import MentorshipPage, MentorshipRead
 from app.schemas.readiness import ReadinessRead, ReadinessSummary
@@ -13,8 +19,10 @@ class WorkspaceRead(BaseModel):
     mentorship: MentorshipRead
     completed_sessions: int
     open_deliverables: int
-    health: None = None
-    agreements_available: bool = False
+    # 8g: the version in force and any proposal awaiting signature. Null for
+    # a startup viewer, who cannot see agreements (8g Q3). There is no
+    # ``health`` field: no page renders one (8j Q11), so none is invented.
+    agreement: AgreementSummary | None
 
 
 class ImpactRead(BaseModel):
@@ -22,8 +30,6 @@ class ImpactRead(BaseModel):
     active_startups: int
     sessions_delivered: int
     current_signoffs: int
-    readiness_change: None = None
-    badges_attributed: None = None
 
 
 class MentorDashboardRead(BaseModel):

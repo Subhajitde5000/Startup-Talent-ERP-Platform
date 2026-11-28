@@ -9,18 +9,20 @@ import {
   ArrowRight,
   LockKeyhole,
   FileText,
-  Send,
-  X,
-  ClipboardCheck,
   CheckCircle2,
   Clock,
 } from 'lucide-react';
 import MentorPageShell from '../../mentor-page-shell';
-import { Btn, Card } from '../../mentor-data';
+import { Card } from '../../mentor-data';
 import { api, ApiError } from '@/lib/api/client';
-import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/async-state';
+import { ErrorBlock, LoadingBlock } from '@/components/async-state';
 import {
-  MENTORSHIP_STATUS_CHIP,
+  AgreementTermsDialog,
+  agreementEquityText,
+  agreementStatusLabel,
+  agreementTermsText,
+} from '@/components/agreement-ui';
+import {
   MENTORSHIP_STATUS_LABEL,
   SESSION_STATUS_CHIP,
   SESSION_STATUS_LABEL,
@@ -36,10 +38,9 @@ export default function MentorshipWorkspacePage() {
   const [toast, setToast] = useState('');
   const [workspaceTab, setWorkspaceTab] = useState('Overview');
   const [modal, setModal] = useState('');
-  const [notes, setNotes] = useState('');
-  const [declineReason, setDeclineReason] = useState('');
 
   const [mentorship, setMentorship] = useState(null);
+  const [agreement, setAgreement] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [sessionTotal, setSessionTotal] = useState(0);
   const [tasks, setTasks] = useState([]);
@@ -66,9 +67,10 @@ export default function MentorshipWorkspacePage() {
 
     (async () => {
       try {
-        const { mentorship: m } = await api.mentorWorkspace.get(mentorshipId);
+        const { mentorship: m, agreement: ag } = await api.mentorWorkspace.get(mentorshipId);
         if (!alive) return;
         setMentorship(m);
+        setAgreement(ag || null);
 
         const [sessionsRes, tasksRes, readinessRes] = await Promise.allSettled([
           api.sessions.forMentorship(mentorshipId, { limit: 50 }),
@@ -517,15 +519,39 @@ export default function MentorshipWorkspacePage() {
               </Card>
 
               <Card title="Mentorship terms">
-                <p className="text-xs font-medium text-[#0F1B2D]">
-                  Cadence: {mentorship.cadence || 'Flexible'}
-                </p>
-                <p className="mt-1 text-xs text-[#4A5568]">
-                  Fee: {mentorship.fee_amount ? `${mentorship.currency} ${mentorship.fee_amount} per session` : 'Free / standard terms'}
-                </p>
-                <p className="mt-1 text-xs text-[#4A5568]">
-                  Equity: {mentorship.equity_pct ? `${mentorship.equity_pct}%` : 'None requested'}
-                </p>
+                {agreement?.current ? (
+                  <>
+                    <p className="text-xs font-medium text-[#0F1B2D]">
+                      Agreement: {agreementStatusLabel(agreement.current)} · Version {agreement.current.version}
+                    </p>
+                    <p className="mt-1 text-xs text-[#4A5568]">{agreementTermsText(agreement.current)}</p>
+                    <p className="mt-1 text-xs text-[#4A5568]">Equity: {agreementEquityText(agreement.current)}</p>
+                    <Link href={`/mentor/agreements/${agreement.current.id}`} className="mt-2 inline-block text-xs font-semibold text-[#9A7A45]">
+                      Open agreement →
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs font-medium text-[#0F1B2D]">No agreement in force.</p>
+                    <p className="mt-1 text-xs text-[#4A5568]">
+                      Requested terms: {mentorship.fee_amount ? `${mentorship.currency} ${mentorship.fee_amount} per session` : 'no fee'}
+                      {' · '}{mentorship.cadence || 'flexible cadence'}
+                      {mentorship.equity_pct ? ` · ${mentorship.equity_pct}% equity` : ''}
+                    </p>
+                  </>
+                )}
+                {agreement?.pending && (
+                  <p className="mt-2 rounded-lg bg-[#FFF3D6] p-2 text-xs text-[#8A5700]">
+                    {agreement.pending.status === 'draft' ? 'Your draft is not sent yet' : `Version ${agreement.pending.version} is awaiting signature`}
+                    {' · '}
+                    <Link href={`/mentor/agreements/${agreement.pending.id}`} className="font-semibold underline">Review</Link>
+                  </p>
+                )}
+                {!agreement?.current && !agreement?.pending && (mentorship.status === 'active' || mentorship.status === 'paused') && (
+                  <button type="button" onClick={() => setModal('agreement')} className="mt-2 text-xs font-semibold text-[#9A7A45]">
+                    Draft agreement →
+                  </button>
+                )}
                 <div className="mt-4 flex gap-2">
                   {mentorship.status === 'active' ? (
                     <button
@@ -554,6 +580,21 @@ export default function MentorshipWorkspacePage() {
               </Card>
             </aside>
           </div>
+
+          {modal === 'agreement' && (
+            <AgreementTermsDialog
+              title="Draft agreement"
+              mentorshipId={mentorship.id}
+              basis={{
+                agreement_type: mentorship.fee_amount ? 'per_session' : 'pro_bono',
+                fee_amount: mentorship.fee_amount,
+                currency: mentorship.currency,
+                equity_pct: mentorship.equity_pct,
+              }}
+              onClose={() => setModal('')}
+              onDone={(_, msg) => { setModal(''); notify(msg); setReload((n) => n + 1); }}
+            />
+          )}
         </>
       )}
     </MentorPageShell>

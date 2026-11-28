@@ -519,6 +519,24 @@ export type ImpactRead = components["schemas"]["ImpactRead"];
 export type StartupMentorshipOverview = components["schemas"]["StartupMentorshipOverview"];
 export type ScopedReadinessBoard = components["schemas"]["ScopedReadinessBoard"];
 
+// Step 8g: mentor agreements (one row per version).
+export type AgreementRead = components["schemas"]["AgreementRead"];
+export type AgreementDetail = components["schemas"]["AgreementDetail"];
+export type AgreementPage = components["schemas"]["AgreementPage"];
+export type AgreementCreate = components["schemas"]["AgreementCreate"];
+export type AgreementUpdate = components["schemas"]["AgreementUpdate"];
+export type AgreementSummary = components["schemas"]["AgreementSummary"];
+export type AgreementStatus = components["schemas"]["AgreementStatus"];
+export type AgreementType = components["schemas"]["AgreementType"];
+export type AgreementCadence = components["schemas"]["AgreementCadence"];
+export type MentorAgreementQuery = {
+  status?: AgreementStatus;
+  awaiting_me?: boolean;
+  proposed_by_me?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
 // Step 4: generated contracts; no parallel HTTP/auth client.
 export type FileRead = components["schemas"]["FileRead"];
 export type FilePage = components["schemas"]["FilePage"];
@@ -999,6 +1017,11 @@ export type InterviewQuery = NonNullable<
   import("./schema").operations["list_interviews_api_v1_organizations__org_id__interviews_get"]["parameters"]["query"]
 >;
 
+// Step 7u: the job seeker dashboard's interviews across my applications.
+export type MyInterviewsQuery = NonNullable<
+  import("./schema").operations["my_interviews_api_v1_interviews_mine_get"]["parameters"]["query"]
+>;
+
 // Step 7g: job offers (the existing `api.offers` group above is the
 // Step 9i investor offer flow — different resource, same transport).
 export type JobOfferRead = components["schemas"]["OfferRead"];
@@ -1165,6 +1188,9 @@ export const api = {
       apiRequest<CandidateInterviewPage>(`/applications/${application}/interviews`, { query, signal }),
     candidateGet: (application: string, id: string, signal?: AbortSignal) =>
       apiRequest<CandidateInterviewRead>(`/applications/${application}/interviews/${id}`, { signal }),
+    /** Candidate side (7u): interviews on all my own applications; `window` = upcoming|past. */
+    mine: (query: MyInterviewsQuery = {}, signal?: AbortSignal) =>
+      apiRequest<CandidateInterviewPage>("/interviews/mine", { query, signal }),
   },
   // --- Step 7g: job offers (employer pipeline + candidate responses) ----
   jobOffers: {
@@ -2799,6 +2825,38 @@ export const api = {
     remove: (id: string) => apiRequest<void>(`/session-reviews/${id}`, { method: "DELETE" }),
     forMentor: (query: { limit?: number; offset?: number } = {}, signal?: AbortSignal) => apiRequest<MentorReviewPage>("/mentor/reviews", { method: "GET", query, signal }),
     public: (handle: string, query: { limit?: number; offset?: number } = {}, signal?: AbortSignal) => apiRequest<PublicReviewPage>(`/mentors/${encodeURIComponent(handle)}/reviews`, { method: "GET", query, signal }),
+  },
+  /**
+   * Step 8g: mentor agreements. Signing re-checks the password and answers
+   * 403 REAUTH_FAILED on a wrong one (not 401, so no refresh loop).
+   */
+  agreements: {
+    /** `POST /mentorships/{id}/agreements` — a draft (first terms or a new version). */
+    create: (mentorshipId: string, body: AgreementCreate) =>
+      apiRequest<AgreementRead>(`/mentorships/${mentorshipId}/agreements`, { method: "POST", body }),
+    /** `GET /mentorships/{id}/agreements` — version history, newest first. */
+    forMentorship: (
+      mentorshipId: string,
+      query: { status?: AgreementStatus; limit?: number; offset?: number } = {},
+      signal?: AbortSignal,
+    ) =>
+      apiRequest<AgreementPage>(`/mentorships/${mentorshipId}/agreements`, { method: "GET", query, signal }),
+    /** `GET /mentor/agreements` — the mentor's agreements across engagements. */
+    mine: (query: MentorAgreementQuery = {}, signal?: AbortSignal) =>
+      apiRequest<AgreementPage>("/mentor/agreements", { method: "GET", query, signal }),
+    get: (id: string, signal?: AbortSignal) =>
+      apiRequest<AgreementDetail>(`/agreements/${id}`, { method: "GET", signal }),
+    update: (id: string, body: AgreementUpdate) =>
+      apiRequest<AgreementRead>(`/agreements/${id}`, { method: "PATCH", body }),
+    discard: (id: string) => apiRequest<void>(`/agreements/${id}`, { method: "DELETE" }),
+    send: (id: string) => apiRequest<AgreementRead>(`/agreements/${id}/send`, { method: "POST" }),
+    sign: (id: string, currentPassword: string) =>
+      apiRequest<AgreementRead>(`/agreements/${id}/sign`, {
+        method: "POST",
+        body: { current_password: currentPassword },
+      }),
+    terminate: (id: string, reason: string) =>
+      apiRequest<AgreementRead>(`/agreements/${id}/terminate`, { method: "POST", body: { reason } }),
   },
   mentorWorkspace: {
     get: (id: string, signal?: AbortSignal) => apiRequest<WorkspaceRead>(`/mentorships/${id}/workspace`, { method: "GET", signal }),

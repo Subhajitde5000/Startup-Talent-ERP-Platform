@@ -160,8 +160,10 @@ async def test_rating_threshold_and_withdrawal(client: AsyncClient) -> None:
     assert removed.status_code == 204
     card = await client.get("/api/v1/mentors/thresholdmentor", headers=ctx["founder"]["headers"])
     assert card.json()["rating"] is None and card.json()["reviews_count"] == 2
+    # Q8: the stored rating follows the public rule, so the mentor's own
+    # profile agrees with the card (2 consented reviews -> no rating yet).
     own = await client.get("/api/v1/mentor-profile/me", headers=ctx["mentor"]["headers"])
-    assert own.json()["rating"] == 2.67
+    assert own.json()["rating"] is None
 
 
 async def test_unfinished_session_and_server_fields(client: AsyncClient) -> None:
@@ -198,18 +200,127 @@ async def test_concurrent_reviews_preserve_aggregate_on_postgresql(client: Async
     if not TEST_DATABASE_URL.startswith("postgresql"):
         pytest.skip("row locks are only exercised on PostgreSQL")
     ctx = await _pair(client, "concurrent")
-    first = await _completed(client, ctx)
-    second = await _completed(client, ctx)
+    sids = [await _completed(client, ctx) for _ in range(3)]
     responses = await asyncio.gather(
         *[
             client.post(
                 f"/api/v1/sessions/{sid}/reviews",
-                json={"rating": rating},
+                json={"rating": rating, "public_consent": True},
                 headers=ctx["founder"]["headers"],
             )
-            for sid, rating in ((first, 1), (second, 5))
+            for sid, rating in zip(sids, (1, 5, 3), strict=True)
         ]
     )
-    assert [r.status_code for r in responses] == [201, 201], [r.text for r in responses]
+    assert [r.status_code for r in responses] == [201, 201, 201], [r.text for r in responses]
     profile = await client.get("/api/v1/mentor-profile/me", headers=ctx["mentor"]["headers"])
     assert profile.json()["rating"] == 3
+
+
+# --------------------------------------------------------- 8i close-out tests
+
+
+async def _attended(client: AsyncClient, ctx: dict, attendee: dict) -> str:
+    response = await client.post(
+        f"/api/v1/mentorships/{ctx['mid']}/sessions",
+        json={"scheduled_at": _at(), "duration_min": 45, "attendees": [{"user_id": attendee["id"]}]},
+        headers=ctx["mentor"]["headers"],
+    )
+    assert response.status_code == 201, response.text
+    sid = response.json()["id"]
+    done = await client.post(
+        f"/api/v1/sessions/{sid}/complete",
+        json={"summary": "Discussed concrete next steps for the business."},
+        headers=ctx["mentor"]["headers"],
+    )
+    assert done.status_code == 200, done.text
+    return sid
+
+
+async def test_author_can_withdraw_after_leaving_the_startup(client: AsyncClient) -> None:
+    """Q9: ownership of the review is the only rule for withdrawing it."""
+    from app.tests.test_deliverable import _member
+
+    ctx = await _pair(client, "leaver")
+    member = await _member(client, ctx["founder"], ctx["org_id"], "leaver-m@d8.dev", "member")
+    sid = await _attended(client, ctx, member)
+    created = await client.post(
+        f"/api/v1/sessions/{sid}/reviews", json={"rating": 4}, headers=member["headers"]
+    )
+    assert created.status_code == 201, created.text
+    removed = await client.delete(
+        f"/api/v1/organizations/{ctx['org_id']}/members/{member['id']}",
+        headers=ctx["founder"]["headers"],
+    )
+    assert removed.status_code in (200, 204), removed.text
+    # They can no longer read the session's review endpoint...
+    mine = await client.get(f"/api/v1/sessions/{sid}/reviews/me", headers=member["headers"])
+    assert mine.status_code == 404
+    # ...but can still take back what they wrote.
+    withdrawn = await client.delete(
+        f"/api/v1/session-reviews/{created.json()['id']}", headers=member["headers"]
+    )
+    assert withdrawn.status_code == 204
+    received = await client.get("/api/v1/mentor/reviews", headers=ctx["mentor"]["headers"])
+    assert received.json()["total"] == 0
+
+
+async def test_viewer_attendee_cannot_review(client: AsyncClient) -> None:
+    from app.tests.test_deliverable import _member
+
+    ctx = await _pair(client, "viewerrev")
+    viewer = await _member(client, ctx["founder"], ctx["org_id"], "viewerrev-v@d8.dev", "viewer")
+    sid = await _attended(client, ctx, viewer)
+    response = await client.post(
+        f"/api/v1/sessions/{sid}/reviews", json={"rating": 5}, headers=viewer["headers"]
+    )
+    assert response.status_code == 403
+
+
+async def test_review_routes_auth_and_cross_org(client: AsyncClient) -> None:
+    ctx = await _pair(client, "xorgrev")
+    other = await _pair(client, "xorgrev2")
+    sid = await _completed(client, ctx)
+    url = f"/api/v1/sessions/{sid}/reviews"
+    created = await client.post(url, json={"rating": 4}, headers=ctx["founder"]["headers"])
+    rid = created.json()["id"]
+    for method, path, body in (
+        ("POST", url, {"rating": 4}),
+        ("GET", f"{url}/me", None),
+        ("DELETE", f"/api/v1/session-reviews/{rid}", None),
+        ("GET", "/api/v1/mentor/reviews", None),
+        ("GET", "/api/v1/mentors/anyhandle/reviews", None),
+    ):
+        assert (await client.request(method, path, json=body)).status_code == 401, path
+    # Another startup's founder: not found everywhere.
+    h = other["founder"]["headers"]
+    assert (await client.post(url, json={"rating": 1}, headers=h)).status_code == 404
+    assert (await client.get(f"{url}/me", headers=h)).status_code == 404
+    assert (await client.delete(f"/api/v1/session-reviews/{rid}", headers=h)).status_code == 404
+    # Another mentor sees none of these reviews.
+    theirs = await client.get("/api/v1/mentor/reviews", headers=other["mentor"]["headers"])
+    assert theirs.json()["total"] == 0
+    # A mentor with no public profile has no public review page.
+    hidden = await client.get("/api/v1/mentors/nosuchhandle/reviews", headers=h)
+    assert hidden.status_code == 404
+    mine = await client.get(f"{url}/me", headers=ctx["founder"]["headers"])
+    assert mine.status_code == 200 and mine.json()["id"] == rid
+
+
+async def test_mentor_reviews_paginate(client: AsyncClient) -> None:
+    ctx = await _pair(client, "pagerev")
+    for rating in (3, 5):
+        sid = await _completed(client, ctx)
+        created = await client.post(
+            f"/api/v1/sessions/{sid}/reviews",
+            json={"rating": rating},
+            headers=ctx["founder"]["headers"],
+        )
+        assert created.status_code == 201
+    page = await client.get(
+        "/api/v1/mentor/reviews", params={"limit": 1}, headers=ctx["mentor"]["headers"]
+    )
+    assert page.json()["total"] == 2 and len(page.json()["items"]) == 1
+    bad = await client.get(
+        "/api/v1/mentor/reviews", params={"limit": 0}, headers=ctx["mentor"]["headers"]
+    )
+    assert bad.status_code == 422

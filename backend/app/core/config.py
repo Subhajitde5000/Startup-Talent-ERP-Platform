@@ -156,6 +156,12 @@ class Settings(BaseSettings):
     # one, so the cap is higher than a request or a slot write.
     DELIVERABLE_WRITE_LIMIT: int = 60
     DELIVERABLE_WRITE_WINDOW_SECONDS: int = 300
+    # Step 8g: agreement drafts/sends/terminations, and signing. Signing
+    # re-checks the password, so it gets the tighter brute-force cap.
+    AGREEMENT_WRITE_LIMIT: int = 30
+    AGREEMENT_WRITE_WINDOW_SECONDS: int = 300
+    AGREEMENT_SIGN_LIMIT: int = 5
+    AGREEMENT_SIGN_WINDOW_SECONDS: int = 900
     # Step 8h: the mentor reading their own earnings.
     EARNING_READ_LIMIT: int = 120
     EARNING_READ_WINDOW_SECONDS: int = 60

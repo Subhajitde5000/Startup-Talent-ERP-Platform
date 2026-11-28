@@ -807,9 +807,14 @@ async def _own_application(
 
 
 async def _candidate_read(
-    db: AsyncSession, interview: Interview, job: Job, company_name: str
+    db: AsyncSession,
+    interview: Interview,
+    job: Job,
+    company_name: str,
+    participants: list[ParticipantRead] | None = None,
 ) -> CandidateInterviewRead:
-    participants = (await _participants(db, [interview.id])).get(interview.id, [])
+    if participants is None:
+        participants = (await _participants(db, [interview.id])).get(interview.id, [])
     return CandidateInterviewRead(
         id=interview.id,
         application_id=interview.application_id,
@@ -858,6 +863,53 @@ async def candidate_list(
     if org is None:  # pragma: no cover - FK guarantees the organization
         raise not_found("Application not found.")
     items = [await _candidate_read(db, row, job, org.name) for row in rows]
+    return CandidateInterviewPage(
+        items=items, total=total, limit=limit, offset=offset, has_more=offset + len(rows) < total
+    )
+
+
+async def candidate_mine(
+    db: AsyncSession,
+    user: User,
+    *,
+    window: Window | None,
+    limit: int,
+    offset: int,
+) -> CandidateInterviewPage:
+    """Step 7u: every interview on the caller's OWN applications (the job
+    seeker dashboard), one query instead of a per-application fan-out.
+    Same candidate projection as ``candidate_list`` — never feedback,
+    scores or internal cancellation reasons. ``upcoming`` = live status and
+    not yet started (soonest first); ``past`` = everything else (newest
+    first)."""
+    await _limit(user, write=False)
+    now = datetime.now(UTC)
+    stmt = (
+        select(Interview, Job, Organization.name)
+        .join(JobApplication, JobApplication.id == Interview.application_id)
+        .join(Job, Job.id == JobApplication.job_id)
+        .join(Organization, Organization.id == Job.org_id)
+        .where(
+            JobApplication.applicant_id == user.id,
+            JobApplication.deleted_at.is_(None),
+        )
+    )
+    if window == "upcoming":
+        stmt = stmt.where(Interview.status.in_(list(LIVE_STATUSES)), Interview.scheduled_at >= now)
+        ordering = (Interview.scheduled_at.asc(), Interview.id.asc())
+    else:
+        if window == "past":
+            stmt = stmt.where(
+                or_(~Interview.status.in_(list(LIVE_STATUSES)), Interview.scheduled_at < now)
+            )
+        ordering = (Interview.scheduled_at.desc(), Interview.id.desc())
+    total = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
+    rows = (await db.execute(stmt.order_by(*ordering).limit(limit).offset(offset))).all()
+    participant_map = await _participants(db, [interview.id for interview, _, _ in rows])
+    items = [
+        await _candidate_read(db, interview, job, org_name, participant_map.get(interview.id, []))
+        for interview, job, org_name in rows
+    ]
     return CandidateInterviewPage(
         items=items, total=total, limit=limit, offset=offset, has_more=offset + len(rows) < total
     )
